@@ -1,0 +1,340 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+/* Laptop-height windows (browser chrome included), used to keep full-screen layouts scroll-free. */
+@custom-variant short (@media (max-height: 760px));
+
+/* ---------------------------------------------------------------------------
+ * Design tokens (shadcn-vue naming), light and dark mode.
+ *
+ * A tint (hue + chroma), a primary colour and a brand gradient drive every
+ * surface, so light and dark follow the same elevation ladder:
+ *
+ *   background  app canvas (lowest)
+ *   sidebar     navigation panel on the canvas
+ *   muted       sunken areas inside a surface (board columns, table headers, chips)
+ *   card        primary surface on the canvas (cards, panels, inputs)
+ *   popover     floating surface on a surface (menus, dropdowns, dialogs)
+ *
+ * Both modes raise surfaces by making them lighter, so "surface on surface"
+ * always reads the same way.
+ * ------------------------------------------------------------------------- */
+:root {
+  --tint-h: 277;
+  --tint-c: 0.022;
+  --primary: oklch(0.54 0.24 277);
+  --primary-foreground: oklch(0.99 0 0);
+  --brand-from: oklch(0.56 0.24 275);
+  --brand-to: oklch(0.62 0.24 315);
+
+  --background: oklch(0.966 var(--tint-c) var(--tint-h));
+  --foreground: oklch(0.2 calc(var(--tint-c) * 1.4) var(--tint-h));
+  --sidebar: oklch(0.948 calc(var(--tint-c) * 1.2) var(--tint-h));
+  --card: oklch(0.996 calc(var(--tint-c) * 0.2) var(--tint-h));
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+  --muted: oklch(0.952 calc(var(--tint-c) * 0.9) var(--tint-h));
+  --muted-foreground: oklch(0.5 calc(var(--tint-c) * 1.6) var(--tint-h));
+  --secondary: oklch(0.935 calc(var(--tint-c) * 1.1) var(--tint-h));
+  --secondary-foreground: oklch(0.28 calc(var(--tint-c) * 1.6) var(--tint-h));
+  --accent: color-mix(in oklch, var(--primary) 10%, var(--card));
+  --accent-foreground: color-mix(in oklch, var(--primary) 80%, var(--foreground));
+  --border: oklch(0.9 var(--tint-c) var(--tint-h));
+  --input: oklch(0.865 calc(var(--tint-c) * 1.1) var(--tint-h));
+  --ring: var(--primary);
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.63 0.17 150);
+  --warning: oklch(0.77 0.17 70);
+  --info: oklch(0.62 0.19 250);
+
+  --sidebar-foreground: var(--foreground);
+  --sidebar-accent: color-mix(in oklch, var(--primary) 12%, var(--card));
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+
+  /* Veil behind dialogs and side sheets: a light frost in light mode, never black. */
+  --scrim: color-mix(in oklch, var(--background) 62%, transparent);
+
+  /* Decorative layer painted behind the app canvas (see bg-app). */
+  --app-backdrop:
+    radial-gradient(60rem 38rem at -10% -15%, color-mix(in oklch, var(--brand-from) 9%, transparent), transparent 60%),
+    radial-gradient(48rem 30rem at 110% -10%, color-mix(in oklch, var(--brand-to) 7%, transparent), transparent 60%);
+
+  color: var(--foreground);
+}
+
+.dark {
+  --primary: oklch(0.68 0.19 278);
+  --brand-from: oklch(0.64 0.21 275);
+  --brand-to: oklch(0.68 0.22 320);
+
+  --background: oklch(0.145 calc(var(--tint-c) * 1.5) var(--tint-h));
+  --foreground: oklch(0.965 calc(var(--tint-c) * 0.3) var(--tint-h));
+  --sidebar: oklch(0.168 calc(var(--tint-c) * 1.5) var(--tint-h));
+  --card: oklch(0.198 calc(var(--tint-c) * 1.4) var(--tint-h));
+  --popover: oklch(0.232 calc(var(--tint-c) * 1.3) var(--tint-h));
+  --muted: oklch(0.245 calc(var(--tint-c) * 1.3) var(--tint-h));
+  --muted-foreground: oklch(0.72 calc(var(--tint-c) * 1.2) var(--tint-h));
+  --secondary: oklch(0.27 calc(var(--tint-c) * 1.3) var(--tint-h));
+  --secondary-foreground: var(--foreground);
+  --accent: color-mix(in oklch, var(--primary) 18%, var(--card));
+  --accent-foreground: color-mix(in oklch, var(--primary) 45%, white);
+  --border: oklch(0.29 calc(var(--tint-c) * 1.3) var(--tint-h));
+  --input: oklch(0.34 calc(var(--tint-c) * 1.3) var(--tint-h));
+  --destructive: oklch(0.7 0.19 22);
+  --success: oklch(0.72 0.19 150);
+  --warning: oklch(0.83 0.16 80);
+  --info: oklch(0.71 0.15 250);
+  --sidebar-accent: color-mix(in oklch, var(--primary) 20%, var(--sidebar));
+  --scrim: oklch(0 0 0 / 0.55);
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand-from: var(--brand-from);
+  --color-brand-to: var(--brand-to);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-scrim: var(--scrim);
+
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+
+  --shadow-soft: 0 1px 2px 0 oklch(0 0 0 / 0.04), 0 4px 16px -6px oklch(0 0 0 / 0.08);
+  --shadow-elevated: 0 2px 6px -2px oklch(0 0 0 / 0.08), 0 18px 44px -14px oklch(0 0 0 / 0.22);
+  --shadow-glow: 0 8px 22px -8px color-mix(in oklch, var(--primary) 60%, transparent);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+    letter-spacing: -0.005em;
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.02em;
+  }
+  :is(
+      a[href],
+      button,
+      summary,
+      select,
+      input:is([type='checkbox'], [type='radio'], [type='file'], [type='color'], [type='range'], [type='submit'], [type='button'], [type='reset']),
+      [role='button'],
+      [role='link'],
+      [role='tab'],
+      [role='option'],
+      [role='menuitem'],
+      [role='menuitemcheckbox'],
+      [role='menuitemradio'],
+      [role='checkbox'],
+      [role='radio'],
+      [role='switch'],
+      [role='combobox']:not(input),
+      [role='treeitem'],
+      [aria-haspopup]:not(input),
+      label:has(input:is([type='checkbox'], [type='radio']), [role='switch'], [role='checkbox'], [role='radio'])
+    ) {
+    cursor: pointer;
+  }
+  input[type='file']:not(:disabled)::file-selector-button {
+    cursor: pointer;
+  }
+  :is(button, select, input, textarea, [role]):is(:disabled, [aria-disabled='true'], [data-disabled]) {
+    cursor: not-allowed;
+  }
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 22%, transparent);
+  }
+}
+
+/* --- Surfaces ------------------------------------------------------------ */
+@utility bg-app {
+  background-color: var(--background);
+  background-image: var(--app-backdrop);
+  background-attachment: fixed;
+}
+@utility bg-brand {
+  background-image: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+}
+@utility text-brand {
+  background-image: linear-gradient(120deg, var(--brand-from), var(--brand-to));
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+@utility glass {
+  background-color: color-mix(in oklch, var(--card) 78%, transparent);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+}
+@utility surface-hover {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-elevated);
+    border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+  }
+}
+
+/* Safe-area helpers for notched phones in standalone (installed) mode. */
+@utility pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+@utility pt-safe {
+  padding-top: max(env(safe-area-inset-top), 0px);
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+}
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Long-form legal documents (privacy policy, terms). */
+.legal-body {
+  @apply text-[15px] leading-relaxed text-foreground/90;
+}
+.legal-body h1 {
+  @apply mt-2 mb-1 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl;
+}
+.legal-body .lead {
+  @apply mt-5 border-l-2 border-primary bg-accent/50 px-4 py-3 text-base text-foreground;
+}
+.legal-body h2 {
+  @apply mt-10 mb-3 scroll-mt-24 text-xl font-semibold tracking-tight text-foreground;
+}
+.legal-body h3 {
+  @apply mt-6 mb-2 font-semibold text-foreground;
+}
+.legal-body p + p,
+.legal-body p + ul,
+.legal-body ul + p {
+  @apply mt-3;
+}
+.legal-body ul {
+  @apply list-disc space-y-1.5 pl-5 marker:text-muted-foreground;
+}
+.legal-body a {
+  @apply font-medium text-primary underline underline-offset-2;
+}
+.legal-body strong {
+  @apply font-semibold text-foreground;
+}
+
+/* Rendered markdown (descriptions, comments). */
+.markdown-body {
+  @apply text-sm leading-relaxed break-words;
+}
+.markdown-body > * + * {
+  @apply mt-3;
+}
+.markdown-body h1 {
+  @apply text-lg font-semibold;
+}
+.markdown-body h2 {
+  @apply text-base font-semibold;
+}
+.markdown-body h3 {
+  @apply text-sm font-semibold;
+}
+.markdown-body ul {
+  @apply list-disc pl-5;
+}
+.markdown-body ol {
+  @apply list-decimal pl-5;
+}
+.markdown-body li + li {
+  @apply mt-1;
+}
+.markdown-body a {
+  @apply text-primary underline underline-offset-2;
+}
+.markdown-body code {
+  @apply bg-muted px-1.5 py-0.5 font-mono text-[0.8em];
+}
+.markdown-body pre {
+  @apply overflow-x-auto bg-muted p-3;
+}
+.markdown-body pre code {
+  @apply bg-transparent p-0;
+}
+.markdown-body blockquote {
+  @apply border-l-2 border-primary/40 pl-3 text-muted-foreground;
+}
+.markdown-body input[type='checkbox'] {
+  @apply mr-1.5 align-middle accent-primary;
+}
+.markdown-body .mention {
+  @apply bg-accent px-1 font-medium text-accent-foreground;
+}
+.markdown-body a.issue-ref {
+  @apply inline-flex items-center border border-primary/25 bg-primary/8 px-1 font-mono text-[0.85em] font-semibold text-primary no-underline transition-colors hover:bg-primary/15;
+}
+.markdown-body.compact > * + * {
+  @apply mt-1.5;
+}
+.markdown-body.compact li + li {
+  @apply mt-0.5;
+}

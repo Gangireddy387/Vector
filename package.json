@@ -1,0 +1,15 @@
+{
+  "name": "vector",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vector — work management with automation (Vue 3 + Node.js + Sequelize)",
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "db:seed": "npm --prefix backend run db:seed",
+    "db:reset": "npm --prefix backend run db:reset",
+    "test:api": "node backend/scripts/smoke-test.js",
+    "build": "npm --prefix frontend run build"
+  }
+}

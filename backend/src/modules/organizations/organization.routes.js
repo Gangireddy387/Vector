@@ -1,0 +1,28 @@
+import { Router } from 'express';
+import rateLimit from 'express-rate-limit';
+import { requireOrganizationAdmin } from '../../shared/middleware/authenticate.js';
+import { validate } from '../../shared/middleware/validate.js';
+import * as controller from './organization.controller.js';
+import { createOrganizationSchema, deleteOrganizationSchema, inviteMemberSchema, slugQuery, updateMemberSchema, updateOrganizationSchema } from './organization.validation.js';
+
+const lookupLimiter = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false });
+
+/** Public: signup checks an address while typing; /o/:slug shows which organization you are signing in to. */
+export const publicOrganizationRoutes = Router();
+publicOrganizationRoutes.get('/organizations/check-slug', lookupLimiter, validate({ query: slugQuery }), controller.checkSlug);
+publicOrganizationRoutes.get('/organizations/by-slug/:slug', lookupLimiter, controller.showPublic);
+
+/** Signed in, no organization required: people without one create their first here. */
+export const organizationRoutes = Router();
+organizationRoutes.get('/organizations', controller.list);
+organizationRoutes.post('/organizations', validate({ body: createOrganizationSchema }), controller.create);
+organizationRoutes.post('/organizations/:organizationId/switch', controller.switchTo);
+
+/** The current organization's settings and people (organization admins). */
+export const organizationAdminRoutes = Router();
+organizationAdminRoutes.patch('/workspace', requireOrganizationAdmin, validate({ body: updateOrganizationSchema }), controller.update);
+organizationAdminRoutes.delete('/workspace', requireOrganizationAdmin, validate({ body: deleteOrganizationSchema }), controller.remove);
+organizationAdminRoutes.get('/workspace/members', requireOrganizationAdmin, controller.listMembers);
+organizationAdminRoutes.post('/workspace/invitations', requireOrganizationAdmin, validate({ body: inviteMemberSchema }), controller.invite);
+organizationAdminRoutes.patch('/workspace/members/:userId', requireOrganizationAdmin, validate({ body: updateMemberSchema }), controller.updateMember);
+organizationAdminRoutes.delete('/workspace/members/:userId', requireOrganizationAdmin, controller.removeMember);

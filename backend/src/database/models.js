@@ -1,0 +1,159 @@
+/**
+ * Central model registry. Every Sequelize model is imported here and all associations
+ * are declared in one place so the full data model can be reviewed at a glance.
+ */
+import { sequelize } from './connection.js';
+import { User } from '../modules/users/user.model.js';
+import { Project } from '../modules/projects/project.model.js';
+import { ProjectMember } from '../modules/projects/project-member.model.js';
+import { Status } from '../modules/statuses/status.model.js';
+import { Label } from '../modules/labels/label.model.js';
+import { Issue } from '../modules/issues/issue.model.js';
+import { IssueLabel, IssueLink, IssueWatcher } from '../modules/issues/issue-relations.model.js';
+import { Sprint } from '../modules/sprints/sprint.model.js';
+import { Comment } from '../modules/comments/comment.model.js';
+import { Attachment } from '../modules/attachments/attachment.model.js';
+import { WorkLog } from '../modules/worklogs/worklog.model.js';
+import { Activity } from '../modules/activity/activity.model.js';
+import { Notification } from '../modules/notifications/notification.model.js';
+import { AutomationRule } from '../modules/automations/automation-rule.model.js';
+import { IssueTemplate } from '../modules/templates/issue-template.model.js';
+import { RecurringTask } from '../modules/recurring-tasks/recurring-task.model.js';
+import { SavedFilter } from '../modules/saved-filters/saved-filter.model.js';
+import { WorkspaceSetting } from '../modules/workspace/workspace-setting.model.js';
+import { ChatMessage, ChatMessageIssue } from '../modules/chat/chat.model.js';
+import { StandupUpdate } from '../modules/standups/standup.model.js';
+import { Organization, OrganizationMember } from '../modules/organizations/organization.model.js';
+
+const cascade = { onDelete: 'CASCADE' };
+
+// Organizations: every person, project and setting belongs to one
+Organization.hasMany(OrganizationMember, { as: 'memberships', foreignKey: 'organizationId', ...cascade });
+User.hasMany(OrganizationMember, { as: 'organizationMemberships', foreignKey: 'userId', ...cascade });
+OrganizationMember.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+OrganizationMember.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+Organization.hasMany(Project, { as: 'projects', foreignKey: 'organizationId', ...cascade });
+Project.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+
+// Users & projects
+User.hasMany(ProjectMember, { as: 'memberships', foreignKey: 'userId', ...cascade });
+Project.hasMany(ProjectMember, { as: 'memberships', foreignKey: 'projectId', ...cascade });
+ProjectMember.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+ProjectMember.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+Project.belongsTo(User, { as: 'lead', foreignKey: 'leadId', onDelete: 'SET NULL' });
+
+// Workflow configuration
+Project.hasMany(Status, { as: 'statuses', foreignKey: 'projectId', ...cascade });
+Status.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+Project.hasMany(Label, { as: 'labels', foreignKey: 'projectId', ...cascade });
+Label.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+
+// Sprints
+Project.hasMany(Sprint, { as: 'sprints', foreignKey: 'projectId', ...cascade });
+Sprint.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+
+// Issues
+Project.hasMany(Issue, { as: 'issues', foreignKey: 'projectId', ...cascade });
+Issue.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+Issue.belongsTo(Status, { as: 'status', foreignKey: 'statusId' });
+Status.hasMany(Issue, { as: 'issues', foreignKey: 'statusId' });
+Issue.belongsTo(Sprint, { as: 'sprint', foreignKey: 'sprintId', onDelete: 'SET NULL' });
+Sprint.hasMany(Issue, { as: 'issues', foreignKey: 'sprintId' });
+Issue.belongsTo(User, { as: 'assignee', foreignKey: 'assigneeId', onDelete: 'SET NULL' });
+Issue.belongsTo(User, { as: 'reporter', foreignKey: 'reporterId', onDelete: 'SET NULL' });
+Issue.belongsTo(Issue, { as: 'parent', foreignKey: 'parentId', ...cascade });
+Issue.hasMany(Issue, { as: 'subtasks', foreignKey: 'parentId', ...cascade });
+
+Issue.belongsToMany(Label, { through: IssueLabel, as: 'labels', foreignKey: 'issueId', otherKey: 'labelId' });
+Label.belongsToMany(Issue, { through: IssueLabel, as: 'issues', foreignKey: 'labelId', otherKey: 'issueId' });
+Issue.belongsToMany(User, { through: IssueWatcher, as: 'watchers', foreignKey: 'issueId', otherKey: 'userId' });
+User.belongsToMany(Issue, { through: IssueWatcher, as: 'watchedIssues', foreignKey: 'userId', otherKey: 'issueId' });
+
+Issue.hasMany(IssueLink, { as: 'outwardLinks', foreignKey: 'sourceIssueId', ...cascade });
+Issue.hasMany(IssueLink, { as: 'inwardLinks', foreignKey: 'targetIssueId', ...cascade });
+IssueLink.belongsTo(Issue, { as: 'sourceIssue', foreignKey: 'sourceIssueId' });
+IssueLink.belongsTo(Issue, { as: 'targetIssue', foreignKey: 'targetIssueId' });
+
+// Collaboration
+Issue.hasMany(Comment, { as: 'comments', foreignKey: 'issueId', ...cascade });
+Comment.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
+Comment.belongsTo(User, { as: 'author', foreignKey: 'authorId', onDelete: 'SET NULL' });
+
+Issue.hasMany(Attachment, { as: 'attachments', foreignKey: 'issueId', ...cascade });
+Attachment.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
+Attachment.belongsTo(User, { as: 'uploader', foreignKey: 'uploaderId', onDelete: 'SET NULL' });
+
+Issue.hasMany(WorkLog, { as: 'workLogs', foreignKey: 'issueId', ...cascade });
+WorkLog.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
+WorkLog.belongsTo(User, { as: 'user', foreignKey: 'userId', onDelete: 'SET NULL' });
+
+// Audit trail & inbox
+Project.hasMany(Activity, { as: 'activities', foreignKey: 'projectId', ...cascade });
+Issue.hasMany(Activity, { as: 'activities', foreignKey: 'issueId', ...cascade });
+Activity.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
+Activity.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+Activity.belongsTo(User, { as: 'actor', foreignKey: 'actorId', onDelete: 'SET NULL' });
+
+User.hasMany(Notification, { as: 'notifications', foreignKey: 'userId', ...cascade });
+Notification.belongsTo(User, { as: 'actor', foreignKey: 'actorId', onDelete: 'SET NULL' });
+Notification.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId', ...cascade });
+Notification.belongsTo(Project, { as: 'project', foreignKey: 'projectId', ...cascade });
+
+// Productivity: automation, templates, recurring work, saved filters
+Project.hasMany(AutomationRule, { as: 'automationRules', foreignKey: 'projectId', ...cascade });
+AutomationRule.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+AutomationRule.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+
+Project.hasMany(IssueTemplate, { as: 'templates', foreignKey: 'projectId', ...cascade });
+IssueTemplate.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+
+Project.hasMany(RecurringTask, { as: 'recurringTasks', foreignKey: 'projectId', ...cascade });
+RecurringTask.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+RecurringTask.belongsTo(User, { as: 'assignee', foreignKey: 'assigneeId', onDelete: 'SET NULL' });
+
+User.hasMany(SavedFilter, { as: 'savedFilters', foreignKey: 'userId', ...cascade });
+SavedFilter.belongsTo(Project, { as: 'project', foreignKey: 'projectId', ...cascade });
+
+// Team chat & daily standups
+Project.hasMany(ChatMessage, { as: 'chatMessages', foreignKey: 'projectId', ...cascade });
+ChatMessage.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+ChatMessage.belongsTo(User, { as: 'author', foreignKey: 'authorId', onDelete: 'SET NULL' });
+ChatMessage.belongsToMany(Issue, { through: ChatMessageIssue, as: 'issues', foreignKey: 'messageId', otherKey: 'issueId' });
+Issue.belongsToMany(ChatMessage, { through: ChatMessageIssue, as: 'chatMessages', foreignKey: 'issueId', otherKey: 'messageId' });
+
+Project.hasMany(StandupUpdate, { as: 'standupUpdates', foreignKey: 'projectId', ...cascade });
+User.hasMany(StandupUpdate, { as: 'standupUpdates', foreignKey: 'userId', ...cascade });
+StandupUpdate.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+StandupUpdate.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+
+// Portal-wide configuration
+WorkspaceSetting.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
+
+export {
+  sequelize,
+  User,
+  Project,
+  ProjectMember,
+  Status,
+  Label,
+  Issue,
+  IssueLabel,
+  IssueLink,
+  IssueWatcher,
+  Sprint,
+  Comment,
+  Attachment,
+  WorkLog,
+  Activity,
+  Notification,
+  AutomationRule,
+  IssueTemplate,
+  RecurringTask,
+  SavedFilter,
+  WorkspaceSetting,
+  ChatMessage,
+  ChatMessageIssue,
+  StandupUpdate,
+  Organization,
+  OrganizationMember,
+};
