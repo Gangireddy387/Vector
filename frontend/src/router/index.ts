@@ -14,6 +14,7 @@ import { projectRoutes, projectSettingsRoutes } from '@/modules/projects/project
 import { globalReportRoutes, reportRoutes } from '@/modules/reports/reports.routes'
 import { searchRoutes } from '@/modules/search/search.routes'
 import { settingsRoutes } from '@/modules/settings/settings.routes'
+import { organizationsApi } from '@/modules/auth/auth.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
 
 declare module 'vue-router' {
@@ -36,11 +37,12 @@ declare module 'vue-router' {
 }
 
 /**
- * `/o/:slug/anything` opens "anything" inside that organization, switching to it first when needed,
- * so links shared from one organization never open in another.
+ * `example.com/acme/anything` opens "anything" inside the Acme organization, switching to it first when needed,
+ * so links shared from one organization never open in another. App pages always win over this route
+ * (static paths rank higher), and the server reserves every page name so no organization can take one.
  */
 const organizationLinkRoute: RouteRecordRaw = {
-  path: '/o/:slug/:rest(.*)*',
+  path: '/:slug([a-z0-9][a-z0-9-]{1,38}[a-z0-9])/:rest(.*)*',
   name: 'organization-link',
   component: () => import('@/layouts/NotFoundPage.vue'),
   meta: { requiresAuth: true, allowWithoutOrganization: true },
@@ -52,12 +54,24 @@ const organizationLinkRoute: RouteRecordRaw = {
     const target = `/${rest}${query ? `?${query}` : ''}${to.hash}`
     const organization = auth.organizations.find((item) => item.slug === slug)
     if (!organization) {
+      // A real organization the person is not part of gets an explanation; anything else is a plain "page not found".
+      const exists = await organizationsApi.publicInfo(slug).then(() => true, () => false)
+      if (!exists) return true
       toast.error(`You are not a member of “${slug}”`, { description: 'Ask one of its admins to invite you.' })
       return auth.organization ? { name: 'home' } : { name: 'organization-create' }
     }
     if (organization.id === auth.organization?.id) return target
     await auth.switchOrganization(organization.id, target)
     return false
+  },
+}
+
+/** Organization links used to start with /o/; keep them working. */
+const legacyOrganizationLinkRoute: RouteRecordRaw = {
+  path: '/o/:slug/:rest(.*)*',
+  redirect: (to) => {
+    const rest = Array.isArray(to.params.rest) ? to.params.rest.join('/') : String(to.params.rest ?? '')
+    return { path: `/${String(to.params.slug).toLowerCase()}${rest ? `/${rest}` : ''}`, query: to.query, hash: to.hash }
   },
 }
 
@@ -99,6 +113,7 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   ...legalRoutes,
+  legacyOrganizationLinkRoute,
   organizationLinkRoute,
   { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/layouts/NotFoundPage.vue') },
 ]

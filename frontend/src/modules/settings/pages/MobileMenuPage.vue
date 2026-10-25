@@ -68,7 +68,7 @@ const openOrganization = (organizationId: string) => organizationId !== auth.org
           <Building2 class="size-5 text-muted-foreground" />
           <span class="min-w-0 flex-1">
             <span class="block truncate">{{ organization.name }}</span>
-            <span class="block truncate text-xs text-muted-foreground">/o/{{ organization.slug }} · {{ organization.role === 'admin' ? 'Admin' : 'Member' }}</span>
+            <span class="block truncate text-xs text-muted-foreground">/{{ organization.slug }} · {{ organization.role === 'admin' ? 'Admin' : 'Member' }}</span>
           </span>
           <Check v-if="organization.id === auth.organization?.id" class="size-4 text-primary" />
         </button>

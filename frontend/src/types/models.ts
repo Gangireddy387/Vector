@@ -31,7 +31,7 @@ export type ColorMode = 'light' | 'dark' | 'system'
 
 export interface WorkspaceSettings {
   name: string
-  /** The organization's address (/o/:slug); absent for the signed-out default branding. */
+  /** The organization's address (example.com/:slug); absent for the signed-out default branding. */
   slug?: string
   defaultMode: ColorMode
   updatedAt?: string

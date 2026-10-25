@@ -258,7 +258,7 @@ try {
   });
   await backdateHistory();
   console.log('[seed] demo data created');
-  console.log(`[seed] sign in with ${PEOPLE[0].email} / ${DEMO_PASSWORD} (organization admin of "${organization.name}" at /o/${organization.slug}; also priya@, diego@, mei@)`);
+  console.log(`[seed] sign in with ${PEOPLE[0].email} / ${DEMO_PASSWORD} (organization admin of "${organization.name}" at /${organization.slug}; also priya@, diego@, mei@)`);
   process.exit(0);
 } catch (error) {
   console.error('[seed] failed', error);

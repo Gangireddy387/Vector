@@ -44,9 +44,10 @@ async function submit() {
   }
 }
 
-/** Arriving from an organization link (/o/acme/...): say which organization this sign-in opens. */
+/** Arriving from an organization link (example.com/acme/...): say which organization this sign-in opens. */
 const targetOrganization = ref<string | null>(null)
-const redirectSlug = typeof route.query.redirect === 'string' ? /^\/o\/([a-z0-9-]+)/.exec(route.query.redirect)?.[1] : undefined
+const redirectTarget = typeof route.query.redirect === 'string' ? router.resolve(route.query.redirect) : null
+const redirectSlug = redirectTarget?.name === 'organization-link' ? String(redirectTarget.params.slug) : undefined
 if (redirectSlug) {
   organizationsApi
     .publicInfo(redirectSlug)

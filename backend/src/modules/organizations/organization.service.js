@@ -8,11 +8,13 @@ import { createOneTimeToken } from '../auth/token.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
 
-/** Addresses that would clash with app routes or look official. */
+/** Organization addresses sit right after the domain (example.com/acme), so they must never shadow an app page or look official. */
 const RESERVED_SLUGS = new Set([
   'admin', 'api', 'app', 'auth', 'account', 'accounts', 'login', 'logout', 'register', 'signup', 'signin', 'settings', 'projects',
-  'issues', 'reports', 'search', 'inbox', 'notifications', 'organizations', 'organization', 'o', 'new', 'help', 'support', 'docs',
+  'issues', 'reports', 'search', 'inbox', 'notifications', 'organizations', 'organization', 'new', 'help', 'support', 'docs',
   'privacy', 'terms', 'legal', 'status', 'billing', 'vector', 'www', 'mail', 'static', 'assets', 'public', 'root', 'system',
+  'accept-invite', 'forgot-password', 'reset-password', 'more', 'home', 'dashboard', 'invite', 'join', 'me', 'user', 'users',
+  'board', 'backlog', 'chat', 'standup', 'progress', 'automation', 'team', 'teams', 'workspace', 'about', 'pricing', 'blog',
 ]);
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
 

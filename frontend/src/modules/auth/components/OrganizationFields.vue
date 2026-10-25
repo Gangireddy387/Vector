@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { organizationsApi, type SlugCheck } from '../auth.api'
 import { organizationAddress, slugify } from '../organization-slug'
 
-/** Organization name plus its address (/o/:slug), suggested from the name and checked while typing. */
+/** Organization name plus its address (example.com/:slug), suggested from the name and checked while typing. */
 const props = defineProps<{ errors?: Record<string, string>; autofocus?: boolean; currentSlug?: string }>()
 const name = defineModel<string>('name', { required: true })
 const slug = defineModel<string>('slug', { required: true })

@@ -7,7 +7,7 @@ import { createOrganizationSchema, deleteOrganizationSchema, inviteMemberSchema,
 
 const lookupLimiter = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false });
 
-/** Public: signup checks an address while typing; /o/:slug shows which organization you are signing in to. */
+/** Public: signup checks an address while typing; /:slug links show which organization you are signing in to. */
 export const publicOrganizationRoutes = Router();
 publicOrganizationRoutes.get('/organizations/check-slug', lookupLimiter, validate({ query: slugQuery }), controller.checkSlug);
 publicOrganizationRoutes.get('/organizations/by-slug/:slug', lookupLimiter, controller.showPublic);

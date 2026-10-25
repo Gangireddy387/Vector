@@ -52,7 +52,7 @@ export const addedToOrganizationEmail = ({ inviterName, organizationName, slug }
     heading: `You now have access to ${organizationName}`,
     intro: `<p>${escapeHtml(inviterName)} added you to the organization. Switch to it from the organization menu in Vector.</p>`,
     actionLabel: `Open ${organizationName}`,
-    actionUrl: appUrl(`/o/${slug}`),
+    actionUrl: appUrl(`/${slug}`),
   }),
 });
 

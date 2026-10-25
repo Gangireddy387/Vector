@@ -12,7 +12,7 @@ Organization.init(
   {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     name: { type: DataTypes.STRING(80), allowNull: false },
-    /** The organization's address, e.g. `acme` in /o/acme. */
+    /** The organization's address, e.g. `acme` in example.com/acme. */
     slug: { type: DataTypes.STRING(40), allowNull: false, unique: true },
     defaultMode: { type: DataTypes.ENUM(...COLOR_MODES), allowNull: false, defaultValue: 'system' },
     createdById: { type: DataTypes.UUID, allowNull: true },
