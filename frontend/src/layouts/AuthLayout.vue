@@ -41,11 +41,11 @@ const PREVIEW_COLUMNS = [
 </script>
 
 <template>
-  <div class="grid min-h-dvh bg-background lg:h-dvh lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:overflow-hidden">
-    <!-- Form side -->
-    <main class="relative flex flex-col overflow-x-hidden px-6 pt-safe pb-safe sm:px-12 lg:overflow-y-auto">
+  <div class="grid min-h-dvh bg-background lg:h-dvh lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:overflow-hidden">
+    <!-- Form side (right on desktop) -->
+    <main class="relative flex flex-col overflow-x-hidden px-6 pt-safe pb-safe sm:px-12 lg:order-2 lg:overflow-y-auto">
       <div
-        class="pointer-events-none absolute -top-40 -left-40 size-[32rem] opacity-60 blur-3xl"
+        class="pointer-events-none absolute -top-40 -right-40 size-[32rem] opacity-60 blur-3xl"
         style="background: radial-gradient(closest-side, color-mix(in oklch, var(--brand-from) 22%, transparent), transparent)"
       />
       <header class="relative flex h-14 shrink-0 items-center justify-between">
@@ -68,8 +68,8 @@ const PREVIEW_COLUMNS = [
       </footer>
     </main>
 
-    <!-- Product showcase -->
-    <aside class="relative m-3 hidden overflow-hidden bg-brand lg:flex lg:flex-col" aria-hidden="true">
+    <!-- Product showcase (left on desktop) -->
+    <aside class="relative m-3 hidden overflow-hidden bg-brand lg:order-1 lg:flex lg:flex-col" aria-hidden="true">
       <div
         class="absolute inset-0"
         style="
