@@ -138,6 +138,7 @@ router.beforeEach((to) => {
   const needsOrganization = to.matched.some((record) => record.meta.requiresAuth) && !to.matched.some((record) => record.meta.allowWithoutOrganization)
   if (needsOrganization && auth.isAuthenticated && !auth.organization) return { name: 'organization-create' }
   if (to.meta.requiresWorkspaceAdmin && !auth.isOrganizationAdmin) return { name: 'home' }
+  if (to.name === 'organization-create' && auth.isAuthenticated && !auth.canCreateOrganization) return { name: 'home' }
   return true
 })
 

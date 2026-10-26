@@ -72,7 +72,11 @@ const openOrganization = (organizationId: string) => organizationId !== auth.org
           </span>
           <Check v-if="organization.id === auth.organization?.id" class="size-4 text-primary" />
         </button>
-        <RouterLink :to="{ name: 'organization-create' }" class="flex items-center gap-3 border-t px-4 py-3.5 text-primary active:bg-muted">
+        <RouterLink
+          v-if="auth.canCreateOrganization"
+          :to="{ name: 'organization-create' }"
+          class="flex items-center gap-3 border-t px-4 py-3.5 text-primary active:bg-muted"
+        >
           <Plus class="size-5" /> <span class="flex-1">Create organization</span>
         </RouterLink>
       </nav>

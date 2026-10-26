@@ -33,6 +33,15 @@ export function requireOrganization(req, _res, next) {
   next();
 }
 
+/** New organizations come from admins; people in no organization yet may still create their first. */
+export function requireOrganizationCreator(req, _res, next) {
+  const memberships = req.organizationMemberships ?? [];
+  if (memberships.length && !memberships.some((membership) => membership.role === 'admin')) {
+    throw ApiError.forbidden('Only organization admins can create organizations');
+  }
+  next();
+}
+
 export function requireOrganizationAdmin(req, _res, next) {
   if (!req.organization) throw new ApiError(409, 'Create or join an organization first', { code: 'no_organization' });
   if (req.organizationRole !== 'admin') throw ApiError.forbidden('Only organization admins can do this');

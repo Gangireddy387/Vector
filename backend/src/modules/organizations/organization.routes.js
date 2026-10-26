@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { requireOrganizationAdmin } from '../../shared/middleware/authenticate.js';
+import { requireOrganizationAdmin, requireOrganizationCreator } from '../../shared/middleware/authenticate.js';
 import { validate } from '../../shared/middleware/validate.js';
 import * as controller from './organization.controller.js';
 import { logoUpload } from './organization.service.js';
@@ -18,7 +18,7 @@ publicOrganizationRoutes.get('/organization-logos/:fileName', controller.showLog
 /** Signed in, no organization required: people without one create their first here. */
 export const organizationRoutes = Router();
 organizationRoutes.get('/organizations', controller.list);
-organizationRoutes.post('/organizations', validate({ body: createOrganizationSchema }), controller.create);
+organizationRoutes.post('/organizations', requireOrganizationCreator, validate({ body: createOrganizationSchema }), controller.create);
 organizationRoutes.post('/organizations/:organizationId/switch', controller.switchTo);
 
 /** The current organization's settings and people (organization admins). */

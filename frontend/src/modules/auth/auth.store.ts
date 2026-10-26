@@ -13,6 +13,8 @@ export const useAuthStore = defineStore('auth', () => {
   const organizations = ref<OrganizationSummary[]>([])
   const isAuthenticated = computed(() => Boolean(token.value && user.value))
   const isOrganizationAdmin = computed(() => organization.value?.role === 'admin')
+  /** Mirrors the server: admins create organizations; people in none yet may create their first. */
+  const canCreateOrganization = computed(() => !organizations.value.length || organizations.value.some((item) => item.role === 'admin'))
 
   function applyState(state: SessionState) {
     user.value = state.user
@@ -110,6 +112,7 @@ export const useAuthStore = defineStore('auth', () => {
     organizations,
     isAuthenticated,
     isOrganizationAdmin,
+    canCreateOrganization,
     restoreSession,
     refreshSession,
     login,
