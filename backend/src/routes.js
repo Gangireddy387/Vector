@@ -5,6 +5,7 @@ import aiRoutes from './modules/ai/ai.routes.js';
 import attachmentRoutes from './modules/attachments/attachment.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import automationRoutes from './modules/automations/automation.routes.js';
+import calendarRoutes from './modules/calendar/calendar.routes.js';
 import chatRoutes from './modules/chat/chat.routes.js';
 import commentRoutes from './modules/comments/comment.routes.js';
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
@@ -66,6 +67,7 @@ export function createApiRouter() {
     reportRoutes,
     chatRoutes,
     standupRoutes,
+    calendarRoutes,
     aiRoutes,
   ].forEach((moduleRouter) => router.use(moduleRouter));
 

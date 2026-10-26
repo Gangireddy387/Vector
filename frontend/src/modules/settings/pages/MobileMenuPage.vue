@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, Building2, Check, ChevronRight, Crown, Download, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck } from 'lucide-vue-next'
+import { BarChart3, Building2, CalendarDays, Check, ChevronRight, Crown, Download, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck } from 'lucide-vue-next'
 import { computed } from 'vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { usePwaInstall } from '@/composables/usePwaInstall'
@@ -20,6 +20,7 @@ const LINKS = computed(() => [
   { to: { name: 'search' }, label: 'Search', icon: Search },
   { to: { name: 'settings' }, label: 'Settings', icon: Settings },
   { to: { name: 'departments' }, label: 'Departments', icon: Building2 },
+  { to: { name: 'calendar' }, label: 'Calendar', icon: CalendarDays },
   ...(auth.isOrganizationAdmin ? [{ to: { name: 'workspace-admin' }, label: 'Organization settings', icon: ShieldCheck }] : []),
   ...(auth.isSuperAdmin ? [{ to: { name: 'super-admin' }, label: 'Super admin', icon: Crown }] : []),
 ])

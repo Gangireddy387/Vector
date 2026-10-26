@@ -89,9 +89,13 @@ function onKeydown(event: KeyboardEvent) {
   event.preventDefault()
 }
 
+/** Long lists (like times of day) open at the chosen option instead of at the top. */
 function onOpenAutoFocus(event: Event) {
   event.preventDefault()
-  void nextTick(() => (isSearchable.value ? searchInput.value : listbox.value)?.focus())
+  void nextTick(() => {
+    ;(isSearchable.value ? searchInput.value : listbox.value)?.focus()
+    listbox.value?.querySelector('[data-highlighted="true"]')?.scrollIntoView({ block: 'center' })
+  })
 }
 
 watch(open, (isOpen) => {

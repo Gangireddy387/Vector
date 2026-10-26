@@ -30,6 +30,8 @@ const props = withDefaults(
     ariaLabel?: string
     displayFormat?: string
     class?: string
+    /** Earliest selectable day (`YYYY-MM-DD`); earlier days are shown but cannot be picked. */
+    min?: string
   }>(),
   { placeholder: 'Pick a date', clearable: true, presets: true, size: 'default', displayFormat: 'EEE, d MMM yyyy' },
 )
@@ -68,7 +70,10 @@ function commit(value: string) {
   open.value = false
 }
 
-const choose = (day: Date) => commit(toDateInput(day))
+const isBeforeMin = (day: Date) => Boolean(props.min) && toDateInput(day) < props.min!
+const choose = (day: Date) => {
+  if (!isBeforeMin(day)) commit(toDateInput(day))
+}
 const shiftMonth = (step: number) => (viewMonth.value = addMonths(viewMonth.value, step))
 
 async function focusDay(day: Date) {
@@ -141,12 +146,15 @@ const PRESETS = [
             :tabindex="isSameDay(day, focusedDay) ? 0 : -1"
             :data-focused="isSameDay(day, focusedDay)"
             :aria-selected="selectedDate ? isSameDay(day, selectedDate) : false"
+            :aria-disabled="isBeforeMin(day) || undefined"
             :aria-label="format(day, 'EEEE, d MMMM yyyy')"
             class="relative flex h-9 items-center justify-center text-sm tabular-nums transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             :class="[
               selectedDate && isSameDay(day, selectedDate)
                 ? 'bg-primary font-semibold text-primary-foreground'
-                : isSameMonth(day, viewMonth)
+                : isBeforeMin(day)
+                  ? 'cursor-not-allowed text-muted-foreground/35 line-through decoration-muted-foreground/30'
+                  : isSameMonth(day, viewMonth)
                   ? 'hover:bg-accent hover:text-accent-foreground'
                   : 'text-muted-foreground/45 hover:bg-accent/60',
               isToday(day) && !(selectedDate && isSameDay(day, selectedDate)) && 'font-semibold text-primary',
@@ -164,7 +172,8 @@ const PRESETS = [
               v-for="preset in PRESETS"
               :key="preset.label"
               type="button"
-              class="border border-border/80 px-2.5 py-1 text-xs font-medium hover:border-primary/40 hover:bg-accent hover:text-accent-foreground"
+              class="border border-border/80 px-2.5 py-1 text-xs font-medium hover:border-primary/40 hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-40"
+              :disabled="isBeforeMin(addDays(new Date(), preset.days))"
               @click="choose(addDays(new Date(), preset.days))"
             >
               {{ preset.label }}

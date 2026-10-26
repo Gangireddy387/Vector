@@ -26,6 +26,7 @@ import { StandupUpdate } from '../modules/standups/standup.model.js';
 import { Organization, OrganizationMember } from '../modules/organizations/organization.model.js';
 import { Plan } from '../modules/plans/plan.model.js';
 import { Department, Team, TeamMember } from '../modules/departments/department.model.js';
+import { CalendarEvent } from '../modules/calendar/calendar-event.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
 
@@ -146,6 +147,11 @@ User.hasMany(StandupUpdate, { as: 'standupUpdates', foreignKey: 'userId', ...cas
 StandupUpdate.belongsTo(User, { as: 'user', foreignKey: 'userId' });
 StandupUpdate.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 
+// Personal calendar: private to its owner; deleting a linked project keeps its events (the link just stops resolving)
+Organization.hasMany(CalendarEvent, { as: 'calendarEvents', foreignKey: 'organizationId', ...cascade });
+User.hasMany(CalendarEvent, { as: 'calendarEvents', foreignKey: 'ownerId', ...cascade });
+CalendarEvent.belongsTo(Project, { as: 'project', foreignKey: 'projectId', constraints: false });
+
 // Portal-wide configuration
 WorkspaceSetting.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
 
@@ -180,4 +186,5 @@ export {
   Department,
   Team,
   TeamMember,
+  CalendarEvent,
 };

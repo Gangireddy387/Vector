@@ -8,15 +8,15 @@ export function isValidTimeZone(timeZone) {
   }
 }
 
-/** The calendar date (YYYY-MM-DD) and hour (0–23) at `date` in the given zone; unknown zones fall back to UTC. */
+/** The calendar date (YYYY-MM-DD), hour (0–23) and `HH:mm` time at `date` in the given zone; unknown zones fall back to UTC. */
 export function localDateTime(timeZone, date = new Date()) {
   const zone = isValidTimeZone(timeZone) ? timeZone : 'UTC';
   const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' })
+    new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
       .formatToParts(date)
       .map((part) => [part.type, part.value]),
   );
-  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) };
+  return { date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour), time: `${parts.hour}:${parts.minute}` };
 }
 
 /** Adds whole days to a YYYY-MM-DD string without time-zone drift. */

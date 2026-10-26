@@ -19,7 +19,7 @@ const RESERVED_SLUGS = new Set([
   'privacy', 'terms', 'legal', 'status', 'billing', 'vector', 'www', 'mail', 'static', 'assets', 'public', 'root', 'system',
   'accept-invite', 'forgot-password', 'reset-password', 'more', 'home', 'dashboard', 'invite', 'join', 'me', 'user', 'users',
   'board', 'backlog', 'chat', 'standup', 'progress', 'automation', 'team', 'teams', 'workspace', 'about', 'pricing', 'blog',
-  'super-admin', 'superadmin', 'pending-approval',
+  'super-admin', 'superadmin', 'pending-approval', 'calendar',
 ]);
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
 

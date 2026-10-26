@@ -5,6 +5,7 @@ import { authRoutes } from '@/modules/auth/auth.routes'
 import { automationRoutes } from '@/modules/automation/automation.routes'
 import { backlogRoutes } from '@/modules/backlog/backlog.routes'
 import { boardRoutes } from '@/modules/board/board.routes'
+import { calendarRoutes } from '@/modules/calendar/calendar.routes'
 import { collaborationRoutes } from '@/modules/chat/chat.routes'
 import { dashboardRoutes } from '@/modules/dashboard/dashboard.routes'
 import { departmentRoutes } from '@/modules/departments/departments.routes'
@@ -118,6 +119,7 @@ const routes: RouteRecordRaw[] = [
       ...settingsRoutes,
       ...adminRoutes,
       ...departmentRoutes,
+      ...calendarRoutes,
     ],
   },
   ...legalRoutes,
