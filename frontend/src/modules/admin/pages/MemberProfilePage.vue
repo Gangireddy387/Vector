@@ -39,6 +39,7 @@ import { useAuthStore } from '@/modules/auth/auth.store'
 import { describeActivity } from '@/modules/issues/activity-format'
 import type { WorkspaceRole } from '@/types/models'
 import { type MemberProfile, workspaceApi } from '../admin.api'
+import { profileCoverStyle } from '../profile-cover'
 
 const props = defineProps<{ userId: string }>()
 
@@ -69,13 +70,7 @@ const STATUS = {
   disabled: { label: 'Deactivated', variant: 'outline' },
 } as const
 
-/** A soft banner in the person's own colour, so every profile looks a little different. */
-const coverStyle = computed(() => {
-  const color = person.value?.avatarColor ?? '#6366f1'
-  return {
-    backgroundImage: `radial-gradient(circle at 85% 20%, rgb(255 255 255 / 0.25), transparent 45%), linear-gradient(120deg, ${color}, color-mix(in oklab, ${color} 45%, #0ea5e9))`,
-  }
-})
+const coverStyle = computed(() => profileCoverStyle(person.value?.avatarColor))
 
 const headline = computed(() => {
   const p = profile.value
