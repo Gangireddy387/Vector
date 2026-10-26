@@ -140,7 +140,7 @@ const focusProject = (projectId: string) => (filters.value = { ...filters.value,
           label="Open work"
           :value="report.totals.open"
           :icon="ListTodo"
-          :explanation="report.totals.openPoints ? `Issues not done yet · ${report.totals.openPoints} story points.` : 'Issues that are not done yet.'"
+          :explanation="report.totals.openPoints ? `Tasks not done yet · ${report.totals.openPoints} story points.` : 'Tasks that are not done yet.'"
         />
         <ReportKpiCard
           label="Completed"
@@ -158,21 +158,21 @@ const focusProject = (projectId: string) => (filters.value = { ...filters.value,
           tone="info"
           :change="report.totals.createdChange"
           good-when="neutral"
-          :explanation="`New issues added in the ${periodLabel}.`"
+          :explanation="`New tasks added in the ${periodLabel}.`"
         />
         <ReportKpiCard
           label="Overdue"
           :value="report.totals.overdue"
           :icon="AlarmClock"
           :tone="report.totals.overdue ? 'danger' : 'default'"
-          :explanation="report.totals.dueSoon ? `Past their due date · ${report.totals.dueSoon} more due this week.` : 'Open issues past their due date.'"
+          :explanation="report.totals.dueSoon ? `Past their due date · ${report.totals.dueSoon} more due this week.` : 'Open tasks past their due date.'"
         />
         <ReportKpiCard
           label="Completion"
           :value="`${report.totals.completionRate}%`"
           :icon="Gauge"
           tone="success"
-          :explanation="`${report.totals.done} of ${report.totals.total} issues are done.`"
+          :explanation="`${report.totals.done} of ${report.totals.total} tasks are done.`"
         />
         <ReportKpiCard
           label="Cycle time"
@@ -222,7 +222,7 @@ const focusProject = (projectId: string) => (filters.value = { ...filters.value,
           <CardHeader>
             <CardTitle>{{ report.byStatus.length ? 'By status' : 'By stage' }}</CardTitle>
             <CardDescription>
-              {{ report.totals.total === 1 ? 'Where the one issue is in the workflow.' : `Where all ${report.totals.total} issues are in the workflow.` }}
+              {{ report.totals.total === 1 ? 'Where the one task is in the workflow.' : `Where all ${report.totals.total} tasks are in the workflow.` }}
             </CardDescription>
           </CardHeader>
           <CardContent><DonutChart :segments="statusSegments" center-label="issues" :size="140" /></CardContent>
@@ -239,7 +239,7 @@ const focusProject = (projectId: string) => (filters.value = { ...filters.value,
             <CardTitle>By type</CardTitle>
             <CardDescription>The mix of stories, tasks, bugs and more.</CardDescription>
           </CardHeader>
-          <CardContent><HorizontalBarList :items="typeBars" empty-text="No issues" /></CardContent>
+          <CardContent><HorizontalBarList :items="typeBars" empty-text="No tasks" /></CardContent>
         </Card>
       </div>
 

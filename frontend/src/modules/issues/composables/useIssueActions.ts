@@ -54,8 +54,8 @@ export function useIssueActions() {
   async function remove(issue: IssueLike) {
     const confirmed = await confirm({
       title: `Delete ${issue.key}?`,
-      description: 'The issue, its sub-tasks, comments and attachments will be permanently deleted.',
-      confirmLabel: 'Delete issue',
+      description: 'The task, its sub-tasks, comments and attachments will be permanently deleted.',
+      confirmLabel: 'Delete task',
       destructive: true,
     })
     if (!confirmed) return false

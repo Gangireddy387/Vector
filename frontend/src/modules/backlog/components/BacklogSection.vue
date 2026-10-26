@@ -62,7 +62,7 @@ const STATE_BADGE = { active: 'success', planned: 'secondary', completed: 'outli
       <span v-if="sprint?.startDate" class="text-xs text-muted-foreground">
         {{ formatDate(sprint.startDate, 'd MMM') }} – {{ formatDate(sprint.endDate, 'd MMM') }}
       </span>
-      <span class="text-xs text-muted-foreground">{{ issues.length }} issues<template v-if="points"> · {{ points }} pts</template></span>
+      <span class="text-xs text-muted-foreground">{{ issues.length }} tasks<template v-if="points"> · {{ points }} pts</template></span>
       <div class="ml-auto flex items-center gap-1">
         <slot name="actions" />
       </div>
@@ -113,7 +113,7 @@ const STATE_BADGE = { active: 'success', planned: 'secondary', completed: 'outli
         </template>
       </VueDraggable>
       <p v-if="!issues.length" class="px-4 py-3 text-center text-xs text-muted-foreground">
-        {{ isDesktop ? 'Drag issues here or add one below.' : 'No issues yet.' }}
+        {{ isDesktop ? 'Drag tasks here or add one below.' : 'No tasks yet.' }}
       </p>
       <div v-if="editable" class="border-t p-2">
         <QuickAddInput :project-id="projectId" :defaults="{ sprintId: sprint?.id ?? null }" placeholder="Add to this list…" />

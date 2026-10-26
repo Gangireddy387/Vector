@@ -18,6 +18,8 @@ export interface ProjectInput {
   description?: string | null
   type: ProjectType
   color?: string
+  /** Create the project straight into a team (organization admins). */
+  teamId?: string | null
 }
 
 export interface ProjectChanges {

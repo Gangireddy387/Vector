@@ -386,11 +386,11 @@ async function buildPerformance(viewer, filters) {
   const highlights = [];
   const deliverers = rows.filter((row) => row.completed);
   const top = best(deliverers, deliveryOf);
-  if (top) highlights.push({ kind: 'top_delivery', userId: top.user.id, title: 'Top delivery', detail: usePoints ? `${top.completedPoints} points delivered` : `${top.completed} issues completed` });
+  if (top) highlights.push({ kind: 'top_delivery', userId: top.user.id, title: 'Top delivery', detail: usePoints ? `${top.completedPoints} points delivered` : `${top.completed} tasks completed` });
   const reliable = best(rows.filter((row) => row.withDueDate >= 3), (row) => row.onTimeRate);
   if (reliable) highlights.push({ kind: 'most_reliable', userId: reliable.user.id, title: 'Most reliable', detail: `${reliable.onTimeRate}% delivered on time` });
   const fastest = best(rows.filter((row) => row.completed >= 3 && row.averageCycleDays !== null), (row) => row.averageCycleDays, (a, b) => a - b);
-  if (fastest) highlights.push({ kind: 'fastest', userId: fastest.user.id, title: 'Fastest finisher', detail: `${fastest.averageCycleDays} days per issue on average` });
+  if (fastest) highlights.push({ kind: 'fastest', userId: fastest.user.id, title: 'Fastest finisher', detail: `${fastest.averageCycleDays} days per task on average` });
   const bugHunter = best(rows.filter((row) => row.bugsFixed >= 2), (row) => row.bugsFixed);
   if (bugHunter) highlights.push({ kind: 'bug_hunter', userId: bugHunter.user.id, title: 'Bug hunter', detail: `${bugHunter.bugsFixed} bugs fixed` });
   const collaborator = best(rows.filter((row) => row.comments >= 3), (row) => row.comments);

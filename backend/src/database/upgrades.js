@@ -7,6 +7,13 @@ const ADDED_COLUMNS = [
   { table: 'users', column: 'last_organization_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'projects', column: 'organization_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'organizations', column: 'logo_url', definition: { type: DataTypes.STRING(255), allowNull: true } },
+  // Organizations that existed before approvals were introduced keep working.
+  { table: 'organizations', column: 'status', definition: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'approved' } },
+  { table: 'organizations', column: 'reviewed_at', definition: { type: DataTypes.DATE, allowNull: true } },
+  { table: 'organizations', column: 'reviewed_by_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'organizations', column: 'rejection_reason', definition: { type: DataTypes.STRING(500), allowNull: true } },
+  { table: 'organizations', column: 'plan_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'projects', column: 'team_id', definition: { type: DataTypes.UUID, allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */
@@ -72,7 +79,7 @@ export async function applyDataUpgrades() {
     if (!defaultOrganization) {
       const settings = await WorkspaceSetting.findByPk(1).catch(() => null);
       const name = settings?.name ?? 'Vector';
-      defaultOrganization = await Organization.create({ name, slug: slugify(name), defaultMode: settings?.defaultMode ?? 'system' });
+      defaultOrganization = await Organization.create({ name, slug: slugify(name), defaultMode: settings?.defaultMode ?? 'system', status: 'approved' });
       await OrganizationMember.bulkCreate(
         users.map((user) => ({ organizationId: defaultOrganization.id, userId: user.id, role: user.workspaceRole === 'admin' ? 'admin' : 'member' })),
         { ignoreDuplicates: true },

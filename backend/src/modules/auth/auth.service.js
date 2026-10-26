@@ -7,6 +7,7 @@ import { passwordResetEmail } from '../../shared/services/email-templates.js';
 import { createOneTimeToken, hashOneTimeToken, signAccessToken } from './token.js';
 import { listMyOrganizations, resolveOrganization, toPublicOrganization } from '../organizations/index.js';
 import { checkSlug, createOrganization } from '../organizations/organization.service.js';
+import { isSuperAdmin } from '../super-admin/super-admin.service.js';
 import { pickAvatarColor } from '../users/user.service.js';
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -18,7 +19,7 @@ const hashPassword = (password) => bcrypt.hash(password, 10);
  */
 export async function describeSession(user, membership, memberships) {
   return {
-    user: { ...user.toJSON(), workspaceRole: membership?.role ?? 'member' },
+    user: { ...user.toJSON(), workspaceRole: membership?.role ?? 'member', isSuperAdmin: isSuperAdmin(user) },
     organization: membership ? { ...toPublicOrganization(membership.organization), role: membership.role } : null,
     organizations: await listMyOrganizations(memberships),
   };

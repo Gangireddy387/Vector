@@ -33,7 +33,7 @@ const openCreateIssue = () =>
           <button
             type="button"
             class="-mt-7 flex size-14 items-center justify-center bg-brand text-primary-foreground shadow-glow ring-4 ring-background transition active:scale-95"
-            aria-label="Create issue"
+            aria-label="Create task"
             @click="openCreateIssue"
           >
             <Plus class="size-6" />

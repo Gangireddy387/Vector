@@ -85,10 +85,10 @@ async function save() {
     <DialogContent class="sm:max-w-2xl">
       <DialogHeader>
         <DialogTitle>{{ task ? 'Edit recurring task' : 'New recurring task' }}</DialogTitle>
-        <DialogDescription>Vector creates this issue for you on schedule — no more copy-pasting routine work.</DialogDescription>
+        <DialogDescription>Vector creates this task for you on schedule — no more copy-pasting routine work.</DialogDescription>
       </DialogHeader>
       <form class="space-y-4" @submit.prevent="save">
-        <FormField label="Issue title" for="recurring-title"><Input id="recurring-title" v-model="form.title" required placeholder="e.g. Weekly security review" /></FormField>
+        <FormField label="Task title" for="recurring-title"><Input id="recurring-title" v-model="form.title" required placeholder="e.g. Weekly security review" /></FormField>
         <FormField label="Description" for="recurring-description" optional>
           <Textarea id="recurring-description" :model-value="form.description ?? ''" rows="3" @update:model-value="(value) => (form.description = value)" />
         </FormField>

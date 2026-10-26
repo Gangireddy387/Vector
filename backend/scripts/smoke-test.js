@@ -27,12 +27,12 @@ async function check(label, method, path, body, expectedStatus = 200) {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const session = await check('login', 'POST', '/auth/login', { email: 'alex@vector.dev', password: 'Password123!' });
+const session = await check('login', 'POST', '/auth/login', { email: 'alex@northwind.dev', password: 'Password123!' });
 token = session.token;
 await check('me', 'GET', '/auth/me');
 
 const { projects } = await check('projects', 'GET', '/projects');
-const project = projects.find((item) => item.key === 'VEC');
+const project = projects.find((item) => item.key === 'NWA');
 const detail = (await check('project detail', 'GET', `/projects/${project.id}`)).project;
 const [todo, inProgress, , done] = detail.statuses;
 

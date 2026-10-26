@@ -22,9 +22,9 @@ const isOpen = computed({
 
 <template>
   <Sheet v-model:open="isOpen">
-    <SheetContent side="right" class="w-full gap-0 p-0 sm:max-w-4xl" hide-close @open-auto-focus.prevent>
-      <SheetTitle class="sr-only">Issue {{ issueKey }}</SheetTitle>
-      <SheetDescription class="sr-only">Issue details</SheetDescription>
+    <SheetContent side="right" class="w-full gap-0 p-0 sm:max-w-4xl" hide-close clear-backdrop @open-auto-focus.prevent>
+      <SheetTitle class="sr-only">Task {{ issueKey }}</SheetTitle>
+      <SheetDescription class="sr-only">Task details</SheetDescription>
       <IssueDetailView v-if="issueKey" :issue-key="issueKey" mode="panel" @close="isOpen = false" />
     </SheetContent>
   </Sheet>

@@ -24,8 +24,28 @@ import { WorkspaceSetting } from '../modules/workspace/workspace-setting.model.j
 import { ChatMessage, ChatMessageIssue } from '../modules/chat/chat.model.js';
 import { StandupUpdate } from '../modules/standups/standup.model.js';
 import { Organization, OrganizationMember } from '../modules/organizations/organization.model.js';
+import { Plan } from '../modules/plans/plan.model.js';
+import { Department, Team, TeamMember } from '../modules/departments/department.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
+
+// Organization structure: departments → teams → members
+Organization.hasMany(Department, { as: 'departments', foreignKey: 'organizationId', ...cascade });
+Department.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+Department.belongsTo(User, { as: 'head', foreignKey: 'headId', onDelete: 'SET NULL' });
+Department.hasMany(Team, { as: 'teams', foreignKey: 'departmentId', ...cascade });
+Team.belongsTo(Department, { as: 'department', foreignKey: 'departmentId' });
+Team.belongsTo(User, { as: 'lead', foreignKey: 'leadId', onDelete: 'SET NULL' });
+Team.belongsToMany(User, { through: TeamMember, as: 'members', foreignKey: 'teamId', otherKey: 'userId' });
+User.belongsToMany(Team, { through: TeamMember, as: 'teams', foreignKey: 'userId', otherKey: 'teamId' });
+Team.hasMany(TeamMember, { as: 'memberships', foreignKey: 'teamId', ...cascade });
+// Teams own projects (and their tasks); cleared in code when a team or its department is deleted.
+Team.hasMany(Project, { as: 'projects', foreignKey: 'teamId', constraints: false });
+Project.belongsTo(Team, { as: 'team', foreignKey: 'teamId', constraints: false });
+
+// Plans: what each organization may use (no database constraint, so plans can be edited freely)
+Organization.belongsTo(Plan, { as: 'plan', foreignKey: 'planId', constraints: false });
+Plan.hasMany(Organization, { as: 'organizations', foreignKey: 'planId', constraints: false });
 
 // Organizations: every person, project and setting belongs to one
 Organization.hasMany(OrganizationMember, { as: 'memberships', foreignKey: 'organizationId', ...cascade });
@@ -156,4 +176,8 @@ export {
   StandupUpdate,
   Organization,
   OrganizationMember,
+  Plan,
+  Department,
+  Team,
+  TeamMember,
 };

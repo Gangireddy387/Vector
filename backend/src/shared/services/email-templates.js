@@ -152,7 +152,7 @@ export const organizationInviteEmail = ({ inviterName, inviterEmail, organizatio
     brand: organization,
     eyebrow: 'You’re invited',
     heading: `Join ${organization.name} on Vector`,
-    intro: `<p style="margin:0"><strong>${escapeHtml(inviterName)}</strong> invited you to the <strong>${escapeHtml(organization.name)}</strong> organization. Plan work, track issues and collaborate with your team in one place.</p>`,
+    intro: `<p style="margin:0"><strong>${escapeHtml(inviterName)}</strong> invited you to the <strong>${escapeHtml(organization.name)}</strong> organization. Plan work, track tasks and collaborate with your team in one place.</p>`,
     details: [
       { label: 'Organization', value: organizationLine(organization) },
       roleRow(ORGANIZATION_ROLE_DETAILS, role),
@@ -201,6 +201,56 @@ export const addedToProjectEmail = ({ inviterName, inviterEmail, organization, p
     ],
     actionLabel: 'Open project',
     actionUrl: appUrl(`/projects/${project.id}/board`),
+  }),
+});
+
+/** To the super admin: a new organization is waiting for approval. */
+export const organizationReviewRequestEmail = ({ organization, creator }) => ({
+  subject: `New organization waiting for approval: ${organization.name}`,
+  html: renderLayout({
+    preheader: `${creator.name} created ${organization.name}. Approve it so the team can start using Vector.`,
+    eyebrow: 'Approval needed',
+    heading: `${organization.name} is waiting for approval`,
+    intro: `<p style="margin:0"><strong>${escapeHtml(creator.name)}</strong> created a new organization. Nobody in it can use the portal until you approve it.</p>`,
+    details: [
+      { label: 'Organization', value: organizationLine(organization) },
+      { label: 'Created by', value: inviterLine({ inviterName: creator.name, inviterEmail: creator.email }) },
+    ],
+    actionLabel: 'Review organizations',
+    actionUrl: appUrl('/super-admin'),
+    footer: 'You received this email because you are the super admin of this Vector portal.',
+  }),
+});
+
+/** To the organization's creator: the super admin approved it. */
+export const organizationApprovedEmail = ({ organization, name }) => ({
+  subject: `${organization.name} is approved — welcome to Vector`,
+  html: renderLayout({
+    preheader: `Your organization ${organization.name} is ready to use.`,
+    brand: organization,
+    eyebrow: 'Approved',
+    heading: `${organization.name} is ready to use`,
+    intro: `<p style="margin:0">Hi ${escapeHtml(name)}, good news: <strong>${escapeHtml(organization.name)}</strong> was approved. You can now create projects and invite your team.</p>`,
+    details: [{ label: 'Organization', value: organizationLine(organization) }],
+    actionLabel: `Open ${organization.name}`,
+    actionUrl: appUrl(`/${organization.slug}`),
+  }),
+});
+
+/** To the organization's creator: the super admin did not approve it. */
+export const organizationRejectedEmail = ({ organization, name, reason }) => ({
+  subject: `${organization.name} was not approved`,
+  html: renderLayout({
+    preheader: `Your organization ${organization.name} was not approved.`,
+    brand: organization,
+    eyebrow: 'Not approved',
+    heading: `${organization.name} was not approved`,
+    intro: `<p style="margin:0">Hi ${escapeHtml(name)}, the portal administrator did not approve <strong>${escapeHtml(organization.name)}</strong>, so it cannot be used for now.</p>`,
+    details: [
+      { label: 'Organization', value: organizationLine(organization) },
+      ...(reason ? [{ label: 'Reason', value: escapeHtml(reason) }] : []),
+    ],
+    footer: 'If you think this is a mistake, reply to this email or contact the portal administrator.',
   }),
 });
 

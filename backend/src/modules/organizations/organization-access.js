@@ -1,4 +1,5 @@
 import { Organization, OrganizationMember } from '../../database/models.js';
+import { withPlan } from '../plans/plan.service.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -6,7 +7,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 export const listActiveMemberships = (userId) =>
   OrganizationMember.findAll({
     where: { userId, status: 'active' },
-    include: [{ model: Organization, as: 'organization' }],
+    include: [{ model: Organization, as: 'organization', include: withPlan() }],
     order: [['createdAt', 'ASC']],
   });
 

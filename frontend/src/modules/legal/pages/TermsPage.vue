@@ -54,7 +54,7 @@ const SECTIONS: LegalSection[] = [
 
     <h2 id="content">Your content</h2>
     <p>
-      You and your organisation keep ownership of everything you put into {{ LEGAL.productName }} — issues, comments, files and other content. You give us a
+      You and your organisation keep ownership of everything you put into {{ LEGAL.productName }} — tasks, comments, files and other content. You give us a
       limited licence to host, copy, process and display that content only as needed to provide and secure the service. You are responsible for having the right
       to upload it.
     </p>

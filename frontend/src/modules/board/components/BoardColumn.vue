@@ -63,7 +63,7 @@ const isOverLimit = computed(() => props.status.wipLimit !== null && issues.valu
     </VueDraggable>
 
     <div v-if="editable" class="px-2 pb-2">
-      <QuickAddInput :project-id="projectId" :defaults="{ statusId: status.id, sprintId }" placeholder="Add issue…" />
+      <QuickAddInput :project-id="projectId" :defaults="{ statusId: status.id, sprintId }" placeholder="Add task…" />
     </div>
   </section>
 </template>

@@ -5,7 +5,7 @@
  */
 const BASE_URL = process.argv[2] ?? 'http://localhost:4000/api';
 const PASSWORD = 'Password123!';
-const TEST_EMAIL = 'org-test@vector.dev';
+const TEST_EMAIL = 'org-test@northwind.dev';
 let failures = 0;
 
 async function request(token, method, path, body, organizationId) {
@@ -44,17 +44,17 @@ const acmeId = nora.organization.id;
 
 const taken = await request(null, 'GET', `/organizations/check-slug?slug=${slug}`);
 expect('a used address is taken, with a suggestion', taken.body?.available === false && Boolean(taken.body?.suggestion), taken.body?.suggestion);
-const dupe = await request(null, 'POST', '/auth/register', { ...signup, email: 'someone-else@vector.dev' });
+const dupe = await request(null, 'POST', '/auth/register', { ...signup, email: 'someone-else@northwind.dev' });
 expect('signup with a taken address is rejected on the address field', dupe.status === 400 && dupe.body?.details?.some((detail) => detail.path === 'organizationSlug'), dupe.body?.message);
 
 // Isolation from the demo organization
-const alex = (await request(null, 'POST', '/auth/login', { email: 'alex@vector.dev', password: PASSWORD })).body;
-const project = await request(nora.token, 'POST', '/projects', { name: 'Acme Web', key: 'VEC', type: 'kanban' }, acmeId);
-expect('project keys are per organization (VEC exists in the demo org too)', project.status === 201, `status ${project.status} ${project.body?.message ?? ''}`);
+const alex = (await request(null, 'POST', '/auth/login', { email: 'alex@northwind.dev', password: PASSWORD })).body;
+const project = await request(nora.token, 'POST', '/projects', { name: 'Acme Web', key: 'NWA', type: 'kanban' }, acmeId);
+expect('project keys are per organization (NWA exists in the demo org too)', project.status === 201, `status ${project.status} ${project.body?.message ?? ''}`);
 const acmeProject = project.body?.project ?? project.body;
 const issue = await request(nora.token, 'POST', '/issues', { projectId: acmeProject.id, title: 'Acme first task' }, acmeId);
 const acmeIssue = issue.body?.issue;
-expect('issue keys can repeat across organizations', acmeIssue?.key?.startsWith('VEC-'), acmeIssue?.key);
+expect('issue keys can repeat across organizations', acmeIssue?.key?.startsWith('NWA-'), acmeIssue?.key);
 
 const noraProjects = (await request(nora.token, 'GET', '/projects', null, acmeId)).body;
 const noraList = Array.isArray(noraProjects) ? noraProjects : noraProjects.projects;
@@ -72,12 +72,12 @@ const peopleList = Array.isArray(people) ? people : people.users;
 expect('people search stays inside the organization', peopleList.length === 1 && peopleList[0].email === TEST_EMAIL, `${peopleList.length} people`);
 
 // Invitations, switching and roles
-const invited = await request(nora.token, 'POST', '/workspace/invitations', { email: 'diego@vector.dev', role: 'member' }, acmeId);
+const invited = await request(nora.token, 'POST', '/workspace/invitations', { email: 'diego@northwind.dev', role: 'member' }, acmeId);
 expect('admins invite people to the organization', invited.status === 201 && invited.body.member?.workspaceRole === 'member', `status ${invited.status}`);
-const again = await request(nora.token, 'POST', '/workspace/invitations', { email: 'diego@vector.dev' }, acmeId);
+const again = await request(nora.token, 'POST', '/workspace/invitations', { email: 'diego@northwind.dev' }, acmeId);
 expect('inviting someone twice is refused', again.status === 409);
 
-const diego = (await request(null, 'POST', '/auth/login', { email: 'diego@vector.dev', password: PASSWORD })).body;
+const diego = (await request(null, 'POST', '/auth/login', { email: 'diego@northwind.dev', password: PASSWORD })).body;
 const diegoOrgs = (await request(diego.token, 'GET', '/organizations')).body.organizations;
 expect('an invited person can belong to several organizations', diegoOrgs.some((org) => org.id === acmeId) && diegoOrgs.length >= 2, diegoOrgs.map((org) => org.name).join(', '));
 const switched = await request(diego.token, 'POST', `/organizations/${acmeId}/switch`);
@@ -92,7 +92,7 @@ await request(diego.token, 'POST', `/organizations/${diegoOrgs.find((org) => org
 const renamed = await request(nora.token, 'PATCH', '/workspace', { name: 'Acme Test Co' }, acmeId);
 expect('admins rename the organization', renamed.status === 200 && renamed.body.settings.name === 'Acme Test Co');
 const members = (await request(nora.token, 'GET', '/workspace/members', null, acmeId)).body.members;
-expect('the member list covers only this organization', members.length === 2 && members.some((member) => member.email === 'diego@vector.dev'), members.map((member) => member.name).join(', '));
+expect('the member list covers only this organization', members.length === 2 && members.some((member) => member.email === 'diego@northwind.dev'), members.map((member) => member.name).join(', '));
 const alexMembers = (await request(alex.token, 'GET', '/workspace/members')).body.members;
 expect('the demo organization does not list Acme people', !alexMembers.some((member) => member.email === TEST_EMAIL));
 const removed = await request(nora.token, 'DELETE', `/workspace/members/${invited.body.member.id}`, null, acmeId);

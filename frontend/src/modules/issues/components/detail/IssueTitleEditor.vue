@@ -31,7 +31,7 @@ function save() {
     v-model="draft"
     rows="2"
     class="w-full resize-none border border-ring bg-background px-2 py-1 text-xl font-semibold tracking-tight outline-none ring-[3px] ring-ring/30 field-sizing-content"
-    aria-label="Issue title"
+    aria-label="Task title"
     @keydown.enter.prevent="save"
     @keydown.esc="isEditing = false"
     @blur="save"

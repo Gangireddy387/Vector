@@ -69,8 +69,8 @@ async function save() {
   <Dialog v-model:open="open">
     <DialogContent class="sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle>{{ template ? 'Edit template' : 'New issue template' }}</DialogTitle>
-        <DialogDescription>Templates pre-fill type, priority, description, labels and sub-tasks when creating issues.</DialogDescription>
+        <DialogTitle>{{ template ? 'Edit template' : 'New task template' }}</DialogTitle>
+        <DialogDescription>Templates pre-fill type, priority, description, labels and sub-tasks when creating tasks.</DialogDescription>
       </DialogHeader>
       <form class="space-y-4" @submit.prevent="save">
         <div class="grid gap-3 sm:grid-cols-2">
@@ -86,7 +86,7 @@ async function save() {
         <FormField label="Description" for="template-body" hint="Markdown supported. Use checklists for acceptance criteria.">
           <Textarea id="template-body" :model-value="form.body ?? ''" rows="6" class="font-mono text-[13px]" @update:model-value="(value) => (form.body = value)" />
         </FormField>
-        <FormField label="Sub-tasks" for="template-subtasks" hint="One per line — created automatically with each issue.">
+        <FormField label="Sub-tasks" for="template-subtasks" hint="One per line — created automatically with each task.">
           <Textarea id="template-subtasks" v-model="subtaskText" rows="3" />
         </FormField>
         <DialogFooter>

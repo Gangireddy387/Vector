@@ -100,12 +100,12 @@ async function assertRelations(projectId, data, currentIssueId = null) {
   if (data.sprintId) {
     const sprint = await Sprint.findOne({ where: { id: data.sprintId, projectId } });
     if (!sprint) throw ApiError.badRequest('Sprint does not belong to this project');
-    if (sprint.state === 'completed') throw ApiError.badRequest('Cannot add issues to a completed sprint');
+    if (sprint.state === 'completed') throw ApiError.badRequest('Cannot add tasks to a completed sprint');
   }
   if (data.parentId) {
-    if (data.parentId === currentIssueId) throw ApiError.badRequest('An issue cannot be its own parent');
+    if (data.parentId === currentIssueId) throw ApiError.badRequest('A task cannot be its own parent');
     const parent = await Issue.findOne({ where: { id: data.parentId, projectId } });
-    if (!parent) throw ApiError.badRequest('Parent issue does not belong to this project');
+    if (!parent) throw ApiError.badRequest('Parent task does not belong to this project');
     if (parent.type === 'subtask') throw ApiError.badRequest('Sub-tasks cannot have their own sub-tasks');
   }
   if (data.labelIds?.length) {
@@ -311,7 +311,7 @@ export async function createIssue(rawInput, actor, context = {}) {
 
   const input = rawInput.templateId ? await applyTemplate(rawInput) : { ...rawInput };
   const type = input.type ?? (input.parentId ? 'subtask' : 'task');
-  if (type === 'subtask' && !input.parentId) throw ApiError.badRequest('Sub-tasks need a parent issue');
+  if (type === 'subtask' && !input.parentId) throw ApiError.badRequest('Sub-tasks need a parent task');
 
   let status = await assertRelations(project.id, input);
   if (!status) status = await Status.findOne({ where: { projectId: project.id }, order: [['position', 'ASC']] });
@@ -383,7 +383,7 @@ export async function createIssue(rawInput, actor, context = {}) {
 
 export async function updateIssue(issueId, changes, actor, context = {}) {
   const issue = await Issue.findByPk(issueId, { include: [{ model: Label, as: 'labels', attributes: ['id', 'name'] }] });
-  if (!issue) throw ApiError.notFound('Issue not found');
+  if (!issue) throw ApiError.notFound('Task not found');
 
   const diff = {};
   TRACKED_FIELDS.forEach((field) => {
@@ -392,7 +392,7 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
 
   const nextType = changes.type ?? issue.type;
   const nextParentId = 'parentId' in changes ? changes.parentId : issue.parentId;
-  if (nextType === 'subtask' && !nextParentId) throw ApiError.badRequest('Sub-tasks need a parent issue');
+  if (nextType === 'subtask' && !nextParentId) throw ApiError.badRequest('Sub-tasks need a parent task');
 
   const relationChanges = Object.fromEntries(
     ['statusId', 'assigneeId', 'sprintId', 'parentId'].filter((field) => diff[field]).map((field) => [field, changes[field]]),
@@ -490,9 +490,9 @@ export async function setWatching(issueId, userId, watching) {
 
 export async function createLink(issue, { targetIssue, type }, actor) {
   const target = await loadIssueWithAccess(targetIssue, actor.id);
-  if (target.id === issue.id) throw ApiError.badRequest('An issue cannot be linked to itself');
+  if (target.id === issue.id) throw ApiError.badRequest('A task cannot be linked to itself');
   const where = { sourceIssueId: issue.id, targetIssueId: target.id, type };
-  if (await IssueLink.count({ where })) throw ApiError.conflict('These issues are already linked');
+  if (await IssueLink.count({ where })) throw ApiError.conflict('These tasks are already linked');
   const link = await IssueLink.create({ ...where, createdById: actor.id });
   await logActivity({ projectId: issue.projectId, issueId: issue.id, actorId: actor.id, action: 'linked', toValue: `${LINK_LABELS[type].outward} ${target.key}` });
   return link;

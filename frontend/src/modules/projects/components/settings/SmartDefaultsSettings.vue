@@ -29,16 +29,16 @@ watch(
 )
 
 const STRATEGIES: Array<{ value: AutoAssignStrategy; label: string; description: string }> = [
-  { value: 'none', label: 'Off', description: 'New issues stay unassigned unless someone picks an owner.' },
-  { value: 'round_robin', label: 'Round robin', description: 'Rotate new issues across members in turn.' },
-  { value: 'least_loaded', label: 'Least busy', description: 'Give new issues to whoever has the fewest open points.' },
+  { value: 'none', label: 'Off', description: 'New tasks stay unassigned unless someone picks an owner.' },
+  { value: 'round_robin', label: 'Round robin', description: 'Rotate new tasks across members in turn.' },
+  { value: 'least_loaded', label: 'Least busy', description: 'Give new tasks to whoever has the fewest open points.' },
   { value: 'project_lead', label: 'Project lead', description: 'Send everything to the project lead for triage.' },
   { value: 'default_assignee', label: 'Default person', description: 'Always assign to one chosen member.' },
 ]
 
 const TOGGLES: Array<{ key: 'autoCloseParent' | 'carryOverIncomplete'; label: string; description: string }> = [
   { key: 'autoCloseParent', label: 'Close parents automatically', description: 'When every sub-task is done, the parent moves to done too.' },
-  { key: 'carryOverIncomplete', label: 'Carry over unfinished work', description: 'When a sprint ends, unfinished issues move to the next sprint.' },
+  { key: 'carryOverIncomplete', label: 'Carry over unfinished work', description: 'When a sprint ends, unfinished tasks move to the next sprint.' },
 ]
 
 async function save() {
@@ -71,7 +71,7 @@ async function save() {
     </CardHeader>
     <CardContent>
       <form class="space-y-5" @submit.prevent="save">
-        <FormField label="Auto-assign new issues" for="auto-assign" :hint="STRATEGIES.find((item) => item.value === settings.autoAssign)?.description">
+        <FormField label="Auto-assign new tasks" for="auto-assign" :hint="STRATEGIES.find((item) => item.value === settings.autoAssign)?.description">
           <SelectField
             id="auto-assign"
             :model-value="settings.autoAssign"

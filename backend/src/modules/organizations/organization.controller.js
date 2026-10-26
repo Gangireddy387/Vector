@@ -30,6 +30,7 @@ export const showLogo = (req, res) => {
   res.set('Cache-Control', 'public, max-age=31536000, immutable');
   res.sendFile(organizationService.resolveLogoFile(req.params.fileName));
 };
+export const showPlan = async (req, res) => res.json(await organizationService.getPlanOverview(req.organization));
 export const listMembers = async (req, res) => res.json({ members: await organizationService.listMembers(req.organization.id) });
 export const updateMember = async (req, res) =>
   res.json({ member: await organizationService.updateMember(req.organization.id, req.user, req.params.userId, req.body) });

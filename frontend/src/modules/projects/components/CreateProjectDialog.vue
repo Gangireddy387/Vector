@@ -10,10 +10,13 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
-import type { ProjectType } from '@/types/models'
+import type { ProjectDetail, ProjectType } from '@/types/models'
 import { useProjectsStore } from '../projects.store'
 
+/** With `teamId` the project is created into that team and the page stays where it is. */
+const props = defineProps<{ teamId?: string; teamName?: string }>()
 const open = defineModel<boolean>('open', { default: false })
+const emit = defineEmits<{ created: [project: ProjectDetail] }>()
 
 const router = useRouter()
 const projects = useProjectsStore()
@@ -48,10 +51,13 @@ async function create() {
   isSaving.value = true
   fieldErrors.value = {}
   try {
-    const project = await projects.createProject({ ...form, description: form.description || null })
-    toast.success(`${project.name} is ready`, { description: 'Statuses, labels and a first sprint were set up for you.' })
+    const project = await projects.createProject({ ...form, description: form.description || null, ...(props.teamId ? { teamId: props.teamId } : {}) })
+    toast.success(`${project.name} is ready`, {
+      description: props.teamName ? `Created for ${props.teamName}.` : 'Statuses, labels and a first sprint were set up for you.',
+    })
     open.value = false
-    await router.push({ name: 'project-board', params: { projectId: project.id } })
+    emit('created', project)
+    if (!props.teamId) await router.push({ name: 'project-board', params: { projectId: project.id } })
   } catch (error) {
     fieldErrors.value = getFieldErrors(error)
     if (!Object.keys(fieldErrors.value).length) toast.error(getErrorMessage(error))
@@ -65,7 +71,7 @@ async function create() {
   <Dialog v-model:open="open">
     <DialogContent class="sm:max-w-lg">
       <DialogHeader>
-        <DialogTitle>Create project</DialogTitle>
+        <DialogTitle>{{ teamName ? `New project for ${teamName}` : 'Create project' }}</DialogTitle>
         <DialogDescription>We set up a workflow, labels and your first sprint automatically.</DialogDescription>
       </DialogHeader>
       <form class="space-y-4" @submit.prevent="create">
@@ -88,10 +94,10 @@ async function create() {
           </div>
           <p class="text-xs text-muted-foreground">
             <template v-if="form.key">
-              Issues will be numbered <span class="font-mono font-medium text-foreground">{{ form.key.toUpperCase() }}-1</span>,
+              Tasks will be numbered <span class="font-mono font-medium text-foreground">{{ form.key.toUpperCase() }}-1</span>,
               <span class="font-mono font-medium text-foreground">{{ form.key.toUpperCase() }}-2</span>, …
             </template>
-            <template v-else>The key prefixes every issue in this project, e.g. MA-1.</template>
+            <template v-else>The key prefixes every task in this project, e.g. MA-1.</template>
           </p>
         </div>
         <div class="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Project type">

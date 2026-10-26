@@ -8,6 +8,7 @@ import { pickAssignee } from '../issues/issue-assignment.js';
 import { issueEventInclude } from '../issues/issue.queries.js';
 import { createIssue, updateIssue } from '../issues/issue.service.js';
 import { notifyUsers } from '../notifications/notification.service.js';
+import { projectHasFeature } from '../plans/plan.service.js';
 import { MAX_AUTOMATION_DEPTH } from './automation.constants.js';
 
 // ---------------------------------------------------------------------------
@@ -174,6 +175,7 @@ export async function runAutomations(trigger, { issue: eventIssue, changes = {},
     order: [['createdAt', 'ASC']],
   });
   if (!rules.length) return;
+  if (!(await projectHasFeature(eventIssue.projectId, 'automations'))) return;
   const actor = actorId ? await User.findByPk(actorId) : null;
 
   for (const rule of rules) {

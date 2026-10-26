@@ -33,7 +33,7 @@ watch(
       :model-value="projectId"
       :options="projectOptions"
       :class="stacked ? 'w-full' : 'w-52 shrink-0'"
-      aria-label="Project for new issue"
+      aria-label="Project for new task"
       @update:model-value="(value) => value && (projectId = value)"
     />
     <QuickAddInput

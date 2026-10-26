@@ -26,25 +26,25 @@ const verdict = computed(() => {
   const date = forecast.estimatedDate ? formatDate(forecast.estimatedDate, 'd MMM yyyy') : ''
   switch (forecast.state) {
     case 'complete':
-      return { label: 'Complete', icon: CircleCheck, tone: 'bg-success/12 text-success border-success/30', text: `All ${totals.issues} issues are done. The last one finished on ${date}.` }
+      return { label: 'Complete', icon: CircleCheck, tone: 'bg-success/12 text-success border-success/30', text: `All ${totals.issues} tasks are done. The last one finished on ${date}.` }
     case 'on_track':
       return {
         label: 'On track',
         icon: TrendingUp,
         tone: 'bg-success/12 text-success border-success/30',
-        text: `At the current pace of ${forecast.perWeek} issues a week, the remaining ${totals.open} should be done around ${date}.`,
+        text: `At the current pace of ${forecast.perWeek} tasks a week, the remaining ${totals.open} should be done around ${date}.`,
       }
     case 'at_risk':
       return {
         label: 'At risk',
         icon: CircleAlert,
         tone: 'bg-warning/15 text-amber-700 border-warning/40 dark:text-warning',
-        text: `New work arrives faster (${forecast.scopePerWeek}/week) than it is finished (${forecast.perWeek}/week). If no more is added, the remaining ${totals.open} issues finish around ${date}.`,
+        text: `New work arrives faster (${forecast.scopePerWeek}/week) than it is finished (${forecast.perWeek}/week). If no more is added, the remaining ${totals.open} tasks finish around ${date}.`,
       }
     case 'stalled':
       return { label: 'Stalled', icon: CirclePause, tone: 'bg-destructive/10 text-destructive border-destructive/30', text: 'Nothing was completed in the last 4 weeks, so a finish date cannot be estimated yet.' }
     default:
-      return { label: 'Not started', icon: Rocket, tone: 'bg-muted text-muted-foreground border-border', text: 'Add issues to start tracking progress.' }
+      return { label: 'Not started', icon: Rocket, tone: 'bg-muted text-muted-foreground border-border', text: 'Add tasks to start tracking progress.' }
   }
 })
 </script>
@@ -73,14 +73,14 @@ const verdict = computed(() => {
         </g>
       </svg>
       <div class="space-y-1 lg:hidden">
-        <p class="text-sm font-semibold">{{ progress.totals.done }} of {{ progress.totals.issues }} issues done</p>
+        <p class="text-sm font-semibold">{{ progress.totals.done }} of {{ progress.totals.issues }} tasks done</p>
       </div>
     </div>
 
     <!-- Facts -->
     <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
       <div>
-        <dt class="text-xs text-muted-foreground">Issues done</dt>
+        <dt class="text-xs text-muted-foreground">Tasks done</dt>
         <dd class="font-semibold tabular-nums">{{ progress.totals.done }} <span class="font-normal text-muted-foreground">of {{ progress.totals.issues }}</span></dd>
       </div>
       <div>
@@ -97,7 +97,7 @@ const verdict = computed(() => {
         <dd class="font-semibold">{{ formatDate(startedOn, 'd MMM yyyy') }} <span class="font-normal text-muted-foreground">· {{ age }}</span></dd>
       </div>
       <div>
-        <dt class="text-xs text-muted-foreground">Average time to finish an issue</dt>
+        <dt class="text-xs text-muted-foreground">Average time to finish a task</dt>
         <dd class="font-semibold tabular-nums">{{ progress.totals.averageLeadTimeDays === null ? '—' : `${progress.totals.averageLeadTimeDays} days` }}</dd>
       </div>
       <div v-if="progress.project.lead" class="col-span-2">

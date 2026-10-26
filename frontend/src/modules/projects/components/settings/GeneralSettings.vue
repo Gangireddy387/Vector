@@ -51,7 +51,7 @@ async function toggleArchive() {
 async function remove() {
   const confirmed = await confirm({
     title: `Delete ${props.project.name}?`,
-    description: 'All issues, sprints, comments, attachments and automation rules will be permanently deleted.',
+    description: 'All tasks, sprints, comments, attachments and automation rules will be permanently deleted.',
     confirmLabel: 'Delete project',
     destructive: true,
   })

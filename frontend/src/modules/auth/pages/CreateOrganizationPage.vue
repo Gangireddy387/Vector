@@ -33,8 +33,7 @@ async function submit() {
 }
 
 function signOut() {
-  auth.logout()
-  void router.replace({ name: 'login' })
+  void auth.logout()
 }
 </script>
 

@@ -3,6 +3,7 @@ import { ProjectMember, RecurringTask, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { addDays, toDateOnly } from '../../shared/utils/query.js';
 import { createIssue } from '../issues/issue.service.js';
+import { projectHasFeature } from '../plans/plan.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { computeNextRunAt } from './recurring-task.schedule.js';
 
@@ -79,6 +80,10 @@ export async function runDueRecurringTasks() {
   const dueTasks = await RecurringTask.findAll({ where: { enabled: true, nextRunAt: { [Op.lte]: new Date() } } });
   for (const task of dueTasks) {
     try {
+      if (!(await projectHasFeature(task.projectId, 'recurringTasks'))) {
+        await task.update({ nextRunAt: computeNextRunAt(task, new Date()) });
+        continue;
+      }
       await spawnIssue(task);
     } catch (error) {
       console.error(`[recurring] task ${task.id} failed:`, error.message);

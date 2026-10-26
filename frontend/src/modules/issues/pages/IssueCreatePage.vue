@@ -64,9 +64,9 @@ function onCreated(issue: IssueDetail) {
     <header v-if="isDesktop" class="mx-auto flex w-full max-w-6xl items-center gap-2 px-5 pt-4">
       <Button variant="ghost" size="icon" aria-label="Back" @click="leave()"><ArrowLeft /></Button>
       <div class="min-w-0">
-        <h1 class="truncate text-xl font-bold tracking-tight">Create issue</h1>
+        <h1 class="truncate text-xl font-bold tracking-tight">Create task</h1>
         <p class="text-sm text-muted-foreground">
-          {{ projectName ? `New work item in ${projectName}` : 'Capture the work, then fine-tune the details on the right.' }}
+          {{ projectName ? `New task in ${projectName}` : 'Capture the task, then fine-tune the details on the right.' }}
         </p>
       </div>
     </header>

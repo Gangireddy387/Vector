@@ -9,7 +9,7 @@ const year = new Date().getFullYear()
 const HIGHLIGHTS = [
   { icon: Zap, title: 'Automation rules', text: 'Triage, assign and notify on their own.' },
   { icon: CalendarSync, title: 'Recurring work', text: 'Routine tasks appear on schedule.' },
-  { icon: Bot, title: 'AI assistant', text: 'Draft issues and break work down.' },
+  { icon: Bot, title: 'AI assistant', text: 'Draft tasks and break work down.' },
 ]
 
 /** Static content for the product preview on the right; purely illustrative. */
@@ -104,7 +104,7 @@ const PREVIEW_COLUMNS = [
           <div class="border border-white/30 bg-white/15 p-3 shadow-2xl backdrop-blur-xl">
             <div class="mb-3 flex items-center gap-1.5">
               <span v-for="dot in 3" :key="dot" class="size-2.5 rounded-full bg-white/45" />
-              <span class="ml-3 text-[11px] font-medium text-white/80">Vector Platform · Sprint 1</span>
+              <span class="ml-3 text-[11px] font-medium text-white/80">Northwind App · Sprint 3</span>
             </div>
             <div class="grid grid-cols-3 gap-2.5">
               <div v-for="column in PREVIEW_COLUMNS" :key="column.name" class="space-y-2 bg-white/10 p-2">

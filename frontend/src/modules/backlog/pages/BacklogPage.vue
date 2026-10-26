@@ -136,7 +136,7 @@ function openSprintForm(sprint: Sprint | null = null) {
 async function deleteSprint(sprint: Sprint) {
   const confirmed = await confirm({
     title: `Delete ${sprint.name}?`,
-    description: 'Its issues will move back to the backlog.',
+    description: 'Its tasks will move back to the backlog.',
     confirmLabel: 'Delete sprint',
     destructive: true,
   })

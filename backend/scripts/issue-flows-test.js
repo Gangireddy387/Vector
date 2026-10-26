@@ -38,13 +38,13 @@ const sameSet = (a, b) => a.length === b.length && a.every((item) => b.includes(
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // --- Setup ---------------------------------------------------------------
-token = (await step('sign in as Alex', 'POST', '/auth/login', { email: 'alex@vector.dev', password: 'Password123!' })).token;
+token = (await step('sign in as Alex', 'POST', '/auth/login', { email: 'alex@northwind.dev', password: 'Password123!' })).token;
 const me = (await step('current user', 'GET', '/auth/me')).user;
 const { projects } = await step('projects', 'GET', '/projects');
-const project = (await step('project detail', 'GET', `/projects/${projects.find((item) => item.key === 'VEC').id}`)).project;
+const project = (await step('project detail', 'GET', `/projects/${projects.find((item) => item.key === 'NWA').id}`)).project;
 const [todo, inProgress, , done] = project.statuses;
 const [labelA, labelB, labelC] = project.labels;
-const priya = project.members.find((member) => member.email === 'priya@vector.dev');
+const priya = project.members.find((member) => member.email === 'priya@northwind.dev');
 const { sprints } = await step('sprints', 'GET', `/projects/${project.id}/sprints`);
 const activeSprint = sprints.find((sprint) => sprint.state === 'active');
 

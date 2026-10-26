@@ -94,7 +94,7 @@ async function loadProjectContext(id: string) {
   const detail = await projects.fetchProject(id)
   if (!form.statusId || !detail.statuses.some((status) => status.id === form.statusId)) form.statusId = detail.statuses[0]?.id ?? ''
   const [projectTemplates, projectSprints] = await Promise.all([
-    templatesApi.list(id),
+    auth.hasFeature('templates') ? templatesApi.list(id) : Promise.resolve([]),
     detail.type === 'scrum' ? sprintsApi.list(id) : Promise.resolve([]),
   ])
   templates.value = projectTemplates
@@ -196,7 +196,7 @@ function buildPayload(): CreateIssueInput {
 
 async function submit() {
   if (!parsed.value.title) {
-    errorMessage.value = 'Give the issue a title'
+    errorMessage.value = 'Give the task a title'
     return
   }
   isSubmitting.value = true
@@ -231,12 +231,12 @@ defineExpose({ createAnother })
   >
     <div class="mx-auto grid w-full max-w-6xl flex-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-4" :class="compact ? 'p-3' : 'px-5 pt-3 pb-5'">
       <!-- What: title, description, sub-tasks -->
-      <section class="space-y-5 border border-border/70 bg-card p-4 shadow-soft sm:p-5" aria-label="Issue content">
+      <section class="space-y-5 border border-border/70 bg-card p-4 shadow-soft sm:p-5" aria-label="Task content">
         <div class="grid gap-2">
           <div class="flex items-center justify-between gap-2">
             <label for="create-title" class="text-sm font-medium">Title</label>
             <div class="flex items-center gap-1">
-              <Button type="button" variant="ghost" size="xs" :loading="isDrafting" @click="draftWithAi">
+              <Button v-if="auth.hasFeature('aiAssistant')" type="button" variant="ghost" size="xs" :loading="isDrafting" @click="draftWithAi">
                 <Sparkles class="text-primary" /> {{ isAiEnabled ? 'Draft with AI' : 'Smart draft' }}
               </Button>
               <QuickAddSyntaxHelp />
@@ -295,7 +295,7 @@ defineExpose({ createAnother })
       </section>
 
       <!-- Where & who: project and fields -->
-      <aside class="border border-border/70 bg-card shadow-soft lg:sticky lg:top-6" aria-label="Issue details">
+      <aside class="border border-border/70 bg-card shadow-soft lg:sticky lg:top-6" aria-label="Task details">
         <h2 class="border-b px-4 py-3 text-sm font-semibold">Details</h2>
         <div class="grid gap-4 p-4" :class="compact && 'sm:grid-cols-2'">
           <FormField label="Project" for="create-project">
@@ -378,7 +378,7 @@ defineExpose({ createAnother })
         <div class="flex gap-2 sm:order-3">
           <Button type="button" variant="outline" class="flex-1 sm:flex-none" @click="emit('cancel')">Cancel</Button>
           <Button type="submit" class="flex-1 sm:flex-none" :loading="isSubmitting" :disabled="!projectId">
-            Create issue
+            Create task
             <kbd v-if="!compact" class="ml-1 border border-primary-foreground/30 px-1 text-[10px]">Ctrl ↵</kbd>
           </Button>
         </div>

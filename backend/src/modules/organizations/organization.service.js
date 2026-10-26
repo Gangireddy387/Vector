@@ -1,10 +1,13 @@
 import { Op } from 'sequelize';
+import { config } from '../../config/index.js';
 import { Issue, Organization, OrganizationMember, Project, ProjectMember, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { emitToUser } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
-import { addedToOrganizationEmail, organizationInviteEmail } from '../../shared/services/email-templates.js';
+import { addedToOrganizationEmail, organizationInviteEmail, organizationReviewRequestEmail } from '../../shared/services/email-templates.js';
 import { createImageStore } from '../../shared/services/image-store.js';
+import { removeFromStructure } from '../departments/department.service.js';
+import { assertWithinLimit, entitlementsFor, getDefaultPlan, usageFor } from '../plans/plan.service.js';
 import { createOneTimeToken } from '../auth/token.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
@@ -16,6 +19,7 @@ const RESERVED_SLUGS = new Set([
   'privacy', 'terms', 'legal', 'status', 'billing', 'vector', 'www', 'mail', 'static', 'assets', 'public', 'root', 'system',
   'accept-invite', 'forgot-password', 'reset-password', 'more', 'home', 'dashboard', 'invite', 'join', 'me', 'user', 'users',
   'board', 'backlog', 'chat', 'standup', 'progress', 'automation', 'team', 'teams', 'workspace', 'about', 'pricing', 'blog',
+  'super-admin', 'superadmin', 'pending-approval',
 ]);
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
 
@@ -35,6 +39,10 @@ export const toPublicOrganization = (organization) => ({
   slug: organization.slug,
   defaultMode: organization.defaultMode,
   logoUrl: organization.logoUrl ?? null,
+  status: organization.status ?? 'approved',
+  rejectionReason: organization.status === 'rejected' ? (organization.rejectionReason ?? null) : null,
+  // Only when the plan was loaded; otherwise clients keep the entitlements they already have.
+  ...(organization.plan !== undefined ? { entitlements: entitlementsFor(organization) } : {}),
   updatedAt: organization.updatedAt,
 });
 
@@ -77,9 +85,19 @@ async function assertSlugAvailable(slug, exceptId) {
 
 export async function createOrganization(user, { name, slug }) {
   const address = await assertSlugAvailable(slug || name);
-  const organization = await Organization.create({ name: name.trim(), slug: address, createdById: user.id, updatedById: user.id });
+  const needsApproval = Boolean(config.superAdmin.email);
+  const defaultPlan = await getDefaultPlan();
+  const organization = await Organization.create({
+    name: name.trim(),
+    slug: address,
+    status: needsApproval ? 'pending' : 'approved',
+    planId: defaultPlan?.id ?? null,
+    createdById: user.id,
+    updatedById: user.id,
+  });
   await OrganizationMember.create({ organizationId: organization.id, userId: user.id, role: 'admin' });
   await user.update({ lastOrganizationId: organization.id });
+  if (needsApproval) await sendEmail({ to: config.superAdmin.email, ...organizationReviewRequestEmail({ organization, creator: user }) });
   return organization;
 }
 
@@ -122,7 +140,13 @@ export async function updateOrganization(organization, actor, changes) {
   return broadcastOrganization(organization);
 }
 
-async function broadcastOrganization(organization) {
+/** The current organization's plan and how much of it is used, for its settings page. */
+export async function getPlanOverview(organization) {
+  return { entitlements: entitlementsFor(organization), usage: await usageFor(organization.id) };
+}
+
+/** Pushes the organization's current settings and status to every member's open browsers. */
+export async function broadcastOrganization(organization) {
   const result = toPublicOrganization(organization);
   const members = await OrganizationMember.findAll({ where: { organizationId: organization.id, status: 'active' }, attributes: ['userId'], raw: true });
   members.forEach((member) => emitToUser(member.userId, 'workspace:updated', result));
@@ -184,6 +208,7 @@ export async function updateMember(organizationId, actor, userId, { workspaceRol
   const losesAdmin = membership.role === 'admin' && (workspaceRole === 'member' || status === 'disabled');
   if (losesAdmin) await assertAnotherAdmin(organizationId, userId);
   if (status && membership.user.status === 'invited') throw ApiError.badRequest('Invited people become active when they accept');
+  if (status === 'active' && membership.status === 'disabled') await assertWithinLimit(organizationId, 'members');
   await membership.update({ ...(workspaceRole ? { role: workspaceRole } : {}), ...(status ? { status } : {}) });
   return (await listMembers(organizationId)).find((member) => member.id === userId);
 }
@@ -198,6 +223,7 @@ export async function removeMember(organizationId, actor, userId) {
     await ProjectMember.destroy({ where: { projectId: projectIds, userId } });
     await Issue.update({ assigneeId: null }, { where: { projectId: projectIds, assigneeId: userId } });
   }
+  await removeFromStructure(organizationId, userId);
   await membership.destroy();
   if (membership.user.lastOrganizationId === organizationId) await membership.user.update({ lastOrganizationId: null });
 }
@@ -216,6 +242,8 @@ export async function deleteOrganization(organization, { confirmName }) {
 /** Makes sure a person belongs to an organization, creating an invited account for new email addresses. */
 export async function ensureOrganizationMember(organizationId, email, role = 'member') {
   let user = await User.findOne({ where: { email } });
+  const isMember = user && (await OrganizationMember.count({ where: { organizationId, userId: user.id } }));
+  if (!isMember) await assertWithinLimit(organizationId, 'members');
   let inviteToken = null;
   if (!user) {
     const token = createOneTimeToken();

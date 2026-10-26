@@ -35,10 +35,10 @@ watchDebounced(
   <div class="mx-auto w-full max-w-2xl space-y-4 p-3">
     <div class="relative">
       <Search class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input v-model="query" type="search" placeholder="Search issues, projects, people" class="h-11 pl-9 text-base" autofocus aria-label="Search" />
+      <Input v-model="query" type="search" placeholder="Search tasks, projects, people" class="h-11 pl-9 text-base" autofocus aria-label="Search" />
     </div>
 
-    <EmptyState v-if="!query.trim()" :icon="Search" title="Find anything" description="Search by issue key (VEC-12), title, project or teammate." />
+    <EmptyState v-if="!query.trim()" :icon="Search" title="Find anything" description="Search by task key (VEC-12), title, project or teammate." />
     <p v-else-if="isSearching && !results" class="text-center text-sm text-muted-foreground">Searching…</p>
     <template v-else-if="results">
       <EmptyState
@@ -48,7 +48,7 @@ watchDebounced(
       />
 
       <section v-if="results.issues.length" class="space-y-2">
-        <h2 class="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Issues</h2>
+        <h2 class="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Tasks</h2>
         <ul class="divide-y overflow-hidden border bg-card">
           <li v-for="issue in results.issues" :key="issue.id">
             <RouterLink :to="{ name: 'issue', params: { issueKey: issue.key } }" class="flex items-center gap-3 px-4 py-3 active:bg-muted">

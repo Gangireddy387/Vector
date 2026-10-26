@@ -55,7 +55,7 @@ async function removeLink(linkId: string) {
 <template>
   <section v-if="issue.links.length || isAdding" class="space-y-3">
     <div class="flex items-center justify-between">
-      <h2 class="text-sm font-semibold">Linked issues</h2>
+      <h2 class="text-sm font-semibold">Linked tasks</h2>
     </div>
     <ul v-if="issue.links.length" class="divide-y overflow-hidden border">
       <li v-for="link in issue.links" :key="link.id" class="flex items-center gap-2 bg-card px-3 py-2 text-sm">
@@ -85,7 +85,7 @@ async function removeLink(linkId: string) {
         aria-label="Link type"
         @update:model-value="(value) => value && (linkType = value as IssueLinkType)"
       />
-      <Input v-model="target" placeholder="Issue key, e.g. VEC-12" class="h-8 w-44" autofocus />
+      <Input v-model="target" placeholder="Task key, e.g. VEC-12" class="h-8 w-44" autofocus />
       <Button type="submit" size="sm" :loading="isSaving">Link</Button>
       <Button type="button" size="sm" variant="ghost" @click="isAdding = false">Cancel</Button>
     </form>

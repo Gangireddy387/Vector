@@ -7,6 +7,7 @@ import { getProjectNavigation } from '@/components/layout/projectNavigation'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import { useUiStore } from '@/stores/ui.store'
 import { useProjectsStore } from '../projects.store'
 
@@ -14,11 +15,12 @@ const props = defineProps<{ projectId: string }>()
 
 const projects = useProjectsStore()
 const ui = useUiStore()
+const auth = useAuthStore()
 const { isDesktop } = useDevice()
 const notFound = ref(false)
 
 const project = computed(() => projects.details[props.projectId])
-const navigation = computed(() => (project.value ? getProjectNavigation(project.value) : []))
+const navigation = computed(() => (project.value ? getProjectNavigation(project.value, auth.hasFeature) : []))
 
 watch(
   () => props.projectId,
@@ -57,7 +59,7 @@ onBeforeUnmount(() => (projects.currentProjectId = null))
           <h1 class="truncate text-lg font-semibold">{{ project.name }}</h1>
         </div>
         <UserAvatarStack :users="project.members" :max="5" class="ml-2" />
-        <Button size="sm" class="ml-auto" @click="ui.openCreateIssue({ projectId: project.id })"><Plus /> Issue</Button>
+        <Button size="sm" class="ml-auto" @click="ui.openCreateIssue({ projectId: project.id })"><Plus /> Task</Button>
       </div>
       <nav class="mt-2 -mb-px flex gap-1" aria-label="Project sections">
         <RouterLink

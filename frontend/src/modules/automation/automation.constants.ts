@@ -16,11 +16,11 @@ import type {
 import type { RuleInput } from './automation.api'
 
 export const TRIGGER_OPTIONS: Array<{ value: AutomationTrigger; label: string; sentence: string }> = [
-  { value: 'issue.created', label: 'Issue created', sentence: 'When an issue is created' },
+  { value: 'issue.created', label: 'Task created', sentence: 'When a task is created' },
   { value: 'issue.status_changed', label: 'Status changed', sentence: 'When the status changes' },
   { value: 'issue.assigned', label: 'Assignee changed', sentence: 'When the assignee changes' },
   { value: 'issue.priority_changed', label: 'Priority changed', sentence: 'When the priority changes' },
-  { value: 'issue.updated', label: 'Any field updated', sentence: 'When an issue is updated' },
+  { value: 'issue.updated', label: 'Any field updated', sentence: 'When a task is updated' },
   { value: 'comment.created', label: 'Comment added', sentence: 'When someone comments' },
   { value: 'issue.due_soon', label: 'Due date approaching', sentence: 'When the due date is near' },
 ]
@@ -66,7 +66,7 @@ export const VALUELESS_OPERATORS: ConditionOperator[] = ['is_empty', 'is_not_emp
 export const MULTI_VALUE_OPERATORS: ConditionOperator[] = ['in', 'not_in']
 
 export const ACTION_OPTIONS: Array<{ value: AutomationActionType; label: string }> = [
-  { value: 'assign', label: 'Assign issue' },
+  { value: 'assign', label: 'Assign task' },
   { value: 'set_status', label: 'Change status' },
   { value: 'set_priority', label: 'Set priority' },
   { value: 'add_labels', label: 'Add labels' },

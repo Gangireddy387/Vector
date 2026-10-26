@@ -71,7 +71,7 @@ const width = (part: number, whole: number) => `${whole ? (part / whole) * 100 :
       v-if="!report.modules.length"
       :icon="Layers"
       title="No modules yet"
-      description="Create an epic for each feature or area, then link stories and tasks to it. Each epic is tracked here from its first issue to delivery."
+      description="Create an epic for each feature or area, then link stories and tasks to it. Each epic is tracked here from its first task to delivery."
       class="border bg-card py-12"
     />
 
@@ -122,7 +122,7 @@ const width = (part: number, whole: number) => `${whole ? (part / whole) * 100 :
                 <span class="h-full bg-primary/45 transition-[width] duration-500" :style="{ width: width(module.inProgress, module.total) }" />
               </div>
               <p class="flex justify-between gap-2 text-xs text-muted-foreground tabular-nums">
-                <span><span class="font-semibold text-foreground">{{ module.completion }}%</span> · {{ module.done }}/{{ module.total }} issues</span>
+                <span><span class="font-semibold text-foreground">{{ module.completion }}%</span> · {{ module.done }}/{{ module.total }} tasks</span>
                 <span v-if="module.points">{{ module.donePoints }}/{{ module.points }} pts</span>
               </p>
             </div>
@@ -173,7 +173,7 @@ const width = (part: number, whole: number) => `${whole ? (part / whole) * 100 :
               <ChevronRight class="size-4 shrink-0 text-muted-foreground transition-transform" :class="expanded.has('unplanned') && 'rotate-90'" />
               <div class="min-w-0">
                 <p class="text-sm font-medium">Not in a module</p>
-                <p class="text-xs text-muted-foreground">Issues that are not linked to any epic</p>
+                <p class="text-xs text-muted-foreground">Tasks that are not linked to any epic</p>
               </div>
             </div>
             <div class="space-y-1.5">
@@ -182,7 +182,7 @@ const width = (part: number, whole: number) => `${whole ? (part / whole) * 100 :
                 <span class="h-full bg-primary/45" :style="{ width: width(report.unplanned.inProgress, report.unplanned.total) }" />
               </div>
               <p class="text-xs text-muted-foreground tabular-nums">
-                <span class="font-semibold text-foreground">{{ report.unplanned.completion }}%</span> · {{ report.unplanned.done }}/{{ report.unplanned.total }} issues
+                <span class="font-semibold text-foreground">{{ report.unplanned.completion }}%</span> · {{ report.unplanned.done }}/{{ report.unplanned.total }} tasks
               </p>
             </div>
             <UserAvatarStack v-if="report.unplanned.contributors.length" :users="report.unplanned.contributors.map((row) => row.user)" :max="4" />

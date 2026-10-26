@@ -65,7 +65,7 @@ const completionTone = (value: number) => (value >= 85 ? 'text-success' : value 
         tone="success"
         explanation="Share of committed work finished, per completed sprint."
       />
-      <ReportKpiCard label="Average velocity" :value="velocityLabel" :icon="Zap" tone="info" :explanation="usePoints ? 'Story points delivered per sprint.' : 'Issues delivered per sprint.'" />
+      <ReportKpiCard label="Average velocity" :value="velocityLabel" :icon="Zap" tone="info" :explanation="usePoints ? 'Story points delivered per sprint.' : 'Tasks delivered per sprint.'" />
       <ReportKpiCard
         label="Carried over"
         :value="report.totals.totalCarriedOver"
@@ -138,7 +138,7 @@ const completionTone = (value: number) => (value >= 85 ? 'text-success' : value 
                 </div>
                 <p class="flex justify-between gap-2 text-xs text-muted-foreground tabular-nums">
                   <span>
-                    <span class="font-semibold text-foreground">{{ sprint.delivered }}</span>/{{ sprint.committed }} issues
+                    <span class="font-semibold text-foreground">{{ sprint.delivered }}</span>/{{ sprint.committed }} tasks
                     <template v-if="sprint.committedPoints"> · {{ sprint.deliveredPoints }}/{{ sprint.committedPoints }} pts</template>
                   </span>
                   <span v-if="sprint.carriedOver">{{ sprint.carriedOver }} {{ sprint.state === 'completed' ? 'carried over' : 'left' }}</span>
@@ -158,7 +158,7 @@ const completionTone = (value: number) => (value >= 85 ? 'text-success' : value 
                 <h3 class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Who delivered</h3>
                 <ContributorList :contributors="sprint.contributors" />
                 <p v-if="sprint.state === 'completed' && sprint.carriedOver" class="mt-3 text-xs text-muted-foreground">
-                  Unfinished issues moved to another sprint when this one closed, so only delivered work is listed per person.
+                  Unfinished tasks moved to another sprint when this one closed, so only delivered work is listed per person.
                 </p>
               </div>
               <div class="space-y-3 text-sm">

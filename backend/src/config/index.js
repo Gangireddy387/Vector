@@ -48,6 +48,12 @@ export const config = {
   jobs: {
     enabled: process.env.JOBS_ENABLED !== 'false',
   },
+  /** Portal owner who approves new organizations. Without an email, new organizations are approved automatically. */
+  superAdmin: {
+    email: (process.env.SUPER_ADMIN_EMAIL ?? '').trim().toLowerCase(),
+    password: process.env.SUPER_ADMIN_PASSWORD ?? '',
+    name: process.env.SUPER_ADMIN_NAME?.trim() || 'Super Admin',
+  },
 };
 
 export const isProduction = config.env === 'production';

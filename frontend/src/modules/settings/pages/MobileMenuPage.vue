@@ -1,31 +1,31 @@
 <script setup lang="ts">
-import { BarChart3, Building2, Check, ChevronRight, Download, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck } from 'lucide-vue-next'
+import { BarChart3, Building2, Check, ChevronRight, Crown, Download, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck } from 'lucide-vue-next'
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { usePwaInstall } from '@/composables/usePwaInstall'
 import { useAuthStore } from '@/modules/auth/auth.store'
-import { useNotificationsStore } from '@/modules/notifications/notifications.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 
 const auth = useAuthStore()
 const projects = useProjectsStore()
-const notifications = useNotificationsStore()
-const router = useRouter()
 const { canInstall, install } = usePwaInstall()
 
 async function signOut() {
-  auth.logout()
-  notifications.reset()
-  await router.push({ name: 'login' })
+  await auth.logout()
 }
 
 const LINKS = computed(() => [
-  { to: { name: 'issues' }, label: 'All issues', icon: ListTodo },
-  { to: { name: 'reports' }, label: 'Reports', icon: BarChart3 },
+  { to: { name: 'issues' }, label: 'All tasks', icon: ListTodo },
+  ...(auth.hasFeature('reports') ? [{ to: { name: 'reports' }, label: 'Reports', icon: BarChart3 }] : []),
   { to: { name: 'search' }, label: 'Search', icon: Search },
   { to: { name: 'settings' }, label: 'Settings', icon: Settings },
-  ...(auth.isOrganizationAdmin ? [{ to: { name: 'workspace-admin' }, label: 'Organization settings', icon: ShieldCheck }] : []),
+  ...(auth.isOrganizationAdmin
+    ? [
+        { to: { name: 'departments' }, label: 'Departments', icon: Building2 },
+        { to: { name: 'workspace-admin' }, label: 'Organization settings', icon: ShieldCheck },
+      ]
+    : []),
+  ...(auth.isSuperAdmin ? [{ to: { name: 'super-admin' }, label: 'Super admin', icon: Crown }] : []),
 ])
 
 const openOrganization = (organizationId: string) => organizationId !== auth.organization?.id && auth.switchOrganization(organizationId)

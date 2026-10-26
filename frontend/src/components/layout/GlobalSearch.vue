@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import { useTheme } from '@/composables/useTheme'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import { type SearchResults, searchApi } from '@/modules/search/search.api'
 import { useUiStore } from '@/stores/ui.store'
@@ -24,6 +25,7 @@ interface SearchItem {
 const ui = useUiStore()
 const router = useRouter()
 const projects = useProjectsStore()
+const auth = useAuthStore()
 const { resolvedTheme, preference } = useTheme()
 
 const rootRef = useTemplateRef<HTMLElement>('root')
@@ -48,12 +50,12 @@ const go = (to: Parameters<typeof router.push>[0]) => () => {
 }
 
 const actions = computed<SearchItem[]>(() => [
-  { id: 'create', group: 'Actions', label: 'Create issue', hint: 'C', icon: Plus, run: () => { close(); ui.openCreateIssue() } },
+  { id: 'create', group: 'Actions', label: 'Create task', hint: 'C', icon: Plus, run: () => { close(); ui.openCreateIssue() } },
   { id: 'home', group: 'Navigate', label: 'Go to Home', hint: 'G H', icon: House, run: go({ name: 'home' }) },
-  { id: 'issues', group: 'Navigate', label: 'Go to All issues', hint: 'G A', icon: ListTodo, run: go({ name: 'issues' }) },
+  { id: 'issues', group: 'Navigate', label: 'Go to All tasks', hint: 'G A', icon: ListTodo, run: go({ name: 'issues' }) },
   { id: 'inbox', group: 'Navigate', label: 'Go to Inbox', hint: 'G I', icon: Inbox, run: go({ name: 'inbox' }) },
   { id: 'projects', group: 'Navigate', label: 'Go to Projects', hint: 'G P', icon: FolderKanban, run: go({ name: 'projects' }) },
-  { id: 'reports', group: 'Navigate', label: 'Go to Reports', icon: BarChart3, run: go({ name: 'reports' }) },
+  ...(auth.hasFeature('reports') ? [{ id: 'reports', group: 'Navigate', label: 'Go to Reports', icon: BarChart3, run: go({ name: 'reports' }) }] : []),
   { id: 'settings', group: 'Navigate', label: 'Open settings', icon: Settings, run: go({ name: 'settings' }) },
   {
     id: 'theme',
@@ -83,7 +85,7 @@ const items = computed<SearchItem[]>(() => {
   return [
     ...(found?.issues ?? []).map((issue) => ({
       id: `issue-${issue.id}`,
-      group: 'Issues',
+      group: 'Tasks',
       label: issue.title,
       hint: issue.key,
       issue,
@@ -101,7 +103,7 @@ const items = computed<SearchItem[]>(() => {
       id: `person-${person.id}`,
       group: 'People',
       label: person.name,
-      hint: 'View assigned issues',
+      hint: 'View assigned tasks',
       icon: UserIcon,
       run: go({ name: 'issues', query: { assigneeId: person.id } }),
     })),
@@ -192,7 +194,7 @@ function clearQuery() {
         v-model="query"
         type="text"
         class="h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
-        placeholder="Search issues, projects, people…"
+        placeholder="Search tasks, projects, people…"
         role="combobox"
         aria-label="Search"
         aria-controls="global-search-results"
@@ -229,7 +231,7 @@ function clearQuery() {
       >
         <div id="global-search-results" ref="list" class="max-h-[min(60vh,28rem)] overflow-y-auto p-1.5" role="listbox">
           <p v-if="!items.length" class="py-8 text-center text-sm text-muted-foreground">
-            {{ isSearching ? 'Searching…' : 'No results. Try an issue key like VEC-12.' }}
+            {{ isSearching ? 'Searching…' : 'No results. Try a task key like VEC-12.' }}
           </p>
           <section v-for="[group, groupItems] in groups" :key="group" class="mb-1.5 last:mb-0">
             <h3 class="px-2 py-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{{ group }}</h3>

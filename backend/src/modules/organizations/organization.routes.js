@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { requireOrganizationAdmin, requireOrganizationCreator } from '../../shared/middleware/authenticate.js';
+import { requireOrganization, requireOrganizationAdmin, requireOrganizationCreator } from '../../shared/middleware/authenticate.js';
 import { validate } from '../../shared/middleware/validate.js';
 import * as controller from './organization.controller.js';
 import { logoUpload } from './organization.service.js';
@@ -27,6 +27,7 @@ organizationAdminRoutes.patch('/workspace', requireOrganizationAdmin, validate({
 organizationAdminRoutes.delete('/workspace', requireOrganizationAdmin, validate({ body: deleteOrganizationSchema }), controller.remove);
 organizationAdminRoutes.post('/workspace/logo', requireOrganizationAdmin, logoUpload, controller.uploadLogo);
 organizationAdminRoutes.delete('/workspace/logo', requireOrganizationAdmin, controller.removeLogo);
+organizationAdminRoutes.get('/workspace/plan', requireOrganization, controller.showPlan);
 organizationAdminRoutes.get('/workspace/members', requireOrganizationAdmin, controller.listMembers);
 organizationAdminRoutes.post('/workspace/invitations', requireOrganizationAdmin, validate({ body: inviteMemberSchema }), controller.invite);
 organizationAdminRoutes.patch('/workspace/members/:userId', requireOrganizationAdmin, validate({ body: updateMemberSchema }), controller.updateMember);

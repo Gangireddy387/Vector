@@ -19,7 +19,7 @@ const maxOpen = computed(() => Math.max(1, ...props.rows.map((row) => row.open))
         <thead>
           <tr class="border-y bg-muted/40 text-left text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
             <th class="px-4 py-2 font-semibold">Person</th>
-            <th class="w-1/3 px-3 py-2 font-semibold">Open issues</th>
+            <th class="w-1/3 px-3 py-2 font-semibold">Open tasks</th>
             <th class="px-3 py-2 text-right font-semibold">Points</th>
             <th class="px-3 py-2 text-right font-semibold">Overdue</th>
             <th class="px-4 py-2 text-right font-semibold">Completed</th>

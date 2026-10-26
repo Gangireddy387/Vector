@@ -31,7 +31,7 @@ export function describeActivity(activity: Activity) {
   let text: string
   switch (activity.action) {
     case 'created':
-      text = source === 'recurring' ? 'created this from a recurring schedule' : 'created the issue'
+      text = source === 'recurring' ? 'created this from a recurring schedule' : 'created the task'
       break
     case 'updated':
       if (field === 'description') text = 'updated the description'

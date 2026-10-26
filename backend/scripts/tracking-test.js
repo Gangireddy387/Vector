@@ -23,8 +23,8 @@ function expect(label, condition, detail = '') {
   if (!condition) failures += 1;
 }
 
-const admin = await login('alex@vector.dev');
-const member = await login('diego@vector.dev');
+const admin = await login('alex@northwind.dev');
+const member = await login('diego@northwind.dev');
 
 const projects = (await request(admin, 'GET', '/projects')).body;
 const list = Array.isArray(projects) ? projects : projects.projects ?? projects.data;

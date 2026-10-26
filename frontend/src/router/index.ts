@@ -7,6 +7,7 @@ import { backlogRoutes } from '@/modules/backlog/backlog.routes'
 import { boardRoutes } from '@/modules/board/board.routes'
 import { collaborationRoutes } from '@/modules/chat/chat.routes'
 import { dashboardRoutes } from '@/modules/dashboard/dashboard.routes'
+import { departmentRoutes } from '@/modules/departments/departments.routes'
 import { issueRoutes, projectIssueRoutes } from '@/modules/issues/issues.routes'
 import { legalRoutes } from '@/modules/legal/legal.routes'
 import { notificationRoutes } from '@/modules/notifications/notifications.routes'
@@ -14,6 +15,8 @@ import { projectRoutes, projectSettingsRoutes } from '@/modules/projects/project
 import { globalReportRoutes, reportRoutes } from '@/modules/reports/reports.routes'
 import { searchRoutes } from '@/modules/search/search.routes'
 import { settingsRoutes } from '@/modules/settings/settings.routes'
+import { superAdminRoutes } from '@/modules/super-admin/super-admin.routes'
+import { featureLabel, type PlanFeatureKey } from '@/lib/plan-features'
 import { organizationsApi } from '@/modules/auth/auth.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
 
@@ -33,6 +36,10 @@ declare module 'vue-router' {
     requiresWorkspaceAdmin?: boolean
     /** Signed-in pages that work before the person belongs to any organization. */
     allowWithoutOrganization?: boolean
+    /** Only for the portal's super admin (SUPER_ADMIN_EMAIL). */
+    requiresSuperAdmin?: boolean
+    /** Needs at least one of these plan features in the current organization. */
+    requiresFeature?: PlanFeatureKey[]
   }
 }
 
@@ -110,9 +117,11 @@ const routes: RouteRecordRaw[] = [
       ...searchRoutes,
       ...settingsRoutes,
       ...adminRoutes,
+      ...departmentRoutes,
     ],
   },
   ...legalRoutes,
+  ...superAdminRoutes,
   legacyOrganizationLinkRoute,
   organizationLinkRoute,
   { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/layouts/NotFoundPage.vue') },
@@ -135,8 +144,16 @@ router.beforeEach((to) => {
     return { name: 'login', query: to.fullPath !== '/' ? { redirect: to.fullPath } : {} }
   }
   if (to.meta.guestOnly && auth.isAuthenticated) return { name: 'home' }
+  if (to.meta.requiresSuperAdmin && !auth.isSuperAdmin) return { name: 'home' }
   const needsOrganization = to.matched.some((record) => record.meta.requiresAuth) && !to.matched.some((record) => record.meta.allowWithoutOrganization)
-  if (needsOrganization && auth.isAuthenticated && !auth.organization) return { name: 'organization-create' }
+  if (needsOrganization && auth.isAuthenticated && !auth.organization) return { name: auth.isSuperAdmin ? 'super-admin' : 'organization-create' }
+  if (needsOrganization && auth.isOrganizationBlocked) return { name: 'organization-pending' }
+  if (to.name === 'organization-pending' && !auth.isOrganizationBlocked) return { name: 'home' }
+  const requiredFeatures = to.meta.requiresFeature
+  if (requiredFeatures?.length && !requiredFeatures.some(auth.hasFeature)) {
+    toast.info(`Your plan does not include ${featureLabel(requiredFeatures[0]!).toLowerCase()}`, { description: 'Ask the portal administrator to upgrade.' })
+    return { name: 'home' }
+  }
   if (to.meta.requiresWorkspaceAdmin && !auth.isOrganizationAdmin) return { name: 'home' }
   if (to.name === 'organization-create' && auth.isAuthenticated && !auth.canCreateOrganization) return { name: 'home' }
   return true

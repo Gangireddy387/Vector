@@ -144,12 +144,12 @@ async function confirmDelete() {
     <DialogContent class="sm:max-w-md">
       <DialogHeader>
         <DialogTitle>Delete “{{ deleting?.name }}”?</DialogTitle>
-        <DialogDescription>Issues in this status will be moved to the status you choose.</DialogDescription>
+        <DialogDescription>Tasks in this status will be moved to the status you choose.</DialogDescription>
       </DialogHeader>
       <SelectField
         :model-value="moveTarget"
         :options="project.statuses.filter((item) => item.id !== deleting?.id).map((status) => ({ value: status.id, label: status.name, color: status.color }))"
-        aria-label="Move issues to"
+        aria-label="Move tasks to"
         @update:model-value="(value) => value && (moveTarget = value)"
       />
       <DialogFooter>

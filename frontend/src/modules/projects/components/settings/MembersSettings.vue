@@ -19,7 +19,7 @@ const props = defineProps<{ project: ProjectDetail }>()
 
 const ROLES: Array<{ value: ProjectRole; label: string; description: string }> = [
   { value: 'admin', label: 'Admin', description: 'Manage settings, members and automation' },
-  { value: 'member', label: 'Member', description: 'Create and edit issues' },
+  { value: 'member', label: 'Member', description: 'Create and edit tasks' },
   { value: 'viewer', label: 'Viewer', description: 'Read-only access' },
 ]
 
@@ -58,7 +58,7 @@ async function changeRole(member: ProjectMember, newRole: ProjectRole) {
 async function remove(member: ProjectMember) {
   const confirmed = await confirm({
     title: `Remove ${member.name}?`,
-    description: 'Their issues become unassigned. They can be invited again later.',
+    description: 'Their tasks become unassigned. They can be invited again later.',
     confirmLabel: 'Remove',
     destructive: true,
   })

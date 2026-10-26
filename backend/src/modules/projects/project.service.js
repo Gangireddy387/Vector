@@ -1,12 +1,13 @@
-import { Issue, Label, Organization, Project, ProjectMember, Sprint, Status, User } from '../../database/models.js';
+import { Issue, Label, Organization, Project, ProjectMember, Sprint, Status, Team, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { DomainEvents, eventBus } from '../../shared/events/event-bus.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { addedToProjectEmail, inviteEmail } from '../../shared/services/email-templates.js';
 import { logActivity } from '../activity/activity.service.js';
-import { currentOrganizationId } from '../../shared/context/request-context.js';
+import { currentOrganizationId, currentOrganizationRole } from '../../shared/context/request-context.js';
 import { DEFAULT_LABELS } from '../labels/label.model.js';
 import { ensureOrganizationMember } from '../organizations/organization.service.js';
+import { assertWithinLimit } from '../plans/plan.service.js';
 import { DEFAULT_STATUSES } from '../statuses/status.model.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
@@ -69,8 +70,13 @@ export async function listProjects(userId, { includeArchived }) {
 export async function createProject(user, input) {
   const organizationId = currentOrganizationId();
   if (!organizationId) throw ApiError.badRequest('Create or join an organization first');
+  await assertWithinLimit(organizationId, 'projects');
   const existing = await Project.findOne({ where: { organizationId, key: input.key } });
   if (existing) throw ApiError.conflict(`Project key "${input.key}" is already used in this organization`);
+  if (input.teamId) {
+    if (currentOrganizationRole() !== 'admin') throw ApiError.forbidden('Only organization admins can create projects for a team');
+    if (!(await Team.count({ where: { id: input.teamId, organizationId } }))) throw ApiError.badRequest('Team not found');
+  }
 
   const project = await Project.create({
     ...input,

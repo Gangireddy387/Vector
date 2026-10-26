@@ -81,6 +81,6 @@ export const listIssuesQuery = z.object({
 });
 
 export const createLinkSchema = z.object({
-  targetIssue: z.string().trim().min(1, 'Enter an issue key'),
+  targetIssue: z.string().trim().min(1, 'Enter a task key'),
   type: z.enum(ISSUE_LINK_TYPES).default('relates_to'),
 });

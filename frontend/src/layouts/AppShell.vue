@@ -7,6 +7,8 @@ import MobileShell from '@/components/layout/MobileShell.vue'
 import { useDevice } from '@/composables/useDevice'
 import { useHotkeys } from '@/composables/useHotkeys'
 import { useTimezoneSync } from '@/composables/useTimezoneSync'
+import { useAuthStore } from '@/modules/auth/auth.store'
+import IssueCreateSheet from '@/modules/issues/components/IssueCreateSheet.vue'
 import IssueDetailSheet from '@/modules/issues/components/IssueDetailSheet.vue'
 import { useNotificationsStore } from '@/modules/notifications/notifications.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
@@ -21,6 +23,7 @@ const ui = useUiStore()
 const projects = useProjectsStore()
 const notifications = useNotificationsStore()
 const workspace = useWorkspaceStore()
+const auth = useAuthStore()
 const isShortcutsOpen = ref(false)
 useTimezoneSync()
 
@@ -35,6 +38,14 @@ onMounted(async () => {
   workspace.bindRealtime()
 })
 
+// The super admin can revoke an organization while people are using it.
+watch(
+  () => auth.isOrganizationBlocked,
+  (blocked) => {
+    if (blocked) void router.replace({ name: 'organization-pending' })
+  },
+)
+
 const currentProjectId = () => (typeof route.params.projectId === 'string' ? route.params.projectId : undefined)
 const openCreate = () => ui.openCreateIssue({ projectId: currentProjectId() })
 
@@ -42,7 +53,7 @@ watch(
   () => route.query.create,
   (value) => {
     if (value !== '1') return
-    void router.replace({ name: 'issue-create' })
+    void router.replace({ query: { ...route.query, create: undefined } }).then(() => ui.openCreateIssue())
   },
   { immediate: true },
 )
@@ -72,5 +83,6 @@ useHotkeys({
   </MobileShell>
 
   <IssueDetailSheet v-if="isDesktop" />
+  <IssueCreateSheet v-if="isDesktop" />
   <KeyboardShortcutsDialog v-model:open="isShortcutsOpen" />
 </template>

@@ -93,7 +93,7 @@ async function save() {
             <h3 class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">If <span class="normal-case">(all must match)</span></h3>
             <Button type="button" variant="ghost" size="xs" @click="addCondition"><Plus /> Condition</Button>
           </div>
-          <p v-if="!form.conditions.length" class="text-sm text-muted-foreground">No conditions — the rule runs for every issue.</p>
+          <p v-if="!form.conditions.length" class="text-sm text-muted-foreground">No conditions — the rule runs for every task.</p>
           <RuleConditionEditor
             v-for="(_, index) in form.conditions"
             :key="index"

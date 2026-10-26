@@ -61,14 +61,14 @@ const nextStatus = computed(() => props.statuses[selectedIndex.value + 1] ?? nul
 
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-2 text-sm">
-        <Switch v-model="onlyMine" aria-label="Only my issues" />
-        Only my issues
+        <Switch v-model="onlyMine" aria-label="Only my tasks" />
+        Only my tasks
       </div>
     </div>
 
     <QuickAddInput v-if="editable" :project-id="projectId" :defaults="{ statusId: selectedStatusId, sprintId }" placeholder="Add to this column…" />
 
-    <EmptyState v-if="!visible.length" :icon="Inbox" title="Nothing here" description="Issues in this status will show up here." class="py-10" />
+    <EmptyState v-if="!visible.length" :icon="Inbox" title="Nothing here" description="Tasks in this status will show up here." class="py-10" />
 
     <ul class="space-y-2">
       <li v-for="issue in visible" :key="issue.id" class="overflow-hidden border bg-card">

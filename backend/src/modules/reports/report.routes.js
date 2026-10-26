@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { validate } from '../../shared/middleware/validate.js';
+import { requireFeature } from '../plans/plan.service.js';
 import { requireProjectRole } from '../projects/project-access.js';
 import * as controller from './report.controller.js';
 import { overviewQuery, performanceQuery, summaryQuery } from './report.validation.js';
 
 const router = Router();
 const base = '/projects/:projectId/reports';
+
+router.use(['/reports', base], requireFeature('reports'));
 
 router.get('/reports/overview', validate({ query: overviewQuery }), controller.overview);
 router.get('/reports/performance', validate({ query: performanceQuery }), controller.performance);

@@ -108,8 +108,8 @@ const burnupTooltips = computed(
 
         <EmptyState
           v-if="!progress.totals.issues"
-          title="No issues yet"
-          description="Create the first issue and this page will track the project's progress from here on."
+          title="No tasks yet"
+          description="Create the first task and this page will track the project's progress from here on."
           class="border bg-card py-12"
         />
 
@@ -125,7 +125,7 @@ const burnupTooltips = computed(
                 <CardAction v-if="hasPoints">
                   <Tabs v-model="unit">
                     <TabsList class="h-8">
-                      <TabsTrigger value="issues" class="text-xs">Issues</TabsTrigger>
+                      <TabsTrigger value="issues" class="text-xs">Tasks</TabsTrigger>
                       <TabsTrigger value="points" class="text-xs">Points</TabsTrigger>
                     </TabsList>
                   </Tabs>

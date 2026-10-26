@@ -27,9 +27,16 @@ export async function authenticate(req, _res, next) {
   return runWithContext({ userId: user.id, organizationId: req.organization?.id ?? null, organizationRole: req.organizationRole }, next);
 }
 
+/** Pending and rejected organizations cannot use the portal until the super admin approves them. */
+function assertApproved(organization) {
+  if (organization.status === 'pending') throw new ApiError(403, 'This organization is waiting for approval', { code: 'organization_pending' });
+  if (organization.status === 'rejected') throw new ApiError(403, 'This organization was not approved', { code: 'organization_rejected' });
+}
+
 /** For routes that only make sense inside an organization (everything except account and organization setup). */
 export function requireOrganization(req, _res, next) {
   if (!req.organization) throw new ApiError(409, 'Create or join an organization first', { code: 'no_organization' });
+  assertApproved(req.organization);
   next();
 }
 
@@ -44,6 +51,7 @@ export function requireOrganizationCreator(req, _res, next) {
 
 export function requireOrganizationAdmin(req, _res, next) {
   if (!req.organization) throw new ApiError(409, 'Create or join an organization first', { code: 'no_organization' });
+  assertApproved(req.organization);
   if (req.organizationRole !== 'admin') throw ApiError.forbidden('Only organization admins can do this');
   next();
 }

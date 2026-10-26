@@ -43,7 +43,7 @@ export async function deleteStatus(projectId, statusId, moveIssuesTo) {
   const issueCount = await Issue.count({ where: { statusId } });
   if (issueCount) {
     if (!moveIssuesTo || moveIssuesTo === statusId) {
-      throw ApiError.badRequest(`Choose where to move the ${issueCount} issue(s) in "${status.name}"`);
+      throw ApiError.badRequest(`Choose where to move the ${issueCount} task(s) in "${status.name}"`);
     }
     const target = await findStatus(projectId, moveIssuesTo);
     await Issue.update(

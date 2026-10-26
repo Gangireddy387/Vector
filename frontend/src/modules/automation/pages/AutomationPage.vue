@@ -20,6 +20,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { formatDateTime, timeAgo } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import type { AutomationRule, IssueTemplate, RecurringTask } from '@/types/models'
 import { automationApi, recurringTasksApi, type RuleInput, templatesApi } from '../automation.api'
@@ -31,6 +32,7 @@ import { describeSchedule } from '../recurring-schedule'
 
 const route = useRoute()
 const projects = useProjectsStore()
+const auth = useAuthStore()
 const confirm = useConfirm()
 const { isDesktop } = useDevice()
 
@@ -51,12 +53,17 @@ const editingTemplate = ref<IssueTemplate | null>(null)
 const isRecurringDialogOpen = ref(false)
 const editingTask = ref<RecurringTask | null>(null)
 
+const canRules = computed(() => auth.hasFeature('automations'))
+const canTemplates = computed(() => auth.hasFeature('templates'))
+const canRecurring = computed(() => auth.hasFeature('recurringTasks'))
+const defaultTab = computed(() => (canRules.value ? 'rules' : canTemplates.value ? 'templates' : 'recurring'))
+
 async function load() {
   await projects.fetchProject(projectId.value)
   ;[rules.value, templates.value, recurringTasks.value] = await Promise.all([
-    automationApi.listRules(projectId.value),
-    templatesApi.list(projectId.value),
-    recurringTasksApi.list(projectId.value),
+    canRules.value ? automationApi.listRules(projectId.value) : [],
+    canTemplates.value ? templatesApi.list(projectId.value) : [],
+    canRecurring.value ? recurringTasksApi.list(projectId.value) : [],
   ])
 }
 watch(projectId, load, { immediate: true })
@@ -119,7 +126,7 @@ async function runNow(task: RecurringTask) {
 }
 
 async function removeRecurring(task: RecurringTask) {
-  if (!(await confirm({ title: `Stop “${task.title}”?`, description: 'Already created issues are kept.', confirmLabel: 'Delete', destructive: true }))) return
+  if (!(await confirm({ title: `Stop “${task.title}”?`, description: 'Already created tasks are kept.', confirmLabel: 'Delete', destructive: true }))) return
   await recurringTasksApi.remove(projectId.value, task.id)
   await load()
 }
@@ -127,15 +134,15 @@ async function removeRecurring(task: RecurringTask) {
 
 <template>
   <div class="w-full" :class="isDesktop ? 'px-5 py-4' : 'p-3'">
-    <Tabs v-if="project" default-value="rules" class="gap-4">
+    <Tabs v-if="project" :default-value="defaultTab" class="gap-4">
       <TabsList class="w-full sm:w-auto">
-        <TabsTrigger value="rules"><Workflow /> Rules</TabsTrigger>
-        <TabsTrigger value="templates"><LayoutTemplate /> Templates</TabsTrigger>
-        <TabsTrigger value="recurring"><Repeat /> Recurring</TabsTrigger>
+        <TabsTrigger v-if="canRules" value="rules"><Workflow /> Rules</TabsTrigger>
+        <TabsTrigger v-if="canTemplates" value="templates"><LayoutTemplate /> Templates</TabsTrigger>
+        <TabsTrigger v-if="canRecurring" value="recurring"><Repeat /> Recurring</TabsTrigger>
       </TabsList>
 
       <!-- Rules -->
-      <TabsContent value="rules" class="space-y-4">
+      <TabsContent v-if="canRules" value="rules" class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="font-semibold">Automation rules</h2>
@@ -206,11 +213,11 @@ async function removeRecurring(task: RecurringTask) {
       </TabsContent>
 
       <!-- Templates -->
-      <TabsContent value="templates" class="space-y-4">
+      <TabsContent v-if="canTemplates" value="templates" class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 class="font-semibold">Issue templates</h2>
-            <p class="text-sm text-muted-foreground">Pick a template when creating an issue to fill everything in at once.</p>
+            <h2 class="font-semibold">Task templates</h2>
+            <p class="text-sm text-muted-foreground">Pick a template when creating a task to fill everything in at once.</p>
           </div>
           <Button v-if="canEdit" variant="brand" @click="openTemplate()"><Plus /> New template</Button>
         </div>
@@ -243,7 +250,7 @@ async function removeRecurring(task: RecurringTask) {
       </TabsContent>
 
       <!-- Recurring -->
-      <TabsContent value="recurring" class="space-y-4">
+      <TabsContent v-if="canRecurring" value="recurring" class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="font-semibold">Recurring tasks</h2>

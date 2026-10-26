@@ -17,7 +17,7 @@ npm run dev:backend          # API on http://localhost:4000/api
 npm run dev:frontend         # app on http://localhost:5173 (second terminal)
 ```
 
-Sign in with **alex@vector.dev / Password123!** (also `priya@`, `diego@`, `mei@vector.dev`). The login page has a "Use the demo account" shortcut.
+The demo company is **Northwind Labs**: five departments (Engineering, Product & Design, Marketing, Human Resources, Finance), seven teams and seven team-owned projects with tasks in every state. Sign in with **alex@northwind.dev / Password123!** (CEO, organization admin). Other accounts use the same password: `priya@` (Head of Engineering), `sam@` (Frontend lead), `diego@`, `lena@`, `mei@`, `tom@`, `ravi@` (Head of People), `aisha@`, `sofia@` (Finance lead), `james@` — all `@northwind.dev`. The login page has one-click demo shortcuts. The super admin (from `SUPER_ADMIN_*` in `backend/.env`) can review **Contoso Retail** (pending) and **QuickCash Deals** (rejected).
 
 Verify the API end to end with the server running: `npm run test:api`.
 
@@ -56,7 +56,7 @@ Everything works without keys: emails are printed to the backend console and the
 - Keyboard-first desktop: `Ctrl K` / `/` jump to the top-bar search (results open right below it), `C` create, `G H / G I / G P / G B / G L` navigation, `?` shortcuts.
 
 **Workspace administration & appearance**
-- Portal-wide **workspace admin** role (the first account, and `alex@vector.dev` in the demo). Admins open **Workspace** in the sidebar.
+- Organization **admin** role (the organization's creator, and `alex@northwind.dev` / `priya@northwind.dev` in the demo). Admins open **Organization** and **Departments** in the sidebar.
 - **Light and dark mode** (plus "System"), each person chooses in Settings → Appearance or the account menu; the admin sets the default for first-time visitors and the workspace name.
 - People management: promote/demote workspace admins, deactivate/reactivate accounts.
 - Colours are design tokens in `frontend/src/assets/styles/main.css` (`:root` for light, `.dark` for dark); every surface derives from one tint, so a future theme only needs a new tint, primary and brand gradient.

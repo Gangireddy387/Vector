@@ -40,7 +40,7 @@ const SECTIONS: LegalSection[] = [
       <li><strong>Account details</strong> — name, email address and password. Passwords are stored only as a salted bcrypt hash; we never see them in plain text.</li>
       <li><strong>Profile details</strong> — optional job title, time zone and avatar colour.</li>
       <li>
-        <strong>Workspace content</strong> — projects, issues, descriptions, comments, mentions, labels, sprints, time logs, automation rules, recurring tasks
+        <strong>Workspace content</strong> — projects, tasks, descriptions, comments, mentions, labels, sprints, time logs, automation rules, recurring tasks
         and files you attach.
       </li>
       <li><strong>Invitations</strong> — email addresses of colleagues you invite.</li>
@@ -48,7 +48,7 @@ const SECTIONS: LegalSection[] = [
     </ul>
     <h3>Information collected automatically</h3>
     <ul>
-      <li><strong>Activity history</strong> — who changed what and when inside a workspace, shown in issue history and activity feeds.</li>
+      <li><strong>Activity history</strong> — who changed what and when inside a workspace, shown in task history and activity feeds.</li>
       <li><strong>Technical data</strong> — IP address, browser and device type, and request times in server logs, used for security and troubleshooting.</li>
       <li><strong>Last active time</strong> — so admins can see account status.</li>
     </ul>
@@ -74,8 +74,8 @@ const SECTIONS: LegalSection[] = [
 
     <h2 id="ai">AI features</h2>
     <p>
-      If your workspace has AI features enabled, the text you choose to process — for example an issue title and description when you use
-      <em>Draft with AI</em>, or an issue’s description and comments when you use <em>Summarize</em> or <em>Break it down</em> — is sent to our AI provider
+      If your workspace has AI features enabled, the text you choose to process — for example a task title and description when you use
+      <em>Draft with AI</em>, or a task’s description and comments when you use <em>Summarize</em> or <em>Break it down</em> — is sent to our AI provider
       (OpenAI) to generate the result. Under the provider’s API terms this data is not used to train its models. When AI is not configured, these features run
       entirely on our servers using built-in rules and nothing is sent to a third party.
     </p>

@@ -111,7 +111,7 @@ function buildInsights({ days, totals, byProject, workload, isAllProjects }) {
   const period = `the last ${days} days`;
 
   if (!totals.total) {
-    return [{ tone: 'neutral', text: 'No issues match these filters yet. Try a wider period or another project.' }];
+    return [{ tone: 'neutral', text: 'No tasks match these filters yet. Try a wider period or another project.' }];
   }
 
   const { createdInPeriod: created, completedInPeriod: completed } = totals;
@@ -138,7 +138,7 @@ function buildInsights({ days, totals, byProject, workload, isAllProjects }) {
     else if (worst?.overdue) where = `, most of them in ${worst.project.name} (${worst.overdue})`;
     insights.push({ tone: 'warning', text: `${plural(totals.overdue, 'open issue')} ${totals.overdue === 1 ? 'is' : 'are'} past the due date${where}.` });
   } else if (totals.open) {
-    insights.push({ tone: 'positive', text: 'Nothing is overdue. Every open issue is on schedule.' });
+    insights.push({ tone: 'positive', text: 'Nothing is overdue. Every open task is on schedule.' });
   }
 
   if (totals.dueSoon) insights.push({ tone: 'neutral', text: `${plural(totals.dueSoon, 'issue')} ${totals.dueSoon === 1 ? 'is' : 'are'} due in the next 7 days.` });
@@ -148,7 +148,7 @@ function buildInsights({ days, totals, byProject, workload, isAllProjects }) {
     const [busiest] = [...people].sort((a, b) => b.open - a.open);
     const average = people.reduce((total, row) => total + row.open, 0) / people.length;
     if (busiest.open >= 3 && busiest.open >= average * 1.5) {
-      insights.push({ tone: 'warning', text: `${busiest.user.name} has the most open work (${busiest.open} issues, ${Math.round(busiest.open / average * 10) / 10}× the team average). Consider rebalancing.` });
+      insights.push({ tone: 'warning', text: `${busiest.user.name} has the most open work (${busiest.open} tasks, ${Math.round(busiest.open / average * 10) / 10}× the team average). Consider rebalancing.` });
     }
   }
 
@@ -159,7 +159,7 @@ function buildInsights({ days, totals, byProject, workload, isAllProjects }) {
     if (Math.abs(change) >= 15) {
       insights.push({
         tone: change < 0 ? 'positive' : 'warning',
-        text: `Issues now take ${totals.averageCycleDays} days on average from creation to done, ${change < 0 ? 'faster' : 'slower'} than before (${totals.previousCycleDays} days).`,
+        text: `Tasks now take ${totals.averageCycleDays} days on average from creation to done, ${change < 0 ? 'faster' : 'slower'} than before (${totals.previousCycleDays} days).`,
       });
     }
   }
@@ -429,14 +429,14 @@ export async function getProjectProgress(projectId) {
     },
   ];
   const firstDone = [...done].filter((issue) => issue.completedAt).sort((a, b) => a.completedAt - b.completedAt)[0];
-  if (firstDone) milestones.push({ date: firstDone.completedAt, kind: 'first_done', title: 'First issue completed', detail: null });
+  if (firstDone) milestones.push({ date: firstDone.completedAt, kind: 'first_done', title: 'First task completed', detail: null });
   for (const sprint of sprints) {
     if (sprint.startDate && sprint.state !== 'planned') {
       milestones.push({ date: new Date(`${sprint.startDate}T09:00:00`), kind: 'sprint_started', title: `${sprint.name} started`, detail: sprint.goal || null });
     }
     if (sprint.completedAt) {
       const summary = sprint.summary ?? {};
-      const detail = summary.totalPoints ? `${summary.donePoints ?? 0} of ${summary.totalPoints} points done` : summary.issueCount ? `${summary.doneCount ?? 0} of ${summary.issueCount} issues done` : null;
+      const detail = summary.totalPoints ? `${summary.donePoints ?? 0} of ${summary.totalPoints} points done` : summary.issueCount ? `${summary.doneCount ?? 0} of ${summary.issueCount} tasks done` : null;
       milestones.push({ date: sprint.completedAt, kind: 'sprint_completed', title: `${sprint.name} completed`, detail });
     }
   }
@@ -458,8 +458,8 @@ export async function getProjectProgress(projectId) {
         milestones.push({
           date: event.at,
           kind: threshold === 100 ? 'completed' : 'progress',
-          title: threshold === 100 ? 'All issues completed' : `${threshold}% of issues done`,
-          detail: `${doneSoFar} of ${scopeSoFar} issues at the time`,
+          title: threshold === 100 ? 'All tasks completed' : `${threshold}% of tasks done`,
+          detail: `${doneSoFar} of ${scopeSoFar} tasks at the time`,
         });
       }
     }

@@ -39,7 +39,7 @@ async function recolor(label: Label, nextColor: string) {
 }
 
 async function remove(label: Label) {
-  if (!(await confirm({ title: `Delete label “${label.name}”?`, description: 'It is removed from every issue.', confirmLabel: 'Delete', destructive: true }))) return
+  if (!(await confirm({ title: `Delete label “${label.name}”?`, description: 'It is removed from every task.', confirmLabel: 'Delete', destructive: true }))) return
   await projectsApi.removeLabel(props.project.id, label.id)
   await refresh()
 }

@@ -55,14 +55,14 @@ const facts = computed(() => {
   const row = member.value
   if (!row) return []
   return [
-    { label: 'Issues completed', value: row.completed, hint: versusTeam.value },
-    { label: 'Story points', value: row.completedPoints || '—', hint: row.highPriorityDone ? `${row.highPriorityDone} high-priority issues` : null },
+    { label: 'Tasks completed', value: row.completed, hint: versusTeam.value },
+    { label: 'Story points', value: row.completedPoints || '—', hint: row.highPriorityDone ? `${row.highPriorityDone} high-priority tasks` : null },
     { label: 'On time', value: row.onTimeRate === null ? '—' : `${row.onTimeRate}%`, hint: row.withDueDate ? `${row.onTime} of ${row.withDueDate} met the due date` : 'No due dates set' },
     { label: 'Cycle time', value: row.averageCycleDays === null ? '—' : `${row.averageCycleDays} days`, hint: 'From starting work to done' },
     { label: 'Bugs fixed', value: row.bugsFixed, hint: null },
     { label: 'Reopened', value: row.reopened, hint: row.reopened ? 'Finished work that came back' : 'Nothing came back', danger: row.reopened > 0 },
     { label: 'Time logged', value: hours(row.loggedMinutes), hint: null },
-    { label: 'Collaboration', value: row.comments, hint: `comments · ${row.created} issues raised` },
+    { label: 'Collaboration', value: row.comments, hint: `comments · ${row.created} tasks raised` },
   ]
 })
 

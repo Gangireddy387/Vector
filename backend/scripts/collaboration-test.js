@@ -27,11 +27,11 @@ function expect(label, condition, detail = '') {
   if (!condition) failures += 1;
 }
 
-const alex = await login('alex@vector.dev');
-const diego = await login('diego@vector.dev');
+const alex = await login('alex@northwind.dev');
+const diego = await login('diego@northwind.dev');
 const projects = (await request(alex.token, 'GET', '/projects')).body;
 const list = Array.isArray(projects) ? projects : projects.projects ?? projects.data;
-const project = list.find((item) => item.key === 'VEC') ?? list[0];
+const project = list.find((item) => item.key === 'NWA') ?? list[0];
 const issues = (await request(alex.token, 'GET', `/issues?projectId=${project.id}&limit=5`)).body.issues;
 const task = issues[0];
 const created = [];

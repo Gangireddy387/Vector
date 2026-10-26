@@ -103,12 +103,12 @@ const rows = computed(() => {
 
 const COLUMNS: Array<{ key: SortKey; label: string; hint: string; align?: 'right' }> = [
   { key: 'score', label: 'Score', hint: 'Contribution score for this period, 0–100' },
-  { key: 'delivered', label: 'Delivered', hint: 'Issues completed (and story points)', align: 'right' },
-  { key: 'onTimeRate', label: 'On time', hint: 'Completed on or before the due date (issues that had one)', align: 'right' },
+  { key: 'delivered', label: 'Delivered', hint: 'Tasks completed (and story points)', align: 'right' },
+  { key: 'onTimeRate', label: 'On time', hint: 'Completed on or before the due date (tasks that had one)', align: 'right' },
   { key: 'averageCycleDays', label: 'Cycle', hint: 'Average days from starting work to done. Lower is better', align: 'right' },
   { key: 'bugsFixed', label: 'Bugs', hint: 'Bugs fixed', align: 'right' },
-  { key: 'reopened', label: 'Reopened', hint: 'Finished issues that had to be reopened. Lower is better', align: 'right' },
-  { key: 'loggedMinutes', label: 'Logged', hint: 'Time logged on issues', align: 'right' },
+  { key: 'reopened', label: 'Reopened', hint: 'Finished tasks that had to be reopened. Lower is better', align: 'right' },
+  { key: 'loggedMinutes', label: 'Logged', hint: 'Time logged on tasks', align: 'right' },
   { key: 'comments', label: 'Comments', hint: 'Comments written: helping and reviewing others', align: 'right' },
   { key: 'open', label: 'Open now', hint: 'Work assigned right now (overdue in red)', align: 'right' },
 ]
@@ -146,8 +146,8 @@ const reviewOpen = computed({
 function exportCsv() {
   if (!report.value) return
   const header = [
-    'Rank', 'Name', 'Email', 'Score', 'Issues completed', 'Story points', 'On-time %', 'Due-dated issues', 'Avg cycle days',
-    'Bugs fixed', 'High priority done', 'Reopened', 'Hours logged', 'Comments', 'Issues created', 'Open now', 'Overdue now',
+    'Rank', 'Name', 'Email', 'Score', 'Tasks completed', 'Story points', 'On-time %', 'Due-dated tasks', 'Avg cycle days',
+    'Bugs fixed', 'High priority done', 'Reopened', 'Hours logged', 'Comments', 'Tasks created', 'Open now', 'Overdue now',
   ]
   const lines = rows.value.map((row) => [
     row.rank ?? '', row.user.name, row.user.email, row.score ?? '', row.completed, row.completedPoints, row.onTimeRate ?? '', row.withDueDate,
@@ -195,7 +195,7 @@ function exportCsv() {
               <li><span class="font-medium text-foreground">50% Delivery</span> · {{ usesPoints ? 'story points' : 'issues' }} completed, relative to the top performer</li>
               <li><span class="font-medium text-foreground">20% On time</span> · share finished by the due date</li>
               <li><span class="font-medium text-foreground">20% Quality</span> · finished work that did not need reopening</li>
-              <li><span class="font-medium text-foreground">10% Collaboration</span> · comments and issues raised</li>
+              <li><span class="font-medium text-foreground">10% Collaboration</span> · comments and tasks raised</li>
             </ul>
             <p class="text-xs text-muted-foreground">Use it as a starting point for a conversation, together with the details in each person's review, not as the only input.</p>
           </PopoverContent>
@@ -224,7 +224,7 @@ function exportCsv() {
           :value="report.totals.completed"
           :icon="CircleCheck"
           tone="success"
-          :explanation="report.totals.completedPoints ? `${report.totals.completedPoints} story points by ${report.totals.people} people.` : `Issues finished by ${report.totals.people} people.`"
+          :explanation="report.totals.completedPoints ? `${report.totals.completedPoints} story points by ${report.totals.people} people.` : `Tasks finished by ${report.totals.people} people.`"
         />
         <ReportKpiCard
           label="On-time delivery"
@@ -287,7 +287,7 @@ function exportCsv() {
         <header class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
           <div>
             <h2 class="text-sm font-semibold">Member review</h2>
-            <p class="text-xs text-muted-foreground">Click a column to sort. Click a person for their full review: every issue they finished, by module and sprint.</p>
+            <p class="text-xs text-muted-foreground">Click a column to sort. Click a person for their full review: every task they finished, by module and sprint.</p>
           </div>
         </header>
         <div class="overflow-x-auto">

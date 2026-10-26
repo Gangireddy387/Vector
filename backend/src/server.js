@@ -5,6 +5,8 @@ import { prepareDatabase } from './database/connection.js';
 import { sequelize } from './database/models.js';
 import { applyDataUpgrades, applySchemaUpgrades } from './database/upgrades.js';
 import { registerListeners } from './events/register-listeners.js';
+import { ensureDefaultPlans } from './modules/plans/plan.service.js';
+import { ensureSuperAdmin } from './modules/super-admin/super-admin.service.js';
 import { startScheduler } from './jobs/scheduler.js';
 import { initRealtime } from './shared/realtime/socket.js';
 
@@ -13,6 +15,8 @@ async function bootstrap() {
   await applySchemaUpgrades();
   if (config.db.autoSync) await sequelize.sync();
   await applyDataUpgrades();
+  await ensureDefaultPlans();
+  await ensureSuperAdmin();
 
   registerListeners();
 

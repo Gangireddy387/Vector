@@ -30,7 +30,7 @@ const GROUPS: Group[] = [
     icon: Command,
     shortcuts: [
       { label: 'Search and commands', combo: [MOD, 'K'], or: '/' },
-      { label: 'Create issue', combo: ['C'] },
+      { label: 'Create task', combo: ['C'] },
       { label: 'Show keyboard shortcuts', combo: ['?'] },
       { label: 'Submit a form', combo: [MOD, 'Enter'] },
       { label: 'Close a dialog or menu', combo: ['Esc'] },
@@ -43,7 +43,7 @@ const GROUPS: Group[] = [
       { label: 'Home', sequence: ['G', 'H'] },
       { label: 'Inbox', sequence: ['G', 'I'] },
       { label: 'Projects', sequence: ['G', 'P'] },
-      { label: 'All issues', sequence: ['G', 'A'] },
+      { label: 'All tasks', sequence: ['G', 'A'] },
       { label: 'Reports', sequence: ['G', 'R'] },
     ],
   },

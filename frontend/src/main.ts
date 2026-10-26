@@ -15,11 +15,7 @@ async function bootstrap() {
   app.use(pinia)
 
   const auth = useAuthStore(pinia)
-  setUnauthorizedHandler(() => {
-    auth.logout()
-    const redirect = router.currentRoute.value.fullPath
-    void router.push({ name: 'login', query: redirect !== '/' ? { redirect } : {} })
-  })
+  setUnauthorizedHandler(() => void auth.logout(router.currentRoute.value.fullPath))
   const workspace = useWorkspaceStore(pinia)
   await Promise.all([auth.restoreSession(), workspace.load()])
 

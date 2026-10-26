@@ -150,7 +150,7 @@ async function deleteOrganization() {
       <CardHeader>
         <CardTitle class="text-destructive">Delete organization</CardTitle>
         <CardDescription>
-          Permanently deletes {{ workspace.settings.name }} with all of its projects, issues, chat and reports. People keep their accounts and any other
+          Permanently deletes {{ workspace.settings.name }} with all of its projects, tasks, chat and reports. People keep their accounts and any other
           organizations.
         </CardDescription>
       </CardHeader>

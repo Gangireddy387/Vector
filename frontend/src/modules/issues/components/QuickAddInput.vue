@@ -22,7 +22,7 @@ const props = withDefaults(
     autofocus?: boolean
     class?: string
   }>(),
-  { placeholder: 'Add an issue… try “Fix login @me #backend !high ^fri”', autofocus: false },
+  { placeholder: 'Add a task… try “Fix login @me #backend !high ^fri”', autofocus: false },
 )
 const emit = defineEmits<{ created: [issue: IssueDetail] }>()
 
@@ -84,7 +84,7 @@ async function submit() {
         :placeholder="placeholder"
         :autofocus="autofocus"
         :disabled="isSaving"
-        aria-label="Quick add issue"
+        aria-label="Quick add task"
         enterkeyhint="done"
         @keydown.enter.prevent="submit"
         @keydown.esc="text = ''"

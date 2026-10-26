@@ -8,6 +8,7 @@ import automationRoutes from './modules/automations/automation.routes.js';
 import chatRoutes from './modules/chat/chat.routes.js';
 import commentRoutes from './modules/comments/comment.routes.js';
 import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
+import departmentRoutes from './modules/departments/department.routes.js';
 import issueRoutes from './modules/issues/issue.routes.js';
 import labelRoutes from './modules/labels/label.routes.js';
 import notificationRoutes from './modules/notifications/notification.routes.js';
@@ -25,6 +26,7 @@ import userRoutes from './modules/users/user.routes.js';
 import worklogRoutes from './modules/worklogs/worklog.routes.js';
 import { publicWorkspaceRoutes } from './modules/workspace/workspace.routes.js';
 import { organizationAdminRoutes, organizationRoutes, publicOrganizationRoutes } from './modules/organizations/organization.routes.js';
+import superAdminRoutes from './modules/super-admin/super-admin.routes.js';
 
 export function createApiRouter() {
   const router = Router();
@@ -38,11 +40,13 @@ export function createApiRouter() {
   router.use(avatarRoutes);
   router.use(organizationRoutes);
   router.use(organizationAdminRoutes);
+  router.use(superAdminRoutes);
 
   // Everything below works inside the signed-in person's current organization.
   router.use(requireOrganization);
   router.use('/users', userRoutes);
   [
+    departmentRoutes,
     dashboardRoutes,
     searchRoutes,
     projectRoutes,

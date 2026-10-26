@@ -1,3 +1,5 @@
+import type { PlanFeatureKey } from '@/lib/plan-features'
+
 export type IssueType = 'epic' | 'story' | 'task' | 'bug' | 'subtask'
 export type IssuePriority = 'lowest' | 'low' | 'medium' | 'high' | 'highest'
 export type StatusCategory = 'todo' | 'in_progress' | 'done'
@@ -28,6 +30,16 @@ export interface UserPreferences {
 
 export type WorkspaceRole = 'admin' | 'member'
 export type ColorMode = 'light' | 'dark' | 'system'
+/** New organizations wait for the super admin; only approved ones can use the portal. */
+export type OrganizationStatus = 'pending' | 'approved' | 'rejected'
+
+/** What the organization's plan allows; limits of `null` are unlimited. */
+export interface Entitlements {
+  planId: string | null
+  planName: string | null
+  features: Record<PlanFeatureKey, boolean>
+  limits: { members: number | null; projects: number | null }
+}
 
 export interface WorkspaceSettings {
   name: string
@@ -35,6 +47,9 @@ export interface WorkspaceSettings {
   slug?: string
   defaultMode: ColorMode
   logoUrl?: string | null
+  status?: OrganizationStatus
+  rejectionReason?: string | null
+  entitlements?: Entitlements
   updatedAt?: string
 }
 
@@ -45,10 +60,64 @@ export interface OrganizationSummary {
   slug: string
   defaultMode: ColorMode
   logoUrl?: string | null
+  status: OrganizationStatus
+  rejectionReason?: string | null
+  entitlements?: Entitlements
   updatedAt?: string
   role: WorkspaceRole
   memberCount?: number
   projectCount?: number
+}
+
+/** A group of people inside a department; the lead is always one of its members. */
+export interface Team {
+  id: string
+  departmentId: string
+  name: string
+  description: string | null
+  leadId: string | null
+  lead: UserSummary | null
+  members: UserSummary[]
+  /** Active projects the team owns, and the tasks in them. */
+  projectCount: number
+  work: WorkCounts
+}
+
+/** A part of the organization, led by a department head, holding teams. */
+export interface Department {
+  id: string
+  name: string
+  description: string | null
+  headId: string | null
+  head: UserSummary | null
+  teams: Team[]
+  /** Projects owned by the department's teams, and the tasks in them. */
+  projectCount: number
+  work: WorkCounts
+}
+
+/** Task counts for a project, a team or a whole department. */
+export interface WorkCounts {
+  total: number
+  todo: number
+  inProgress: number
+  done: number
+  overdue: number
+}
+
+/** The projects a team owns, the tasks in them, and the organization's other projects to bring in. */
+export interface TeamWork {
+  projects: Array<{
+    id: string
+    key: string
+    name: string
+    color: string
+    type: ProjectType
+    lead: UserSummary | null
+    work: WorkCounts
+  }>
+  totals: WorkCounts
+  otherProjects: Array<{ id: string; key: string; name: string; color: string; team: { id: string; name: string; departmentName: string | null } | null }>
 }
 
 export interface WorkspaceMember extends UserSummary {
@@ -62,6 +131,8 @@ export interface WorkspaceMember extends UserSummary {
 
 export interface User extends UserSummary {
   workspaceRole: WorkspaceRole
+  /** The portal owner (SUPER_ADMIN_EMAIL) who approves organizations. */
+  isSuperAdmin?: boolean
   status: 'active' | 'invited' | 'disabled'
   timezone: string
   preferences: UserPreferences

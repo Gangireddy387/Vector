@@ -31,7 +31,7 @@ const SORT_OPTIONS: SelectFieldOption[] = [
   { value: 'createdAt', label: 'Newest first', icon: Sparkles },
   { value: 'priority', label: 'Priority', icon: Flag },
   { value: 'dueDate', label: 'Due date', icon: CalendarDays },
-  { value: 'key', label: 'Issue key', icon: Hash },
+  { value: 'key', label: 'Task key', icon: Hash },
 ]
 const PAGE_SIZE = 100
 
@@ -107,7 +107,7 @@ const applySaved = (criteria: Record<string, string>) => (filters.value = readQu
 
 <template>
   <div class="space-y-4" :class="isDesktop ? (projectId ? 'px-5 py-4' : 'p-5') : 'p-3'">
-    <PageHeader v-if="isDesktop && !projectId" title="All issues" description="Everything across your projects, filtered your way." />
+    <PageHeader v-if="isDesktop && !projectId" title="All tasks" description="Everything across your projects, filtered your way." />
 
     <!-- Desktop toolbar -->
     <div v-if="isDesktop" class="flex flex-wrap items-start justify-between gap-3">
@@ -135,11 +135,11 @@ const applySaved = (criteria: Record<string, string>) => (filters.value = readQu
     <EmptyState
       v-else-if="!issues.length"
       :icon="ListTodo"
-      title="No issues match"
-      :description="activeFilterCount ? 'Try removing a filter.' : 'Create the first issue to get started.'"
+      title="No tasks match"
+      :description="activeFilterCount ? 'Try removing a filter.' : 'Create the first task to get started.'"
     >
       <Button v-if="activeFilterCount" variant="outline" @click="filters = {}">Clear filters</Button>
-      <Button v-else @click="ui.openCreateIssue({ projectId })">Create issue</Button>
+      <Button v-else @click="ui.openCreateIssue({ projectId })">Create task</Button>
     </EmptyState>
 
     <!-- Desktop: dense table -->

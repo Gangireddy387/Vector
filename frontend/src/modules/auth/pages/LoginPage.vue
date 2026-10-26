@@ -23,10 +23,10 @@ const demoEmail = ref<string | null>(null)
 /** Seeded demo accounts (see backend seed), one per role, for reviewing the app quickly. */
 const DEMO_PASSWORD = 'Password123!'
 const DEMO_ACCOUNTS = [
-  { email: 'alex@vector.dev', name: 'Alex', role: 'Organization admin', initials: 'AM', color: '#6366f1' },
-  { email: 'mei@vector.dev', name: 'Mei', role: 'Project admin', initials: 'MC', color: '#10b981' },
-  { email: 'priya@vector.dev', name: 'Priya', role: 'Member · viewer', initials: 'PS', color: '#ec4899' },
-  { email: 'diego@vector.dev', name: 'Diego', role: 'Member', initials: 'DR', color: '#f59e0b' },
+  { email: 'alex@northwind.dev', name: 'Alex', role: 'CEO · organization admin', initials: 'AM', color: '#6366f1' },
+  { email: 'priya@northwind.dev', name: 'Priya', role: 'Head of Engineering', initials: 'PS', color: '#ec4899' },
+  { email: 'sam@northwind.dev', name: 'Sam', role: 'Frontend team lead', initials: 'SO', color: '#0ea5e9' },
+  { email: 'ravi@northwind.dev', name: 'Ravi', role: 'Head of People (HR)', initials: 'RK', color: '#14b8a6' },
 ]
 
 async function submit() {

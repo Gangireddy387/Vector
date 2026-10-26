@@ -27,6 +27,8 @@ Project.init(
     type: { type: DataTypes.ENUM(...PROJECT_TYPES), allowNull: false, defaultValue: 'scrum' },
     color: { type: DataTypes.STRING(20), allowNull: false, defaultValue: '#6366f1' },
     leadId: { type: DataTypes.UUID, allowNull: true },
+    /** The team that owns this project (and through it, the team's department). */
+    teamId: { type: DataTypes.UUID, allowNull: true },
     issueCounter: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     settings: { type: DataTypes.JSON, allowNull: false, defaultValue: DEFAULT_PROJECT_SETTINGS },
     archivedAt: { type: DataTypes.DATE, allowNull: true },

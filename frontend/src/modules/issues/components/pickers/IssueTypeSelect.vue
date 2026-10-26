@@ -27,7 +27,7 @@ const options = computed<SelectFieldOption[]>(() =>
     :size="size"
     :disabled="disabled"
     :id="id"
-    aria-label="Issue type"
+    aria-label="Task type"
     @update:model-value="(value) => value && (model = value as IssueType)"
   />
 </template>

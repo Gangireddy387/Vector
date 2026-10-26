@@ -71,12 +71,12 @@ async function complete() {
         </div>
       </div>
       <div v-if="openCount" class="grid gap-1.5">
-        <Label for="carry-over">Move unfinished issues to</Label>
+        <Label for="carry-over">Move unfinished tasks to</Label>
         <SelectField
           id="carry-over"
           :model-value="target"
           :options="options"
-          aria-label="Move unfinished issues to"
+          aria-label="Move unfinished tasks to"
           @update:model-value="(value) => value && (target = value)"
         />
       </div>

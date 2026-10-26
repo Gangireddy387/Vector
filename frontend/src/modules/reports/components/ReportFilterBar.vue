@@ -85,7 +85,7 @@ function reset() {
       :options="typeOptions"
       size="sm"
       class="w-36"
-      aria-label="Issue type"
+      aria-label="Task type"
       @update:model-value="(value) => set('type', value ?? undefined)"
     />
     <SelectField

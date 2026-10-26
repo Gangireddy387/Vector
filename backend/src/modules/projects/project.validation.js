@@ -14,6 +14,8 @@ export const createProjectSchema = z.object({
   description: z.string().max(5000).nullable().optional(),
   type: z.enum(PROJECT_TYPES).default('scrum'),
   color: color.optional(),
+  /** Create the project straight into a team (organization admins). */
+  teamId: z.string().uuid().nullable().optional(),
 });
 
 export const updateProjectSchema = z.object({

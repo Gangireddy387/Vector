@@ -1,5 +1,5 @@
 import { http } from '@/lib/http'
-import type { WorkspaceMember, WorkspaceRole, WorkspaceSettings } from '@/types/models'
+import type { Entitlements, WorkspaceMember, WorkspaceRole, WorkspaceSettings } from '@/types/models'
 
 /** The current organization's settings and people (organization admins). */
 export const workspaceApi = {
@@ -7,6 +7,7 @@ export const workspaceApi = {
   update: (changes: Partial<Omit<WorkspaceSettings, 'updatedAt'>>) =>
     http.patch<{ settings: WorkspaceSettings & { id: string } }>('/workspace', changes).then((r) => r.data.settings),
   remove: (confirmName: string) => http.delete('/workspace', { data: { confirmName } }),
+  plan: () => http.get<{ entitlements: Entitlements; usage: { members: number; projects: number } }>('/workspace/plan').then((r) => r.data),
   uploadLogo: (image: Blob, fileName: string) => {
     const form = new FormData()
     form.append('logo', image, fileName)

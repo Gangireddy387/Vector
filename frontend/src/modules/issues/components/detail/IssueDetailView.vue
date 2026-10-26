@@ -70,6 +70,8 @@ const summaryRef = ref<InstanceType<typeof IssueAiSummary> | null>(null)
 
 const project = computed(() => (issue.value ? projects.details[issue.value.projectId] ?? null : null))
 const canEdit = computed(() => projects.canEdit(issue.value?.projectId))
+const canUseAi = computed(() => auth.hasFeature('aiAssistant'))
+const canAttach = computed(() => canEdit.value && auth.hasFeature('attachments'))
 const isDone = computed(() => issue.value?.status.category === 'done')
 const projectId = computed(() => issue.value?.projectId)
 
@@ -143,7 +145,7 @@ function startLinking() {
 
   <EmptyState
     v-else-if="notFound || !issue || !project"
-    title="Issue not found"
+    title="Task not found"
     description="It may have been deleted, or you do not have access to its project."
     class="py-20"
   >
@@ -172,8 +174,8 @@ function startLinking() {
         size="icon-sm"
         :class="issue.isWatching && 'text-primary'"
         :aria-pressed="issue.isWatching"
-        :aria-label="issue.isWatching ? 'Watching — click to stop' : 'Watch this issue'"
-        :title="issue.isWatching ? 'Watching — click to stop' : 'Watch this issue'"
+        :aria-label="issue.isWatching ? 'Watching — click to stop' : 'Watch this task'"
+        :title="issue.isWatching ? 'Watching — click to stop' : 'Watch this task'"
         @click="toggleWatch"
       >
         <Eye />
@@ -194,12 +196,12 @@ function startLinking() {
           <Button variant="ghost" size="icon-sm" aria-label="More actions"><Ellipsis /></Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" class="w-52">
-          <DropdownMenuItem @select="summaryRef?.generate()"><Sparkles /> Summarize</DropdownMenuItem>
-          <DropdownMenuItem v-if="canEdit" @select="startLinking"><Link2 /> Link issue</DropdownMenuItem>
-          <DropdownMenuItem v-if="canEdit" @select="attachmentsRef?.openPicker()"><Paperclip /> Attach files</DropdownMenuItem>
+          <DropdownMenuItem v-if="canUseAi" @select="summaryRef?.generate()"><Sparkles /> Summarize</DropdownMenuItem>
+          <DropdownMenuItem v-if="canEdit" @select="startLinking"><Link2 /> Link task</DropdownMenuItem>
+          <DropdownMenuItem v-if="canAttach" @select="attachmentsRef?.openPicker()"><Paperclip /> Attach files</DropdownMenuItem>
           <template v-if="canEdit">
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" @select="remove"><Trash2 /> Delete issue</DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" @select="remove"><Trash2 /> Delete task</DropdownMenuItem>
           </template>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -234,13 +236,13 @@ function startLinking() {
             >
               <UserPlus /> Assign to me
             </Button>
-            <Button v-if="isDesktop" variant="outline" size="sm" @click="summaryRef?.generate()"><Sparkles class="text-primary" /> Summarize</Button>
-            <Button v-if="isDesktop && canEdit" variant="outline" size="sm" @click="attachmentsRef?.openPicker()"><Paperclip /> Attach</Button>
+            <Button v-if="isDesktop && canUseAi" variant="outline" size="sm" @click="summaryRef?.generate()"><Sparkles class="text-primary" /> Summarize</Button>
+            <Button v-if="isDesktop && canAttach" variant="outline" size="sm" @click="attachmentsRef?.openPicker()"><Paperclip /> Attach</Button>
             <Button v-if="isDesktop && canEdit" variant="outline" size="sm" @click="startLinking"><Link2 /> Link</Button>
           </div>
         </div>
 
-        <IssueAiSummary ref="summaryRef" :issue-id="issue.id" />
+        <IssueAiSummary v-if="canUseAi" ref="summaryRef" :issue-id="issue.id" />
 
         <!-- On phones, key fields come before long-form content -->
         <details v-if="!isDesktop" class="group border bg-card" open>
@@ -255,14 +257,14 @@ function startLinking() {
         <IssueDescriptionEditor :description="issue.description" :editable="canEdit" @save="(description) => update({ description })" />
         <IssueSubtasks :issue="issue" :project="project" :editable="canEdit" @changed="reloadQuietly" />
         <IssueLinks ref="linksRef" :issue="issue" :editable="canEdit" @changed="reloadQuietly" />
-        <IssueAttachments ref="attachmentsRef" :issue-id="issue.id" :editable="canEdit" :refresh-key="refreshKey" />
+        <IssueAttachments ref="attachmentsRef" :issue-id="issue.id" :editable="canAttach" :refresh-key="refreshKey" />
 
         <Tabs v-model="activeTab" class="gap-4">
           <TabsList class="w-full sm:w-auto">
             <TabsTrigger value="comments">Comments</TabsTrigger>
-            <TabsTrigger value="followups">Follow-ups</TabsTrigger>
+            <TabsTrigger v-if="auth.hasFeature('chat')" value="followups">Follow-ups</TabsTrigger>
             <TabsTrigger value="activity">History</TabsTrigger>
-            <TabsTrigger value="work">Work log</TabsTrigger>
+            <TabsTrigger v-if="auth.hasFeature('timeTracking')" value="work">Work log</TabsTrigger>
           </TabsList>
           <TabsContent value="comments">
             <IssueComments
@@ -273,13 +275,13 @@ function startLinking() {
               :refresh-key="refreshKey"
             />
           </TabsContent>
-          <TabsContent value="followups">
+          <TabsContent v-if="auth.hasFeature('chat')" value="followups">
             <IssueFollowups :issue-id="issue.id" :issue-key="issue.key" :project-id="issue.projectId" :refresh-key="refreshKey" />
           </TabsContent>
           <TabsContent value="activity">
             <IssueActivity :issue-id="issue.id" :refresh-key="refreshKey" />
           </TabsContent>
-          <TabsContent value="work">
+          <TabsContent v-if="auth.hasFeature('timeTracking')" value="work">
             <IssueWorkLogs :issue-id="issue.id" :editable="canEdit" :refresh-key="refreshKey" @changed="load(false)" />
           </TabsContent>
         </Tabs>

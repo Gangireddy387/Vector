@@ -22,4 +22,10 @@ export const authRoutes: RouteRecordRaw[] = [
     component: () => import('./pages/CreateOrganizationPage.vue'),
     meta: { requiresAuth: true, allowWithoutOrganization: true, title: 'Create organization' },
   },
+  {
+    path: '/pending-approval',
+    name: 'organization-pending',
+    component: () => import('./pages/OrganizationPendingPage.vue'),
+    meta: { requiresAuth: true, allowWithoutOrganization: true, title: 'Waiting for approval' },
+  },
 ]

@@ -29,7 +29,7 @@ const daysLabel = computed(() => {
     <Progress :model-value="percent" class="h-1.5 w-32" indicator-class="bg-success" />
     <span class="font-medium text-foreground tabular-nums">{{ percent }}%</span>
     <span class="tabular-nums">
-      {{ stats.doneCount }}/{{ stats.issueCount }} issues<template v-if="stats.totalPoints"> · {{ stats.donePoints }}/{{ stats.totalPoints }} pts</template>
+      {{ stats.doneCount }}/{{ stats.issueCount }} tasks<template v-if="stats.totalPoints"> · {{ stats.donePoints }}/{{ stats.totalPoints }} pts</template>
     </span>
   </div>
   <div v-else class="space-y-1.5">
@@ -39,7 +39,7 @@ const daysLabel = computed(() => {
     </div>
     <Progress :model-value="percent" class="h-1.5" indicator-class="bg-success" />
     <p class="text-xs text-muted-foreground">
-      {{ percent }}% done · {{ stats.doneCount }}/{{ stats.issueCount }} issues<template v-if="stats.totalPoints"> · {{ stats.donePoints }}/{{ stats.totalPoints }} pts</template>
+      {{ percent }}% done · {{ stats.doneCount }}/{{ stats.issueCount }} tasks<template v-if="stats.totalPoints"> · {{ stats.donePoints }}/{{ stats.totalPoints }} pts</template>
     </p>
   </div>
 </template>

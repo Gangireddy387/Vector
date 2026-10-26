@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import { getErrorMessage } from '@/lib/http'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import type { IssueDetail, ProjectDetail } from '@/types/models'
 import { aiApi } from '../../api/ai.api'
 import { issuesApi } from '../../api/issues.api'
@@ -19,6 +20,7 @@ const props = withDefaults(defineProps<{ issue: IssueDetail; project: ProjectDet
 const emit = defineEmits<{ changed: [] }>()
 
 const router = useRouter()
+const auth = useAuthStore()
 const actions = useIssueActions()
 const suggestions = ref<string[]>([])
 const selectedSuggestions = ref<string[]>([])
@@ -81,7 +83,7 @@ async function createSuggestions() {
         Sub-tasks
         <span v-if="issue.subtasks.length" class="font-normal text-muted-foreground">{{ doneCount }}/{{ issue.subtasks.length }}</span>
       </h2>
-      <Button v-if="editable" variant="ghost" size="xs" :loading="isSuggesting" @click="suggest">
+      <Button v-if="editable && auth.hasFeature('aiAssistant')" variant="ghost" size="xs" :loading="isSuggesting" @click="suggest">
         <Sparkles class="text-primary" /> Break it down
       </Button>
     </div>

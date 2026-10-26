@@ -20,12 +20,12 @@ const days = (value: number | null) => (value === null ? '—' : value < 1 ? '< 
     <CardHeader>
       <CardTitle>How work flows through the workflow</CardTitle>
       <CardDescription>
-        Where every issue sits today, how long issues usually stay in each stage, and how long the ones waiting now have been there.
+        Where every task sits today, how long tasks usually stay in each stage, and how long the ones waiting now have been there.
       </CardDescription>
     </CardHeader>
     <CardContent class="space-y-4">
       <!-- Share of issues per stage -->
-      <div v-if="total" class="flex h-3 w-full overflow-hidden bg-muted" role="img" aria-label="Issues per stage">
+      <div v-if="total" class="flex h-3 w-full overflow-hidden bg-muted" role="img" aria-label="Tasks per stage">
         <span
           v-for="stage in stages.filter((item) => item.count)"
           :key="stage.id"
@@ -55,7 +55,7 @@ const days = (value: number | null) => (value === null ? '—' : value < 1 ? '< 
             <dl class="space-y-1 text-xs">
               <div class="flex justify-between gap-2">
                 <dt class="text-muted-foreground">Usually stays</dt>
-                <dd class="font-medium tabular-nums" :title="stage.passes ? `Based on ${stage.passes} moves out of this stage` : 'Appears once issues move out of this stage'">
+                <dd class="font-medium tabular-nums" :title="stage.passes ? `Based on ${stage.passes} moves out of this stage` : 'Appears once tasks move out of this stage'">
                   {{ stage.category === 'done' ? '—' : days(stage.averageDaysSpent) }}
                 </dd>
               </div>
@@ -79,7 +79,7 @@ const days = (value: number | null) => (value === null ? '—' : value < 1 ? '< 
         </template>
       </ol>
       <p class="text-xs text-muted-foreground">
-        “Usually stays” is measured from status changes, so it fills in as issues move across the board. “Waiting now” is the average age of issues currently in a stage.
+        “Usually stays” is measured from status changes, so it fills in as tasks move across the board. “Waiting now” is the average age of tasks currently in a stage.
       </p>
     </CardContent>
   </Card>

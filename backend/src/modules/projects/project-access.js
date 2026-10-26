@@ -17,9 +17,9 @@ export async function assertProjectRole(projectId, userId, minimumRole = 'viewer
 /** Loads an issue (by id or key) and verifies the user may access its project. */
 export async function loadIssueWithAccess(issueIdOrKey, userId, minimumRole = 'viewer') {
   const isKey = /^[A-Z][A-Z0-9]*-\d+$/i.test(issueIdOrKey);
-  if (!isKey && !UUID_PATTERN.test(issueIdOrKey)) throw ApiError.notFound('Issue not found');
+  if (!isKey && !UUID_PATTERN.test(issueIdOrKey)) throw ApiError.notFound('Task not found');
   const issue = isKey ? await findIssueByKey(issueIdOrKey.toUpperCase(), userId) : await Issue.findByPk(issueIdOrKey);
-  if (!issue) throw ApiError.notFound('Issue not found');
+  if (!issue) throw ApiError.notFound('Task not found');
   await assertProjectRole(issue.projectId, userId, minimumRole);
   return issue;
 }
