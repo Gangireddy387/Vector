@@ -34,6 +34,7 @@ export interface WorkspaceSettings {
   /** The organization's address (example.com/:slug); absent for the signed-out default branding. */
   slug?: string
   defaultMode: ColorMode
+  logoUrl?: string | null
   updatedAt?: string
 }
 
@@ -43,6 +44,7 @@ export interface OrganizationSummary {
   name: string
   slug: string
   defaultMode: ColorMode
+  logoUrl?: string | null
   updatedAt?: string
   role: WorkspaceRole
   memberCount?: number

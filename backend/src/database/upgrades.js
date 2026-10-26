@@ -6,6 +6,7 @@ const ADDED_COLUMNS = [
   { table: 'users', column: 'avatar_url', definition: { type: DataTypes.STRING(255), allowNull: true } },
   { table: 'users', column: 'last_organization_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'projects', column: 'organization_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'organizations', column: 'logo_url', definition: { type: DataTypes.STRING(255), allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

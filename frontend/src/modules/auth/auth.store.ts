@@ -77,7 +77,13 @@ export const useAuthStore = defineStore('auth', () => {
   /** Keeps the current organization in sync after an admin renames it or changes its address. */
   function patchOrganization(settings: WorkspaceSettings & { id?: string }) {
     if (!organization.value || (settings.id && settings.id !== organization.value.id)) return
-    const next = { ...organization.value, name: settings.name, slug: settings.slug ?? organization.value.slug, defaultMode: settings.defaultMode }
+    const next = {
+      ...organization.value,
+      name: settings.name,
+      slug: settings.slug ?? organization.value.slug,
+      defaultMode: settings.defaultMode,
+      logoUrl: settings.logoUrl !== undefined ? settings.logoUrl : organization.value.logoUrl,
+    }
     organization.value = next
     organizations.value = organizations.value.map((item) => (item.id === next.id ? { ...item, ...next } : item))
   }

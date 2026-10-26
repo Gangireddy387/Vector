@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { assetUrl } from '@/lib/http'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import BrandMark from './BrandMark.vue'
 
 withDefaults(defineProps<{ compact?: boolean; inverted?: boolean }>(), { compact: false, inverted: false })
 const workspace = useWorkspaceStore()
+const logo = computed(() => assetUrl(workspace.settings.logoUrl))
 </script>
 
 <template>
@@ -13,6 +16,13 @@ const workspace = useWorkspaceStore()
     :aria-label="`${workspace.settings.name} home`"
   >
     <span
+      v-if="logo"
+      class="flex size-8 shrink-0 items-center justify-center overflow-hidden border border-border bg-white transition-transform duration-200 group-hover:-rotate-3"
+    >
+      <img :src="logo" alt="" class="size-full object-contain p-0.5" />
+    </span>
+    <span
+      v-else
       class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden transition-transform duration-200 group-hover:-rotate-3"
       :class="inverted ? 'bg-white/20 text-white ring-1 ring-white/30' : 'bg-brand text-white shadow-glow'"
     >

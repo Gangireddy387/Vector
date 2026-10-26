@@ -14,6 +14,7 @@ import { organizationUrl } from '@/modules/auth/organization-slug'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import type { ColorMode, WorkspaceSettings } from '@/types/models'
 import { workspaceApi } from '../admin.api'
+import OrganizationLogoField from './OrganizationLogoField.vue'
 
 const workspace = useWorkspaceStore()
 const auth = useAuthStore()
@@ -101,6 +102,16 @@ async function deleteOrganization() {
             <span v-if="form.slug !== workspace.settings.slug" class="text-xs text-muted-foreground">Old links that use the previous address stop working.</span>
           </div>
         </form>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Organization logo</CardTitle>
+        <CardDescription>Shown in the sidebar and the organization switcher for everyone in {{ workspace.settings.name }}.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <OrganizationLogoField />
       </CardContent>
     </Card>
 

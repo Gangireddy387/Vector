@@ -15,6 +15,7 @@ Organization.init(
     /** The organization's address, e.g. `acme` in example.com/acme. */
     slug: { type: DataTypes.STRING(40), allowNull: false, unique: true },
     defaultMode: { type: DataTypes.ENUM(...COLOR_MODES), allowNull: false, defaultValue: 'system' },
+    logoUrl: { type: DataTypes.STRING(255), allowNull: true },
     createdById: { type: DataTypes.UUID, allowNull: true },
     updatedById: { type: DataTypes.UUID, allowNull: true },
   },

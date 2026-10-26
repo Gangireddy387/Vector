@@ -3,12 +3,12 @@ import { Camera, Loader2, Trash2, Upload } from 'lucide-vue-next'
 import { computed, ref, useTemplateRef } from 'vue'
 import { toast } from 'vue-sonner'
 import ColorSwatchPicker from '@/components/common/ColorSwatchPicker.vue'
+import ImageCropDialog from '@/components/common/ImageCropDialog.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { getErrorMessage } from '@/lib/http'
 import { ACCEPTED_IMAGE_TYPES, assertImageFile } from '@/lib/image'
 import { useAuthStore } from '@/modules/auth/auth.store'
-import AvatarCropDialog from './AvatarCropDialog.vue'
 
 /** Live preview name while the profile form is being edited. */
 const props = defineProps<{ previewName?: string }>()
@@ -120,6 +120,6 @@ function onDrop(event: DragEvent) {
       @change="pick(($event.target as HTMLInputElement).files?.[0])"
     />
 
-    <AvatarCropDialog v-model:open="isCropOpen" :file="pendingFile" :saving="isUploading" @save="upload" />
+    <ImageCropDialog v-model:open="isCropOpen" :file="pendingFile" :saving="isUploading" @save="upload" />
   </div>
 </template>

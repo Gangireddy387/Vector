@@ -4,6 +4,7 @@ import { ApiError } from '../../shared/errors/api-error.js';
 import { emitToUser } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { addedToOrganizationEmail, organizationInviteEmail } from '../../shared/services/email-templates.js';
+import { createImageStore } from '../../shared/services/image-store.js';
 import { createOneTimeToken } from '../auth/token.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
@@ -33,8 +34,13 @@ export const toPublicOrganization = (organization) => ({
   name: organization.name,
   slug: organization.slug,
   defaultMode: organization.defaultMode,
+  logoUrl: organization.logoUrl ?? null,
   updatedAt: organization.updatedAt,
 });
+
+const logos = createImageStore({ folder: 'organization-logos', urlPrefix: '/api/organization-logos/', field: 'logo' });
+export const logoUpload = logos.upload;
+export const resolveLogoFile = logos.resolve;
 
 async function isSlugTaken(slug, exceptId) {
   const where = { slug };
@@ -113,10 +119,29 @@ export async function updateOrganization(organization, actor, changes) {
   if (changes.slug !== undefined) updates.slug = await assertSlugAvailable(changes.slug, organization.id);
   if (changes.name !== undefined) updates.name = changes.name.trim();
   await organization.update(updates);
+  return broadcastOrganization(organization);
+}
+
+async function broadcastOrganization(organization) {
   const result = toPublicOrganization(organization);
   const members = await OrganizationMember.findAll({ where: { organizationId: organization.id, status: 'active' }, attributes: ['userId'], raw: true });
   members.forEach((member) => emitToUser(member.userId, 'workspace:updated', result));
   return result;
+}
+
+export async function setLogo(organization, actor, file) {
+  const logoUrl = await logos.save(file);
+  const previous = organization.logoUrl;
+  await organization.update({ logoUrl, updatedById: actor.id });
+  await logos.remove(previous);
+  return broadcastOrganization(organization);
+}
+
+export async function clearLogo(organization, actor) {
+  const previous = organization.logoUrl;
+  await organization.update({ logoUrl: null, updatedById: actor.id });
+  await logos.remove(previous);
+  return broadcastOrganization(organization);
 }
 
 export async function listMembers(organizationId) {
@@ -182,6 +207,7 @@ export async function deleteOrganization(organization, { confirmName }) {
   if (confirmName.trim() !== organization.name) throw ApiError.badRequest('Type the organization name exactly to confirm', [{ path: 'confirmName', message: 'The name does not match' }]);
   const projects = await Project.findAll({ where: { organizationId: organization.id } });
   for (const project of projects) await project.destroy();
+  await logos.remove(organization.logoUrl);
   await User.update({ lastOrganizationId: null }, { where: { lastOrganizationId: organization.id } });
   await OrganizationMember.destroy({ where: { organizationId: organization.id } });
   await organization.destroy();
@@ -203,9 +229,8 @@ export async function ensureOrganizationMember(organizationId, email, role = 'me
 export async function inviteMember(organization, inviter, { email, role }) {
   const { user, created, inviteToken } = await ensureOrganizationMember(organization.id, email, role);
   if (!created) throw ApiError.conflict(`${email} is already in ${organization.name}`);
-  const message = inviteToken
-    ? organizationInviteEmail({ inviterName: inviter.name, organizationName: organization.name, token: inviteToken })
-    : addedToOrganizationEmail({ inviterName: inviter.name, organizationName: organization.name, slug: organization.slug });
+  const details = { inviterName: inviter.name, inviterEmail: inviter.email, organization, role };
+  const message = inviteToken ? organizationInviteEmail({ ...details, email, token: inviteToken }) : addedToOrganizationEmail(details);
   await sendEmail({ to: email, ...message });
   return { ...(await listMembers(organization.id)).find((member) => member.id === user.id), invited: Boolean(inviteToken) };
 }

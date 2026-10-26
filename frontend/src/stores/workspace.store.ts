@@ -17,7 +17,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   const settings = computed<WorkspaceSettings>(() =>
     auth.organization
-      ? { name: auth.organization.name, slug: auth.organization.slug, defaultMode: auth.organization.defaultMode, updatedAt: auth.organization.updatedAt }
+      ? {
+          name: auth.organization.name,
+          slug: auth.organization.slug,
+          defaultMode: auth.organization.defaultMode,
+          logoUrl: auth.organization.logoUrl ?? null,
+          updatedAt: auth.organization.updatedAt,
+        }
       : branding.value,
   )
   const isAdmin = computed(() => auth.isOrganizationAdmin)
@@ -41,6 +47,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     auth.patchOrganization(await workspaceApi.update(changed))
   }
 
+  async function uploadLogo(image: Blob, fileName: string) {
+    auth.patchOrganization(await workspaceApi.uploadLogo(image, fileName))
+  }
+
+  async function removeLogo() {
+    auth.patchOrganization(await workspaceApi.removeLogo())
+  }
+
   /** Admin changes reach every open browser of the organization's members instantly. */
   function bindRealtime() {
     const socket = getSocket()
@@ -49,5 +63,5 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     socket.on('workspace:updated', (next: WorkspaceSettings & { id?: string }) => auth.patchOrganization(next))
   }
 
-  return { settings, isAdmin, load, update, bindRealtime }
+  return { settings, isAdmin, load, update, uploadLogo, removeLogo, bindRealtime }
 })

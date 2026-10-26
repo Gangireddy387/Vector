@@ -1,4 +1,4 @@
-import { Issue, Label, Project, ProjectMember, Sprint, Status, User } from '../../database/models.js';
+import { Issue, Label, Organization, Project, ProjectMember, Sprint, Status, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { DomainEvents, eventBus } from '../../shared/events/event-bus.js';
 import { sendEmail } from '../../shared/services/email.service.js';
@@ -152,9 +152,9 @@ export async function addMember(projectId, inviter, { email, role }) {
   if (existing) throw ApiError.conflict(`${email} is already a member of this project`);
   await ProjectMember.create({ projectId, userId: user.id, role });
 
-  const message = inviteToken
-    ? inviteEmail({ inviterName: inviter.name, projectName: project.name, token: inviteToken })
-    : addedToProjectEmail({ inviterName: inviter.name, projectName: project.name, projectId });
+  const organization = await Organization.findByPk(project.organizationId);
+  const details = { inviterName: inviter.name, inviterEmail: inviter.email, organization, project, role };
+  const message = inviteToken ? inviteEmail({ ...details, email, token: inviteToken }) : addedToProjectEmail(details);
   await sendEmail({ to: email, ...message });
 
   await logActivity({ projectId, actorId: inviter.id, action: 'member_added', toValue: user.name, meta: { role } });

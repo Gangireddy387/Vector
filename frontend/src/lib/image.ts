@@ -34,13 +34,18 @@ export function coverScale(width: number, height: number, rotation: number, view
   return { rotatedWidth, rotatedHeight, scale: viewport / Math.min(rotatedWidth, rotatedHeight) }
 }
 
-/** Largest pan allowed so the image always fills the frame. */
+/** Zoom at which the whole image fits inside the frame (below 1, the frame shows empty space). */
+export function fitZoom(width: number, height: number) {
+  return Math.min(width, height) / Math.max(width, height)
+}
+
+/** Largest pan allowed: a larger image always fills the frame, a smaller one always stays inside it. */
 export function panLimits(width: number, height: number, frame: Omit<CropFrame, 'offsetX' | 'offsetY'>) {
   const { rotatedWidth, rotatedHeight, scale } = coverScale(width, height, frame.rotation, frame.viewport)
   const total = scale * frame.zoom
   return {
-    x: Math.max(0, (rotatedWidth * total - frame.viewport) / 2),
-    y: Math.max(0, (rotatedHeight * total - frame.viewport) / 2),
+    x: Math.abs(rotatedWidth * total - frame.viewport) / 2,
+    y: Math.abs(rotatedHeight * total - frame.viewport) / 2,
   }
 }
 
@@ -69,12 +74,12 @@ export function renderCrop(image: ImageBitmap, frame: CropFrame, size: number) {
   return canvas
 }
 
-/** Encodes a canvas as WebP (JPEG where WebP is unsupported) for upload. */
-export async function canvasToUpload(canvas: HTMLCanvasElement): Promise<{ blob: Blob; fileName: string }> {
-  const toBlob = (type: string, quality: number) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality))
+/** Encodes a canvas as WebP for upload; where WebP is unsupported, PNG keeps `transparent` images clear, JPEG is used otherwise. */
+export async function canvasToUpload(canvas: HTMLCanvasElement, { transparent = false } = {}): Promise<{ blob: Blob; fileName: string }> {
+  const toBlob = (type: string, quality?: number) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality))
   const webp = await toBlob('image/webp', 0.9)
-  if (webp && webp.type === 'image/webp') return { blob: webp, fileName: 'avatar.webp' }
-  const jpeg = await toBlob('image/jpeg', 0.92)
-  if (!jpeg) throw new Error('The image could not be prepared.')
-  return { blob: jpeg, fileName: 'avatar.jpg' }
+  if (webp && webp.type === 'image/webp') return { blob: webp, fileName: 'image.webp' }
+  const fallback = transparent ? await toBlob('image/png') : await toBlob('image/jpeg', 0.92)
+  if (!fallback) throw new Error('The image could not be prepared.')
+  return { blob: fallback, fileName: transparent ? 'image.png' : 'image.jpg' }
 }

@@ -3,7 +3,7 @@ import { Check, ChevronsUpDown, Link2, Plus, Settings2 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { getErrorMessage } from '@/lib/http'
+import { assetUrl, getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { organizationAddress, organizationUrl } from '@/modules/auth/organization-slug'
 import type { OrganizationSummary } from '@/types/models'
@@ -41,7 +41,13 @@ async function copyLink() {
       :class="compact ? 'justify-center' : 'flex-1'"
       :aria-label="`Organization: ${auth.organization?.name ?? 'none'}. Switch organization`"
     >
-      <span class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-brand text-white shadow-glow transition-transform duration-200 group-hover:-rotate-3">
+      <span
+        v-if="auth.organization?.logoUrl"
+        class="flex size-8 shrink-0 items-center justify-center overflow-hidden border border-border bg-white transition-transform duration-200 group-hover:-rotate-3"
+      >
+        <img :src="assetUrl(auth.organization.logoUrl)" alt="" class="size-full object-contain p-0.5" />
+      </span>
+      <span v-else class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-brand text-white shadow-glow transition-transform duration-200 group-hover:-rotate-3">
         <span class="pointer-events-none absolute inset-0" style="background: radial-gradient(circle at 15% 5%, rgb(255 255 255 / 0.25), transparent 60%)" />
         <BrandMark class="relative size-[22px]" />
       </span>
@@ -55,7 +61,10 @@ async function copyLink() {
     <DropdownMenuContent align="start" class="w-72">
       <DropdownMenuLabel>Your organizations</DropdownMenuLabel>
       <DropdownMenuItem v-for="organization in auth.organizations" :key="organization.id" class="py-2" @select="open(organization)">
-        <span class="flex size-8 shrink-0 items-center justify-center text-xs font-bold text-white" :style="{ backgroundColor: tileColor(organization) }">
+        <span v-if="organization.logoUrl" class="flex size-8 shrink-0 items-center justify-center overflow-hidden border border-border bg-white">
+          <img :src="assetUrl(organization.logoUrl)" alt="" class="size-full object-contain p-0.5" />
+        </span>
+        <span v-else class="flex size-8 shrink-0 items-center justify-center text-xs font-bold text-white" :style="{ backgroundColor: tileColor(organization) }">
           {{ organization.name.slice(0, 2).toUpperCase() }}
         </span>
         <span class="min-w-0 flex-1">

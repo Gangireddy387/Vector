@@ -24,6 +24,12 @@ export const showPublic = async (req, res) => res.json({ organization: await org
 
 // Current organization (admins)
 export const update = async (req, res) => res.json({ settings: await organizationService.updateOrganization(req.organization, req.user, req.body) });
+export const uploadLogo = async (req, res) => res.json({ settings: await organizationService.setLogo(req.organization, req.user, req.file) });
+export const removeLogo = async (req, res) => res.json({ settings: await organizationService.clearLogo(req.organization, req.user) });
+export const showLogo = (req, res) => {
+  res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  res.sendFile(organizationService.resolveLogoFile(req.params.fileName));
+};
 export const listMembers = async (req, res) => res.json({ members: await organizationService.listMembers(req.organization.id) });
 export const updateMember = async (req, res) =>
   res.json({ member: await organizationService.updateMember(req.organization.id, req.user, req.params.userId, req.body) });

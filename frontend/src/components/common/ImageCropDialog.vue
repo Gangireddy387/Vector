@@ -5,25 +5,57 @@ import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Slider } from '@/components/ui/slider'
-import { canvasToUpload, type CropFrame, drawCrop, loadImage, panLimits, renderCrop } from '@/lib/image'
+import { canvasToUpload, type CropFrame, drawCrop, fitZoom, loadImage, panLimits, renderCrop } from '@/lib/image'
 
-const props = defineProps<{ file: File | null; saving?: boolean }>()
+/** `avatar`: round crop that always fills the frame. `logo`: square crop that can zoom out until the whole image fits, keeping transparency. */
+const props = withDefaults(defineProps<{ file: File | null; saving?: boolean; variant?: 'avatar' | 'logo' }>(), { variant: 'avatar' })
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ save: [blob: Blob, fileName: string] }>()
 
-const VIEWPORT = 288
-const OUTPUT = 320
-const MIN_ZOOM = 1
-const MAX_ZOOM = 4
+const VARIANTS = {
+  avatar: {
+    title: 'Adjust your photo',
+    description: 'Drag to position, zoom to frame your face, then save.',
+    saveLabel: 'Save photo',
+    output: 320,
+    round: true,
+    previews: [
+      { size: 56, label: 'Profile' },
+      { size: 36, label: 'Comments' },
+      { size: 24, label: 'Cards' },
+    ],
+  },
+  logo: {
+    title: 'Adjust your logo',
+    description: 'Drag to position and zoom to frame your logo. Empty space stays transparent.',
+    saveLabel: 'Save logo',
+    output: 512,
+    round: false,
+    previews: [
+      { size: 56, label: 'Settings' },
+      { size: 32, label: 'Sidebar' },
+      { size: 24, label: 'Small' },
+    ],
+  },
+} as const
 
+const VIEWPORT = 288
+const MAX_ZOOM = 4
+/** Shows which parts of a logo are transparent. */
+const CHECKERBOARD = { background: 'repeating-conic-gradient(#e5e7eb 0 25%, #ffffff 0 50%) 0 0 / 16px 16px' }
+
+const options = computed(() => VARIANTS[props.variant])
 const viewportCanvas = useTemplateRef<HTMLCanvasElement>('viewportCanvas')
 const image = ref<ImageBitmap | null>(null)
 const frame = reactive<CropFrame>({ viewport: VIEWPORT, zoom: 1, offsetX: 0, offsetY: 0, rotation: 0 })
 const preview = ref('')
 const isDragging = ref(false)
 
+const minZoom = computed(() => (props.variant === 'logo' && image.value ? Math.floor(fitZoom(image.value.width, image.value.height) * 100) / 100 : 1))
+
+/** Logos start fully visible; photos start filling the frame. */
 function resetFrame() {
-  Object.assign(frame, { zoom: 1, offsetX: 0, offsetY: 0, rotation: 0 })
+  Object.assign(frame, { zoom: props.variant === 'logo' ? minZoom.value : 1, offsetX: 0, offsetY: 0, rotation: 0 })
 }
 
 /** Keeps the image covering the whole frame after any zoom, pan or rotation. */
@@ -43,6 +75,7 @@ watch(
     image.value = null
     try {
       image.value = await loadImage(file)
+      resetFrame()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'That image could not be opened.')
       open.value = false
@@ -93,12 +126,12 @@ function onPointerUp() {
 
 // --- Zoom and rotate ----------------------------------------------------------
 function setZoom(value: number) {
-  frame.zoom = Math.round(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value)) * 100) / 100
+  frame.zoom = Math.round(Math.min(MAX_ZOOM, Math.max(minZoom.value, value)) * 100) / 100
   clampPan()
 }
 const zoomModel = computed({
   get: () => [frame.zoom],
-  set: (value: number[] | undefined) => setZoom(value?.[0] ?? MIN_ZOOM),
+  set: (value: number[] | undefined) => setZoom(value?.[0] ?? minZoom.value),
 })
 function onWheel(event: WheelEvent) {
   setZoom(frame.zoom - Math.sign(event.deltaY) * 0.1)
@@ -127,7 +160,7 @@ function onKeydown(event: KeyboardEvent) {
 
 async function save() {
   if (!image.value) return
-  const { blob, fileName } = await canvasToUpload(renderCrop(image.value, frame, OUTPUT))
+  const { blob, fileName } = await canvasToUpload(renderCrop(image.value, frame, options.value.output), { transparent: props.variant === 'logo' })
   emit('save', blob, fileName)
 }
 
@@ -138,19 +171,20 @@ const isGif = computed(() => props.file?.type === 'image/gif')
   <Dialog v-model:open="open">
     <DialogContent class="gap-5 sm:max-w-xl">
       <DialogHeader>
-        <DialogTitle>Adjust your photo</DialogTitle>
-        <DialogDescription>Drag to position, zoom to frame your face, then save.</DialogDescription>
+        <DialogTitle>{{ options.title }}</DialogTitle>
+        <DialogDescription>{{ options.description }}</DialogDescription>
       </DialogHeader>
 
       <div class="grid items-center gap-6 sm:grid-cols-[auto_minmax(0,1fr)]">
         <!-- Crop viewport -->
         <div class="mx-auto space-y-3">
           <div
-            class="relative size-72 touch-none overflow-hidden border border-border bg-muted outline-none focus-visible:ring-4 focus-visible:ring-ring/25"
-            :class="isDragging ? 'cursor-grabbing' : 'cursor-grab'"
+            class="relative size-72 touch-none overflow-hidden border border-border outline-none focus-visible:ring-4 focus-visible:ring-ring/25"
+            :class="[isDragging ? 'cursor-grabbing' : 'cursor-grab', options.round && 'bg-muted']"
+            :style="options.round ? undefined : CHECKERBOARD"
             tabindex="0"
             role="application"
-            aria-label="Photo crop area. Drag or use arrow keys to move, plus and minus to zoom."
+            :aria-label="`${variant === 'logo' ? 'Logo' : 'Photo'} crop area. Drag or use arrow keys to move, plus and minus to zoom.`"
             @pointerdown="onPointerDown"
             @pointermove="onPointerMove"
             @pointerup="onPointerUp"
@@ -159,8 +193,9 @@ const isGif = computed(() => props.file?.type === 'image/gif')
             @keydown="onKeydown"
           >
             <canvas ref="viewportCanvas" class="size-full" />
-            <!-- Circular frame: everything outside it is veiled. -->
+            <!-- Photos: everything outside the circle is veiled. Logos keep the whole square. -->
             <div
+              v-if="options.round"
               class="pointer-events-none absolute inset-0 rounded-full ring-2 ring-white/90"
               style="box-shadow: 0 0 0 999px color-mix(in oklch, var(--background) 62%, transparent)"
             />
@@ -182,10 +217,10 @@ const isGif = computed(() => props.file?.type === 'image/gif')
               <span class="text-xs text-muted-foreground tabular-nums">{{ Math.round(frame.zoom * 100) }}%</span>
             </div>
             <div class="flex items-center gap-2">
-              <Button type="button" variant="ghost" size="icon-sm" aria-label="Zoom out" :disabled="frame.zoom <= MIN_ZOOM" @click="setZoom(frame.zoom - 0.25)">
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="Zoom out" :disabled="frame.zoom <= minZoom" @click="setZoom(frame.zoom - 0.25)">
                 <ZoomOut />
               </Button>
-              <Slider v-model="zoomModel" :min="MIN_ZOOM" :max="MAX_ZOOM" :step="0.01" thumb-label="Zoom" />
+              <Slider v-model="zoomModel" :min="minZoom" :max="MAX_ZOOM" :step="0.01" thumb-label="Zoom" />
               <Button type="button" variant="ghost" size="icon-sm" aria-label="Zoom in" :disabled="frame.zoom >= MAX_ZOOM" @click="setZoom(frame.zoom + 0.25)">
                 <ZoomIn />
               </Button>
@@ -204,16 +239,17 @@ const isGif = computed(() => props.file?.type === 'image/gif')
           <div class="space-y-2">
             <span class="text-sm font-medium">Preview</span>
             <div class="flex items-end gap-4">
-              <figure v-for="size in [56, 36, 24]" :key="size" class="flex flex-col items-center gap-1.5">
+              <figure v-for="{ size, label } in options.previews" :key="size" class="flex flex-col items-center gap-1.5">
                 <img
                   v-if="preview"
                   :src="preview"
                   alt=""
-                  class="rounded-full border border-border object-cover shadow-soft"
+                  class="border border-border object-cover shadow-soft"
+                  :class="options.round ? 'rounded-full' : 'bg-white'"
                   :style="{ width: `${size}px`, height: `${size}px` }"
                 />
-                <span v-else class="rounded-full bg-muted" :style="{ width: `${size}px`, height: `${size}px` }" />
-                <figcaption class="text-[10px] text-muted-foreground">{{ size === 56 ? 'Profile' : size === 36 ? 'Comments' : 'Cards' }}</figcaption>
+                <span v-else class="bg-muted" :class="options.round && 'rounded-full'" :style="{ width: `${size}px`, height: `${size}px` }" />
+                <figcaption class="text-[10px] text-muted-foreground">{{ label }}</figcaption>
               </figure>
             </div>
           </div>
@@ -224,7 +260,7 @@ const isGif = computed(() => props.file?.type === 'image/gif')
 
       <DialogFooter>
         <Button type="button" variant="outline" :disabled="saving" @click="open = false">Cancel</Button>
-        <Button type="button" :loading="saving" :disabled="!image" @click="save">Save photo</Button>
+        <Button type="button" :loading="saving" :disabled="!image" @click="save">{{ options.saveLabel }}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>
