@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import type { TeamWork, UserSummary, WorkCounts } from '@/types/models'
 import ProjectRow from '../components/ProjectRow.vue'
 import SetupGuide from '../components/SetupGuide.vue'
@@ -25,6 +26,8 @@ import { departmentPeople, useStructureStore } from '../departments.store'
 /** Department home: who leads it and its numbers (header), what to set up next, then its Teams, Projects and People tabs. */
 const props = defineProps<{ departmentId: string }>()
 const structure = useStructureStore()
+const auth = useAuthStore()
+const isAdmin = computed(() => auth.isOrganizationAdmin)
 const route = useRoute()
 const router = useRouter()
 const confirm = useConfirm()
@@ -153,7 +156,7 @@ async function remove() {
               <h1 class="truncate text-2xl font-bold tracking-tight sm:text-3xl">{{ department.name }}</h1>
               <p class="max-w-2xl text-sm text-muted-foreground">{{ department.description || 'No description yet.' }}</p>
             </div>
-            <DropdownMenu>
+            <DropdownMenu v-if="isAdmin">
               <DropdownMenuTrigger as-child>
                 <Button variant="outline" size="icon" aria-label="Department actions"><Ellipsis /></Button>
               </DropdownMenuTrigger>
@@ -199,7 +202,7 @@ async function remove() {
         </div>
       </section>
 
-      <SetupGuide :title="`Set up ${department.name}`" :steps="steps" />
+      <SetupGuide v-if="isAdmin" :title="`Set up ${department.name}`" :steps="steps" />
 
       <Tabs v-model="tab" class="gap-4">
         <TabsList>
@@ -211,8 +214,8 @@ async function remove() {
         <!-- Teams -->
         <TabsContent value="teams" class="space-y-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
-            <p class="text-sm text-muted-foreground">Open a team to manage its projects, tasks and members.</p>
-            <Button variant="brand" size="sm" as-child>
+            <p class="text-sm text-muted-foreground">{{ isAdmin ? 'Open a team to manage its projects, tasks and members.' : 'Open a team to see its projects, tasks and members.' }}</p>
+            <Button v-if="isAdmin" variant="brand" size="sm" as-child>
               <RouterLink :to="{ name: 'team-create', params: { departmentId: department.id } }"><Plus /> New team</RouterLink>
             </Button>
           </div>
@@ -224,7 +227,7 @@ async function remove() {
             description="Add a team, choose its lead and the people in it. Projects and tasks are then created inside the team."
             class="border border-dashed bg-card/60 py-14"
           >
-            <Button variant="brand" as-child>
+            <Button v-if="isAdmin" variant="brand" as-child>
               <RouterLink :to="{ name: 'team-create', params: { departmentId: department.id } }"><Plus /> Add the first team</RouterLink>
             </Button>
           </EmptyState>
@@ -274,7 +277,7 @@ async function remove() {
 
         <!-- Projects -->
         <TabsContent value="projects" class="space-y-3">
-          <p class="text-sm text-muted-foreground">Every project in {{ department.name }}, grouped by the team that owns it. Create projects from a team's page.</p>
+          <p class="text-sm text-muted-foreground">Every project in {{ department.name }}, grouped by the team that owns it.<template v-if="isAdmin"> Create projects from a team's page.</template></p>
           <Skeleton v-if="projectGroups === null" class="h-40 w-full" />
           <EmptyState
             v-else-if="!projectGroups.some((group) => group.projects.length)"
@@ -287,7 +290,7 @@ async function remove() {
               <Button v-for="team in department.teams.slice(0, 3)" :key="team.id" variant="outline" as-child>
                 <RouterLink :to="{ name: 'team', params: { teamId: team.id } }">Open {{ team.name }}</RouterLink>
               </Button>
-              <Button v-if="!department.teams.length" variant="brand" as-child>
+              <Button v-if="!department.teams.length && isAdmin" variant="brand" as-child>
                 <RouterLink :to="{ name: 'team-create', params: { departmentId: department.id } }"><Plus /> New team</RouterLink>
               </Button>
             </div>
@@ -308,7 +311,7 @@ async function remove() {
 
         <!-- People -->
         <TabsContent value="people" class="space-y-3">
-          <p class="text-sm text-muted-foreground">Everyone in {{ department.name }} and their role. Add or remove people from a team's Members tab.</p>
+          <p class="text-sm text-muted-foreground">Everyone in {{ department.name }} and their role.<template v-if="isAdmin"> Add or remove people from a team's Members tab.</template></p>
           <EmptyState
             v-if="!roster.length"
             :icon="Users"

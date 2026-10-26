@@ -55,8 +55,9 @@ onBeforeUnmount(() => (projects.currentProjectId = null))
         <span class="flex size-8 items-center justify-center text-xs font-bold text-white" :style="{ backgroundColor: project.color }">
           {{ project.key.slice(0, 2) }}
         </span>
-        <div class="min-w-0">
+        <div class="flex min-w-0 items-center gap-2">
           <h1 class="truncate text-lg font-semibold">{{ project.name }}</h1>
+          <span v-if="project.team" class="truncate text-xs text-muted-foreground">· {{ project.team.name }} team</span>
         </div>
         <UserAvatarStack :users="project.members" :max="5" class="ml-2" />
         <Button size="sm" class="ml-auto" @click="ui.openCreateIssue({ projectId: project.id })"><Plus /> Task</Button>

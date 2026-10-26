@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { useProjectsStore } from '@/modules/projects/projects.store'
 import { useUiStore } from '@/stores/ui.store'
 import type { TeamWork, WorkCounts } from '@/types/models'
 
@@ -11,6 +12,7 @@ import type { TeamWork, WorkCounts } from '@/types/models'
 const props = defineProps<{ project: TeamWork['projects'][number] }>()
 const router = useRouter()
 const ui = useUiStore()
+const projects = useProjectsStore()
 
 const percent = (counts: WorkCounts) => (counts.total ? Math.round((counts.done / counts.total) * 100) : 0)
 const open = () => router.push({ name: 'project-board', params: { projectId: props.project.id } })
@@ -46,7 +48,7 @@ const open = () => router.push({ name: 'project-board', params: { projectId: pro
       </p>
     </div>
     <div class="flex cursor-default items-center gap-1" @click.stop>
-      <Button variant="outline" size="sm" @click="ui.openCreateIssue({ projectId: project.id })"><Plus /> New task</Button>
+      <Button v-if="projects.canEdit(project.id)" variant="outline" size="sm" @click="ui.openCreateIssue({ projectId: project.id })"><Plus /> New task</Button>
       <slot name="actions" />
     </div>
   </li>

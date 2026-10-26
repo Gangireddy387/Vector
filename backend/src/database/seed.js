@@ -552,6 +552,12 @@ try {
     await seedFinance(people, teams);
   });
   await seedInbox(people, app);
+  // Team members are in their team's projects through the team; everyone else added to a project is a guest.
+  await sequelize.query(`
+    UPDATE project_members SET via_team = true
+    WHERE role <> 'admin' AND EXISTS (
+      SELECT 1 FROM projects p JOIN team_members tm ON tm.team_id = p.team_id
+      WHERE p.id = project_members.project_id AND tm.user_id = project_members.user_id)`);
   await backdateHistory();
   await ensureSuperAdmin();
 

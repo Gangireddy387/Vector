@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { getErrorMessage } from '@/lib/http'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import type { Team, UserSummary } from '@/types/models'
 import { structureApi } from '../departments.api'
 import { useStructureStore } from '../departments.store'
@@ -15,6 +16,8 @@ import { useStructureStore } from '../departments.store'
 /** The Members tab of a team: who is in it, who leads it, and adding or removing people. */
 const props = defineProps<{ team: Team }>()
 const structure = useStructureStore()
+const auth = useAuthStore()
+const isAdmin = computed(() => auth.isOrganizationAdmin)
 
 const busy = ref(false)
 const isAdding = ref(false)
@@ -67,7 +70,7 @@ defineExpose({ openAdd })
       <p class="text-sm text-muted-foreground">
         {{ team.members.length }} {{ team.members.length === 1 ? 'person' : 'people' }} in {{ team.name }}
       </p>
-      <Button variant="brand" size="sm" @click="isAdding ? (isAdding = false) : openAdd()">
+      <Button v-if="isAdmin" variant="brand" size="sm" @click="isAdding ? (isAdding = false) : openAdd()">
         <component :is="isAdding ? X : UserPlus" /> {{ isAdding ? 'Close' : 'Add people' }}
       </Button>
     </div>
@@ -111,10 +114,10 @@ defineExpose({ openAdd })
       v-if="!team.members.length && !isAdding"
       :icon="UserPlus"
       title="No one in this team yet"
-      description="Add the people who work in this team, then pick one of them as the team lead."
+      :description="isAdmin ? 'Add the people who work in this team, then pick one of them as the team lead.' : 'An organization admin adds people to teams.'"
       class="border border-dashed bg-card/60 py-14"
     >
-      <Button variant="brand" @click="openAdd"><UserPlus /> Add people</Button>
+      <Button v-if="isAdmin" variant="brand" @click="openAdd"><UserPlus /> Add people</Button>
     </EmptyState>
 
     <div v-else-if="team.members.length" class="overflow-hidden border border-border/80 bg-card shadow-soft">
@@ -136,7 +139,7 @@ defineExpose({ openAdd })
             <Badge v-if="member.id === team.leadId" variant="soft"><Crown /> Team lead</Badge>
             <span v-else class="text-sm text-muted-foreground">Member</span>
           </div>
-          <div class="flex items-center justify-end gap-1">
+          <div v-if="isAdmin" class="flex items-center justify-end gap-1">
             <template v-if="member.id !== team.leadId">
               <Button variant="ghost" size="sm" :disabled="busy" @click="makeLead(member)"><Star /> Make lead</Button>
               <Button

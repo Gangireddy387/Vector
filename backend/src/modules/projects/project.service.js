@@ -1,4 +1,4 @@
-import { Issue, Label, Organization, Project, ProjectMember, Sprint, Status, Team, User } from '../../database/models.js';
+import { Issue, Label, Organization, Project, ProjectMember, Sprint, Status, Team, TeamMember, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { DomainEvents, eventBus } from '../../shared/events/event-bus.js';
 import { sendEmail } from '../../shared/services/email.service.js';
@@ -6,8 +6,10 @@ import { addedToProjectEmail, inviteEmail } from '../../shared/services/email-te
 import { logActivity } from '../activity/activity.service.js';
 import { currentOrganizationId, currentOrganizationRole } from '../../shared/context/request-context.js';
 import { DEFAULT_LABELS } from '../labels/label.model.js';
+import { grantTeamAccess } from '../departments/department.service.js';
 import { ensureOrganizationMember } from '../organizations/organization.service.js';
 import { assertWithinLimit } from '../plans/plan.service.js';
+import { getHeadedProjectIds, isOrganizationAdminRequest } from './project-access.js';
 import { DEFAULT_STATUSES } from '../statuses/status.model.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
@@ -31,6 +33,23 @@ async function summarizeIssues(projectIds) {
   return summary;
 }
 
+/** The teams that own these projects, with their member ids. */
+async function owningTeams(teamIds) {
+  const ids = [...new Set(teamIds.filter(Boolean))];
+  if (!ids.length) return new Map();
+  const [teams, members] = await Promise.all([
+    Team.findAll({ where: { id: ids }, attributes: ['id', 'name'], raw: true }),
+    TeamMember.findAll({ where: { teamId: ids }, attributes: ['teamId', 'userId'], raw: true }),
+  ]);
+  return new Map(teams.map((team) => [team.id, { ...team, memberIds: new Set(members.filter((row) => row.teamId === team.id).map((row) => row.userId)) }]));
+}
+
+/** The team that owns the project, if any. */
+function teamFields(project, teams) {
+  const team = project.teamId ? teams.get(project.teamId) : null;
+  return { team: team ? { id: team.id, name: team.name } : null };
+}
+
 export async function listProjects(userId, { includeArchived }) {
   const memberships = await ProjectMember.findAll({
     where: { userId },
@@ -43,22 +62,48 @@ export async function listProjects(userId, { includeArchived }) {
       },
     ],
   });
-  const projects = memberships
+  let projects = memberships
     .filter((membership) => includeArchived || !membership.project.archivedAt)
-    .map((membership) => ({ ...membership.project.toJSON(), myRole: membership.role }));
+    .map((membership) => ({ ...membership.project.toJSON(), myRole: isOrganizationAdminRequest() ? 'admin' : membership.role, isMember: true }));
+
+  // Organization admins oversee every project in the organization, including ones they have not joined.
+  if (isOrganizationAdminRequest()) {
+    const joined = new Set(projects.map((project) => project.id));
+    const others = await Project.findAll({
+      where: { organizationId: currentOrganizationId(), ...(includeArchived ? {} : { archivedAt: null }) },
+      include: [{ model: User, as: 'lead', attributes: USER_SUMMARY_ATTRIBUTES }],
+    });
+    projects = [
+      ...projects,
+      ...others.filter((project) => !joined.has(project.id)).map((project) => ({ ...project.toJSON(), myRole: 'admin', isMember: false })),
+    ];
+  } else {
+    // Department heads can view their department's projects without joining them.
+    const joined = new Set(projects.map((project) => project.id));
+    const headedIds = (await getHeadedProjectIds(userId)).filter((id) => !joined.has(id));
+    if (headedIds.length) {
+      const headed = await Project.findAll({
+        where: { id: headedIds, ...(includeArchived ? {} : { archivedAt: null }) },
+        include: [{ model: User, as: 'lead', attributes: USER_SUMMARY_ATTRIBUTES }],
+      });
+      projects = [...projects, ...headed.map((project) => ({ ...project.toJSON(), myRole: 'viewer', isMember: false }))];
+    }
+  }
 
   const ids = projects.map((project) => project.id);
   if (!ids.length) return [];
 
-  const [issueSummary, memberRows, activeSprints] = await Promise.all([
+  const [issueSummary, memberRows, activeSprints, teams] = await Promise.all([
     summarizeIssues(ids),
     ProjectMember.findAll({ where: { projectId: ids }, attributes: ['projectId'], raw: true }),
     Sprint.findAll({ where: { projectId: ids, state: 'active' }, attributes: ['id', 'projectId', 'name', 'endDate'], raw: true }),
+    owningTeams(projects.map((project) => project.teamId)),
   ]);
 
   return projects
     .map((project) => ({
       ...project,
+      ...teamFields(project, teams),
       settings: withDefaultSettings(project),
       issueSummary: issueSummary.get(project.id),
       memberCount: memberRows.filter((row) => row.projectId === project.id).length,
@@ -86,6 +131,7 @@ export async function createProject(user, input) {
     settings: { ...DEFAULT_PROJECT_SETTINGS },
   });
   await ProjectMember.create({ projectId: project.id, userId: user.id, role: 'admin' });
+  if (project.teamId) await grantTeamAccess(project.teamId, [project.id]);
   await Status.bulkCreate(DEFAULT_STATUSES.map((status, index) => ({ ...status, projectId: project.id, position: index })));
   await Label.bulkCreate(DEFAULT_LABELS.map((label) => ({ ...label, projectId: project.id })));
   if (project.type === 'scrum') {
@@ -116,10 +162,15 @@ export async function getProject(projectId, userId) {
 
   const json = project.toJSON();
   const myMembership = json.memberships.find((membership) => membership.userId === userId);
+  const isOrganizationAdmin = isOrganizationAdminRequest() && json.organizationId === currentOrganizationId();
+  const team = json.teamId ? (await owningTeams([json.teamId])).get(json.teamId) : null;
+  const headRole = !isOrganizationAdmin && !myMembership && (await getHeadedProjectIds(userId)).includes(json.id) ? 'viewer' : null;
   return {
     ...json,
     settings: withDefaultSettings(json),
-    myRole: myMembership?.role ?? null,
+    myRole: isOrganizationAdmin ? 'admin' : (myMembership?.role ?? headRole),
+    isMember: Boolean(myMembership),
+    team: team ? { id: team.id, name: team.name } : null,
     members: json.memberships.map((membership) => ({ ...membership.user, role: membership.role, memberId: membership.id })),
     memberships: undefined,
   };

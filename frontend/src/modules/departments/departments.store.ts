@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { workspaceApi } from '@/modules/admin/admin.api'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import type { Department, UserSummary } from '@/types/models'
 import { structureApi } from './departments.api'
 
@@ -9,8 +10,10 @@ export const useStructureStore = defineStore('structure', () => {
   const departments = ref<Department[] | null>(null)
   const people = ref<UserSummary[]>([])
 
+  /** Everyone gets the departments they may see; the list of people to pick from is only needed (and allowed) for admins. */
   async function load() {
-    const [structure, members] = await Promise.all([structureApi.list(), workspaceApi.members()])
+    const isAdmin = useAuthStore().isOrganizationAdmin
+    const [structure, members] = await Promise.all([structureApi.list(), isAdmin ? workspaceApi.members() : Promise.resolve([])])
     departments.value = structure
     people.value = members.filter((member) => member.status === 'active')
   }

@@ -100,8 +100,7 @@ async function remove(member: ProjectMember) {
             <p class="flex items-center gap-2 truncate text-sm font-medium">
               {{ member.name }}
               <Badge v-if="member.status === 'invited'" variant="warning">Invited</Badge>
-              <Badge v-if="member.id === project.leadId" variant="secondary">Lead</Badge>
-            </p>
+              <Badge v-if="member.id === project.leadId" variant="secondary">Lead</Badge>            </p>
             <p class="truncate text-xs text-muted-foreground">{{ member.email }}</p>
           </div>
           <SelectField

@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { config } from '../../config/index.js';
 import { verifyAccessToken } from '../../modules/auth/token.js';
-import { ProjectMember } from '../../database/models.js';
+import { canWatchProject } from '../../modules/projects/project-access.js';
 
 let io = null;
 
@@ -24,8 +24,7 @@ export function initRealtime(httpServer) {
     socket.join(`user:${socket.data.userId}`);
 
     socket.on('project:join', async (projectId) => {
-      const isMember = await ProjectMember.count({ where: { projectId, userId: socket.data.userId } });
-      if (isMember) socket.join(`project:${projectId}`);
+      if (await canWatchProject(projectId, socket.data.userId)) socket.join(`project:${projectId}`);
     });
 
     socket.on('project:leave', (projectId) => socket.leave(`project:${projectId}`));

@@ -11,6 +11,8 @@ ProjectMember.init(
     projectId: { type: DataTypes.UUID, allowNull: false },
     userId: { type: DataTypes.UUID, allowNull: false },
     role: { type: DataTypes.ENUM(...PROJECT_ROLES), allowNull: false, defaultValue: 'member' },
+    /** Added because they are in the team that owns the project; removed again when they leave that team. */
+    viaTeam: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   {
     sequelize,

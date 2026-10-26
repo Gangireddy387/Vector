@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import type { TeamWork } from '@/types/models'
 import { structureApi } from '../departments.api'
@@ -16,6 +17,8 @@ import ProjectRow from './ProjectRow.vue'
 const props = defineProps<{ teamId: string; teamName: string }>()
 const emit = defineEmits<{ changed: [] }>()
 const confirm = useConfirm()
+const auth = useAuthStore()
+const isAdmin = computed(() => auth.isOrganizationAdmin)
 
 const work = ref<TeamWork | null>(null)
 const busyId = ref<string | null>(null)
@@ -104,7 +107,7 @@ defineExpose({ openCreate, openAdd })
   <section class="space-y-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <p class="text-sm text-muted-foreground">{{ summary }}</p>
-      <div class="flex flex-wrap gap-2">
+      <div v-if="isAdmin" class="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" @click="isAdding ? (isAdding = false) : openAdd()">
           <component :is="isAdding ? X : Link2" /> {{ isAdding ? 'Close' : 'Add existing project' }}
         </Button>
@@ -146,10 +149,10 @@ defineExpose({ openCreate, openAdd })
       v-else-if="!work.projects.length"
       :icon="FolderKanban"
       title="No projects yet"
-      :description="`Projects hold ${teamName}'s tasks. Create one, or bring in a project that already exists.`"
+      :description="isAdmin ? `Projects hold ${teamName}'s tasks. Create one, or bring in a project that already exists.` : `${teamName} has no projects yet.`"
       class="border border-dashed bg-card/60 py-14"
     >
-      <div class="flex flex-wrap justify-center gap-2">
+      <div v-if="isAdmin" class="flex flex-wrap justify-center gap-2">
         <Button variant="brand" @click="openCreate"><FolderPlus /> New project</Button>
         <Button variant="outline" @click="openAdd"><Link2 /> Add existing project</Button>
       </div>
@@ -157,7 +160,7 @@ defineExpose({ openCreate, openAdd })
 
     <ul v-else class="divide-y divide-border/60 overflow-hidden border border-border/80 bg-card shadow-soft">
       <ProjectRow v-for="project in work.projects" :key="project.id" :project="project">
-        <template #actions>
+        <template v-if="isAdmin" #actions>
           <Button
             variant="ghost"
             size="icon-sm"

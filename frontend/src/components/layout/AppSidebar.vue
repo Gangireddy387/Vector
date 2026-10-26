@@ -81,7 +81,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
       <SidebarLink :to="{ name: 'inbox' }" label="Inbox" :icon="Inbox" :badge="notifications.unreadCount" :collapsed="isCollapsed" />
       <SidebarLink :to="{ name: 'projects' }" label="Projects" :icon="FolderKanban" :collapsed="isCollapsed" exact />
       <SidebarLink v-if="auth.hasFeature('reports')" :to="{ name: 'reports' }" label="Reports" :icon="BarChart3" :collapsed="isCollapsed" exact />
-      <SidebarLink v-if="workspace.isAdmin" :to="{ name: 'departments' }" label="Departments" :icon="Building2" :collapsed="isCollapsed" />
+      <SidebarLink :to="{ name: 'departments' }" label="Departments" :icon="Building2" :collapsed="isCollapsed" />
       <SidebarLink
         v-if="workspace.isAdmin"
         :to="{ name: 'workspace-admin' }"
@@ -98,7 +98,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
       </div>
       <div v-else class="my-3 border-t border-sidebar-border" />
 
-      <template v-for="project in projects.activeProjects" :key="project.id">
+      <template v-for="project in projects.joinedProjects" :key="project.id">
         <SidebarLink
           :to="{ name: 'project-board', params: { projectId: project.id } }"
           :label="project.name"

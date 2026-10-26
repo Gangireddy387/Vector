@@ -190,6 +190,10 @@ export interface Project extends ProjectReference {
   settings: ProjectSettings
   archivedAt: string | null
   myRole: ProjectRole | null
+  /** False when an organization admin sees the project without having joined it. */
+  isMember?: boolean
+  /** The team that owns the project, if any. */
+  team?: { id: string; name: string } | null
   createdAt: string
   issueSummary?: { total: number; open: number; done: number }
   memberCount?: number

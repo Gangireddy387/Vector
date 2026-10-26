@@ -1,44 +1,66 @@
 import { Op } from 'sequelize';
-import { Department, Issue, OrganizationMember, Project, sequelize, Status, Team, TeamMember, User } from '../../database/models.js';
+import { Department, Issue, OrganizationMember, Project, ProjectMember, sequelize, Status, Team, TeamMember, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 
 const person = (as) => ({ model: User, as, attributes: USER_SUMMARY_ATTRIBUTES });
 
-/** The organization's structure: every department with its head and teams (lead and members). */
-export async function listDepartments(organizationId) {
-  const departments = await Department.findAll({
-    where: { organizationId },
-    include: [
-      person('head'),
-      {
-        model: Team,
-        as: 'teams',
-        include: [person('lead'), { ...person('members'), through: { attributes: [] } }],
-      },
-    ],
-    order: [
-      ['name', 'ASC'],
-      [{ model: Team, as: 'teams' }, 'name', 'ASC'],
-    ],
-  });
+/**
+ * What someone may see of the structure: organization admins see everything; others see the departments they head
+ * (with all of their teams) and the teams they are in. `null` means everything.
+ */
+async function visibilityFor(organizationId, viewer) {
+  if (!viewer || viewer.isAdmin) return null;
+  const [headed, memberships] = await Promise.all([
+    Department.findAll({ where: { organizationId, headId: viewer.userId }, attributes: ['id'], raw: true }),
+    TeamMember.findAll({ where: { userId: viewer.userId }, attributes: ['teamId'], raw: true }),
+  ]);
+  return { headedDepartmentIds: new Set(headed.map((row) => row.id)), teamIds: new Set(memberships.map((row) => row.teamId)) };
+}
+
+const canSeeTeam = (visibility, team) => !visibility || visibility.teamIds.has(team.id) || visibility.headedDepartmentIds.has(team.departmentId);
+
+/** The organization's structure: departments with their head and teams (lead and members), limited to what the viewer may see. */
+export async function listDepartments(organizationId, viewer) {
+  const [departments, visibility] = await Promise.all([
+    Department.findAll({
+      where: { organizationId },
+      include: [
+        person('head'),
+        {
+          model: Team,
+          as: 'teams',
+          include: [person('lead'), { ...person('members'), through: { attributes: [] } }],
+        },
+      ],
+      order: [
+        ['name', 'ASC'],
+        [{ model: Team, as: 'teams' }, 'name', 'ASC'],
+      ],
+    }),
+    visibilityFor(organizationId, viewer),
+  ]);
   // Projects belong to teams; a team's and a department's task counts add up the projects they own.
   const projects = await Project.findAll({ where: { organizationId, archivedAt: null, teamId: { [Op.ne]: null } }, attributes: ['id', 'teamId'], raw: true });
   const counts = await workByProject(projects.map((project) => project.id));
   const teamWork = (teamId) => sumWork(projects.filter((project) => project.teamId === teamId).map((project) => counts.get(project.id)));
 
-  return departments.map((department) => {
-    const value = department.toJSON();
-    value.teams = value.teams.map((team) => ({
-      ...team,
-      members: [...team.members].sort((a, b) => a.name.localeCompare(b.name)),
-      projectCount: projects.filter((project) => project.teamId === team.id).length,
-      work: teamWork(team.id),
-    }));
-    value.projectCount = value.teams.reduce((sum, team) => sum + team.projectCount, 0);
-    value.work = sumWork(value.teams.map((team) => team.work));
-    return value;
-  });
+  return departments
+    .map((department) => {
+      const value = department.toJSON();
+      value.teams = value.teams
+        .filter((team) => canSeeTeam(visibility, team))
+        .map((team) => ({
+          ...team,
+          members: [...team.members].sort((a, b) => a.name.localeCompare(b.name)),
+          projectCount: projects.filter((project) => project.teamId === team.id).length,
+          work: teamWork(team.id),
+        }));
+      value.projectCount = value.teams.reduce((sum, team) => sum + team.projectCount, 0);
+      value.work = sumWork(value.teams.map((team) => team.work));
+      return value;
+    })
+    .filter((department) => !visibility || visibility.headedDepartmentIds.has(department.id) || department.teams.length > 0);
 }
 
 const PROJECT_ATTRIBUTES = ['id', 'key', 'name', 'color', 'type', 'teamId', 'archivedAt'];
@@ -73,14 +95,25 @@ async function workByProject(projectIds) {
   return summary;
 }
 
+const projectSummary = (project, counts) => ({
+  id: project.id,
+  key: project.key,
+  name: project.name,
+  color: project.color,
+  type: project.type,
+  lead: project.lead,
+  work: counts.get(project.id),
+});
+
 /**
- * A team's projects with their task counts and leads, totals across them, and the organization's
- * other projects (with the team that owns them, if any) so an admin can bring them in.
+ * A team's projects with their task counts and leads, and totals across them. Admins also get the organization's
+ * other projects (with the team that owns them, if any) so they can bring them in.
  */
-export async function getTeamWork(organizationId, teamId) {
+export async function getTeamWork(organizationId, teamId, viewer) {
   const team = await findTeam(organizationId, teamId);
+  if (!canSeeTeam(await visibilityFor(organizationId, viewer), team)) throw ApiError.notFound('Team not found');
   const all = await Project.findAll({
-    where: { organizationId, archivedAt: null },
+    where: { organizationId, archivedAt: null, ...(viewer?.isAdmin ? {} : { teamId: team.id }) },
     attributes: PROJECT_ATTRIBUTES,
     include: [
       person('lead'),
@@ -90,7 +123,7 @@ export async function getTeamWork(organizationId, teamId) {
   });
   const owned = all.filter((project) => project.teamId === team.id);
   const counts = await workByProject(owned.map((project) => project.id));
-  const projects = owned.map(({ id, key, name, color, type, lead }) => ({ id, key, name, color, type, lead, work: counts.get(id) }));
+  const projects = owned.map((project) => projectSummary(project, counts));
   const otherProjects = all
     .filter((project) => project.teamId !== team.id)
     .map((project) => ({
@@ -103,10 +136,14 @@ export async function getTeamWork(organizationId, teamId) {
   return { projects, totals: sumWork(projects.map((project) => project.work)), otherProjects };
 }
 
-/** Every project owned by the department's teams, grouped by team, with task counts. */
-export async function getDepartmentProjects(organizationId, departmentId) {
+/** Every project owned by the department's teams the viewer may see, grouped by team, with task counts. */
+export async function getDepartmentProjects(organizationId, departmentId, viewer) {
   const department = await findDepartment(organizationId, departmentId);
-  const teams = await Team.findAll({ where: { departmentId: department.id }, attributes: ['id', 'name'], order: [['name', 'ASC']], raw: true });
+  const visibility = await visibilityFor(organizationId, viewer);
+  const teams = (await Team.findAll({ where: { departmentId: department.id }, attributes: ['id', 'name', 'departmentId'], order: [['name', 'ASC']], raw: true })).filter(
+    (team) => canSeeTeam(visibility, team),
+  );
+  if (visibility && !teams.length && !visibility.headedDepartmentIds.has(department.id)) throw ApiError.notFound('Department not found');
   const teamIds = teams.map((team) => team.id);
   const projects = teamIds.length
     ? await Project.findAll({ where: { organizationId, archivedAt: null, teamId: teamIds }, attributes: PROJECT_ATTRIBUTES, include: [person('lead')], order: [['name', 'ASC']] })
@@ -114,10 +151,9 @@ export async function getDepartmentProjects(organizationId, departmentId) {
   const counts = await workByProject(projects.map((project) => project.id));
   return {
     teams: teams.map((team) => ({
-      ...team,
-      projects: projects
-        .filter((project) => project.teamId === team.id)
-        .map(({ id, key, name, color, type, lead }) => ({ id, key, name, color, type, lead, work: counts.get(id) })),
+      id: team.id,
+      name: team.name,
+      projects: projects.filter((project) => project.teamId === team.id).map((project) => projectSummary(project, counts)),
     })),
   };
 }
@@ -128,17 +164,56 @@ async function findOrganizationProject(organizationId, projectId) {
   return project;
 }
 
-/** Puts a project (and all of its tasks) under a team; a project belongs to one team at most. */
+// --- Team access to projects ----------------------------------------------------------------
+// Everyone in a team is a member of the team's projects. People added to a project directly, from outside the
+// owning team, are guests. Access that came from the team (`viaTeam`) is removed again when someone leaves it.
+
+const teamMemberIds = async (teamId) => (await TeamMember.findAll({ where: { teamId }, attributes: ['userId'], raw: true })).map((row) => row.userId);
+const teamProjectIds = async (teamId) => (await Project.findAll({ where: { teamId }, attributes: ['id'], raw: true })).map((project) => project.id);
+
+/** Adds the team's people to the given projects (or all of the team's projects) as members. */
+export async function grantTeamAccess(teamId, projectIds) {
+  const [people, projects] = await Promise.all([teamMemberIds(teamId), projectIds ?? teamProjectIds(teamId)]);
+  if (!people.length || !projects.length) return;
+  const existing = new Set(
+    (await ProjectMember.findAll({ where: { projectId: projects, userId: people }, attributes: ['projectId', 'userId'], raw: true })).map((row) => `${row.projectId}:${row.userId}`),
+  );
+  const missing = projects.flatMap((projectId) => people.filter((userId) => !existing.has(`${projectId}:${userId}`)).map((userId) => ({ projectId, userId, role: 'member', viaTeam: true })));
+  if (missing.length) await ProjectMember.bulkCreate(missing);
+}
+
+/** Removes access that came from the team; memberships given on the project itself are kept. */
+async function revokeTeamAccess(userIds, projectIds) {
+  if (!userIds.length || !projectIds.length) return;
+  await ProjectMember.destroy({ where: { projectId: projectIds, userId: userIds, viaTeam: true } });
+}
+
+/** When a project leaves a team, the people who got in through the team keep access as ordinary members. */
+async function keepTeamAccess(projectIds) {
+  if (projectIds.length) await ProjectMember.update({ viaTeam: false }, { where: { projectId: projectIds, viaTeam: true } });
+}
+
+/** Puts a project (and all of its tasks) under a team; a project belongs to one team at most. Its people join it. */
 export async function assignProject(organizationId, teamId, projectId) {
   const team = await findTeam(organizationId, teamId);
   const project = await findOrganizationProject(organizationId, projectId);
+  const previousTeamId = project.teamId;
   await project.update({ teamId: team.id });
+  if (previousTeamId && previousTeamId !== team.id) {
+    const newPeople = new Set(await teamMemberIds(team.id));
+    const leaving = (await teamMemberIds(previousTeamId)).filter((userId) => !newPeople.has(userId));
+    await revokeTeamAccess(leaving, [project.id]);
+    await keepTeamAccess([project.id]);
+  }
+  await grantTeamAccess(team.id, [project.id]);
 }
 
 export async function unassignProject(organizationId, teamId, projectId) {
   await findTeam(organizationId, teamId);
   const project = await findOrganizationProject(organizationId, projectId);
-  if (project.teamId === teamId) await project.update({ teamId: null });
+  if (project.teamId !== teamId) return;
+  await project.update({ teamId: null });
+  await keepTeamAccess([project.id]);
 }
 
 const findDepartment = async (organizationId, departmentId) => {
@@ -197,7 +272,11 @@ export async function updateDepartment(organizationId, departmentId, changes) {
 export async function deleteDepartment(organizationId, departmentId) {
   const department = await findDepartment(organizationId, departmentId);
   const teamIds = (await Team.findAll({ where: { departmentId: department.id }, attributes: ['id'], raw: true })).map((team) => team.id);
-  if (teamIds.length) await Project.update({ teamId: null }, { where: { organizationId, teamId: teamIds } });
+  if (teamIds.length) {
+    const projectIds = (await Project.findAll({ where: { organizationId, teamId: teamIds }, attributes: ['id'], raw: true })).map((project) => project.id);
+    await keepTeamAccess(projectIds);
+    await Project.update({ teamId: null }, { where: { organizationId, teamId: teamIds } });
+  }
   await department.destroy();
 }
 
@@ -232,15 +311,20 @@ export async function updateTeam(organizationId, teamId, { memberIds, ...changes
 
   await team.update(changes);
   if (members) {
+    const before = await teamMemberIds(teamId);
     await TeamMember.destroy({ where: { teamId, userId: { [Op.notIn]: members.length ? members : [team.id] } } });
-    const existing = new Set((await TeamMember.findAll({ where: { teamId }, attributes: ['userId'], raw: true })).map((row) => row.userId));
+    const existing = new Set(await teamMemberIds(teamId));
     await TeamMember.bulkCreate(members.filter((userId) => !existing.has(userId)).map((userId) => ({ teamId, userId })));
+    // Leavers lose the projects they had through the team; newcomers get them.
+    await revokeTeamAccess(before.filter((userId) => !members.includes(userId)), await teamProjectIds(teamId));
+    await grantTeamAccess(teamId);
   }
 }
 
 /** Removes the team; its people stay in the organization and its projects become unassigned. */
 export async function deleteTeam(organizationId, teamId) {
   const team = await findTeam(organizationId, teamId);
+  await keepTeamAccess(await teamProjectIds(team.id));
   await Project.update({ teamId: null }, { where: { organizationId, teamId: team.id } });
   await team.destroy();
 }
@@ -248,7 +332,11 @@ export async function deleteTeam(organizationId, teamId) {
 /** When someone leaves the organization they leave its teams, and stop being a head or lead there. */
 export async function removeFromStructure(organizationId, userId) {
   const teamIds = (await Team.findAll({ where: { organizationId }, attributes: ['id'], raw: true })).map((team) => team.id);
-  if (teamIds.length) await TeamMember.destroy({ where: { teamId: teamIds, userId } });
+  if (teamIds.length) {
+    const projectIds = (await Project.findAll({ where: { teamId: teamIds }, attributes: ['id'], raw: true })).map((project) => project.id);
+    await revokeTeamAccess([userId], projectIds);
+    await TeamMember.destroy({ where: { teamId: teamIds, userId } });
+  }
   await Team.update({ leadId: null }, { where: { organizationId, leadId: userId } });
   await Department.update({ headId: null }, { where: { organizationId, headId: userId } });
 }

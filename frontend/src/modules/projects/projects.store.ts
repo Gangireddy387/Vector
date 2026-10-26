@@ -12,6 +12,8 @@ export const useProjectsStore = defineStore('projects', () => {
 
   const currentProject = computed(() => (currentProjectId.value ? details.value[currentProjectId.value] ?? null : null))
   const activeProjects = computed(() => projects.value.filter((project) => !project.archivedAt))
+  /** Projects the person has joined (organization admins can also see the rest). */
+  const joinedProjects = computed(() => activeProjects.value.filter((project) => project.isMember !== false))
 
   async function fetchProjects(force = false) {
     if (isLoaded.value && !force) return projects.value
@@ -55,8 +57,11 @@ export const useProjectsStore = defineStore('projects', () => {
     projects.value = projects.value.filter((project) => project.id !== projectId)
   }
 
+  /** Your role in a project, from its details when loaded, otherwise from the project list. */
+  const roleOf = (projectId?: string | null) =>
+    projectId ? (details.value[projectId]?.myRole ?? projects.value.find((project) => project.id === projectId)?.myRole ?? null) : null
   const canEdit = (projectId?: string | null) => {
-    const role = projectId ? details.value[projectId]?.myRole : null
+    const role = roleOf(projectId)
     return role === 'admin' || role === 'member'
   }
   const isAdmin = (projectId?: string | null) => (projectId ? details.value[projectId]?.myRole === 'admin' : false)
@@ -64,6 +69,7 @@ export const useProjectsStore = defineStore('projects', () => {
   return {
     projects,
     activeProjects,
+    joinedProjects,
     details,
     currentProjectId,
     currentProject,

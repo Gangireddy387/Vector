@@ -11,10 +11,12 @@ import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
 import { formatDate } from '@/lib/format'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import CreateProjectDialog from '../components/CreateProjectDialog.vue'
 import { useProjectsStore } from '../projects.store'
 
 const projects = useProjectsStore()
+const auth = useAuthStore()
 const route = useRoute()
 const { isDesktop } = useDevice()
 const isLoading = ref(!projects.projects.length)
@@ -30,7 +32,11 @@ const completion = (summary?: { total: number; done: number }) => (summary?.tota
 
 <template>
   <div class="w-full space-y-4" :class="isDesktop ? 'p-5' : 'p-3'">
-    <PageHeader v-if="isDesktop" title="Projects" description="Every project you are a member of.">
+    <PageHeader
+      v-if="isDesktop"
+      title="Projects"
+      :description="auth.isOrganizationAdmin ? 'Every project in the organization. As an admin you can open all of them.' : 'Every project you are a member of.'"
+    >
       <template #actions>
         <Button @click="isCreateOpen = true"><Plus /> New project</Button>
       </template>

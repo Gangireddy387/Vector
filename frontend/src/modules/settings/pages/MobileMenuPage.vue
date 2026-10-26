@@ -19,12 +19,8 @@ const LINKS = computed(() => [
   ...(auth.hasFeature('reports') ? [{ to: { name: 'reports' }, label: 'Reports', icon: BarChart3 }] : []),
   { to: { name: 'search' }, label: 'Search', icon: Search },
   { to: { name: 'settings' }, label: 'Settings', icon: Settings },
-  ...(auth.isOrganizationAdmin
-    ? [
-        { to: { name: 'departments' }, label: 'Departments', icon: Building2 },
-        { to: { name: 'workspace-admin' }, label: 'Organization settings', icon: ShieldCheck },
-      ]
-    : []),
+  { to: { name: 'departments' }, label: 'Departments', icon: Building2 },
+  ...(auth.isOrganizationAdmin ? [{ to: { name: 'workspace-admin' }, label: 'Organization settings', icon: ShieldCheck }] : []),
   ...(auth.isSuperAdmin ? [{ to: { name: 'super-admin' }, label: 'Super admin', icon: Crown }] : []),
 ])
 
@@ -86,7 +82,7 @@ const openOrganization = (organizationId: string) => organizationId !== auth.org
       <h2 class="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Projects</h2>
       <nav class="overflow-hidden border border-border/70 bg-card shadow-soft" aria-label="Projects">
         <RouterLink
-          v-for="project in projects.activeProjects"
+          v-for="project in projects.joinedProjects"
           :key="project.id"
           :to="{ name: 'project-board', params: { projectId: project.id } }"
           class="flex items-center gap-3 border-b px-4 py-3.5 last:border-b-0 active:bg-muted"

@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import SetupGuide from '../components/SetupGuide.vue'
 import StructureBreadcrumb from '../components/StructureBreadcrumb.vue'
 import TeamMembersPanel from '../components/TeamMembersPanel.vue'
@@ -23,6 +24,8 @@ import { useStructureStore } from '../departments.store'
 /** Team home: who leads it and who is in it (header), what to set up next, then its Projects and Members tabs. */
 const props = defineProps<{ teamId: string }>()
 const structure = useStructureStore()
+const auth = useAuthStore()
+const isAdmin = computed(() => auth.isOrganizationAdmin)
 const route = useRoute()
 const router = useRouter()
 const confirm = useConfirm()
@@ -123,7 +126,7 @@ async function remove() {
               <h1 class="truncate text-2xl font-bold tracking-tight sm:text-3xl">{{ team.name }}</h1>
               <p class="max-w-2xl text-sm text-muted-foreground">{{ team.description || 'No description yet.' }}</p>
             </div>
-            <DropdownMenu>
+            <DropdownMenu v-if="isAdmin">
               <DropdownMenuTrigger as-child>
                 <Button variant="outline" size="icon" aria-label="Team actions"><Ellipsis /></Button>
               </DropdownMenuTrigger>
@@ -165,7 +168,7 @@ async function remove() {
         </div>
       </section>
 
-      <SetupGuide :title="`Set up ${team.name}`" :steps="steps" />
+      <SetupGuide v-if="isAdmin" :title="`Set up ${team.name}`" :steps="steps" />
 
       <Tabs v-model="tab" class="gap-4">
         <TabsList>

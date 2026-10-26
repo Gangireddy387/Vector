@@ -14,6 +14,7 @@ const ADDED_COLUMNS = [
   { table: 'organizations', column: 'rejection_reason', definition: { type: DataTypes.STRING(500), allowNull: true } },
   { table: 'organizations', column: 'plan_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'projects', column: 'team_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'project_members', column: 'via_team', definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

@@ -11,9 +11,12 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import { departmentPeople, useStructureStore } from '../departments.store'
 
 const structure = useStructureStore()
+const auth = useAuthStore()
+const isAdmin = computed(() => auth.isOrganizationAdmin)
 const { isDesktop } = useDevice()
 const search = ref('')
 
@@ -36,16 +39,23 @@ const STATS = computed(() => [
 
 <template>
   <div class="w-full space-y-5" :class="isDesktop ? 'p-5' : 'p-3'">
-    <PageHeader title="Departments" description="How your organization is organized: departments, their teams and the people in them.">
+    <PageHeader
+      title="Departments"
+      :description="
+        isAdmin
+          ? 'How your organization is organized: departments, their teams and the people in them.'
+          : 'The departments and teams you belong to.'
+      "
+    >
       <template #eyebrow>
         <span class="text-brand text-xs font-semibold tracking-wider uppercase">Organization</span>
       </template>
-      <template #actions>
+      <template v-if="isAdmin" #actions>
         <Button variant="brand" as-child><RouterLink :to="{ name: 'department-create' }"><Plus /> New department</RouterLink></Button>
       </template>
     </PageHeader>
 
-    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div v-if="isAdmin" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <div v-for="stat in STATS" :key="stat.label" class="flex items-center gap-3 border border-border/70 bg-card p-4 shadow-soft">
         <span class="flex size-10 items-center justify-center bg-primary/10 text-primary"><component :is="stat.icon" class="size-5" /></span>
         <span>
@@ -67,11 +77,15 @@ const STATS = computed(() => [
     <EmptyState
       v-else-if="!structure.departments.length"
       :icon="Building2"
-      title="No departments yet"
-      description="Start with a department such as Engineering or Sales, choose its head, then add teams inside it."
+      :title="isAdmin ? 'No departments yet' : 'You are not in a department yet'"
+      :description="
+        isAdmin
+          ? 'Start with a department such as Engineering or Sales, choose its head, then add teams inside it.'
+          : 'When an organization admin adds you to a team, its department shows up here.'
+      "
       class="border border-dashed bg-card/60 py-16"
     >
-      <Button variant="brand" as-child><RouterLink :to="{ name: 'department-create' }"><Plus /> Create the first department</RouterLink></Button>
+      <Button v-if="isAdmin" variant="brand" as-child><RouterLink :to="{ name: 'department-create' }"><Plus /> Create the first department</RouterLink></Button>
     </EmptyState>
 
     <EmptyState v-else-if="!visible.length" :icon="Search" :title="`Nothing matches “${search}”`" class="border border-dashed py-12" />
