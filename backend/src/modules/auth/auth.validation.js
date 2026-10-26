@@ -22,6 +22,21 @@ export const acceptInviteSchema = z.object({ token: z.string().min(10), name, pa
 export const updateProfileSchema = z.object({
   name: name.optional(),
   title: z.string().trim().max(120).nullable().optional(),
+  about: z.string().trim().max(1000, 'Keep the about section under 1000 characters').nullable().optional(),
+  location: z.string().trim().max(100).nullable().optional(),
+  phone: z
+    .string()
+    .trim()
+    .max(40)
+    .regex(/^\+?[\d\s()-]{6,}$/, 'Use digits, spaces, dashes or brackets, e.g. +91 98765 43210')
+    .nullable()
+    .optional()
+    .or(z.literal('').transform(() => null)),
+  skills: z
+    .array(z.string().trim().min(1).max(30, 'Keep each skill under 30 characters'))
+    .max(15, 'Add up to 15 skills')
+    .transform((skills) => skills.filter((skill, index) => skills.findIndex((other) => other.toLowerCase() === skill.toLowerCase()) === index))
+    .optional(),
   timezone: z.string().trim().max(64).refine(isValidTimeZone, 'Choose a valid time zone').optional(),
   avatarColor: z.string().regex(/^#[0-9a-f]{6}$/i).optional(),
   preferences: z

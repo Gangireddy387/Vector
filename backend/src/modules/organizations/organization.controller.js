@@ -1,4 +1,5 @@
 import { describeSession } from '../auth/auth.service.js';
+import { getMemberProfile } from './member-profile.service.js';
 import { listActiveMemberships } from './organization-access.js';
 import * as organizationService from './organization.service.js';
 
@@ -32,6 +33,7 @@ export const showLogo = (req, res) => {
 };
 export const showPlan = async (req, res) => res.json(await organizationService.getPlanOverview(req.organization));
 export const listMembers = async (req, res) => res.json({ members: await organizationService.listMembers(req.organization.id) });
+export const showMemberProfile = async (req, res) => res.json(await getMemberProfile(req.organization.id, req.params.userId));
 export const updateMember = async (req, res) =>
   res.json({ member: await organizationService.updateMember(req.organization.id, req.user, req.params.userId, req.body) });
 export const removeMember = async (req, res) => {

@@ -38,6 +38,11 @@ User.init(
     /** Uploaded profile photo (served from /api/avatars); null shows initials on avatarColor. */
     avatarUrl: { type: DataTypes.STRING(255), allowNull: true },
     timezone: { type: DataTypes.STRING(64), allowNull: false, defaultValue: 'UTC' },
+    /** Optional profile details people fill in themselves; shown on their profile to organization admins. */
+    about: { type: DataTypes.TEXT, allowNull: true },
+    location: { type: DataTypes.STRING(100), allowNull: true },
+    phone: { type: DataTypes.STRING(40), allowNull: true },
+    skills: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
     preferences: { type: DataTypes.JSON, allowNull: false, defaultValue: DEFAULT_USER_PREFERENCES },
     inviteToken: { type: DataTypes.STRING, allowNull: true },
     resetToken: { type: DataTypes.STRING, allowNull: true },

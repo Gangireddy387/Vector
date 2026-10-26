@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Gem, Settings2, Users } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import SettingsLayout, { type SettingsSection } from '@/components/common/SettingsLayout.vue'
 import { useDevice } from '@/composables/useDevice'
@@ -16,7 +17,13 @@ const SECTIONS: SettingsSection[] = [
   { value: 'people', label: 'People', icon: Users },
   { value: 'plan', label: 'Plan', icon: Gem },
 ]
-const activeSection = ref('general')
+/** The open tab lives in the address (?tab=people) so links, like the one back from a profile, land on it. */
+const route = useRoute()
+const router = useRouter()
+const activeSection = computed({
+  get: () => (SECTIONS.some((section) => section.value === route.query.tab) ? String(route.query.tab) : 'general'),
+  set: (tab: string) => router.replace({ query: { ...route.query, tab: tab === 'general' ? undefined : tab } }),
+})
 </script>
 
 <template>

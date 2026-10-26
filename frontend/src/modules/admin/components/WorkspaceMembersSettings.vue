@@ -138,18 +138,24 @@ async function sendInvite() {
         </div>
         <ul v-else class="divide-y divide-border/60 overflow-hidden border border-border/70">
           <li v-for="member in filtered" :key="member.id" class="flex flex-wrap items-center gap-3 p-3 transition-colors hover:bg-accent/30">
-            <UserAvatar :user="member" size="md" />
-            <div class="min-w-0 flex-1">
-              <p class="flex flex-wrap items-center gap-2 text-sm font-medium">
-                {{ member.name }}
-                <Badge v-if="member.id === auth.user?.id" variant="soft">You</Badge>
-                <Badge :variant="STATUS_BADGE[member.status]" class="capitalize">{{ member.status }}</Badge>
-              </p>
-              <p class="truncate text-xs text-muted-foreground">
-                {{ member.email }} · {{ member.projectCount }} project{{ member.projectCount === 1 ? '' : 's' }}
-                <template v-if="member.lastSeenAt"> · active {{ timeAgo(member.lastSeenAt) }}</template>
-              </p>
-            </div>
+            <RouterLink
+              :to="{ name: 'member-profile', params: { userId: member.id } }"
+              class="group flex min-w-0 flex-1 items-center gap-3"
+              :title="`View ${member.name}'s profile`"
+            >
+              <UserAvatar :user="member" size="md" />
+              <div class="min-w-0 flex-1">
+                <p class="flex flex-wrap items-center gap-2 text-sm font-medium">
+                  <span class="transition-colors group-hover:text-primary">{{ member.name }}</span>
+                  <Badge v-if="member.id === auth.user?.id" variant="soft">You</Badge>
+                  <Badge :variant="STATUS_BADGE[member.status]" class="capitalize">{{ member.status }}</Badge>
+                </p>
+                <p class="truncate text-xs text-muted-foreground">
+                  <template v-if="member.title">{{ member.title }} · </template>{{ member.email }} · {{ member.projectCount }} project{{ member.projectCount === 1 ? '' : 's' }}
+                  <template v-if="member.lastSeenAt"> · active {{ timeAgo(member.lastSeenAt) }}</template>
+                </p>
+              </div>
+            </RouterLink>
             <SelectField
               :model-value="member.workspaceRole"
               :options="ROLE_OPTIONS"

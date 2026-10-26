@@ -30,5 +30,6 @@ organizationAdminRoutes.delete('/workspace/logo', requireOrganizationAdmin, cont
 organizationAdminRoutes.get('/workspace/plan', requireOrganization, controller.showPlan);
 organizationAdminRoutes.get('/workspace/members', requireOrganizationAdmin, controller.listMembers);
 organizationAdminRoutes.post('/workspace/invitations', requireOrganizationAdmin, validate({ body: inviteMemberSchema }), controller.invite);
+organizationAdminRoutes.get('/workspace/members/:userId/profile', requireOrganizationAdmin, controller.showMemberProfile);
 organizationAdminRoutes.patch('/workspace/members/:userId', requireOrganizationAdmin, validate({ body: updateMemberSchema }), controller.updateMember);
 organizationAdminRoutes.delete('/workspace/members/:userId', requireOrganizationAdmin, controller.removeMember);

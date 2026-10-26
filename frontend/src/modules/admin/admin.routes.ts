@@ -7,4 +7,11 @@ export const adminRoutes: RouteRecordRaw[] = [
     component: () => import('./pages/WorkspaceAdminPage.vue'),
     meta: { title: 'Organization settings', requiresWorkspaceAdmin: true, mobileBack: true },
   },
+  {
+    path: 'admin/people/:userId',
+    name: 'member-profile',
+    component: () => import('./pages/MemberProfilePage.vue'),
+    props: true,
+    meta: { title: 'Profile', requiresWorkspaceAdmin: true, mobileBack: true },
+  },
 ]

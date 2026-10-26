@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { useDevice } from '@/composables/useDevice'
 import { usePwaInstall } from '@/composables/usePwaInstall'
 import { type ThemePreference, useTheme } from '@/composables/useTheme'
@@ -16,6 +17,7 @@ import { authApi } from '@/modules/auth/auth.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import PasswordInput from '@/modules/auth/components/PasswordInput.vue'
 import ProfilePhotoField from '../components/ProfilePhotoField.vue'
+import SkillsInput from '../components/SkillsInput.vue'
 import TimezoneField from '../components/TimezoneField.vue'
 
 const auth = useAuthStore()
@@ -28,7 +30,12 @@ const profile = reactive({
   name: auth.user?.name ?? '',
   title: auth.user?.title ?? '',
   avatarColor: auth.user?.avatarColor ?? '#6366f1',
+  about: auth.user?.about ?? '',
+  location: auth.user?.location ?? '',
+  phone: auth.user?.phone ?? '',
+  skills: [...(auth.user?.skills ?? [])],
 })
+const ABOUT_LIMIT = 1000
 const passwords = reactive({ currentPassword: '', newPassword: '' })
 const isSavingProfile = ref(false)
 const isSavingPassword = ref(false)
@@ -42,7 +49,13 @@ const THEMES: Array<{ value: ThemePreference; label: string; icon: typeof Sun }>
 async function saveProfile() {
   isSavingProfile.value = true
   try {
-    await auth.updateProfile({ ...profile, title: profile.title || null })
+    await auth.updateProfile({
+      ...profile,
+      title: profile.title.trim() || null,
+      about: profile.about.trim() || null,
+      location: profile.location.trim() || null,
+      phone: profile.phone.trim() || null,
+    })
     toast.success('Profile updated')
   } catch (error) {
     toast.error(getErrorMessage(error))
@@ -93,6 +106,30 @@ async function changePassword() {
                 <FormField label="Job title" for="profile-title" optional><Input id="profile-title" v-model="profile.title" placeholder="e.g. Product Designer" /></FormField>
                 <FormField label="Email" for="profile-email" class="sm:col-span-2">
                   <Input id="profile-email" :model-value="auth.user?.email" disabled />
+                </FormField>
+                <FormField label="Location" for="profile-location" optional>
+                  <Input id="profile-location" v-model="profile.location" placeholder="e.g. Hyderabad, India" maxlength="100" />
+                </FormField>
+                <FormField label="Phone" for="profile-phone" optional>
+                  <Input id="profile-phone" v-model="profile.phone" type="tel" placeholder="e.g. +91 98765 43210" maxlength="40" />
+                </FormField>
+                <FormField
+                  label="About"
+                  for="profile-about"
+                  optional
+                  class="sm:col-span-2"
+                  :hint="`What you work on and what people can come to you for · ${profile.about.length}/${ABOUT_LIMIT}`"
+                >
+                  <Textarea
+                    id="profile-about"
+                    v-model="profile.about"
+                    rows="4"
+                    :maxlength="ABOUT_LIMIT"
+                    placeholder="e.g. Frontend engineer focused on the mobile app. Ask me about Vue, accessibility and design systems."
+                  />
+                </FormField>
+                <FormField label="Skills" for="profile-skills" optional class="sm:col-span-2" hint="Up to 15. Shown on your profile.">
+                  <SkillsInput id="profile-skills" v-model="profile.skills" />
                 </FormField>
               </div>
               <Button type="submit" :loading="isSavingProfile">Save profile</Button>

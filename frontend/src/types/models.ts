@@ -138,6 +138,10 @@ export interface User extends UserSummary {
   preferences: UserPreferences
   lastSeenAt: string | null
   createdAt: string
+  about?: string | null
+  location?: string | null
+  phone?: string | null
+  skills?: string[]
 }
 
 export interface StatusSummary {

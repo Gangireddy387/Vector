@@ -30,6 +30,10 @@ export interface SlugCheck {
 export interface ProfileChanges {
   name?: string
   title?: string | null
+  about?: string | null
+  location?: string | null
+  phone?: string | null
+  skills?: string[]
   timezone?: string
   avatarColor?: string
   preferences?: Partial<UserPreferences>

@@ -15,6 +15,10 @@ const ADDED_COLUMNS = [
   { table: 'organizations', column: 'plan_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'projects', column: 'team_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'project_members', column: 'via_team', definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false } },
+  { table: 'users', column: 'about', definition: { type: DataTypes.TEXT, allowNull: true } },
+  { table: 'users', column: 'location', definition: { type: DataTypes.STRING(100), allowNull: true } },
+  { table: 'users', column: 'phone', definition: { type: DataTypes.STRING(40), allowNull: true } },
+  { table: 'users', column: 'skills', definition: { type: DataTypes.JSON, allowNull: false, defaultValue: [] } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */
