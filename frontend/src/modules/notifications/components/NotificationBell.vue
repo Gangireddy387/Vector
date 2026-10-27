@@ -43,7 +43,7 @@ function open(notification: AppNotification) {
         </Button>
       </div>
       <div class="max-h-[420px] overflow-y-auto">
-        <NotificationList v-if="latest.length" :notifications="latest" dense @open="open" @remove="notifications.remove" />
+        <NotificationList v-if="latest.length" :notifications="latest" dense @open="open" @read="notifications.markRead" @remove="notifications.remove" />
         <EmptyState v-else :icon="BellOff" title="You're all caught up" class="py-10" />
       </div>
       <div class="border-t p-2">

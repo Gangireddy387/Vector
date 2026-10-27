@@ -27,6 +27,7 @@ import { Organization, OrganizationMember } from '../modules/organizations/organ
 import { Plan } from '../modules/plans/plan.model.js';
 import { Department, Team, TeamMember } from '../modules/departments/department.model.js';
 import { CalendarEvent } from '../modules/calendar/calendar-event.model.js';
+import { SupportMessage } from '../modules/support/support-message.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
 
@@ -152,6 +153,10 @@ Organization.hasMany(CalendarEvent, { as: 'calendarEvents', foreignKey: 'organiz
 User.hasMany(CalendarEvent, { as: 'calendarEvents', foreignKey: 'ownerId', ...cascade });
 CalendarEvent.belongsTo(Project, { as: 'project', foreignKey: 'projectId', constraints: false });
 
+// Support chat between the super admin and each organization's admins
+Organization.hasMany(SupportMessage, { as: 'supportMessages', foreignKey: 'organizationId', ...cascade });
+SupportMessage.belongsTo(User, { as: 'author', foreignKey: 'authorId', onDelete: 'SET NULL' });
+
 // Portal-wide configuration
 WorkspaceSetting.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
 
@@ -187,4 +192,5 @@ export {
   Team,
   TeamMember,
   CalendarEvent,
+  SupportMessage,
 };

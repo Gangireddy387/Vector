@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { useTheme } from '@/composables/useTheme'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import OrganizationFields from '@/modules/auth/components/OrganizationFields.vue'
@@ -18,6 +19,8 @@ import OrganizationLogoField from './OrganizationLogoField.vue'
 
 const workspace = useWorkspaceStore()
 const auth = useAuthStore()
+const theme = useTheme()
+const PERSONAL_LABEL = { light: 'Light', dark: 'Dark', auto: 'System' } as const
 
 const form = ref({ name: workspace.settings.name, slug: workspace.settings.slug ?? '' })
 const slugAvailable = ref(true)
@@ -118,9 +121,21 @@ async function deleteOrganization() {
     <Card>
       <CardHeader>
         <CardTitle>Default colour mode</CardTitle>
-        <CardDescription>Used the first time someone opens the app. Members can still switch light or dark for themselves.</CardDescription>
+        <CardDescription>
+          Everyone in {{ workspace.settings.name }} sees this, and it changes right away for them. People who pick light, dark or system for themselves in
+          Settings keep their own choice.
+        </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent class="space-y-3">
+        <div
+          v-if="theme.isPersonal.value"
+          class="flex flex-wrap items-center gap-3 border border-warning/40 bg-warning/10 px-3 py-2.5 text-sm text-amber-800 dark:text-warning"
+        >
+          <span class="min-w-0 flex-1">
+            You picked <strong>{{ PERSONAL_LABEL[theme.preference.value] }}</strong> for yourself in Settings, so this default does not change what you see.
+          </span>
+          <Button variant="outline" size="sm" @click="theme.followOrganization(workspace.settings.defaultMode)">Follow the organization default</Button>
+        </div>
         <div class="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Default colour mode">
           <button
             v-for="mode in MODES"

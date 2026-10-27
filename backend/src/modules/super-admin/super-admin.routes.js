@@ -12,6 +12,7 @@ import {
   listOrganizations,
   rejectOrganization,
 } from './super-admin.service.js';
+import { deleteMessage, getThread, markRead, sendMessage, setDisappearing, unreadByOrganization } from '../support/support.service.js';
 
 const rejectSchema = z.object({ reason: z.string().trim().max(500).optional() });
 const setPlanSchema = z.object({ planId: z.string().uuid('Choose a plan') });
@@ -47,6 +48,26 @@ superAdminRoutes.post('/super-admin/organizations/:organizationId/reject', valid
 );
 superAdminRoutes.put('/super-admin/organizations/:organizationId/plan', validate({ body: setPlanSchema }), async (req, res) =>
   res.json({ organization: await changeOrganizationPlan(req.params.organizationId, req.body.planId) }),
+);
+
+// Support chat with each organization's admins
+const messageSchema = z.object({ body: z.string().trim().min(1, 'Write a message').max(4000) });
+const disappearingSchema = z.object({ hours: z.union([z.literal(24), z.literal(168), z.null()]) });
+superAdminRoutes.get('/super-admin/support/unread', async (_req, res) => res.json({ unread: await unreadByOrganization() }));
+superAdminRoutes.get('/super-admin/organizations/:organizationId/support', async (req, res) =>
+  res.json(await getThread(req.params.organizationId, 'portal')),
+);
+superAdminRoutes.post('/super-admin/organizations/:organizationId/support', validate({ body: messageSchema }), async (req, res) =>
+  res.status(201).json(await sendMessage(req.params.organizationId, req.user, 'portal', req.body.body)),
+);
+superAdminRoutes.post('/super-admin/organizations/:organizationId/support/read', async (req, res) =>
+  res.json({ updated: await markRead(req.params.organizationId, 'portal') }),
+);
+superAdminRoutes.delete('/super-admin/organizations/:organizationId/support/messages/:messageId', async (req, res) =>
+  res.json({ message: await deleteMessage(req.params.organizationId, req.user, 'portal', req.params.messageId) }),
+);
+superAdminRoutes.put('/super-admin/organizations/:organizationId/support/disappearing', validate({ body: disappearingSchema }), async (req, res) =>
+  res.json(await setDisappearing(req.params.organizationId, req.user, 'portal', req.body.hours)),
 );
 
 superAdminRoutes.get('/super-admin/plans', async (_req, res) => res.json({ plans: await listPlans() }));

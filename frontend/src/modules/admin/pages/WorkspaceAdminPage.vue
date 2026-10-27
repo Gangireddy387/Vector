@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Gem, Settings2, Users } from 'lucide-vue-next'
+import { Gem, MessageCircle, Settings2, Users } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -9,6 +9,7 @@ import { useWorkspaceStore } from '@/stores/workspace.store'
 import WorkspaceGeneralSettings from '../components/WorkspaceGeneralSettings.vue'
 import WorkspaceMembersSettings from '../components/WorkspaceMembersSettings.vue'
 import WorkspacePlanSettings from '../components/WorkspacePlanSettings.vue'
+import WorkspaceSupportSettings from '../components/WorkspaceSupportSettings.vue'
 
 const { isDesktop } = useDevice()
 const workspace = useWorkspaceStore()
@@ -16,6 +17,7 @@ const SECTIONS: SettingsSection[] = [
   { value: 'general', label: 'General', icon: Settings2 },
   { value: 'people', label: 'People', icon: Users },
   { value: 'plan', label: 'Plan', icon: Gem },
+  { value: 'support', label: 'Vector support', icon: MessageCircle },
 ]
 /** The open tab lives in the address (?tab=people) so links, like the one back from a profile, land on it. */
 const route = useRoute()
@@ -38,6 +40,7 @@ const activeSection = computed({
       <template #general><WorkspaceGeneralSettings /></template>
       <template #people><WorkspaceMembersSettings /></template>
       <template #plan><WorkspacePlanSettings /></template>
+      <template #support><WorkspaceSupportSettings /></template>
     </SettingsLayout>
   </div>
 </template>

@@ -23,6 +23,8 @@ export interface OrganizationPerson extends UserSummary {
   role: 'admin' | 'member'
   status: 'active' | 'invited' | 'disabled'
   isCreator: boolean
+  /** Has the app open right now. */
+  isOnline: boolean
   joinedAt: string
   lastSeenAt: string | null
   timezone: string

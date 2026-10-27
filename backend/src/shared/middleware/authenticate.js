@@ -4,6 +4,8 @@ import { User } from '../../database/models.js';
 import { resolveOrganization } from '../../modules/organizations/organization-access.js';
 import { runWithContext } from '../context/request-context.js';
 
+const LAST_SEEN_INTERVAL_MS = 60_000;
+
 export async function authenticate(req, _res, next) {
   const header = req.headers.authorization ?? '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
@@ -18,6 +20,11 @@ export async function authenticate(req, _res, next) {
 
   const user = await User.findByPk(payload.sub);
   if (!user || user.status !== 'active') throw ApiError.unauthorized();
+  // "Last seen" follows real use, not just sign-in; at most one write a minute per person.
+  if (!user.lastSeenAt || Date.now() - user.lastSeenAt.getTime() > LAST_SEEN_INTERVAL_MS) {
+    user.lastSeenAt = new Date();
+    void User.update({ lastSeenAt: user.lastSeenAt }, { where: { id: user.id }, silent: true }).catch(() => undefined);
+  }
 
   const { membership, memberships } = await resolveOrganization(user, req.headers['x-organization-id']);
   req.user = user;

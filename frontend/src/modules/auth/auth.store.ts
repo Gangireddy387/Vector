@@ -145,7 +145,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /** Profile responses carry the role in the current organization; keep it whatever endpoint answered. */
-  const withRole = (next: User) => ({ ...next, workspaceRole: organization.value?.role ?? next.workspaceRole })
+  const withRole = (next: User) => ({
+    ...next,
+    workspaceRole: organization.value?.role ?? next.workspaceRole,
+    isSuperAdmin: next.isSuperAdmin ?? user.value?.isSuperAdmin,
+  })
 
   async function updateProfile(changes: ProfileChanges) {
     user.value = withRole(await authApi.updateProfile(changes))

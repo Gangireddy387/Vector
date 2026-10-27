@@ -58,6 +58,14 @@ export const useNotificationsStore = defineStore('notifications', () => {
         action: notification.link ? { label: 'Open', onClick: () => onOpen(notification) } : undefined,
       })
     })
+    // Notifications cleared elsewhere (e.g. by opening the chat they point to) leave the unread badge right away.
+    socket.on('notifications:read', ({ ids, readAt }: { ids: string[]; readAt: string }) => {
+      const cleared = new Set(ids)
+      items.value.forEach((item) => {
+        if (cleared.has(item.id)) item.readAt ??= readAt
+      })
+      void refreshUnreadCount()
+    })
   }
 
   function reset() {

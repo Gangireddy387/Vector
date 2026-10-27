@@ -10,13 +10,22 @@ const uploaderInclude = [{ model: User, as: 'uploader', attributes: USER_SUMMARY
 export const listAttachments = (issueId) =>
   Attachment.findAll({ where: { issueId }, include: uploaderInclude, order: [['createdAt', 'DESC']] });
 
+/**
+ * The upload library reads file names as Latin-1, which garbles names in other scripts (Telugu, accents, emoji).
+ * Re-reading the bytes as UTF-8 restores the name exactly as it was on the person's computer.
+ */
+export function originalFileName(name) {
+  const decoded = Buffer.from(name, 'latin1').toString('utf8');
+  return decoded.includes('\uFFFD') ? name : decoded;
+}
+
 export async function saveAttachments(issue, uploader, files) {
   if (!files?.length) throw ApiError.badRequest('Choose at least one file');
   const attachments = await Attachment.bulkCreate(
     files.map((file) => ({
       issueId: issue.id,
       uploaderId: uploader.id,
-      fileName: file.originalname,
+      fileName: originalFileName(file.originalname),
       mimeType: file.mimetype,
       size: file.size,
       storageKey: toStorageKey(file.path),

@@ -20,6 +20,10 @@ const ADDED_COLUMNS = [
   { table: 'users', column: 'location', definition: { type: DataTypes.STRING(100), allowNull: true } },
   { table: 'users', column: 'phone', definition: { type: DataTypes.STRING(40), allowNull: true } },
   { table: 'users', column: 'skills', definition: { type: DataTypes.JSON, allowNull: false, defaultValue: [] } },
+  { table: 'organizations', column: 'support_disappear_hours', definition: { type: DataTypes.INTEGER, allowNull: true } },
+  { table: 'support_messages', column: 'kind', definition: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'message' } },
+  { table: 'support_messages', column: 'deleted_at', definition: { type: DataTypes.DATE, allowNull: true } },
+  { table: 'support_messages', column: 'expires_at', definition: { type: DataTypes.DATE, allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

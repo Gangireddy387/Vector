@@ -22,7 +22,8 @@ import TimezoneField from '../components/TimezoneField.vue'
 
 const auth = useAuthStore()
 const { isDesktop, isStandalone } = useDevice()
-const { preference } = useTheme()
+const { preference, isPersonal, followOrganization } = useTheme()
+const ORG_MODE_LABEL = { light: 'light', dark: 'dark', system: 'system' } as const
 
 const { canInstall, install } = usePwaInstall()
 
@@ -181,9 +182,9 @@ async function changePassword() {
         <Card>
           <CardHeader>
             <CardTitle>Appearance</CardTitle>
-            <CardDescription>Light, dark, or follow your device. Saved on this device.</CardDescription>
+            <CardDescription>Light, dark, or follow your device. Saved on this device and kept even when your organization changes its default.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent class="space-y-3">
             <div class="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Colour mode">
               <button
                 v-for="theme in THEMES"
@@ -197,6 +198,13 @@ async function changePassword() {
               >
                 <component :is="theme.icon" class="size-5" /> {{ theme.label }}
               </button>
+            </div>
+            <div v-if="auth.organization" class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <template v-if="isPersonal">
+                <span class="min-w-0 flex-1">Your own choice. {{ auth.organization.name }}’s default is {{ ORG_MODE_LABEL[auth.organization.defaultMode] }}.</span>
+                <Button variant="link" size="xs" class="h-auto p-0" @click="followOrganization(auth.organization.defaultMode)">Use the organization default</Button>
+              </template>
+              <span v-else>Following {{ auth.organization.name }}’s default ({{ ORG_MODE_LABEL[auth.organization.defaultMode] }}). Pick one above to make it your own.</span>
             </div>
           </CardContent>
         </Card>

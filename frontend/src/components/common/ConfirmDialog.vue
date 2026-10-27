@@ -6,7 +6,7 @@ import { confirmState, settleConfirm } from '@/composables/useConfirm'
 
 <template>
   <Dialog :open="confirmState.open" @update:open="(open: boolean) => !open && settleConfirm(false)">
-    <DialogContent class="sm:max-w-md" hide-close>
+    <DialogContent class="sm:max-w-md" hide-close on-top>
       <DialogHeader>
         <DialogTitle>{{ confirmState.title }}</DialogTitle>
         <DialogDescription v-if="confirmState.description">{{ confirmState.description }}</DialogDescription>

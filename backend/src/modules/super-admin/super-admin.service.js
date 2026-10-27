@@ -3,6 +3,7 @@ import { Op } from 'sequelize';
 import { config } from '../../config/index.js';
 import { Department, Issue, Organization, OrganizationMember, Project, Team, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
+import { isUserOnline } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { organizationApprovedEmail, organizationRejectedEmail } from '../../shared/services/email-templates.js';
 import { broadcastOrganization, toPublicOrganization } from '../organizations/organization.service.js';
@@ -89,6 +90,7 @@ export async function getOrganizationDetail(organizationId) {
         role: membership.role,
         joinedAt: membership.createdAt,
         isCreator: user.id === organization.createdById,
+        isOnline: isUserOnline(user.id),
       };
     })
     .sort((a, b) => Number(b.isCreator) - Number(a.isCreator) || a.name.localeCompare(b.name));

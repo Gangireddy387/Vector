@@ -1,6 +1,26 @@
 <script setup lang="ts">
-import { ArrowRight, Ban, Building2, Check, CircleCheck, Clock, Crown, Eye, FolderKanban, Gem, LogOut, RefreshCw, Search, ShieldCheck, Users } from 'lucide-vue-next'
-import { computed, onMounted, ref } from 'vue'
+import {
+  ArrowRight,
+  Ban,
+  Building2,
+  Check,
+  CircleCheck,
+  Clock,
+  Crown,
+  Eye,
+  FolderKanban,
+  Gem,
+  LogOut,
+  Monitor,
+  Moon,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Sun,
+  UserRound,
+  Users,
+} from 'lucide-vue-next'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -13,6 +33,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useDevice } from '@/composables/useDevice'
+import { useTheme } from '@/composables/useTheme'
+import { getSocket } from '@/lib/realtime'
+import { portalSupportApi, type SupportMessage } from '@/modules/support/support.api'
 import { formatDate, timeAgo } from '@/lib/format'
 import { assetUrl, getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -22,13 +45,21 @@ import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import OrganizationDetailSheet from '../components/OrganizationDetailSheet.vue'
 import PlansPanel from '../components/PlansPanel.vue'
+import SuperAdminProfile from '../components/SuperAdminProfile.vue'
 import { type Plan, type ReviewedOrganization, superAdminApi } from '../super-admin.api'
 
 const auth = useAuthStore()
 const router = useRouter()
 const { isDesktop } = useDevice()
 
-const section = ref<'organizations' | 'plans'>('organizations')
+/** Quick theme switch beside sign-out: light → dark → system (the full choice is on Your profile). */
+const { preference } = useTheme()
+const THEME_CYCLE = { light: 'dark', dark: 'auto', auto: 'light' } as const
+const themeLabel = computed(() => ({ light: 'Light', dark: 'Dark', auto: 'System' })[preference.value])
+const themeIcon = computed(() => ({ light: Sun, dark: Moon, auto: Monitor })[preference.value])
+const cycleTheme = () => (preference.value = THEME_CYCLE[preference.value])
+
+const section = ref<'organizations' | 'plans' | 'profile'>('organizations')
 const organizations = ref<ReviewedOrganization[] | null>(null)
 const plans = ref<Plan[] | null>(null)
 const isLoading = ref(false)
@@ -50,7 +81,14 @@ const sidebarOrganizations = computed(() => {
 const SECTIONS = [
   { value: 'organizations', label: 'Organizations', icon: Building2 },
   { value: 'plans', label: 'Plans', icon: Gem },
+  { value: 'profile', label: 'Your profile', icon: UserRound },
 ] as const
+
+const HEADINGS = {
+  organizations: { title: 'Organizations', text: 'Review every team that signs up, approve or reject it, and choose the plan it is on.' },
+  plans: { title: 'Plans & access', text: 'Create plans, decide what each one includes, and set the default for new signups.' },
+  profile: { title: 'Your profile', text: 'Your name and photo, as organization admins see them in the Vector team chat.' },
+} as const
 
 const planOptions = computed(() => (plans.value ?? []).map((plan) => ({ value: plan.id, label: plan.name, description: plan.priceLabel ?? undefined })))
 
@@ -78,10 +116,18 @@ const count = (value: OrganizationStatus | 'all') =>
 const visible = computed(() => (organizations.value ?? []).filter((organization) => filter.value === 'all' || organization.status === filter.value))
 const pendingCount = computed(() => count('pending'))
 
+/** Unread chat messages per organization; new ones arrive live and clear when the conversation is opened. */
+const unread = ref<Record<string, number>>({})
+function onSupportMessage(message: SupportMessage) {
+  if (!message.fromPortal) unread.value[message.organizationId] = (unread.value[message.organizationId] ?? 0) + 1
+}
+onMounted(() => getSocket()?.on('support:message', onSupportMessage))
+onBeforeUnmount(() => getSocket()?.off('support:message', onSupportMessage))
+
 async function load() {
   isLoading.value = true
   try {
-    ;[organizations.value, plans.value] = await Promise.all([superAdminApi.organizations(), superAdminApi.plans()])
+    ;[organizations.value, plans.value, unread.value] = await Promise.all([superAdminApi.organizations(), superAdminApi.plans(), portalSupportApi.unread()])
   } catch (error) {
     toast.error(getErrorMessage(error))
   } finally {
@@ -189,7 +235,7 @@ function signOut() {
         >
           <component :is="item.icon" class="size-4 shrink-0" />
           <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
-          <span class="bg-muted px-1.5 text-[11px] text-foreground tabular-nums">
+          <span v-if="item.value !== 'profile'" class="bg-muted px-1.5 text-[11px] text-foreground tabular-nums">
             {{ item.value === 'plans' ? (plans?.length ?? 0) : (organizations?.length ?? 0) }}
           </span>
         </button>
@@ -220,6 +266,13 @@ function signOut() {
             {{ organization.name.slice(0, 2).toUpperCase() }}
           </span>
           <span class="min-w-0 flex-1 truncate">{{ organization.name }}</span>
+          <span
+            v-if="unread[organization.id]"
+            class="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground tabular-nums"
+            :title="`${unread[organization.id]} unread message${unread[organization.id] === 1 ? '' : 's'}`"
+          >
+            {{ unread[organization.id] }}
+          </span>
           <span class="size-2 shrink-0 rounded-full" :class="STATUS_DOT[organization.status]" :aria-label="STATUS[organization.status].label" />
         </button>
         <p v-if="organizations && !sidebarOrganizations.length" class="px-2 py-2 text-xs text-muted-foreground">
@@ -232,11 +285,21 @@ function signOut() {
           Open app <ArrowRight />
         </Button>
         <div class="flex items-center gap-2.5">
-          <UserAvatar :user="auth.user" size="md" />
-          <span class="min-w-0 flex-1">
-            <span class="block truncate text-sm font-medium">{{ auth.user?.name }}</span>
-            <span class="block truncate text-xs text-muted-foreground">{{ auth.user?.email }}</span>
-          </span>
+          <button
+            type="button"
+            class="flex min-w-0 flex-1 items-center gap-2.5 p-1 text-left transition-colors hover:bg-card/80"
+            title="Edit your profile"
+            @click="section = 'profile'"
+          >
+            <UserAvatar :user="auth.user" size="md" />
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium">{{ auth.user?.name }}</span>
+              <span class="block truncate text-xs text-muted-foreground">{{ auth.user?.email }}</span>
+            </span>
+          </button>
+          <Button variant="ghost" size="icon-sm" :aria-label="`Theme: ${themeLabel}. Change`" :title="`Theme: ${themeLabel} (click to change)`" @click="cycleTheme">
+            <component :is="themeIcon" />
+          </Button>
           <Button variant="ghost" size="icon-sm" aria-label="Sign out" title="Sign out" @click="signOut"><LogOut /></Button>
         </div>
       </div>
@@ -274,14 +337,8 @@ function signOut() {
           <span class="inline-flex items-center gap-2 text-brand text-xs font-semibold tracking-[0.14em] uppercase">
             <ShieldCheck class="size-3.5" /> Super admin
           </span>
-          <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">{{ section === 'plans' ? 'Plans & access' : 'Organizations' }}</h1>
-          <p class="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-[15px]">
-            {{
-              section === 'plans'
-                ? 'Create plans, decide what each one includes, and set the default for new signups.'
-                : 'Review every team that signs up, approve or reject it, and choose the plan it is on.'
-            }}
-          </p>
+          <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">{{ HEADINGS[section].title }}</h1>
+          <p class="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-[15px]">{{ HEADINGS[section].text }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <span
@@ -295,6 +352,7 @@ function signOut() {
       </section>
 
       <PlansPanel v-if="section === 'plans'" :plans="plans" @changed="load" />
+      <SuperAdminProfile v-else-if="section === 'profile'" />
 
       <template v-else>
       <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" role="tablist" aria-label="Filter organizations">
@@ -469,7 +527,7 @@ function signOut() {
     </main>
     </div>
 
-    <OrganizationDetailSheet v-model:organization-id="openId" />
+    <OrganizationDetailSheet v-model:organization-id="openId" :unread="openId ? unread[openId] : 0" @read="(id) => (unread[id] = 0)" />
 
     <Dialog v-model:open="isRejectOpen">
       <DialogContent class="sm:max-w-md">

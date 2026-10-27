@@ -1,13 +1,18 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { PERSONAL_THEME_STORAGE_KEY, THEME_STORAGE_KEY, toThemePreference, useTheme } from '@/composables/useTheme'
 import { getSocket } from '@/lib/realtime'
 import { workspaceApi } from '@/modules/admin/admin.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import type { WorkspaceSettings } from '@/types/models'
 
-const COLOR_MODE_KEY = 'vector.theme'
-
 const FALLBACK: WorkspaceSettings = { name: 'Vector', defaultMode: 'system' }
+
+/**
+ * Devices from before personal themes were tracked: a saved theme that differs from the organization's default was
+ * picked by the person, so it stays theirs. Read before anything writes the new key.
+ */
+const legacyTheme = localStorage.getItem(PERSONAL_THEME_STORAGE_KEY) === null ? localStorage.getItem(THEME_STORAGE_KEY) : null
 
 /** The current organization's name, address and default colour mode (Vector's own branding when signed out). */
 export const useWorkspaceStore = defineStore('workspace', () => {
@@ -34,11 +39,23 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     } catch {
       branding.value = { ...FALLBACK }
     }
-    // First visit on this device: start from the organization's default colour mode.
-    if (!localStorage.getItem(COLOR_MODE_KEY)) {
-      localStorage.setItem(COLOR_MODE_KEY, settings.value.defaultMode === 'system' ? 'auto' : settings.value.defaultMode)
-    }
   }
+
+  /** Everyone who has not picked their own theme follows the organization's default, also when an admin changes it. */
+  const theme = useTheme()
+  let migrated = legacyTheme === null
+  watch(
+    () => auth.organization?.defaultMode,
+    (defaultMode) => {
+      if (!defaultMode) return
+      if (!migrated) {
+        theme.isPersonal.value = Boolean(legacyTheme) && legacyTheme !== toThemePreference(defaultMode)
+        migrated = true
+      }
+      theme.applyOrganizationDefault(defaultMode)
+    },
+    { immediate: true },
+  )
 
   async function update(changes: Partial<Omit<WorkspaceSettings, 'updatedAt'>>) {
     const current = settings.value as unknown as Record<string, unknown>

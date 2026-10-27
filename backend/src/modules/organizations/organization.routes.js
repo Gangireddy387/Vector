@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
+import { deleteMessage, getThread, markRead, sendMessage, setDisappearing } from '../support/support.service.js';
 import { requireOrganization, requireOrganizationAdmin, requireOrganizationCreator } from '../../shared/middleware/authenticate.js';
 import { validate } from '../../shared/middleware/validate.js';
 import * as controller from './organization.controller.js';
@@ -30,6 +32,24 @@ organizationAdminRoutes.delete('/workspace/logo', requireOrganizationAdmin, cont
 organizationAdminRoutes.get('/workspace/plan', requireOrganization, controller.showPlan);
 organizationAdminRoutes.get('/workspace/members', requireOrganizationAdmin, controller.listMembers);
 organizationAdminRoutes.post('/workspace/invitations', requireOrganizationAdmin, validate({ body: inviteMemberSchema }), controller.invite);
+/** Support chat with the portal's super admin; one conversation per organization, shared by its admins. */
+const supportMessageSchema = z.object({ body: z.string().trim().min(1, 'Write a message').max(4000) });
+organizationAdminRoutes.get('/workspace/support', requireOrganizationAdmin, async (req, res) => res.json(await getThread(req.organization.id, 'organization')));
+organizationAdminRoutes.post('/workspace/support', requireOrganizationAdmin, validate({ body: supportMessageSchema }), async (req, res) =>
+  res.status(201).json(await sendMessage(req.organization.id, req.user, 'organization', req.body.body)),
+);
+organizationAdminRoutes.post('/workspace/support/read', requireOrganizationAdmin, async (req, res) =>
+  res.json({ updated: await markRead(req.organization.id, 'organization', req.user) }),
+);
+organizationAdminRoutes.delete('/workspace/support/messages/:messageId', requireOrganizationAdmin, async (req, res) =>
+  res.json({ message: await deleteMessage(req.organization.id, req.user, 'organization', req.params.messageId) }),
+);
+organizationAdminRoutes.put(
+  '/workspace/support/disappearing',
+  requireOrganizationAdmin,
+  validate({ body: z.object({ hours: z.union([z.literal(24), z.literal(168), z.null()]) }) }),
+  async (req, res) => res.json(await setDisappearing(req.organization.id, req.user, 'organization', req.body.hours)),
+);
 organizationAdminRoutes.get('/workspace/members/:userId/profile', requireOrganizationAdmin, controller.showMemberProfile);
 organizationAdminRoutes.patch('/workspace/members/:userId', requireOrganizationAdmin, validate({ body: updateMemberSchema }), controller.updateMember);
 organizationAdminRoutes.delete('/workspace/members/:userId', requireOrganizationAdmin, controller.removeMember);

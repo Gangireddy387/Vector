@@ -5,7 +5,7 @@ import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useConfirm } from '@/composables/useConfirm'
-import { timeAgo } from '@/lib/format'
+import { formatDate, formatDateTime } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
 import { formatBytes } from '@/lib/utils'
 import type { Attachment } from '@/types/models'
@@ -87,8 +87,10 @@ defineExpose({ openPicker })
           <FileText v-else class="size-4" />
         </span>
         <span class="min-w-0 flex-1">
-          <span class="block truncate text-sm font-medium">{{ attachment.fileName }}</span>
-          <span class="block text-xs text-muted-foreground">{{ formatBytes(attachment.size) }} · {{ timeAgo(attachment.createdAt) }}</span>
+          <span class="block truncate text-sm font-medium" :title="attachment.fileName">{{ attachment.fileName }}</span>
+          <span class="block truncate text-xs text-muted-foreground" :title="`Attached ${formatDateTime(attachment.createdAt)}${attachment.uploader ? ` by ${attachment.uploader.name}` : ''}`">
+            {{ formatBytes(attachment.size) }} · {{ formatDate(attachment.createdAt, 'd MMM, HH:mm') }}<template v-if="attachment.uploader"> · {{ attachment.uploader.name }}</template>
+          </span>
         </span>
         <Button variant="ghost" size="icon-sm" :aria-label="`Download ${attachment.fileName}`" @click="attachmentsApi.download(attachment)">
           <Download />

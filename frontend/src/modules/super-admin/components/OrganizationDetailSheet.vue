@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useClipboard } from '@vueuse/core'
 import {
+  ArrowLeft,
   Ban,
   Building2,
   CalendarDays,
@@ -15,13 +16,14 @@ import {
   ListTodo,
   Mail,
   MapPin,
+  MessageCircle,
   Phone,
   ShieldCheck,
   Users,
   UsersRound,
   X,
 } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -35,12 +37,36 @@ import { assetUrl, getErrorMessage } from '@/lib/http'
 import { cityOf, localTime } from '@/lib/timezone'
 import { organizationAddress, organizationUrl } from '@/modules/auth/organization-slug'
 import { profileCoverStyle } from '@/modules/admin/profile-cover'
-import { type OrganizationDetail, superAdminApi } from '../super-admin.api'
+import SupportChatThread from '@/modules/support/components/SupportChatThread.vue'
+import { type DisappearHours, portalSupportApi } from '@/modules/support/support.api'
+import { getSocket } from '@/lib/realtime'
+import { type OrganizationDetail, type OrganizationPerson, superAdminApi } from '../super-admin.api'
 
 /** The super admin's look inside one organization: who runs it, who is in it and how much of its plan it uses. */
 const organizationId = defineModel<string | null>('organizationId', { default: null })
+/** Unread messages from this organization, shown on the Chat button. */
+defineProps<{ unread?: number }>()
+const emit = defineEmits<{ read: [organizationId: string] }>()
 
 const detail = ref<OrganizationDetail | null>(null)
+const view = ref<'details' | 'chat'>('details')
+
+/** Like a messaging app: "online" when an admin was active in the last few minutes, otherwise when they were last seen. */
+const adminsOnline = computed(() => (detail.value?.admins ?? []).some((admin) => admin.isOnline))
+const chatPresence = computed(() => {
+  const admins = detail.value?.admins ?? []
+  const who = admins.length === 1 ? admins[0]!.name.split(' ')[0] : `${admins.length} admins`
+  if (adminsOnline.value) return `${who} · online`
+  const lastSeen = admins.map((admin) => admin.lastSeenAt).filter(Boolean).sort().at(-1)
+  return lastSeen ? `${who} · last seen ${timeAgo(lastSeen)}` : `${who} · not signed in yet`
+})
+
+const chatOrganizationId = () => detail.value!.organization.id
+const loadChat = () => portalSupportApi.thread(chatOrganizationId())
+const sendChat = (body: string) => portalSupportApi.send(chatOrganizationId(), body)
+const markChatRead = () => portalSupportApi.markRead(chatOrganizationId())
+const removeChatMessage = (messageId: string) => portalSupportApi.remove(chatOrganizationId(), messageId)
+const setChatDisappearing = (hours: DisappearHours) => portalSupportApi.setDisappearing(chatOrganizationId(), hours)
 const { copy } = useClipboard()
 
 const isOpen = computed({
@@ -54,6 +80,7 @@ watch(
   organizationId,
   async (id) => {
     detail.value = null
+    view.value = 'details'
     if (!id) return
     try {
       detail.value = await superAdminApi.organization(id)
@@ -95,7 +122,14 @@ const COUNTS = computed(() => {
   ]
 })
 
-const isOnline = (lastSeenAt: string | null) => Boolean(lastSeenAt) && Date.now() - new Date(lastSeenAt!).getTime() < 15 * 60_000
+/** People come online and go offline while the panel is open; their dot and "last seen" follow along. */
+function onPresence(event: { userId: string; online: boolean; lastSeenAt: string }) {
+  if (!detail.value) return
+  const update = (person: OrganizationPerson) => (person.id === event.userId ? { ...person, isOnline: event.online, lastSeenAt: event.lastSeenAt } : person)
+  detail.value = { ...detail.value, admins: detail.value.admins.map(update), members: detail.value.members.map(update) }
+}
+onMounted(() => getSocket()?.on('presence:changed', onPresence))
+onBeforeUnmount(() => getSocket()?.off('presence:changed', onPresence))
 
 async function copyEmail(email: string) {
   await copy(email)
@@ -106,6 +140,38 @@ async function copyEmail(email: string) {
 <template>
   <Sheet v-model:open="isOpen">
     <SheetContent side="right" class="flex w-full flex-col gap-0 p-0 sm:max-w-2xl" hide-close clear-backdrop>
+      <!-- Chat view: the conversation with this organization's admins -->
+      <template v-if="view === 'chat' && detail">
+        <header class="flex shrink-0 items-center gap-3 border-b border-border/70 px-4 py-3">
+          <Button variant="ghost" size="icon-sm" aria-label="Back to details" @click="view = 'details'"><ArrowLeft /></Button>
+          <div class="flex -space-x-2">
+            <UserAvatar v-for="admin in detail.admins.slice(0, 3)" :key="admin.id" :user="admin" size="md" class="ring-2 ring-card" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <SheetTitle class="truncate text-base font-semibold">Chat with {{ detail.organization.name }}</SheetTitle>
+            <SheetDescription class="flex items-center gap-1.5 truncate text-xs">
+              <span v-if="adminsOnline" class="size-2 shrink-0 rounded-full bg-[#25d366]" />
+              {{ chatPresence }}
+            </SheetDescription>
+          </div>
+          <Button variant="ghost" size="icon-sm" aria-label="Close" @click="isOpen = false"><X /></Button>
+        </header>
+        <SupportChatThread
+          class="min-h-0 flex-1"
+          side="portal"
+          :organization-id="detail.organization.id"
+          :load="loadChat"
+          :send="sendChat"
+          :mark-read="markChatRead"
+          :remove="removeChatMessage"
+          :set-disappearing="setChatDisappearing"
+          placeholder="Type a message"
+          :notice="`Messages are shared with every admin of ${detail.organization.name}. They read and reply in Organization settings → Vector support.`"
+          @read="emit('read', detail!.organization.id)"
+        />
+      </template>
+
+      <template v-else>
       <header class="relative shrink-0 border-b border-border/70">
         <div
           class="h-14"
@@ -191,11 +257,17 @@ async function copyEmail(email: string) {
                 <div class="-mt-10 flex items-end justify-between gap-3">
                   <span class="relative">
                     <UserAvatar :user="admin" size="xl" class="ring-4 ring-card shadow-md" />
-                    <span v-if="isOnline(admin.lastSeenAt)" class="absolute right-1 bottom-1 size-4 rounded-full bg-success ring-3 ring-card" title="Active now" />
+                    <span v-if="admin.isOnline" class="absolute right-1 bottom-1 size-4 rounded-full bg-success ring-3 ring-card" title="Online now" />
                   </span>
-                  <Button variant="outline" size="sm" as-child>
-                    <a :href="`mailto:${admin.email}`"><Mail /> Email</a>
-                  </Button>
+                  <div class="flex items-center gap-2">
+                    <Button variant="brand" size="sm" @click="view = 'chat'">
+                      <MessageCircle /> Chat
+                      <span v-if="unread" class="bg-white/25 px-1.5 text-[10px] font-semibold tabular-nums">{{ unread }}</span>
+                    </Button>
+                    <Button variant="outline" size="sm" as-child>
+                      <a :href="`mailto:${admin.email}`"><Mail /> Email</a>
+                    </Button>
+                  </div>
                 </div>
                 <div class="mt-2 space-y-1">
                   <p class="flex flex-wrap items-center gap-2">
@@ -208,7 +280,7 @@ async function copyEmail(email: string) {
                     <span v-if="admin.location" class="inline-flex items-center gap-1"><MapPin class="size-3.5" /> {{ admin.location }}</span>
                     <span class="inline-flex items-center gap-1"><Clock class="size-3.5" /> {{ localTime(admin.timezone) }} · {{ cityOf(admin.timezone) }}</span>
                     <span class="inline-flex items-center gap-1"><CalendarDays class="size-3.5" /> Joined {{ formatDate(admin.joinedAt, 'd MMM yyyy') }}</span>
-                    <span>{{ admin.lastSeenAt ? `Active ${timeAgo(admin.lastSeenAt)}` : 'Not signed in yet' }}</span>
+                    <span>{{ admin.isOnline ? 'Online now' : admin.lastSeenAt ? `Last seen ${timeAgo(admin.lastSeenAt)}` : 'Not signed in yet' }}</span>
                   </p>
                 </div>
 
@@ -273,6 +345,7 @@ async function copyEmail(email: string) {
           </section>
         </template>
       </div>
+      </template>
     </SheetContent>
   </Sheet>
 </template>
