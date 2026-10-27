@@ -1,8 +1,28 @@
 import axios, { AxiosError } from 'axios'
 
 export const TOKEN_STORAGE_KEY = 'vector.token'
+/** The portal's super admin signs in separately, so a super-admin tab and a normal account can be open side by side. */
+export const SUPER_ADMIN_TOKEN_KEY = 'vector.superAdminToken'
 /** The organization this browser is working in; sent with every request so data stays inside it. */
 export const ORGANIZATION_STORAGE_KEY = 'vector.organization'
+
+export const isSuperAdminPath = (path: string) => /^\/super-?admin(\/|$|\?)/.test(path)
+
+/**
+ * Which stored sign-in this tab uses: super-admin pages use the super admin's, everything else (app pages,
+ * organization links from emails) the normal account's, so a link never opens as the super admin by accident.
+ */
+function initialTokenKey() {
+  const { pathname, search } = window.location
+  const redirect = new URLSearchParams(search).get('redirect') ?? ''
+  return isSuperAdminPath(pathname) || isSuperAdminPath(redirect) ? SUPER_ADMIN_TOKEN_KEY : TOKEN_STORAGE_KEY
+}
+
+let tokenKey = initialTokenKey()
+export const currentTokenKey = () => tokenKey
+export const isSuperAdminTab = () => tokenKey === SUPER_ADMIN_TOKEN_KEY
+export const useTokenKey = (key: typeof TOKEN_STORAGE_KEY | typeof SUPER_ADMIN_TOKEN_KEY) => (tokenKey = key)
+export const getStoredToken = () => localStorage.getItem(tokenKey)
 
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api',
@@ -17,9 +37,9 @@ export function assetUrl(path?: string | null) {
 }
 
 http.interceptors.request.use((request) => {
-  const token = localStorage.getItem(TOKEN_STORAGE_KEY)
+  const token = getStoredToken()
   if (token) request.headers.Authorization = `Bearer ${token}`
-  const organizationId = localStorage.getItem(ORGANIZATION_STORAGE_KEY)
+  const organizationId = isSuperAdminTab() ? null : localStorage.getItem(ORGANIZATION_STORAGE_KEY)
   if (organizationId) request.headers['X-Organization-Id'] = organizationId
   return request
 })

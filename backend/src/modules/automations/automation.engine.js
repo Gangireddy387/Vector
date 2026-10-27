@@ -126,6 +126,7 @@ const ACTION_HANDLERS = {
   },
 
   async send_email({ issue, params, variables }) {
+    if (!(await projectHasFeature(issue.projectId, 'emailAutomations'))) return;
     const users = await User.findAll({ where: { id: await resolveRecipients(issue, params), status: 'active' } });
     await Promise.all(
       users.map((user) =>

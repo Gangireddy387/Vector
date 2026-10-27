@@ -18,7 +18,6 @@
     "test:issues": "node scripts/issue-flows-test.js",
     "test:tracking": "node scripts/tracking-test.js",
     "test:collaboration": "node scripts/collaboration-test.js",
-    "test:organizations": "node scripts/organizations-test.js",
     "test:organizations": "node scripts/organizations-test.js"
   },
   "dependencies": {

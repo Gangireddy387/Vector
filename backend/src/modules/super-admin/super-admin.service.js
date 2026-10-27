@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
+import { Op } from 'sequelize';
 import { config } from '../../config/index.js';
-import { Organization, OrganizationMember, Project, User } from '../../database/models.js';
+import { Department, Issue, Organization, OrganizationMember, Project, Team, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { organizationApprovedEmail, organizationRejectedEmail } from '../../shared/services/email-templates.js';
@@ -37,7 +38,7 @@ export async function listOrganizations() {
   const ids = organizations.map((organization) => organization.id);
   const creatorIds = [...new Set(organizations.map((organization) => organization.createdById).filter(Boolean))];
   const [creators, members, projects] = await Promise.all([
-    creatorIds.length ? User.findAll({ where: { id: creatorIds }, attributes: ['id', 'name', 'email'], raw: true }) : [],
+    creatorIds.length ? User.findAll({ where: { id: creatorIds }, attributes: ['id', 'name', 'email', 'title', 'avatarColor', 'avatarUrl'], raw: true }) : [],
     ids.length ? OrganizationMember.findAll({ where: { organizationId: ids, status: 'active' }, attributes: ['organizationId'], raw: true }) : [],
     ids.length ? Project.findAll({ where: { organizationId: ids, archivedAt: null }, attributes: ['organizationId'], raw: true }) : [],
   ]);
@@ -51,6 +52,54 @@ export async function listOrganizations() {
     memberCount: members.filter((row) => row.organizationId === organization.id).length,
     projectCount: projects.filter((row) => row.organizationId === organization.id).length,
   }));
+}
+
+const PERSON_FIELDS = ['id', 'name', 'email', 'title', 'avatarColor', 'avatarUrl', 'status', 'timezone', 'about', 'location', 'phone', 'skills', 'lastSeenAt'];
+
+/**
+ * One organization in detail for the super admin: its admins' full profiles, everyone else in short,
+ * how much of its plan it uses and how much work lives in it.
+ */
+export async function getOrganizationDetail(organizationId) {
+  const summary = (await listOrganizations()).find((item) => item.id === organizationId);
+  if (!summary) throw ApiError.notFound('Organization not found');
+  const organization = await Organization.findByPk(organizationId, { include: withPlan() });
+
+  const [memberships, projectIds, departments, teams] = await Promise.all([
+    OrganizationMember.findAll({ where: { organizationId }, include: [{ model: User, as: 'user', attributes: PERSON_FIELDS }], order: [['createdAt', 'ASC']] }),
+    Project.findAll({ where: { organizationId, archivedAt: null }, attributes: ['id'], raw: true }).then((rows) => rows.map((row) => row.id)),
+    Department.count({ where: { organizationId } }),
+    Team.count({ where: { organizationId } }),
+  ]);
+  const [openTasks, doneTasks] = projectIds.length
+    ? await Promise.all([
+        Issue.count({ where: { projectId: projectIds, completedAt: null } }),
+        Issue.count({ where: { projectId: projectIds, completedAt: { [Op.ne]: null } } }),
+      ])
+    : [0, 0];
+
+  const people = memberships
+    .filter((membership) => membership.user)
+    .map((membership) => {
+      const user = membership.user.toJSON();
+      return {
+        ...user,
+        skills: user.skills ?? [],
+        status: user.status === 'invited' ? 'invited' : membership.status,
+        role: membership.role,
+        joinedAt: membership.createdAt,
+        isCreator: user.id === organization.createdById,
+      };
+    })
+    .sort((a, b) => Number(b.isCreator) - Number(a.isCreator) || a.name.localeCompare(b.name));
+
+  return {
+    organization: summary,
+    limits: { maxMembers: organization.plan?.maxMembers ?? null, maxProjects: organization.plan?.maxProjects ?? null },
+    counts: { departments, teams, openTasks, doneTasks },
+    admins: people.filter((person) => person.role === 'admin'),
+    members: people.filter((person) => person.role !== 'admin'),
+  };
 }
 
 async function review(organizationId, actor, status, reason = null) {

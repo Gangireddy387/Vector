@@ -1,6 +1,6 @@
 import { http } from '@/lib/http'
 import type { PlanFeatureKey } from '@/lib/plan-features'
-import type { OrganizationStatus } from '@/types/models'
+import type { OrganizationStatus, UserSummary } from '@/types/models'
 
 /** An organization as the super admin reviews it. */
 export interface ReviewedOrganization {
@@ -13,9 +13,31 @@ export interface ReviewedOrganization {
   plan: { id: string; name: string } | null
   createdAt: string
   reviewedAt: string | null
-  creator: { id: string; name: string; email: string } | null
+  creator: (UserSummary & { title: string | null }) | null
   memberCount: number
   projectCount: number
+}
+
+/** Someone in an organization, as the super admin sees them. */
+export interface OrganizationPerson extends UserSummary {
+  role: 'admin' | 'member'
+  status: 'active' | 'invited' | 'disabled'
+  isCreator: boolean
+  joinedAt: string
+  lastSeenAt: string | null
+  timezone: string
+  about: string | null
+  location: string | null
+  phone: string | null
+  skills: string[]
+}
+
+export interface OrganizationDetail {
+  organization: ReviewedOrganization
+  limits: { maxMembers: number | null; maxProjects: number | null }
+  counts: { departments: number; teams: number; openTasks: number; doneTasks: number }
+  admins: OrganizationPerson[]
+  members: OrganizationPerson[]
 }
 
 /** A plan with its limits (`null` = unlimited) and feature switches. */
@@ -36,6 +58,7 @@ export type PlanInput = Omit<Plan, 'id' | 'position' | 'organizationCount'>
 
 export const superAdminApi = {
   organizations: () => http.get<{ organizations: ReviewedOrganization[] }>('/super-admin/organizations').then((r) => r.data.organizations),
+  organization: (organizationId: string) => http.get<OrganizationDetail>(`/super-admin/organizations/${organizationId}`).then((r) => r.data),
   approve: (organizationId: string) =>
     http.post<{ organization: ReviewedOrganization }>(`/super-admin/organizations/${organizationId}/approve`).then((r) => r.data.organization),
   reject: (organizationId: string, reason?: string) =>

@@ -1,10 +1,10 @@
 import { io, type Socket } from 'socket.io-client'
-import { TOKEN_STORAGE_KEY } from './http'
+import { getStoredToken } from './http'
 
 let socket: Socket | null = null
 
 export function connectRealtime() {
-  const token = localStorage.getItem(TOKEN_STORAGE_KEY)
+  const token = getStoredToken()
   if (!token) return null
   if (socket?.connected) return socket
 

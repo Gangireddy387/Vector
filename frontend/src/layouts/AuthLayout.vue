@@ -104,7 +104,7 @@ const PREVIEW_COLUMNS = [
           <div class="border border-white/30 bg-white/15 p-3 shadow-2xl backdrop-blur-xl">
             <div class="mb-3 flex items-center gap-1.5">
               <span v-for="dot in 3" :key="dot" class="size-2.5 rounded-full bg-white/45" />
-              <span class="ml-3 text-[11px] font-medium text-white/80">Northwind App · Sprint 3</span>
+              <span class="ml-3 text-[11px] font-medium text-white/80">Mobile App · Sprint 3</span>
             </div>
             <div class="grid grid-cols-3 gap-2.5">
               <div v-for="column in PREVIEW_COLUMNS" :key="column.name" class="space-y-2 bg-white/10 p-2">

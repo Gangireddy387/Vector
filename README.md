@@ -12,14 +12,12 @@ Requirements: Node.js 20+ (tested on 22).
 ```bash
 npm run install:all          # installs backend and frontend
 cp backend/.env.example backend/.env
-npm run db:seed              # demo users, projects, sprints, rules
+npm run db:seed              # tables, default plans and the super admin (keeps existing data)
 npm run dev:backend          # API on http://localhost:4000/api
 npm run dev:frontend         # app on http://localhost:5173 (second terminal)
 ```
 
-The demo company is **Northwind Labs**: five departments (Engineering, Product & Design, Marketing, Human Resources, Finance), seven teams and seven team-owned projects with tasks in every state. Sign in with **alex@northwind.dev / Password123!** (CEO, organization admin). Other accounts use the same password: `priya@` (Head of Engineering), `sam@` (Frontend lead), `diego@`, `lena@`, `mei@`, `tom@`, `ravi@` (Head of People), `aisha@`, `sofia@` (Finance lead), `james@` — all `@northwind.dev`. The login page has one-click demo shortcuts. The super admin (from `SUPER_ADMIN_*` in `backend/.env`) can review **Contoso Retail** (pending) and **QuickCash Deals** (rejected).
-
-Verify the API end to end with the server running: `npm run test:api`.
+There is no sample data. Set `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD` and `SUPER_ADMIN_NAME` in `backend/.env` first; the super admin account is created (or updated) by `db:seed` and on every server start. Then sign up in the app, create your organization, approve it as the super admin, and invite your people.
 
 ## Adding your keys later
 
@@ -56,7 +54,7 @@ Everything works without keys: emails are printed to the backend console and the
 - Keyboard-first desktop: `Ctrl K` / `/` jump to the top-bar search (results open right below it), `C` create, `G H / G I / G P / G B / G L` navigation, `?` shortcuts.
 
 **Workspace administration & appearance**
-- Organization **admin** role (the organization's creator, and `alex@northwind.dev` / `priya@northwind.dev` in the demo). Admins open **Organization** and **Departments** in the sidebar.
+- Organization **admin** role (the organization's creator, plus anyone they promote). Admins open **Organization** and **Departments** in the sidebar.
 - **Light and dark mode** (plus "System"), each person chooses in Settings → Appearance or the account menu; the admin sets the default for first-time visitors and the workspace name.
 - People management: promote/demote workspace admins, deactivate/reactivate accounts.
 - Colours are design tokens in `frontend/src/assets/styles/main.css` (`:root` for light, `.dark` for dark); every surface derives from one tint, so a future theme only needs a new tint, primary and brand gradient.
@@ -121,7 +119,7 @@ The database is created on first start if it does not exist, and tables are crea
 ```bash
 npm --prefix backend run db:sync     # create missing tables
 npm --prefix backend run db:reset    # drop and recreate all tables (data loss)
-npm run db:seed                      # reset and load demo data
+npm run db:seed                      # default plans and super admin; never deletes data
 ```
 
 For production schema changes, add Sequelize migrations and set `DB_AUTO_SYNC=false`.
@@ -137,6 +135,5 @@ Serve `frontend/dist` from any static host or CDN and proxy `/api` and `/socket.
 
 ### Before you deploy
 - **Legal pages** — `/privacy` and `/terms` are public and linked from sign-in, registration and invitations. Set `VITE_LEGAL_COMPANY_NAME`, `VITE_LEGAL_CONTACT_EMAIL`, `VITE_LEGAL_POSTAL_ADDRESS`, `VITE_LEGAL_JURISDICTION` and `VITE_LEGAL_EFFECTIVE_DATE` in `frontend/.env` (see `.env.example`) before building, and have the text (`frontend/src/modules/legal/pages`) reviewed for your jurisdiction.
-- **Demo accounts** — remove the "explore with a demo account" block in `frontend/src/modules/auth/pages/LoginPage.vue` and do not run `npm run db:seed` against production.
 - **Secrets** — set a long random `JWT_SECRET`, real database credentials, and `SENDGRID_*` / `OPENAI_API_KEY` if you use email and AI.
 - **HTTPS** — serve the app over HTTPS (required for installing the PWA and assumed by the privacy policy).

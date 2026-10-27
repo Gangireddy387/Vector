@@ -1,4 +1,5 @@
 import { DataTypes, QueryTypes } from 'sequelize';
+import { config } from '../config/index.js';
 import { sequelize } from './connection.js';
 
 /** Columns added after a table was first created; `sync()` without alter does not add them. */
@@ -78,7 +79,10 @@ export async function applyDataUpgrades() {
   const orphanProjects = await Project.count({ where: { organizationId: null } });
   let defaultOrganization = null;
   if (orphanProjects || !(await Organization.count())) {
-    const users = await User.findAll({ attributes: ['id', 'workspaceRole', 'lastOrganizationId'] });
+    // The portal's super admin approves organizations and never needs one, so on a fresh install it must not trigger this migration.
+    const users = (await User.findAll({ attributes: ['id', 'email', 'workspaceRole', 'lastOrganizationId'] })).filter(
+      (user) => user.email.toLowerCase() !== config.superAdmin.email,
+    );
     if (!users.length && !orphanProjects) return;
     defaultOrganization = await Organization.findOne({ order: [['createdAt', 'ASC']] });
     if (!defaultOrganization) {

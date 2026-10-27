@@ -1,6 +1,6 @@
 import { Organization, OrganizationMember, Plan, Project } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
-import { ALL_FEATURES, DEFAULT_PLANS, FEATURE_KEYS, featureLabel } from './plan.constants.js';
+import { ALL_FEATURES, DEFAULT_PLANS, EMAIL_FEATURE_KEYS, FEATURE_KEYS, featureLabel } from './plan.constants.js';
 
 const planInclude = { model: Plan, as: 'plan' };
 export const withPlan = () => [planInclude];
@@ -39,7 +39,7 @@ export const requireFeature = (key) => (req, _res, next) => {
   next();
 };
 
-/** Background work (automation rules, recurring tasks) only runs for organizations whose plan includes it. */
+/** Background work (automation rules, recurring tasks, emails) only runs for organizations whose plan includes it. */
 export async function projectHasFeature(projectId, key) {
   const project = await Project.findByPk(projectId, { attributes: ['id', 'organizationId'] });
   if (!project?.organizationId) return true;
@@ -73,12 +73,21 @@ export async function getDefaultPlan() {
   return (await Plan.findOne({ where: { isDefault: true } })) ?? (await Plan.findOne({ order: [['position', 'ASC']] }));
 }
 
+/** Plans saved before the email switches existed keep sending those emails until the super admin turns them off. */
+async function backfillEmailFeatures() {
+  for (const plan of await Plan.findAll()) {
+    const features = plan.features ?? {};
+    const missing = EMAIL_FEATURE_KEYS.filter((key) => features[key] === undefined);
+    if (missing.length) await plan.update({ features: { ...features, ...Object.fromEntries(missing.map((key) => [key, true])) } });
+  }
+}
+
 /**
  * Creates the starter plans on first start. Organizations that already exist move to the plan with the most
  * access, so nobody loses a feature they were using.
  */
 export async function ensureDefaultPlans() {
-  if (await Plan.count()) return;
+  if (await Plan.count()) return backfillEmailFeatures();
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);
   const fullAccess = plans.find((plan) => plan.maxMembers === null && plan.maxProjects === null) ?? plans.at(-1);
   const [moved] = await Organization.update({ planId: fullAccess.id }, { where: { planId: null } });

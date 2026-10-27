@@ -56,6 +56,8 @@ const organizationLinkRoute: RouteRecordRaw = {
   meta: { requiresAuth: true, allowWithoutOrganization: true },
   beforeEnter: async (to) => {
     const auth = useAuthStore()
+    // The super admin belongs to no organization; organization links open in the normal account's tabs.
+    if (auth.isSuperAdmin) return { name: 'super-admin' }
     const slug = String(to.params.slug).toLowerCase()
     const rest = Array.isArray(to.params.rest) ? to.params.rest.join('/') : String(to.params.rest ?? '')
     const query = new URLSearchParams(Object.entries(to.query).flatMap(([key, value]) => (typeof value === 'string' ? [[key, value]] : []))).toString()
@@ -157,6 +159,7 @@ router.beforeEach((to) => {
     return { name: 'home' }
   }
   if (to.meta.requiresWorkspaceAdmin && !auth.isOrganizationAdmin) return { name: 'home' }
+  if (to.name === 'organization-create' && auth.isSuperAdmin) return { name: 'super-admin' }
   if (to.name === 'organization-create' && auth.isAuthenticated && !auth.canCreateOrganization) return { name: 'home' }
   return true
 })

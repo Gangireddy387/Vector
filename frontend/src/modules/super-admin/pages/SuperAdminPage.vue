@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, Ban, Building2, Check, CircleCheck, Clock, FolderKanban, Gem, LogOut, RefreshCw, ShieldCheck, Users } from 'lucide-vue-next'
+import { ArrowRight, Ban, Building2, Check, CircleCheck, Clock, Crown, Eye, FolderKanban, Gem, LogOut, RefreshCw, ShieldCheck, Users } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -17,6 +17,8 @@ import { assetUrl, getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { organizationAddress } from '@/modules/auth/organization-slug'
 import type { OrganizationStatus } from '@/types/models'
+import UserAvatar from '@/components/common/UserAvatar.vue'
+import OrganizationDetailSheet from '../components/OrganizationDetailSheet.vue'
 import PlansPanel from '../components/PlansPanel.vue'
 import { type Plan, type ReviewedOrganization, superAdminApi } from '../super-admin.api'
 
@@ -27,8 +29,9 @@ const section = ref<'organizations' | 'plans'>('organizations')
 const organizations = ref<ReviewedOrganization[] | null>(null)
 const plans = ref<Plan[] | null>(null)
 const isLoading = ref(false)
-const filter = ref<OrganizationStatus | 'all'>('pending')
+const filter = ref<OrganizationStatus | 'all'>('all')
 const busyId = ref<string | null>(null)
+const openId = ref<string | null>(null)
 
 const SECTIONS = [
   { value: 'organizations', label: 'Organizations', icon: Building2 },
@@ -50,10 +53,10 @@ const FILTERS: Array<{
   icon: typeof Clock
   accent: string
 }> = [
-  { value: 'pending', label: 'Pending', description: 'Waiting for your decision', icon: Clock, accent: 'text-amber-700 bg-warning/15 ring-warning/20' },
-  { value: 'approved', label: 'Approved', description: 'Live on the portal', icon: CircleCheck, accent: 'text-success bg-success/15 ring-success/20' },
-  { value: 'rejected', label: 'Rejected', description: 'Blocked from the portal', icon: Ban, accent: 'text-destructive bg-destructive/12 ring-destructive/20' },
   { value: 'all', label: 'All', description: 'Every organization', icon: Building2, accent: 'text-primary bg-primary/10 ring-primary/15' },
+  { value: 'approved', label: 'Approved', description: 'Live on the portal', icon: CircleCheck, accent: 'text-success bg-success/15 ring-success/20' },
+  { value: 'pending', label: 'Pending', description: 'Waiting for your decision', icon: Clock, accent: 'text-amber-700 bg-warning/15 ring-warning/20' },
+  { value: 'rejected', label: 'Rejected', description: 'Blocked from the portal', icon: Ban, accent: 'text-destructive bg-destructive/12 ring-destructive/20' },
 ]
 
 const count = (value: OrganizationStatus | 'all') =>
@@ -149,7 +152,7 @@ function signOut() {
     />
 
     <header class="sticky top-0 z-20 border-b border-border/70 bg-card/80 backdrop-blur-xl">
-      <div class="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
+      <div class="flex h-16 w-full items-center gap-3 px-4 sm:px-6">
         <span class="relative flex size-9 shrink-0 items-center justify-center overflow-hidden bg-brand text-white shadow-glow">
           <span class="pointer-events-none absolute inset-0" style="background: radial-gradient(circle at 15% 5%, rgb(255 255 255 / 0.25), transparent 60%)" />
           <BrandMark class="relative size-[22px]" />
@@ -168,7 +171,7 @@ function signOut() {
       </div>
     </header>
 
-    <main class="relative mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6 sm:py-10">
+    <main class="relative w-full space-y-6 px-4 py-6 sm:px-6">
       <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div class="max-w-2xl space-y-3">
           <span class="inline-flex items-center gap-2 text-brand text-xs font-semibold tracking-[0.14em] uppercase">
@@ -287,19 +290,40 @@ function signOut() {
 
                 <div class="min-w-0 flex-1 space-y-2">
                   <div class="flex flex-wrap items-center gap-2">
-                    <h3 class="truncate text-base font-semibold tracking-tight">{{ organization.name }}</h3>
+                    <button
+                      type="button"
+                      class="truncate text-left text-base font-semibold tracking-tight transition-colors hover:text-primary"
+                      :title="`Open ${organization.name}`"
+                      @click="openId = organization.id"
+                    >
+                      {{ organization.name }}
+                    </button>
                     <Badge :variant="STATUS[organization.status].variant">
                       <component :is="STATUS[organization.status].icon" /> {{ STATUS[organization.status].label }}
                     </Badge>
                   </div>
                   <p class="truncate text-xs text-muted-foreground">{{ organizationAddress(organization.slug) }}</p>
 
-                  <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-                    <span v-if="organization.creator" class="min-w-0">
-                      <span class="text-foreground/80">{{ organization.creator.name }}</span>
-                      <span class="mx-1 text-border">·</span>
-                      <span class="truncate">{{ organization.creator.email }}</span>
+                  <button
+                    v-if="organization.creator"
+                    type="button"
+                    class="flex max-w-full items-center gap-2.5 border border-border/60 bg-muted/30 py-1.5 pr-3 pl-1.5 text-left transition-colors hover:border-primary/30 hover:bg-accent/40"
+                    :title="`View ${organization.creator.name}'s profile`"
+                    @click="openId = organization.id"
+                  >
+                    <UserAvatar :user="organization.creator" size="md" />
+                    <span class="min-w-0">
+                      <span class="flex items-center gap-1.5 text-sm font-medium">
+                        <span class="truncate">{{ organization.creator.name }}</span>
+                        <Crown class="size-3.5 shrink-0 text-amber-500" />
+                      </span>
+                      <span class="block truncate text-xs text-muted-foreground">
+                        {{ organization.creator.title ? `${organization.creator.title} · ` : 'Admin · ' }}{{ organization.creator.email }}
+                      </span>
                     </span>
+                  </button>
+
+                  <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
                     <span :title="formatDate(organization.createdAt)">Joined {{ timeAgo(organization.createdAt) }}</span>
                     <span class="inline-flex items-center gap-1"><Users class="size-3.5" /> {{ organization.memberCount }} people</span>
                     <span class="inline-flex items-center gap-1"><FolderKanban class="size-3.5" /> {{ organization.projectCount }} projects</span>
@@ -315,6 +339,7 @@ function signOut() {
               </div>
 
               <div class="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
+                <Button size="sm" variant="ghost" @click="openId = organization.id"><Eye /> Details</Button>
                 <SelectField
                   :model-value="organization.plan?.id ?? null"
                   :options="planOptions"
@@ -352,6 +377,8 @@ function signOut() {
       </section>
       </template>
     </main>
+
+    <OrganizationDetailSheet v-model:organization-id="openId" />
 
     <Dialog v-model:open="isRejectOpen">
       <DialogContent class="sm:max-w-md">

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
-import { PLAN_FEATURES } from '@/lib/plan-features'
+import { PLAN_FEATURE_GROUPS, PLAN_FEATURES } from '@/lib/plan-features'
 import { type Plan, superAdminApi } from '../super-admin.api'
 import PlanEditorDialog from './PlanEditorDialog.vue'
 
@@ -42,7 +42,7 @@ const limitLabel = (value: number | null, noun: string) => (value === null ? `Un
   <section class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="max-w-xl text-sm text-muted-foreground">
-        Plans decide which features an organization can use and how many people and projects it may have. Changes apply right away.
+        Plans decide which features and emails an organization gets and how many people and projects it may have. Changes apply right away.
       </p>
       <Button variant="brand" @click="openEditor()"><Plus /> New plan</Button>
     </div>
@@ -74,7 +74,14 @@ const limitLabel = (value: number | null, noun: string) => (value === null ? `Un
         </div>
 
         <ul class="flex-1 space-y-2 p-5 text-sm">
-          <li v-for="feature in PLAN_FEATURES" :key="feature.key" class="flex items-center gap-2" :class="!plan.features[feature.key] && 'text-muted-foreground/70'">
+          <template v-for="group in PLAN_FEATURE_GROUPS" :key="group.value">
+          <li class="pt-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase first:pt-0">{{ group.label }}</li>
+          <li
+            v-for="feature in PLAN_FEATURES.filter((item) => item.group === group.value)"
+            :key="feature.key"
+            class="flex items-center gap-2"
+            :class="!plan.features[feature.key] && 'text-muted-foreground/70'"
+          >
             <span
               class="flex size-5 shrink-0 items-center justify-center"
               :class="plan.features[feature.key] ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'"
@@ -83,6 +90,7 @@ const limitLabel = (value: number | null, noun: string) => (value === null ? `Un
             </span>
             <span :class="!plan.features[feature.key] && 'line-through decoration-muted-foreground/40'">{{ feature.label }}</span>
           </li>
+          </template>
         </ul>
 
         <div class="flex items-center justify-between gap-2 border-t border-border/60 px-5 py-3">

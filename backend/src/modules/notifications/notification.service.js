@@ -4,7 +4,11 @@ import { ApiError } from '../../shared/errors/api-error.js';
 import { emitToUser } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { notificationEmail } from '../../shared/services/email-templates.js';
+import { projectHasFeature } from '../plans/plan.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
+
+/** Which plan switch allows the email copy of a notification; everything else counts as a work notification. */
+const EMAIL_FEATURE_BY_TYPE = { due_soon: 'emailReminders' };
 
 /**
  * Creates in-app notifications (pushed live over websockets) and mirrors them by email
@@ -19,7 +23,7 @@ export async function notifyUsers({ userIds, actorId = null, type, title, body =
   );
   notifications.forEach((notification) => emitToUser(notification.userId, 'notification:created', notification.toJSON()));
 
-  if (email) {
+  if (email && (!projectId || (await projectHasFeature(projectId, EMAIL_FEATURE_BY_TYPE[type] ?? 'emailNotifications')))) {
     const users = await User.findAll({ where: { id: recipients, status: 'active' } });
     await Promise.all(
       users

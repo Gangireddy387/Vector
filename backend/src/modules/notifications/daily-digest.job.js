@@ -3,6 +3,7 @@ import { sendEmail } from '../../shared/services/email.service.js';
 import { dailyDigestEmail } from '../../shared/services/email-templates.js';
 import { addDaysToDate, localDateTime } from '../../shared/utils/timezone.js';
 import { listMyWork } from '../issues/issue.service.js';
+import { projectHasFeature } from '../plans/plan.service.js';
 
 const DIGEST_HOUR = 8;
 
@@ -13,6 +14,12 @@ const DIGEST_HOUR = 8;
 export async function sendDailyDigests(now = new Date()) {
   const users = await User.findAll({ where: { status: 'active' } });
   let sent = 0;
+  // A person can work in several organizations; only work from those whose plan includes the digest is listed.
+  const digestAllowed = new Map();
+  const allowsDigest = async (projectId) => {
+    if (!digestAllowed.has(projectId)) digestAllowed.set(projectId, await projectHasFeature(projectId, 'emailDigest'));
+    return digestAllowed.get(projectId);
+  };
 
   for (const user of users.filter((candidate) => candidate.preferences?.dailyDigest)) {
     const local = localDateTime(user.timezone, now);
@@ -20,7 +27,8 @@ export async function sendDailyDigests(now = new Date()) {
 
     const today = local.date;
     const weekEnd = addDaysToDate(today, 7);
-    const open = (await listMyWork(user.id)).filter((issue) => issue.status.category !== 'done');
+    const open = [];
+    for (const issue of await listMyWork(user.id)) if (issue.status.category !== 'done' && (await allowsDigest(issue.projectId))) open.push(issue);
     const sections = [
       { title: 'Overdue', issues: open.filter((issue) => issue.dueDate && issue.dueDate < today) },
       { title: 'Due today', issues: open.filter((issue) => issue.dueDate === today) },

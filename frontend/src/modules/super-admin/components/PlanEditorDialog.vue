@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
 import { Button } from '@/components/ui/button'
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
-import { PLAN_FEATURES, type PlanFeatureKey } from '@/lib/plan-features'
+import { PLAN_FEATURE_GROUPS, PLAN_FEATURES, type PlanFeatureGroup, type PlanFeatureKey } from '@/lib/plan-features'
 import { type Plan, type PlanInput, superAdminApi } from '../super-admin.api'
 
 const props = defineProps<{ plan: Plan | null }>()
@@ -44,7 +44,7 @@ watch(open, (isOpen) => {
   })
 })
 
-const enabledCount = computed(() => Object.values(form.features).filter(Boolean).length)
+const enabledIn = (group: PlanFeatureGroup) => PLAN_FEATURES.filter((feature) => feature.group === group && form.features[feature.key]).length
 const toLimit = (value: string | number) => (String(value).trim() === '' ? null : Number(value))
 
 async function save() {
@@ -103,13 +103,18 @@ async function save() {
           </FormField>
         </div>
 
-        <section class="space-y-2">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-medium">Features</h3>
-            <span class="text-xs text-muted-foreground">{{ enabledCount }} of {{ PLAN_FEATURES.length }} included</span>
+        <section v-for="group in PLAN_FEATURE_GROUPS" :key="group.value" class="space-y-2">
+          <div class="flex items-end justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-medium">{{ group.label }}</h3>
+              <p class="text-xs text-muted-foreground">{{ group.hint }}</p>
+            </div>
+            <span class="shrink-0 text-xs text-muted-foreground">
+              {{ enabledIn(group.value) }} of {{ PLAN_FEATURES.filter((feature) => feature.group === group.value).length }} included
+            </span>
           </div>
           <ul class="grid gap-2 sm:grid-cols-2">
-            <li v-for="feature in PLAN_FEATURES" :key="feature.key">
+            <li v-for="feature in PLAN_FEATURES.filter((item) => item.group === group.value)" :key="feature.key">
               <label
                 class="flex cursor-pointer items-start gap-3 border p-3 transition-colors"
                 :class="form.features[feature.key] ? 'border-primary/40 bg-primary/5' : 'border-border/70 hover:bg-accent/30'"

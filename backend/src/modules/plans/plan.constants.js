@@ -8,9 +8,15 @@ export const PLAN_FEATURES = [
   { key: 'chat', label: 'Team chat & standups' },
   { key: 'attachments', label: 'File attachments' },
   { key: 'timeTracking', label: 'Time tracking' },
+  // Emails that grow with usage (SendGrid volume). Sign-in, invitation and approval emails always send.
+  { key: 'emailNotifications', label: 'Work notification emails', group: 'email' },
+  { key: 'emailReminders', label: 'Due date reminder emails', group: 'email' },
+  { key: 'emailDigest', label: 'Daily digest emails', group: 'email' },
+  { key: 'emailAutomations', label: 'Automation emails', group: 'email' },
 ];
 
 export const FEATURE_KEYS = PLAN_FEATURES.map((feature) => feature.key);
+export const EMAIL_FEATURE_KEYS = PLAN_FEATURES.filter((feature) => feature.group === 'email').map((feature) => feature.key);
 export const featureLabel = (key) => PLAN_FEATURES.find((feature) => feature.key === key)?.label ?? key;
 
 const features = (...enabled) => Object.fromEntries(FEATURE_KEYS.map((key) => [key, enabled.includes(key)]));
@@ -34,7 +40,7 @@ export const DEFAULT_PLANS = [
     priceLabel: '₹999 / month',
     maxMembers: 25,
     maxProjects: 20,
-    features: features('automations', 'recurringTasks', 'templates', 'reports', 'chat', 'attachments', 'timeTracking'),
+    features: features('automations', 'recurringTasks', 'templates', 'reports', 'chat', 'attachments', 'timeTracking', ...EMAIL_FEATURE_KEYS),
     isDefault: false,
     position: 1,
   },

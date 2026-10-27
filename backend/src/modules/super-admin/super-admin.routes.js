@@ -4,7 +4,14 @@ import { ApiError } from '../../shared/errors/api-error.js';
 import { validate } from '../../shared/middleware/validate.js';
 import { FEATURE_KEYS } from '../plans/plan.constants.js';
 import { createPlan, deletePlan, listPlans, updatePlan } from '../plans/plan.service.js';
-import { approveOrganization, changeOrganizationPlan, isSuperAdmin, listOrganizations, rejectOrganization } from './super-admin.service.js';
+import {
+  approveOrganization,
+  changeOrganizationPlan,
+  getOrganizationDetail,
+  isSuperAdmin,
+  listOrganizations,
+  rejectOrganization,
+} from './super-admin.service.js';
 
 const rejectSchema = z.object({ reason: z.string().trim().max(500).optional() });
 const setPlanSchema = z.object({ planId: z.string().uuid('Choose a plan') });
@@ -31,6 +38,7 @@ const superAdminRoutes = Router();
 superAdminRoutes.use('/super-admin', requireSuperAdmin);
 
 superAdminRoutes.get('/super-admin/organizations', async (_req, res) => res.json({ organizations: await listOrganizations() }));
+superAdminRoutes.get('/super-admin/organizations/:organizationId', async (req, res) => res.json(await getOrganizationDetail(req.params.organizationId)));
 superAdminRoutes.post('/super-admin/organizations/:organizationId/approve', async (req, res) =>
   res.json({ organization: await approveOrganization(req.params.organizationId, req.user) }),
 );
