@@ -3,6 +3,7 @@ import { ImagePlus, Loader2, Trash2, Upload } from 'lucide-vue-next'
 import { computed, ref, useTemplateRef } from 'vue'
 import { toast } from 'vue-sonner'
 import ImageCropDialog from '@/components/common/ImageCropDialog.vue'
+import { analyzeLogo, type LogoTraits } from '@/components/common/OrganizationLogo.vue'
 import { Button } from '@/components/ui/button'
 import { assetUrl, getErrorMessage } from '@/lib/http'
 import { ACCEPTED_IMAGE_TYPES, assertImageFile } from '@/lib/image'
@@ -17,6 +18,13 @@ const pendingFile = ref<File | null>(null)
 const isCropOpen = ref(false)
 
 const logo = computed(() => assetUrl(workspace.settings.logoUrl))
+/** The preview matches how the team sees the logo: wide box for wordmarks, no backing behind transparent logos. */
+const traits = ref<LogoTraits>({ wide: false, transparent: false, darkInk: false })
+const logoIsWide = computed(() => traits.value.wide)
+function measure(event: Event) {
+  const image = event.target as HTMLImageElement
+  if (image.naturalWidth && image.naturalHeight) traits.value = analyzeLogo(image)
+}
 
 /** A chosen or dropped image first opens the adjust dialog; nothing is uploaded until "Save logo". */
 function pick(file: File | undefined) {
@@ -67,8 +75,8 @@ function onDrop(event: DragEvent) {
   <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
     <button
       type="button"
-      class="group relative flex size-20 shrink-0 items-center justify-center overflow-hidden border border-dashed border-border bg-muted/40 outline-none focus-visible:ring-4 focus-visible:ring-ring/30"
-      :class="[isDragging && 'ring-4 ring-primary/40', logo && 'border-solid bg-white']"
+      class="group relative flex h-20 shrink-0 items-center justify-center overflow-hidden border border-dashed border-border bg-muted/40 outline-none focus-visible:ring-4 focus-visible:ring-ring/30"
+      :class="[isDragging && 'ring-4 ring-primary/40', logo && (traits.transparent ? 'border-solid bg-transparent' : 'border-solid bg-white'), logo && logoIsWide ? 'w-60' : 'w-20']"
       :aria-label="logo ? 'Change organization logo' : 'Upload organization logo'"
       :disabled="isUploading"
       @click="fileInput?.click()"
@@ -76,7 +84,14 @@ function onDrop(event: DragEvent) {
       @dragleave="isDragging = false"
       @drop.prevent="onDrop"
     >
-      <img v-if="logo" :src="logo" :alt="`${workspace.settings.name} logo`" class="size-full object-contain p-1.5" />
+      <img
+        v-if="logo"
+        :src="logo"
+        :alt="`${workspace.settings.name} logo`"
+        class="size-full object-contain p-1.5"
+        :class="traits.transparent && traits.darkInk && 'dark:drop-shadow-[0_0_1px_rgb(255_255_255/0.9)] dark:drop-shadow-[0_0_6px_rgb(255_255_255/0.25)]'"
+        @load="measure"
+      />
       <ImagePlus v-else class="size-7 text-muted-foreground" />
       <span
         class="absolute inset-0 flex items-center justify-center bg-black/45 text-white transition-opacity"
@@ -96,7 +111,10 @@ function onDrop(event: DragEvent) {
           <Trash2 /> Remove
         </Button>
       </div>
-      <p class="text-xs text-muted-foreground">PNG, JPEG, WebP or GIF. You can position, zoom and rotate it before saving — or drop an image on the box.</p>
+      <p class="text-xs text-muted-foreground">
+        PNG, JPEG, WebP or GIF: a square icon, or a wide logo with your name in it. You can position, zoom and rotate it before saving, or drop an image on the
+        box.
+      </p>
     </div>
 
     <input

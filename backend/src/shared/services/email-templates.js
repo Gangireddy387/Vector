@@ -31,7 +31,8 @@ const addressOf = (slug) => appUrl(`/${slug}`).replace(/^https?:\/\//, '');
 function brandTile({ name, slug, logoUrl, initials, color }) {
   const size = 40;
   if (logoUrl && canLoadImages()) {
-    return `<img src="${escapeHtml(appUrl(logoUrl))}" width="${size}" height="${size}" alt="${escapeHtml(name)}" style="display:block;border:1px solid #e4e4e7;border-radius:10px;background:#ffffff;object-fit:contain" />`;
+    // Height only, so a wide wordmark keeps its proportions instead of being squeezed into a square.
+    return `<img src="${escapeHtml(appUrl(logoUrl))}" height="${size}" alt="${escapeHtml(name)}" style="display:block;height:${size}px;width:auto;max-width:200px;border:1px solid #e4e4e7;border-radius:10px;background:#ffffff;padding:2px" />`;
   }
   const background = color ?? tileColor(slug ?? name);
   const text = initials ?? (String(name).trim().slice(0, 2).toUpperCase() || 'V');

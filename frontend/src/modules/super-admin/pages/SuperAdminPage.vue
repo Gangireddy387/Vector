@@ -17,6 +17,7 @@ import { assetUrl, getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { organizationAddress } from '@/modules/auth/organization-slug'
 import type { OrganizationStatus } from '@/types/models'
+import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import OrganizationDetailSheet from '../components/OrganizationDetailSheet.vue'
 import PlansPanel from '../components/PlansPanel.vue'
@@ -275,12 +276,7 @@ function signOut() {
           >
             <div class="flex flex-col gap-5 lg:flex-row lg:items-center">
               <div class="flex min-w-0 flex-1 items-start gap-3.5">
-                <span
-                  v-if="organization.logoUrl"
-                  class="flex size-12 shrink-0 items-center justify-center overflow-hidden border border-border bg-white"
-                >
-                  <img :src="assetUrl(organization.logoUrl)" alt="" class="size-full object-contain p-1" />
-                </span>
+                <OrganizationLogo v-if="organization.logoUrl" :src="assetUrl(organization.logoUrl)!" :alt="organization.name" size="lg" />
                 <span
                   v-else
                   class="flex size-12 shrink-0 items-center justify-center bg-brand text-sm font-bold tracking-wide text-white shadow-glow"

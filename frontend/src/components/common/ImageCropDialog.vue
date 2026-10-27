@@ -7,7 +7,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Slider } from '@/components/ui/slider'
 import { canvasToUpload, type CropFrame, drawCrop, fitZoom, loadImage, panLimits, renderCrop } from '@/lib/image'
 
-/** `avatar`: round crop that always fills the frame. `logo`: square crop that can zoom out until the whole image fits, keeping transparency. */
+/**
+ * `avatar`: round crop that always fills the frame. `logo`: square icon or wide wordmark (3:1) that can zoom out
+ * until the whole image fits, keeping transparency.
+ */
 const props = withDefaults(defineProps<{ file: File | null; saving?: boolean; variant?: 'avatar' | 'logo' }>(), { variant: 'avatar' })
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ save: [blob: Blob, fileName: string] }>()
@@ -27,7 +30,7 @@ const VARIANTS = {
   },
   logo: {
     title: 'Adjust your logo',
-    description: 'Drag to position and zoom to frame your logo. Empty space stays transparent.',
+    description: 'Pick the shape that matches your logo, then drag and zoom to frame it. Empty space stays transparent.',
     saveLabel: 'Save logo',
     output: 512,
     round: false,
@@ -44,19 +47,33 @@ const MAX_ZOOM = 4
 /** Shows which parts of a logo are transparent. */
 const CHECKERBOARD = { background: 'repeating-conic-gradient(#e5e7eb 0 25%, #ffffff 0 50%) 0 0 / 16px 16px' }
 
+/** Wordmarks (icon plus name) keep their width instead of shrinking into a square. */
+const LOGO_SHAPES = {
+  square: { label: 'Square icon', aspect: 1, output: 512 },
+  wide: { label: 'Wide logo with name', aspect: 3, output: 960 },
+} as const
+const WIDE_IMAGE_RATIO = 1.6
+
 const options = computed(() => VARIANTS[props.variant])
+const logoShape = ref<keyof typeof LOGO_SHAPES>('square')
+const aspect = computed(() => (props.variant === 'logo' ? LOGO_SHAPES[logoShape.value].aspect : 1))
 const viewportCanvas = useTemplateRef<HTMLCanvasElement>('viewportCanvas')
 const image = ref<ImageBitmap | null>(null)
-const frame = reactive<CropFrame>({ viewport: VIEWPORT, zoom: 1, offsetX: 0, offsetY: 0, rotation: 0 })
+const frame = reactive<CropFrame>({ viewport: VIEWPORT, aspect: 1, zoom: 1, offsetX: 0, offsetY: 0, rotation: 0 })
 const preview = ref('')
 const isDragging = ref(false)
 
-const minZoom = computed(() => (props.variant === 'logo' && image.value ? Math.floor(fitZoom(image.value.width, image.value.height) * 100) / 100 : 1))
+const minZoom = computed(() =>
+  props.variant === 'logo' && image.value ? Math.floor(fitZoom(image.value.width, image.value.height, { ...frame, rotation: 0 }) * 100) / 100 : 1,
+)
 
 /** Logos start fully visible; photos start filling the frame. */
 function resetFrame() {
-  Object.assign(frame, { zoom: props.variant === 'logo' ? minZoom.value : 1, offsetX: 0, offsetY: 0, rotation: 0 })
+  frame.aspect = aspect.value
+  Object.assign(frame, { offsetX: 0, offsetY: 0, rotation: 0 })
+  frame.zoom = props.variant === 'logo' ? minZoom.value : 1
 }
+watch(logoShape, resetFrame)
 
 /** Keeps the image covering the whole frame after any zoom, pan or rotation. */
 function clampPan() {
@@ -74,7 +91,9 @@ watch(
     image.value?.close()
     image.value = null
     try {
-      image.value = await loadImage(file)
+      const loaded = await loadImage(file)
+      if (props.variant === 'logo') logoShape.value = loaded.width / loaded.height >= WIDE_IMAGE_RATIO ? 'wide' : 'square'
+      image.value = loaded
       resetFrame()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'That image could not be opened.')
@@ -90,14 +109,16 @@ function paint() {
   const canvas = viewportCanvas.value
   if (!canvas || !image.value) return
   const pixelRatio = window.devicePixelRatio || 1
-  if (canvas.width !== VIEWPORT * pixelRatio) {
-    canvas.width = VIEWPORT * pixelRatio
-    canvas.height = VIEWPORT * pixelRatio
+  const width = VIEWPORT * pixelRatio
+  const height = Math.round(width / frame.aspect)
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width
+    canvas.height = height
   }
   const context = canvas.getContext('2d')
   if (!context) return
-  drawCrop(context, image.value, frame, VIEWPORT * pixelRatio)
-  preview.value = renderCrop(image.value, frame, 96).toDataURL('image/png')
+  drawCrop(context, image.value, frame, width)
+  preview.value = renderCrop(image.value, frame, Math.round(96 * frame.aspect)).toDataURL('image/png')
 }
 watch([image, () => ({ ...frame })], async () => {
   await nextTick()
@@ -160,7 +181,8 @@ function onKeydown(event: KeyboardEvent) {
 
 async function save() {
   if (!image.value) return
-  const { blob, fileName } = await canvasToUpload(renderCrop(image.value, frame, options.value.output), { transparent: props.variant === 'logo' })
+  const output = props.variant === 'logo' ? LOGO_SHAPES[logoShape.value].output : options.value.output
+  const { blob, fileName } = await canvasToUpload(renderCrop(image.value, frame, output), { transparent: props.variant === 'logo' })
   emit('save', blob, fileName)
 }
 
@@ -179,9 +201,9 @@ const isGif = computed(() => props.file?.type === 'image/gif')
         <!-- Crop viewport -->
         <div class="mx-auto space-y-3">
           <div
-            class="relative size-72 touch-none overflow-hidden border border-border outline-none focus-visible:ring-4 focus-visible:ring-ring/25"
+            class="relative w-72 touch-none overflow-hidden border border-border outline-none focus-visible:ring-4 focus-visible:ring-ring/25"
             :class="[isDragging ? 'cursor-grabbing' : 'cursor-grab', options.round && 'bg-muted']"
-            :style="options.round ? undefined : CHECKERBOARD"
+            :style="{ height: `${VIEWPORT / frame.aspect}px`, ...(options.round ? {} : CHECKERBOARD) }"
             tabindex="0"
             role="application"
             :aria-label="`${variant === 'logo' ? 'Logo' : 'Photo'} crop area. Drag or use arrow keys to move, plus and minus to zoom.`"
@@ -211,6 +233,25 @@ const isGif = computed(() => props.file?.type === 'image/gif')
 
         <!-- Controls + preview -->
         <div class="space-y-5">
+          <div v-if="variant === 'logo'" class="space-y-2">
+            <span class="text-sm font-medium">Shape</span>
+            <div class="grid grid-cols-2 gap-1 border border-border/80 bg-muted/40 p-0.5" role="radiogroup" aria-label="Logo shape">
+              <button
+                v-for="(shape, key) in LOGO_SHAPES"
+                :key="key"
+                type="button"
+                role="radio"
+                :aria-checked="logoShape === key"
+                class="flex items-center justify-center gap-2 px-2 py-1.5 text-xs font-medium transition-all"
+                :class="logoShape === key ? 'bg-card text-foreground shadow-sm ring-1 ring-border/70' : 'text-muted-foreground hover:text-foreground'"
+                @click="logoShape = key"
+              >
+                <span class="border border-current" :class="key === 'wide' ? 'h-2.5 w-7' : 'size-3.5'" />
+                {{ shape.label }}
+              </button>
+            </div>
+          </div>
+
           <div class="space-y-2">
             <div class="flex items-center justify-between text-sm">
               <span class="font-medium">Zoom</span>
@@ -238,7 +279,7 @@ const isGif = computed(() => props.file?.type === 'image/gif')
 
           <div class="space-y-2">
             <span class="text-sm font-medium">Preview</span>
-            <div class="flex items-end gap-4">
+            <div class="flex flex-wrap items-end gap-4">
               <figure v-for="{ size, label } in options.previews" :key="size" class="flex flex-col items-center gap-1.5">
                 <img
                   v-if="preview"
@@ -246,9 +287,9 @@ const isGif = computed(() => props.file?.type === 'image/gif')
                   alt=""
                   class="border border-border object-cover shadow-soft"
                   :class="options.round ? 'rounded-full' : 'bg-white'"
-                  :style="{ width: `${size}px`, height: `${size}px` }"
+                  :style="{ width: `${size * frame.aspect}px`, height: `${size}px` }"
                 />
-                <span v-else class="bg-muted" :class="options.round && 'rounded-full'" :style="{ width: `${size}px`, height: `${size}px` }" />
+                <span v-else class="bg-muted" :class="options.round && 'rounded-full'" :style="{ width: `${size * frame.aspect}px`, height: `${size}px` }" />
                 <figcaption class="text-[10px] text-muted-foreground">{{ label }}</figcaption>
               </figure>
             </div>

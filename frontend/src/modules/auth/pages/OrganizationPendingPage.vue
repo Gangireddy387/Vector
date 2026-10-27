@@ -66,9 +66,7 @@ function signOut() {
   />
 
   <div v-if="organization" class="flex items-center gap-3 border border-border bg-card p-3.5 shadow-soft">
-    <span v-if="organization.logoUrl" class="flex size-10 shrink-0 items-center justify-center overflow-hidden border border-border bg-white">
-      <img :src="assetUrl(organization.logoUrl)" alt="" class="size-full object-contain p-0.5" />
-    </span>
+    <OrganizationLogo v-if="organization.logoUrl" :src="assetUrl(organization.logoUrl)!" :alt="organization.name" size="md" />
     <span v-else class="flex size-10 shrink-0 items-center justify-center bg-primary/10 text-primary"><Building2 class="size-5" /></span>
     <span class="min-w-0 flex-1">
       <span class="block truncate font-medium">{{ organization.name }}</span>

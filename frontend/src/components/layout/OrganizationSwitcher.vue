@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { Check, ChevronsUpDown, Link2, Plus, Settings2 } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
 import { toast } from 'vue-sonner'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { assetUrl, getErrorMessage } from '@/lib/http'
@@ -14,6 +16,8 @@ defineProps<{ compact?: boolean }>()
 
 const auth = useAuthStore()
 const router = useRouter()
+const logo = computed(() => assetUrl(auth.organization?.logoUrl))
+const logoIsWide = ref(false)
 
 const TILE_COLORS = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#14b8a6']
 const tileColor = (organization: OrganizationSummary) => TILE_COLORS[[...organization.slug].reduce((total, char) => total + char.charCodeAt(0), 0) % TILE_COLORS.length]
@@ -41,29 +45,36 @@ async function copyLink() {
       :class="compact ? 'justify-center' : 'flex-1'"
       :aria-label="`Organization: ${auth.organization?.name ?? 'none'}. Switch organization`"
     >
-      <span
-        v-if="auth.organization?.logoUrl"
-        class="flex size-8 shrink-0 items-center justify-center overflow-hidden border border-border bg-white transition-transform duration-200 group-hover:-rotate-3"
-      >
-        <img :src="assetUrl(auth.organization.logoUrl)" alt="" class="size-full object-contain p-0.5" />
+      <!-- A wordmark already spells the name, so it fills the brand area on its own (address on hover and in the menu). -->
+      <span v-if="logo && logoIsWide && !compact" class="flex min-w-0 flex-1 items-center" :title="`${auth.organization?.name} · /${auth.organization?.slug}`">
+        <OrganizationLogo v-model:wide="logoIsWide" :src="logo" :alt="auth.organization?.name" bare class="h-10 max-w-full" />
       </span>
-      <span v-else class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-brand text-white shadow-glow transition-transform duration-200 group-hover:-rotate-3">
-        <span class="pointer-events-none absolute inset-0" style="background: radial-gradient(circle at 15% 5%, rgb(255 255 255 / 0.25), transparent 60%)" />
-        <BrandMark class="relative size-[22px]" />
-      </span>
-      <span v-if="!compact" class="min-w-0 flex-1">
-        <span class="block truncate text-[15px] leading-tight font-semibold tracking-tight">{{ auth.organization?.name ?? 'Vector' }}</span>
-        <span class="block truncate text-[11px] leading-tight text-muted-foreground">{{ auth.organization ? `/${auth.organization.slug}` : 'No organization' }}</span>
-      </span>
+      <template v-else>
+        <OrganizationLogo
+          v-if="logo"
+          v-model:wide="logoIsWide"
+          :src="logo"
+          :alt="auth.organization?.name"
+          size="sm"
+          square
+          class="transition-transform duration-200 group-hover:-rotate-3"
+        />
+        <span v-else class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-brand text-white shadow-glow transition-transform duration-200 group-hover:-rotate-3">
+          <span class="pointer-events-none absolute inset-0" style="background: radial-gradient(circle at 15% 5%, rgb(255 255 255 / 0.25), transparent 60%)" />
+          <BrandMark class="relative size-[22px]" />
+        </span>
+        <span v-if="!compact" class="min-w-0 flex-1">
+          <span class="block truncate text-[15px] leading-tight font-semibold tracking-tight">{{ auth.organization?.name ?? 'Vector' }}</span>
+          <span class="block truncate text-[11px] leading-tight text-muted-foreground">{{ auth.organization ? `/${auth.organization.slug}` : 'No organization' }}</span>
+        </span>
+      </template>
       <ChevronsUpDown v-if="!compact" class="size-4 shrink-0 text-muted-foreground" />
     </DropdownMenuTrigger>
 
     <DropdownMenuContent align="start" class="w-72">
       <DropdownMenuLabel>Your organizations</DropdownMenuLabel>
       <DropdownMenuItem v-for="organization in auth.organizations" :key="organization.id" class="py-2" @select="open(organization)">
-        <span v-if="organization.logoUrl" class="flex size-8 shrink-0 items-center justify-center overflow-hidden border border-border bg-white">
-          <img :src="assetUrl(organization.logoUrl)" alt="" class="size-full object-contain p-0.5" />
-        </span>
+        <OrganizationLogo v-if="organization.logoUrl" :src="assetUrl(organization.logoUrl)!" size="sm" class="h-7 max-w-24" />
         <span v-else class="flex size-8 shrink-0 items-center justify-center text-xs font-bold text-white" :style="{ backgroundColor: tileColor(organization) }">
           {{ organization.name.slice(0, 2).toUpperCase() }}
         </span>

@@ -3,6 +3,7 @@ import { useClipboard } from '@vueuse/core'
 import { Building2, CalendarDays, CheckCircle2, Clock, Copy, Crown, FolderKanban, ListTodo, Mail, MapPin, Phone, Users, UsersRound, X } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -87,9 +88,7 @@ async function copyEmail(email: string) {
     <SheetContent side="right" class="flex w-full flex-col gap-0 p-0 sm:max-w-2xl" hide-close clear-backdrop>
       <header class="flex shrink-0 items-center gap-3 border-b border-border/70 px-5 py-3.5">
         <template v-if="detail">
-          <span v-if="detail.organization.logoUrl" class="flex size-10 shrink-0 items-center justify-center overflow-hidden border border-border bg-white">
-            <img :src="assetUrl(detail.organization.logoUrl)" alt="" class="size-full object-contain p-1" />
-          </span>
+          <OrganizationLogo v-if="detail.organization.logoUrl" :src="assetUrl(detail.organization.logoUrl)!" :alt="detail.organization.name" size="md" />
           <span v-else class="flex size-10 shrink-0 items-center justify-center bg-brand text-sm font-bold text-white shadow-glow">
             {{ detail.organization.name.slice(0, 2).toUpperCase() }}
           </span>
