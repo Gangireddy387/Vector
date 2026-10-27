@@ -8,7 +8,8 @@ export const PLAN_FEATURES = [
   { key: 'chat', label: 'Team chat & standups' },
   { key: 'attachments', label: 'File attachments' },
   { key: 'timeTracking', label: 'Time tracking' },
-  // Emails that grow with usage (SendGrid volume). Sign-in, invitation and approval emails always send.
+  // Emails that grow with usage (SendGrid volume). Password reset, added-to-organization and approval emails always send.
+  { key: 'emailInvitations', label: 'Invitation emails', group: 'email' },
   { key: 'emailNotifications', label: 'Work notification emails', group: 'email' },
   { key: 'emailReminders', label: 'Due date reminder emails', group: 'email' },
   { key: 'emailDigest', label: 'Daily digest emails', group: 'email' },

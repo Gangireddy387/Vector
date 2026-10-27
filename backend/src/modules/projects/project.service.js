@@ -2,13 +2,13 @@ import { Issue, Label, Organization, Project, ProjectMember, Sprint, Status, Tea
 import { ApiError } from '../../shared/errors/api-error.js';
 import { DomainEvents, eventBus } from '../../shared/events/event-bus.js';
 import { sendEmail } from '../../shared/services/email.service.js';
-import { addedToProjectEmail, inviteEmail } from '../../shared/services/email-templates.js';
+import { addedToProjectEmail, inviteEmail, inviteLinkFor } from '../../shared/services/email-templates.js';
 import { logActivity } from '../activity/activity.service.js';
 import { currentOrganizationId, currentOrganizationRole } from '../../shared/context/request-context.js';
 import { DEFAULT_LABELS } from '../labels/label.model.js';
 import { grantTeamAccess } from '../departments/department.service.js';
 import { ensureOrganizationMember } from '../organizations/organization.service.js';
-import { assertWithinLimit } from '../plans/plan.service.js';
+import { assertWithinLimit, entitlementsFor, withPlan } from '../plans/plan.service.js';
 import { getHeadedProjectIds, isOrganizationAdminRequest } from './project-access.js';
 import { DEFAULT_STATUSES } from '../statuses/status.model.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
@@ -209,14 +209,24 @@ export async function addMember(projectId, inviter, { email, role }) {
   if (existing) throw ApiError.conflict(`${email} is already a member of this project`);
   await ProjectMember.create({ projectId, userId: user.id, role });
 
-  const organization = await Organization.findByPk(project.organizationId);
-  const details = { inviterName: inviter.name, inviterEmail: inviter.email, organization, project, role };
-  const message = inviteToken ? inviteEmail({ ...details, email, token: inviteToken }) : addedToProjectEmail(details);
-  await sendEmail({ to: email, ...message });
+  // Invitation and added-to-project emails follow the plan; without them, new people get their sign-up link from the admin.
+  const organization = await Organization.findByPk(project.organizationId, { include: withPlan() });
+  const mayEmail = entitlementsFor(organization).features.emailInvitations;
+  if (mayEmail) {
+    const details = { inviterName: inviter.name, inviterEmail: inviter.email, organization, project, role };
+    const message = inviteToken ? inviteEmail({ ...details, email, token: inviteToken }) : addedToProjectEmail(details);
+    await sendEmail({ to: email, ...message });
+  }
 
   await logActivity({ projectId, actorId: inviter.id, action: 'member_added', toValue: user.name, meta: { role } });
   eventBus.publish(DomainEvents.MEMBER_ADDED, { project, user, actorId: inviter.id });
-  return { ...user.toJSON(), role, invited: Boolean(inviteToken) };
+  return {
+    ...user.toJSON(),
+    role,
+    invited: Boolean(inviteToken),
+    emailed: mayEmail,
+    inviteLink: inviteToken && !mayEmail ? inviteLinkFor(inviteToken) : null,
+  };
 }
 
 async function ensureAnotherAdminRemains(projectId, userId) {

@@ -1,6 +1,26 @@
 <script setup lang="ts">
 import { useClipboard } from '@vueuse/core'
-import { Building2, CalendarDays, CheckCircle2, Clock, Copy, Crown, FolderKanban, ListTodo, Mail, MapPin, Phone, Users, UsersRound, X } from 'lucide-vue-next'
+import {
+  Ban,
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  CircleCheck,
+  Clock,
+  Copy,
+  Crown,
+  FolderKanban,
+  Gem,
+  Link2,
+  ListTodo,
+  Mail,
+  MapPin,
+  Phone,
+  ShieldCheck,
+  Users,
+  UsersRound,
+  X,
+} from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
@@ -13,7 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatDate, timeAgo } from '@/lib/format'
 import { assetUrl, getErrorMessage } from '@/lib/http'
 import { cityOf, localTime } from '@/lib/timezone'
-import { organizationAddress } from '@/modules/auth/organization-slug'
+import { organizationAddress, organizationUrl } from '@/modules/auth/organization-slug'
 import { profileCoverStyle } from '@/modules/admin/profile-cover'
 import { type OrganizationDetail, superAdminApi } from '../super-admin.api'
 
@@ -46,9 +66,9 @@ watch(
 )
 
 const STATUS = {
-  pending: { label: 'Pending', variant: 'warning' },
-  approved: { label: 'Approved', variant: 'success' },
-  rejected: { label: 'Rejected', variant: 'destructive' },
+  pending: { label: 'Pending', variant: 'warning', icon: Clock },
+  approved: { label: 'Approved', variant: 'success', icon: CircleCheck },
+  rejected: { label: 'Rejected', variant: 'destructive', icon: Ban },
 } as const
 const PERSON_STATUS = { active: 'Active', invited: 'Invited', disabled: 'Deactivated' } as const
 
@@ -86,24 +106,73 @@ async function copyEmail(email: string) {
 <template>
   <Sheet v-model:open="isOpen">
     <SheetContent side="right" class="flex w-full flex-col gap-0 p-0 sm:max-w-2xl" hide-close clear-backdrop>
-      <header class="flex shrink-0 items-center gap-3 border-b border-border/70 px-5 py-3.5">
-        <template v-if="detail">
-          <OrganizationLogo v-if="detail.organization.logoUrl" :src="assetUrl(detail.organization.logoUrl)!" :alt="detail.organization.name" size="md" />
-          <span v-else class="flex size-10 shrink-0 items-center justify-center bg-brand text-sm font-bold text-white shadow-glow">
+      <header class="relative shrink-0 border-b border-border/70">
+        <div
+          class="h-14"
+          style="
+            background:
+              radial-gradient(circle at 85% 15%, rgb(255 255 255 / 0.25), transparent 45%),
+              linear-gradient(120deg, var(--brand-from), var(--brand-to));
+          "
+        />
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          class="absolute top-3 right-3 bg-black/20 text-white backdrop-blur-sm hover:bg-black/35 hover:text-white"
+          aria-label="Close"
+          @click="isOpen = false"
+        >
+          <X />
+        </Button>
+
+        <div class="px-5 pt-4 pb-4">
+          <!-- Shown the way the organization sees it in its own sidebar: the full logo, unboxed. -->
+          <Skeleton v-if="!detail" class="h-14 w-40" />
+          <OrganizationLogo
+            v-else-if="detail.organization.logoUrl"
+            :src="assetUrl(detail.organization.logoUrl)!"
+            :alt="detail.organization.name"
+            size="lg"
+            bare
+            class="h-14 max-w-64"
+          />
+          <span v-else class="flex size-14 items-center justify-center bg-brand text-lg font-bold text-white shadow-glow">
             {{ detail.organization.name.slice(0, 2).toUpperCase() }}
           </span>
-        </template>
-        <Skeleton v-else class="size-10" />
-        <div class="min-w-0 flex-1">
-          <SheetTitle class="flex items-center gap-2 truncate text-base font-semibold">
+
+          <SheetTitle class="mt-3 flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight">
             {{ detail?.organization.name ?? 'Organization' }}
-            <Badge v-if="detail" :variant="STATUS[detail.organization.status].variant">{{ STATUS[detail.organization.status].label }}</Badge>
+            <Badge v-if="detail" :variant="STATUS[detail.organization.status].variant">
+              <component :is="STATUS[detail.organization.status].icon" /> {{ STATUS[detail.organization.status].label }}
+            </Badge>
           </SheetTitle>
-          <SheetDescription class="truncate text-xs">
-            {{ detail ? `${organizationAddress(detail.organization.slug)} · created ${formatDate(detail.organization.createdAt, 'd MMM yyyy')}` : 'Loading…' }}
+          <SheetDescription as="div" class="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <template v-if="detail">
+              <a
+                :href="organizationUrl(detail.organization.slug)"
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center gap-1 transition-colors hover:text-primary"
+                title="Open the organization's address"
+              >
+                <Link2 class="size-3.5" /> {{ organizationAddress(detail.organization.slug) }}
+              </a>
+              <span class="inline-flex items-center gap-1"><CalendarDays class="size-3.5" /> Created {{ formatDate(detail.organization.createdAt, 'd MMM yyyy') }}</span>
+              <span class="inline-flex items-center gap-1"><Gem class="size-3.5" /> {{ detail.organization.plan?.name ?? 'No plan' }} plan</span>
+              <span class="inline-flex items-center gap-1"><Users class="size-3.5" /> {{ detail.organization.memberCount }} people</span>
+              <span v-if="detail.organization.reviewedAt" class="inline-flex items-center gap-1">
+                <ShieldCheck class="size-3.5" /> Reviewed {{ formatDate(detail.organization.reviewedAt, 'd MMM yyyy') }}
+              </span>
+            </template>
+            <span v-else>Loading…</span>
           </SheetDescription>
+          <p
+            v-if="detail?.organization.status === 'rejected' && detail.organization.rejectionReason"
+            class="mt-2 border-l-2 border-destructive bg-destructive/5 px-2.5 py-1.5 text-xs text-destructive"
+          >
+            Reason: {{ detail.organization.rejectionReason }}
+          </p>
         </div>
-        <Button variant="ghost" size="icon-sm" aria-label="Close" @click="isOpen = false"><X /></Button>
       </header>
 
       <div class="min-h-0 flex-1 space-y-6 overflow-y-auto p-5 scrollbar-thin">

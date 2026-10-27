@@ -79,16 +79,22 @@ const limitLabel = (value: number | null, noun: string) => (value === null ? `Un
           <li
             v-for="feature in PLAN_FEATURES.filter((item) => item.group === group.value)"
             :key="feature.key"
-            class="flex items-center gap-2"
+            class="flex items-start gap-2"
             :class="!plan.features[feature.key] && 'text-muted-foreground/70'"
+            :title="feature.includes?.map((email) => `${email.name}: ${email.detail}`).join('\n')"
           >
             <span
-              class="flex size-5 shrink-0 items-center justify-center"
+              class="mt-px flex size-5 shrink-0 items-center justify-center"
               :class="plan.features[feature.key] ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'"
             >
               <component :is="plan.features[feature.key] ? Check : Minus" class="size-3" />
             </span>
-            <span :class="!plan.features[feature.key] && 'line-through decoration-muted-foreground/40'">{{ feature.label }}</span>
+            <span class="min-w-0">
+              <span class="block" :class="!plan.features[feature.key] && 'line-through decoration-muted-foreground/40'">{{ feature.label }}</span>
+              <span v-if="feature.includes" class="block text-[11px] leading-snug text-muted-foreground">
+                {{ feature.includes.map((email) => email.name).join(' · ') }}
+              </span>
+            </span>
           </li>
           </template>
         </ul>

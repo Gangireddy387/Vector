@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
-import { PLAN_FEATURE_GROUPS, PLAN_FEATURES, type PlanFeatureGroup, type PlanFeatureKey } from '@/lib/plan-features'
+import { ALWAYS_SENT_EMAILS, PLAN_FEATURE_GROUPS, PLAN_FEATURES, type PlanFeatureGroup, type PlanFeatureKey } from '@/lib/plan-features'
 import { type Plan, type PlanInput, superAdminApi } from '../super-admin.api'
 
 const props = defineProps<{ plan: Plan | null }>()
@@ -113,7 +113,7 @@ async function save() {
               {{ enabledIn(group.value) }} of {{ PLAN_FEATURES.filter((feature) => feature.group === group.value).length }} included
             </span>
           </div>
-          <ul class="grid gap-2 sm:grid-cols-2">
+          <ul class="grid gap-2" :class="group.value === 'app' && 'sm:grid-cols-2'">
             <li v-for="feature in PLAN_FEATURES.filter((item) => item.group === group.value)" :key="feature.key">
               <label
                 class="flex cursor-pointer items-start gap-3 border p-3 transition-colors"
@@ -123,11 +123,28 @@ async function save() {
                 <span class="min-w-0 flex-1">
                   <span class="block text-sm font-medium">{{ feature.label }}</span>
                   <span class="block text-xs text-muted-foreground">{{ feature.description }}</span>
+                  <ul v-if="feature.includes" class="mt-2 space-y-1">
+                    <li v-for="email in feature.includes" :key="email.name" class="flex gap-2 text-xs">
+                      <span class="mt-1.5 size-1 shrink-0 rounded-full bg-primary/60" />
+                      <span><span class="font-medium text-foreground/90">{{ email.name }}</span> <span class="text-muted-foreground">· {{ email.detail }}</span></span>
+                    </li>
+                  </ul>
+                  <span v-if="feature.whenOff" class="mt-2 block text-[11px] text-muted-foreground italic">When off: {{ feature.whenOff }}</span>
                 </span>
                 <Switch v-model="form.features[feature.key]" :aria-label="feature.label" />
               </label>
             </li>
           </ul>
+
+          <div v-if="group.value === 'email'" class="border border-dashed border-border/80 bg-muted/30 p-3">
+            <p class="text-xs font-semibold">Always sent on every plan</p>
+            <ul class="mt-1.5 grid gap-1 sm:grid-cols-2">
+              <li v-for="email in ALWAYS_SENT_EMAILS" :key="email.name" class="text-xs">
+                <span class="font-medium text-foreground/90">{{ email.name }}</span>
+                <span class="block text-muted-foreground">{{ email.detail }}</span>
+              </li>
+            </ul>
+          </div>
         </section>
 
         <label class="flex cursor-pointer items-start gap-3 border border-border/70 p-3">

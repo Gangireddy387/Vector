@@ -49,7 +49,9 @@ export const projectsApi = {
   remove: (projectId: string) => http.delete(`/projects/${projectId}`),
 
   addMember: (projectId: string, payload: { email: string; role: ProjectRole }) =>
-    http.post<{ member: UserSummary & { invited: boolean } }>(`/projects/${projectId}/members`, payload).then((r) => r.data.member),
+    http
+      .post<{ member: UserSummary & { invited: boolean; emailed: boolean; inviteLink: string | null } }>(`/projects/${projectId}/members`, payload)
+      .then((r) => r.data.member),
   updateMember: (projectId: string, userId: string, role: ProjectRole) => http.patch(`/projects/${projectId}/members/${userId}`, { role }),
   removeMember: (projectId: string, userId: string) => http.delete(`/projects/${projectId}/members/${userId}`),
 

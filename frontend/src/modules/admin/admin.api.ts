@@ -52,7 +52,9 @@ export const workspaceApi = {
   members: () => http.get<{ members: WorkspaceMember[] }>('/workspace/members').then((r) => r.data.members),
   memberProfile: (userId: string) => http.get<MemberProfile>(`/workspace/members/${userId}/profile`).then((r) => r.data),
   invite: (payload: { email: string; role: WorkspaceRole }) =>
-    http.post<{ member: WorkspaceMember & { invited: boolean } }>('/workspace/invitations', payload).then((r) => r.data.member),
+    http
+      .post<{ member: WorkspaceMember & { invited: boolean; emailed: boolean; inviteLink: string | null } }>('/workspace/invitations', payload)
+      .then((r) => r.data.member),
   updateMember: (userId: string, changes: { workspaceRole?: WorkspaceRole; status?: 'active' | 'disabled' }) =>
     http.patch(`/workspace/members/${userId}`, changes),
   removeMember: (userId: string) => http.delete(`/workspace/members/${userId}`),

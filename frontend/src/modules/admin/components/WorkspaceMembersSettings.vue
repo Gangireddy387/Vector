@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
 import { timeAgo } from '@/lib/format'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
+import { shareInviteLink } from '@/lib/invite-link'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import type { WorkspaceMember, WorkspaceRole } from '@/types/models'
 import { workspaceApi } from '../admin.api'
@@ -116,9 +117,11 @@ async function sendInvite() {
   isInviting.value = true
   try {
     const member = await workspaceApi.invite({ email: invite.value.email.trim(), role: invite.value.role })
-    toast.success(member.invited ? `Invitation sent to ${member.email}` : `${member.name} added to ${organizationName.value}`, {
-      description: member.invited ? 'They can join once they accept the email.' : 'They already had a Vector account and can switch to this organization now.',
-    })
+    if (member.inviteLink) await shareInviteLink(member.email, member.inviteLink)
+    else
+      toast.success(member.invited ? `Invitation sent to ${member.email}` : `${member.name} added to ${organizationName.value}`, {
+        description: member.invited ? 'They can join once they accept the email.' : 'They already had a Vector account and can switch to this organization now.',
+      })
     invite.value = { email: '', role: 'member' }
     await load()
   } catch (error) {

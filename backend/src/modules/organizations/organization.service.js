@@ -4,7 +4,7 @@ import { Issue, Organization, OrganizationMember, Project, ProjectMember, User }
 import { ApiError } from '../../shared/errors/api-error.js';
 import { emitToUser } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
-import { addedToOrganizationEmail, organizationInviteEmail, organizationReviewRequestEmail } from '../../shared/services/email-templates.js';
+import { addedToOrganizationEmail, inviteLinkFor, organizationInviteEmail, organizationReviewRequestEmail } from '../../shared/services/email-templates.js';
 import { createImageStore } from '../../shared/services/image-store.js';
 import { removeFromStructure } from '../departments/department.service.js';
 import { assertWithinLimit, entitlementsFor, getDefaultPlan, usageFor } from '../plans/plan.service.js';
@@ -254,11 +254,21 @@ export async function ensureOrganizationMember(organizationId, email, role = 'me
   return { user, membership, created, inviteToken };
 }
 
+/**
+ * Invitation emails (to new people) follow the plan; when the plan leaves them out, the admin gets the sign-up link
+ * to share themselves. People who already have an account are always told they were added.
+ */
 export async function inviteMember(organization, inviter, { email, role }) {
   const { user, created, inviteToken } = await ensureOrganizationMember(organization.id, email, role);
   if (!created) throw ApiError.conflict(`${email} is already in ${organization.name}`);
   const details = { inviterName: inviter.name, inviterEmail: inviter.email, organization, role };
-  const message = inviteToken ? organizationInviteEmail({ ...details, email, token: inviteToken }) : addedToOrganizationEmail(details);
-  await sendEmail({ to: email, ...message });
-  return { ...(await listMembers(organization.id)).find((member) => member.id === user.id), invited: Boolean(inviteToken) };
+  const mayEmailInvite = entitlementsFor(organization).features.emailInvitations;
+  if (!inviteToken) await sendEmail({ to: email, ...addedToOrganizationEmail(details) });
+  else if (mayEmailInvite) await sendEmail({ to: email, ...organizationInviteEmail({ ...details, email, token: inviteToken }) });
+  return {
+    ...(await listMembers(organization.id)).find((member) => member.id === user.id),
+    invited: Boolean(inviteToken),
+    emailed: !inviteToken || mayEmailInvite,
+    inviteLink: inviteToken && !mayEmailInvite ? inviteLinkFor(inviteToken) : null,
+  };
 }

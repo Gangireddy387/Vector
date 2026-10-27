@@ -4,6 +4,8 @@ const escapeHtml = (value) =>
   String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
 export const appUrl = (path = '/') => `${config.clientUrl.split(',')[0].replace(/\/$/, '')}${path}`;
+/** Where a newly invited person sets up their account; also shown to admins when the plan leaves invitation emails out. */
+export const inviteLinkFor = (token) => appUrl(`/accept-invite?token=${token}`);
 
 /** Mail clients fetch images through their own servers, so images on a local address would show as broken. */
 const canLoadImages = () => !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(appUrl());
@@ -139,7 +141,7 @@ export const inviteEmail = ({ inviterName, inviterEmail, organization, project, 
       { label: 'Invited by', value: inviterLine({ inviterName, inviterEmail }) },
     ],
     actionLabel: 'Accept invitation',
-    actionUrl: appUrl(`/accept-invite?token=${token}`),
+    actionUrl: inviteLinkFor(token),
     note: `<strong>What happens next?</strong> Choose your name and a password, and you will land right in ${escapeHtml(organization.name)} with access to ${escapeHtml(project.name)}.`,
     footer: invitationFooter(email, inviterName),
   }),
@@ -160,7 +162,7 @@ export const organizationInviteEmail = ({ inviterName, inviterEmail, organizatio
       { label: 'Invited by', value: inviterLine({ inviterName, inviterEmail }) },
     ],
     actionLabel: 'Accept invitation',
-    actionUrl: appUrl(`/accept-invite?token=${token}`),
+    actionUrl: inviteLinkFor(token),
     note: `<strong>What happens next?</strong> Choose your name and a password, and you will land right in ${escapeHtml(organization.name)}.`,
     footer: invitationFooter(email, inviterName),
   }),

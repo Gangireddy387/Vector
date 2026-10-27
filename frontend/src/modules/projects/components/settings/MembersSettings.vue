@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { SelectField } from '@/components/forms'
 import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
+import { shareInviteLink } from '@/lib/invite-link'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import type { ProjectDetail, ProjectMember, ProjectRole } from '@/types/models'
 import { projectsApi } from '../../projects.api'
@@ -36,7 +37,8 @@ async function invite() {
   isInviting.value = true
   try {
     const member = await projectsApi.addMember(props.project.id, { email: email.value.trim(), role: role.value })
-    toast.success(member.invited ? `Invitation sent to ${member.email}` : `${member.name} added to the project`)
+    if (member.inviteLink) await shareInviteLink(member.email, member.inviteLink)
+    else toast.success(member.invited ? `Invitation sent to ${member.email}` : `${member.name} added to the project`)
     email.value = ''
     await refresh()
   } catch (error) {
