@@ -13,6 +13,7 @@ import {
   ListTodo,
   Mail,
   MapPin,
+  MessageCircle,
   MessageSquare,
   Pencil,
   Phone,
@@ -37,6 +38,7 @@ import { getErrorMessage } from '@/lib/http'
 import { cityOf, localTime } from '@/lib/timezone'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { describeActivity } from '@/modules/issues/activity-format'
+import { useDirectMessage } from '@/modules/messages/useDirectMessage'
 import type { WorkspaceRole } from '@/types/models'
 import { type MemberProfile, workspaceApi } from '../admin.api'
 import { profileCoverStyle } from '../profile-cover'
@@ -47,6 +49,7 @@ const auth = useAuthStore()
 const confirm = useConfirm()
 const { isDesktop } = useDevice()
 const { copy } = useClipboard()
+const { canMessage, messagePerson, openingId } = useDirectMessage()
 
 const profile = ref<MemberProfile | null>(null)
 const notFound = ref(false)
@@ -161,6 +164,15 @@ async function copyEmail() {
           <div class="-mt-14 flex flex-wrap items-end justify-between gap-4 sm:-mt-16">
             <UserAvatar :user="person" size="xl" class="size-28 text-4xl ring-4 ring-card shadow-lg sm:size-32" />
             <div class="flex flex-wrap items-center gap-2 pb-1">
+              <Button
+                v-if="canMessage(person.id) && status === 'active'"
+                variant="brand"
+                size="sm"
+                :loading="openingId === person.id"
+                @click="messagePerson(person.id)"
+              >
+                <MessageCircle /> Message
+              </Button>
               <Button variant="outline" size="sm" as-child>
                 <a :href="`mailto:${person.email}`"><Mail /> Email</a>
               </Button>

@@ -12,6 +12,7 @@ import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
 import departmentRoutes from './modules/departments/department.routes.js';
 import issueRoutes from './modules/issues/issue.routes.js';
 import labelRoutes from './modules/labels/label.routes.js';
+import messageRoutes from './modules/messages/messages.routes.js';
 import notificationRoutes from './modules/notifications/notification.routes.js';
 import projectRoutes from './modules/projects/project.routes.js';
 import recurringTaskRoutes from './modules/recurring-tasks/recurring-task.routes.js';
@@ -68,6 +69,7 @@ export function createApiRouter() {
     chatRoutes,
     standupRoutes,
     calendarRoutes,
+    messageRoutes,
     aiRoutes,
   ].forEach((moduleRouter) => router.use(moduleRouter));
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Crown, Search, Star, UserMinus, UserPlus, X } from 'lucide-vue-next'
+import { Crown, MessageCircle, Search, Star, UserMinus, UserPlus, X } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { useDirectMessage } from '@/modules/messages/useDirectMessage'
 import type { Team, UserSummary } from '@/types/models'
 import { structureApi } from '../departments.api'
 import { useStructureStore } from '../departments.store'
@@ -18,6 +19,7 @@ const props = defineProps<{ team: Team }>()
 const structure = useStructureStore()
 const auth = useAuthStore()
 const isAdmin = computed(() => auth.isOrganizationAdmin)
+const { canMessage, messagePerson, openingId } = useDirectMessage()
 
 const busy = ref(false)
 const isAdding = ref(false)
@@ -139,22 +141,35 @@ defineExpose({ openAdd })
             <Badge v-if="member.id === team.leadId" variant="soft"><Crown /> Team lead</Badge>
             <span v-else class="text-sm text-muted-foreground">Member</span>
           </div>
-          <div v-if="isAdmin" class="flex items-center justify-end gap-1">
-            <template v-if="member.id !== team.leadId">
-              <Button variant="ghost" size="sm" :disabled="busy" @click="makeLead(member)"><Star /> Make lead</Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                class="text-muted-foreground hover:text-destructive"
-                :disabled="busy"
-                :title="`Remove ${member.name}`"
-                :aria-label="`Remove ${member.name}`"
-                @click="removeMember(member)"
-              >
-                <UserMinus />
-              </Button>
+          <div class="flex items-center justify-end gap-1">
+            <Button
+              v-if="canMessage(member.id)"
+              variant="ghost"
+              size="sm"
+              class="text-primary"
+              :loading="openingId === member.id"
+              :title="`Message ${member.name}`"
+              @click="messagePerson(member.id)"
+            >
+              <MessageCircle /> Message
+            </Button>
+            <template v-if="isAdmin">
+              <template v-if="member.id !== team.leadId">
+                <Button variant="ghost" size="sm" :disabled="busy" @click="makeLead(member)"><Star /> Make lead</Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  class="text-muted-foreground hover:text-destructive"
+                  :disabled="busy"
+                  :title="`Remove ${member.name}`"
+                  :aria-label="`Remove ${member.name}`"
+                  @click="removeMember(member)"
+                >
+                  <UserMinus />
+                </Button>
+              </template>
+              <span v-else class="text-xs text-muted-foreground">Make someone else lead to remove</span>
             </template>
-            <span v-else class="text-xs text-muted-foreground">Make someone else lead to remove</span>
           </div>
         </li>
       </ul>

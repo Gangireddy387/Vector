@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { Crown, Ellipsis, FolderKanban, LayoutGrid, List, Search, ShieldCheck, UserCheck, UserMinus, UserPlus, UserRound, UserX } from 'lucide-vue-next'
+import { Crown, Ellipsis, FolderKanban, LayoutGrid, List, MessageCircle, Search, ShieldCheck, UserCheck, UserMinus, UserPlus, UserRound, UserX } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -17,12 +17,14 @@ import { timeAgo } from '@/lib/format'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
 import { shareInviteLink } from '@/lib/invite-link'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { useDirectMessage } from '@/modules/messages/useDirectMessage'
 import type { WorkspaceMember, WorkspaceRole } from '@/types/models'
 import { workspaceApi } from '../admin.api'
 import { profileCoverStyle } from '../profile-cover'
 
 const auth = useAuthStore()
 const confirm = useConfirm()
+const { canMessage, messagePerson, openingId } = useDirectMessage()
 const members = ref<WorkspaceMember[] | null>(null)
 const search = ref('')
 const organizationName = computed(() => auth.organization?.name ?? 'this organization')
@@ -262,8 +264,18 @@ async function sendInvite() {
               </span>
             </RouterLink>
 
-            <div class="border-t border-border/70 p-3">
-              <Button variant="outline" size="sm" class="w-full" as-child>
+            <div class="flex gap-2 border-t border-border/70 p-3">
+              <Button
+                v-if="canMessage(member.id) && member.status === 'active'"
+                variant="brand"
+                size="sm"
+                class="flex-1"
+                :loading="openingId === member.id"
+                @click="messagePerson(member.id)"
+              >
+                <MessageCircle /> Message
+              </Button>
+              <Button variant="outline" size="sm" class="flex-1" as-child>
                 <RouterLink :to="{ name: 'member-profile', params: { userId: member.id } }">View profile</RouterLink>
               </Button>
             </div>

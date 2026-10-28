@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { BarChart3, Building2, CalendarDays, ChevronsLeft, ChevronsRight, FolderKanban, House, Inbox, ListTodo, Plus, ShieldCheck } from 'lucide-vue-next'
+import { BarChart3, Building2, CalendarDays, MessagesSquare, ChevronsLeft, ChevronsRight, FolderKanban, House, Inbox, ListTodo, Plus, ShieldCheck } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { useMessagesStore } from '@/modules/messages/messages.store'
 import { useNotificationsStore } from '@/modules/notifications/notifications.store'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import { useProjectsStore } from '@/modules/projects/projects.store'
@@ -22,6 +23,7 @@ const route = useRoute()
 const ui = useUiStore()
 const projects = useProjectsStore()
 const notifications = useNotificationsStore()
+const messages = useMessagesStore()
 const workspace = useWorkspaceStore()
 const auth = useAuthStore()
 
@@ -79,6 +81,14 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
       <SidebarLink :to="{ name: 'home' }" label="Home" :icon="House" :collapsed="isCollapsed" exact />
       <SidebarLink :to="{ name: 'issues' }" label="All tasks" :icon="ListTodo" :collapsed="isCollapsed" exact />
       <SidebarLink :to="{ name: 'inbox' }" label="Inbox" :icon="Inbox" :badge="notifications.unreadCount" :collapsed="isCollapsed" />
+      <SidebarLink
+        v-if="messages.isAvailable"
+        :to="{ name: 'messages' }"
+        label="Messages"
+        :icon="MessagesSquare"
+        :badge="messages.unreadTotal"
+        :collapsed="isCollapsed"
+      />
       <SidebarLink :to="{ name: 'projects' }" label="Projects" :icon="FolderKanban" :collapsed="isCollapsed" exact />
       <SidebarLink v-if="auth.hasFeature('reports')" :to="{ name: 'reports' }" label="Reports" :icon="BarChart3" :collapsed="isCollapsed" exact />
       <SidebarLink :to="{ name: 'departments' }" label="Departments" :icon="Building2" :collapsed="isCollapsed" />

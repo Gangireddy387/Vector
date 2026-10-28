@@ -10,6 +10,7 @@ import { useTimezoneSync } from '@/composables/useTimezoneSync'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import IssueCreateSheet from '@/modules/issues/components/IssueCreateSheet.vue'
 import IssueDetailSheet from '@/modules/issues/components/IssueDetailSheet.vue'
+import { useMessagesStore } from '@/modules/messages/messages.store'
 import { useNotificationsStore } from '@/modules/notifications/notifications.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import { useUiStore } from '@/stores/ui.store'
@@ -24,6 +25,7 @@ const projects = useProjectsStore()
 const notifications = useNotificationsStore()
 const workspace = useWorkspaceStore()
 const auth = useAuthStore()
+const messages = useMessagesStore()
 const isShortcutsOpen = ref(false)
 useTimezoneSync()
 
@@ -33,9 +35,10 @@ function openNotification(notification: AppNotification) {
 }
 
 onMounted(async () => {
-  await Promise.all([projects.fetchProjects(), notifications.fetchNotifications()])
+  await Promise.all([projects.fetchProjects(), notifications.fetchNotifications(), messages.load().catch(() => undefined)])
   notifications.bindRealtime(openNotification)
   workspace.bindRealtime()
+  messages.bindRealtime()
 })
 
 // The super admin can revoke an organization while people are using it.

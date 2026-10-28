@@ -1,4 +1,20 @@
-import { BarChart3, BellRing, Clock, LayoutTemplate, Mail, MailCheck, MessagesSquare, Newspaper, Paperclip, Repeat, Send, Sparkles, Workflow } from 'lucide-vue-next'
+import {
+  BarChart3,
+  BellRing,
+  Clock,
+  LayoutTemplate,
+  Mail,
+  MailCheck,
+  MessageCircle,
+  MessagesSquare,
+  Newspaper,
+  Paperclip,
+  Repeat,
+  Send,
+  Sparkles,
+  UsersRound,
+  Workflow,
+} from 'lucide-vue-next'
 import type { Component } from 'vue'
 
 /** Features a plan can switch on or off. Keys mirror the server (backend/src/modules/plans/plan.constants.js). */
@@ -9,6 +25,8 @@ export type PlanFeatureKey =
   | 'templates'
   | 'reports'
   | 'chat'
+  | 'directMessages'
+  | 'teamChat'
   | 'attachments'
   | 'timeTracking'
   | 'emailInvitations'
@@ -44,6 +62,8 @@ export const PLAN_FEATURES: PlanFeature[] = [
   { key: 'templates', label: 'Task templates', description: 'Pre-filled formats for common tasks', icon: LayoutTemplate, group: 'app' },
   { key: 'reports', label: 'Reports & progress', description: 'Charts, velocity, burndown and team insights', icon: BarChart3, group: 'app' },
   { key: 'chat', label: 'Team chat & standups', description: 'Project chat, follow-ups and daily standups', icon: MessagesSquare, group: 'app' },
+  { key: 'directMessages', label: 'Direct messages', description: 'Private one-to-one chats between people', icon: MessageCircle, group: 'app' },
+  { key: 'teamChat', label: 'Team & department chat', description: 'A group chat for every team and department', icon: UsersRound, group: 'app' },
   { key: 'attachments', label: 'File attachments', description: 'Upload files to tasks', icon: Paperclip, group: 'app' },
   { key: 'timeTracking', label: 'Time tracking', description: 'Log work time on tasks', icon: Clock, group: 'app' },
   {

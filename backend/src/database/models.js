@@ -28,6 +28,7 @@ import { Plan } from '../modules/plans/plan.model.js';
 import { Department, Team, TeamMember } from '../modules/departments/department.model.js';
 import { CalendarEvent } from '../modules/calendar/calendar-event.model.js';
 import { SupportMessage } from '../modules/support/support-message.model.js';
+import { Conversation, ConversationMember, ConversationMessage } from '../modules/messages/conversation.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
 
@@ -157,6 +158,16 @@ CalendarEvent.belongsTo(Project, { as: 'project', foreignKey: 'projectId', const
 Organization.hasMany(SupportMessage, { as: 'supportMessages', foreignKey: 'organizationId', ...cascade });
 SupportMessage.belongsTo(User, { as: 'author', foreignKey: 'authorId', onDelete: 'SET NULL' });
 
+// Direct messages and team/department chats inside an organization
+Organization.hasMany(Conversation, { as: 'conversations', foreignKey: 'organizationId', ...cascade });
+Conversation.hasMany(ConversationMember, { as: 'members', foreignKey: 'conversationId', ...cascade });
+Conversation.hasMany(ConversationMessage, { as: 'messages', foreignKey: 'conversationId', ...cascade });
+ConversationMember.belongsTo(User, { as: 'user', foreignKey: 'userId', ...cascade });
+ConversationMessage.belongsTo(User, { as: 'author', foreignKey: 'authorId', onDelete: 'SET NULL' });
+// No database constraint: the chat of a deleted team or department simply stops being listed.
+Conversation.belongsTo(Team, { as: 'team', foreignKey: 'teamId', constraints: false });
+Conversation.belongsTo(Department, { as: 'department', foreignKey: 'departmentId', constraints: false });
+
 // Portal-wide configuration
 WorkspaceSetting.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
 
@@ -193,4 +204,7 @@ export {
   TeamMember,
   CalendarEvent,
   SupportMessage,
+  Conversation,
+  ConversationMember,
+  ConversationMessage,
 };

@@ -173,8 +173,13 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         >
           <component :is="folder.icon" class="size-4 shrink-0" />
           <span class="min-w-0 flex-1 truncate">{{ folder.label }}</span>
-          <span v-if="unreadIn(folder.value)" class="text-[11px] font-semibold text-primary tabular-nums">{{ unreadIn(folder.value) }}</span>
-          <span v-else-if="counts[folder.value]" class="text-[11px] text-muted-foreground tabular-nums">{{ counts[folder.value] }}</span>
+          <span
+            v-if="unreadIn(folder.value)"
+            class="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-semibold text-white tabular-nums"
+            :aria-label="`${unreadIn(folder.value)} unread`"
+          >
+            {{ unreadIn(folder.value) }}
+          </span>
         </button>
       </nav>
 
@@ -335,7 +340,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         :aria-selected="filter === chip.value"
         @click="filter = chip.value"
       >
-        {{ chip.label }} <span class="tabular-nums opacity-75">{{ counts[chip.value] }}</span>
+        {{ chip.label }} <span v-if="unreadIn(chip.value)" class="tabular-nums opacity-75">{{ unreadIn(chip.value) }}</span>
       </button>
     </div>
     <EmptyState
