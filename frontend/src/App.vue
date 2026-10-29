@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useDevice } from '@/composables/useDevice'
 import { useTheme } from '@/composables/useTheme'
+import CallHost from '@/modules/meetings/components/CallHost.vue'
 
 const { isDesktop } = useDevice()
 const { resolvedTheme } = useTheme()
@@ -13,6 +14,7 @@ const { resolvedTheme } = useTheme()
   <TooltipProvider :delay-duration="250">
     <RouterView />
     <ConfirmDialog />
+    <CallHost />
     <Toaster :position="isDesktop ? 'bottom-right' : 'top-center'" :theme="resolvedTheme" close-button rich-colors />
   </TooltipProvider>
 </template>

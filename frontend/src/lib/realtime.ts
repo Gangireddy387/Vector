@@ -17,6 +17,17 @@ export function connectRealtime() {
   return socket
 }
 
+/** A guest's connection (meeting guest link): it stands in for the app's connection in this tab, for one call only. */
+export function connectGuestRealtime(token: string) {
+  socket?.disconnect()
+  socket = io(import.meta.env.VITE_SOCKET_URL || undefined, {
+    auth: { token },
+    transports: ['websocket', 'polling'],
+    reconnectionDelayMax: 10000,
+  })
+  return socket
+}
+
 export const getSocket = () => socket
 
 export function disconnectRealtime() {

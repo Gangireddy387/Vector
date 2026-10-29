@@ -29,7 +29,8 @@ import { Department, Team, TeamMember } from '../modules/departments/department.
 import { CalendarEvent } from '../modules/calendar/calendar-event.model.js';
 import { SupportMessage } from '../modules/support/support-message.model.js';
 import { Conversation, ConversationMember, ConversationMessage } from '../modules/messages/conversation.model.js';
-import { Meeting, MeetingParticipant, MeetingUpdate } from '../modules/meetings/meeting.model.js';
+import { Meeting, MeetingParticipant, MeetingPoll, MeetingUpdate } from '../modules/meetings/meeting.model.js';
+import { PushSubscription } from '../modules/push/push-subscription.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
 
@@ -176,6 +177,11 @@ Meeting.hasMany(MeetingParticipant, { as: 'participants', foreignKey: 'meetingId
 MeetingParticipant.belongsTo(User, { as: 'user', foreignKey: 'userId', ...cascade });
 Meeting.hasMany(MeetingUpdate, { as: 'updates', foreignKey: 'meetingId', ...cascade });
 MeetingUpdate.belongsTo(User, { as: 'author', foreignKey: 'authorId', onDelete: 'SET NULL' });
+Meeting.hasMany(MeetingPoll, { as: 'polls', foreignKey: 'meetingId', ...cascade });
+MeetingPoll.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+
+// Devices that receive this person's push notifications
+User.hasMany(PushSubscription, { as: 'pushSubscriptions', foreignKey: 'userId', ...cascade });
 
 // Portal-wide configuration
 WorkspaceSetting.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
@@ -219,4 +225,6 @@ export {
   Meeting,
   MeetingParticipant,
   MeetingUpdate,
+  MeetingPoll,
+  PushSubscription,
 };

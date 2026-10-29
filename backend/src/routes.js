@@ -13,7 +13,9 @@ import departmentRoutes from './modules/departments/department.routes.js';
 import issueRoutes from './modules/issues/issue.routes.js';
 import labelRoutes from './modules/labels/label.routes.js';
 import messageRoutes from './modules/messages/messages.routes.js';
+import { publicMeetingRoutes } from './modules/meetings/meeting.guest.js';
 import meetingRoutes from './modules/meetings/meeting.routes.js';
+import pushRoutes from './modules/push/push.routes.js';
 import notificationRoutes from './modules/notifications/notification.routes.js';
 import projectRoutes from './modules/projects/project.routes.js';
 import recurringTaskRoutes from './modules/recurring-tasks/recurring-task.routes.js';
@@ -38,9 +40,11 @@ export function createApiRouter() {
   router.use(publicWorkspaceRoutes);
   router.use(publicAvatarRoutes);
   router.use(publicOrganizationRoutes);
+  router.use(publicMeetingRoutes);
 
   router.use(authenticate);
   router.use(avatarRoutes);
+  router.use(pushRoutes);
   router.use(organizationRoutes);
   router.use(organizationAdminRoutes);
   router.use(superAdminRoutes);

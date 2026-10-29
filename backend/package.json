@@ -18,7 +18,8 @@
     "test:issues": "node scripts/issue-flows-test.js",
     "test:tracking": "node scripts/tracking-test.js",
     "test:collaboration": "node scripts/collaboration-test.js",
-    "test:organizations": "node scripts/organizations-test.js"
+    "test:organizations": "node scripts/organizations-test.js",
+    "test:meetings": "node scripts/meetings-live-test.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
@@ -38,6 +39,7 @@
     "sequelize": "^6.37.8",
     "socket.io": "^4.8.4",
     "sqlite3": "^6.0.1",
+    "web-push": "^3.6.7",
     "zod": "^4.6.7"
   }
 }

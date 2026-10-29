@@ -3,6 +3,7 @@ import { config } from '../../config/index.js';
 import { User } from '../../database/models.js';
 import { verifyAccessToken } from '../../modules/auth/token.js';
 import { relayConfigured } from '../../modules/meetings/ice-servers.js';
+import { registerMeetingCollab } from '../../modules/meetings/meeting.collab.js';
 import { registerMeetingSignaling } from '../../modules/meetings/meeting.signaling.js';
 import { canWatchProject } from '../../modules/projects/project-access.js';
 
@@ -39,7 +40,9 @@ export function initRealtime(httpServer) {
   io.use((socket, next) => {
     try {
       const payload = verifyAccessToken(socket.handshake.auth?.token);
-      socket.data.userId = payload.sub;
+      // Guests (meeting guest link) only take part in the one call their pass is for.
+      if (payload.typ === 'guest') socket.data.guest = { id: `guest:${payload.gid}`, name: payload.name, meetingId: payload.mid };
+      else socket.data.userId = payload.sub;
       next();
     } catch {
       next(new Error('unauthorized'));
@@ -47,6 +50,10 @@ export function initRealtime(httpServer) {
   });
 
   io.on('connection', (socket) => {
+    registerMeetingSignaling(io, socket);
+    registerMeetingCollab(io, socket);
+    if (socket.data.guest) return;
+
     const { userId } = socket.data;
     socket.join(`user:${userId}`);
     const open = (connections.get(userId) ?? 0) + 1;
@@ -58,7 +65,6 @@ export function initRealtime(httpServer) {
     });
 
     socket.on('project:leave', (projectId) => socket.leave(`project:${projectId}`));
-    registerMeetingSignaling(io, socket);
 
     socket.on('disconnect', () => {
       const left = (connections.get(userId) ?? 1) - 1;

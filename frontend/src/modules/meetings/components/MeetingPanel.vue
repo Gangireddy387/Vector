@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
-import { ClipboardList, Crown, MessageSquareText, NotebookPen, Send, Trash2, UsersRound } from 'lucide-vue-next'
+import { BarChart3, ClipboardList, Crown, MessageCircle, MessageSquareText, NotebookPen, Send, Trash2, UsersRound } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -11,11 +11,20 @@ import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
 import { timeAgo } from '@/lib/format'
 import { useAuthStore } from '@/modules/auth/auth.store'
-import { type Meeting, type MeetingUpdate, meetingsApi } from '../meetings.api'
+import { type Meeting, type MeetingPoll, type MeetingUpdate, meetingsApi } from '../meetings.api'
+import { useMeetingCall } from '../useMeetingCall'
+import CallChat from './CallChat.vue'
+import CallPeople from './CallPeople.vue'
+import CallPolls from './CallPolls.vue'
+import GuestLinkCard from './GuestLinkCard.vue'
 
-const props = defineProps<{ meeting: Meeting; updates: MeetingUpdate[] }>()
-const emit = defineEmits<{ posted: [update: MeetingUpdate]; removed: [id: string]; notes: [notes: string | null] }>()
-const tab = defineModel<'updates' | 'people' | 'notes'>('tab', { default: 'updates' })
+export type MeetingPanelTab = 'chat' | 'people' | 'polls' | 'updates' | 'notes'
+
+/** Beside the call (`live`): chat, people, polls, updates and notes. Before and after it: updates, people, notes and polls. */
+const props = withDefaults(defineProps<{ meeting: Meeting; updates: MeetingUpdate[]; polls?: MeetingPoll[]; live?: boolean }>(), { polls: () => [], live: false })
+const emit = defineEmits<{ posted: [update: MeetingUpdate]; removed: [id: string]; notes: [notes: string | null]; changed: [meeting: Meeting]; breakouts: [] }>()
+const tab = defineModel<MeetingPanelTab>('tab', { default: 'updates' })
+const call = useMeetingCall()
 
 const auth = useAuthStore()
 const confirm = useConfirm()
@@ -87,34 +96,81 @@ function onNotesInput() {
   void saveNotes()
 }
 
-const TABS = [
-  { value: 'updates', label: 'Updates', icon: MessageSquareText },
-  { value: 'people', label: 'People', icon: UsersRound },
-  { value: 'notes', label: 'Notes', icon: NotebookPen },
-] as const
+const tabs = computed(() => {
+  const list: Array<{ value: MeetingPanelTab; label: string; icon: typeof UsersRound; count?: number; alert?: boolean }> = []
+  if (props.live) list.push({ value: 'chat', label: 'Chat', icon: MessageCircle, count: call.unreadChat.value || undefined, alert: true })
+  list.push(
+    { value: 'people', label: 'People', icon: UsersRound, count: props.live ? call.peers.value.length + 1 : people.value.length, alert: props.live && call.lobby.value.length > 0 },
+    { value: 'updates', label: 'Updates', icon: MessageSquareText, count: props.updates.length || undefined },
+  )
+  if (props.live || props.polls.length) list.push({ value: 'polls', label: 'Polls', icon: BarChart3, count: props.live ? call.polls.value.length || undefined : props.polls.length })
+  list.push({ value: 'notes', label: 'Notes', icon: NotebookPen })
+  return list
+})
+watch(
+  tabs,
+  (list) => {
+    if (!list.some((item) => item.value === tab.value)) tab.value = list[0]!.value
+  },
+  { immediate: true },
+)
+const showGuestLink = computed(() => props.meeting.canManage && !isOver.value)
 </script>
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col bg-card text-card-foreground">
     <div class="flex shrink-0 border-b border-border/70" role="tablist">
       <button
-        v-for="item in TABS"
+        v-for="item in tabs"
         :key="item.value"
         type="button"
         role="tab"
-        class="relative flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-medium transition-colors"
-        :class="tab === item.value ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'"
+        class="relative flex min-w-0 flex-1 items-center justify-center font-medium transition-colors"
+        :class="[
+          live ? 'flex-col gap-0.5 px-1 py-2 text-[11px]' : 'gap-1 px-2 py-2.5 text-sm',
+          tab === item.value ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+        ]"
         :aria-selected="tab === item.value"
+        :title="item.label"
         @click="tab = item.value"
       >
-        <component :is="item.icon" class="size-4" /> {{ item.label }}
-        <span v-if="item.value === 'updates' && updates.length" class="rounded-full bg-muted px-1.5 text-[10px] tabular-nums">{{ updates.length }}</span>
-        <span v-if="item.value === 'people'" class="rounded-full bg-muted px-1.5 text-[10px] tabular-nums">{{ people.length }}</span>
-        <span v-if="tab === item.value" class="absolute inset-x-3 -bottom-px h-0.5 bg-primary" />
+        <span class="relative flex shrink-0">
+          <component :is="item.icon" class="size-4" />
+          <template v-if="live">
+            <span
+              v-if="item.count"
+              class="absolute -top-1.5 left-3 rounded-full px-1 text-[9px] leading-tight tabular-nums"
+              :class="item.alert && tab !== item.value ? 'bg-red-500 text-white' : 'bg-muted'"
+            >
+              {{ item.count }}
+            </span>
+            <span v-else-if="item.alert && tab !== item.value && item.value === 'people'" class="absolute -top-0.5 -right-1 size-2 rounded-full bg-red-500" />
+          </template>
+        </span>
+        <span class="min-w-0 max-w-full truncate">{{ item.label }}</span>
+        <template v-if="!live">
+          <span
+            v-if="item.count"
+            class="rounded-full px-1.5 text-[10px] tabular-nums"
+            :class="item.alert && tab !== item.value ? 'bg-red-500 text-white' : 'bg-muted'"
+          >
+            {{ item.count }}
+          </span>
+          <span v-else-if="item.alert && tab !== item.value && item.value === 'people'" class="size-2 rounded-full bg-red-500" />
+        </template>
+        <span v-if="tab === item.value" class="absolute inset-x-2 -bottom-px h-0.5 bg-primary" />
       </button>
     </div>
 
-    <template v-if="tab === 'updates'">
+    <CallChat v-if="tab === 'chat' && live" />
+
+    <CallPolls v-else-if="tab === 'polls'" :polls="live ? null : polls" />
+
+    <CallPeople v-else-if="tab === 'people' && live" @breakouts="emit('breakouts')">
+      <GuestLinkCard v-if="showGuestLink" :meeting="meeting" @changed="(value) => emit('changed', value)" />
+    </CallPeople>
+
+    <template v-else-if="tab === 'updates'">
       <ol class="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
         <li v-for="update in updates" :key="update.id" class="group flex gap-2.5">
           <UserAvatar :user="update.author" size="md" class="mt-0.5" />
@@ -159,6 +215,7 @@ const TABS = [
     </template>
 
     <ul v-else-if="tab === 'people'" class="min-h-0 flex-1 divide-y divide-border/60 overflow-y-auto">
+      <li v-if="showGuestLink" class="p-3"><GuestLinkCard :meeting="meeting" @changed="(value) => emit('changed', value)" /></li>
       <li v-for="person in people" :key="person.id" class="flex items-center gap-3 px-4 py-2.5">
         <span class="relative">
           <UserAvatar :user="person" size="md" />

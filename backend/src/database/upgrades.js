@@ -27,6 +27,11 @@ const ADDED_COLUMNS = [
   { table: 'calendar_events', column: 'meeting_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'meetings', column: 'context_type', definition: { type: DataTypes.STRING(12), allowNull: true } },
   { table: 'meetings', column: 'context_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'meetings', column: 'recurrence', definition: { type: DataTypes.STRING(10), allowNull: true } },
+  { table: 'meetings', column: 'series_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'meetings', column: 'continued', definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false } },
+  { table: 'meetings', column: 'guest_token', definition: { type: DataTypes.STRING(64), allowNull: true } },
+  { table: 'meetings', column: 'whiteboard', definition: { type: DataTypes.JSON, allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

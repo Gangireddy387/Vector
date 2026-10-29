@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { addMinutes, format, parseISO } from 'date-fns'
-import { Check, PencilLine, Search, UsersRound, Video, X } from 'lucide-vue-next'
+import { Check, Link2, PencilLine, Search, UsersRound, Video, X } from 'lucide-vue-next'
 import { computed, reactive, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
@@ -10,13 +10,15 @@ import { DatePicker, SelectField, TimeField, type SelectFieldOption } from '@/co
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { structureApi } from '@/modules/departments/departments.api'
 import { usersApi } from '@/modules/projects/projects.api'
 import type { Team, UserSummary } from '@/types/models'
-import { type Meeting, type MeetingContext, meetingsApi } from '../meetings.api'
+import { recurrenceLabel } from '../meeting-format'
+import { type Meeting, type MeetingContext, type MeetingRecurrence, meetingsApi } from '../meetings.api'
 import type { MeetingPreset } from '../useMeetingActions'
 
 /** `null` closes the sheet, `{}` schedules a new meeting (`preset` fills in who and what it is for), `{ meeting }` edits one. */
@@ -51,7 +53,16 @@ function nextSlot() {
   return `${pad(Math.floor(slot / 60))}:${pad(slot % 60)}`
 }
 
-const form = reactive({ title: '', agenda: '', date: '', time: '', duration: 30, participantIds: [] as string[] })
+const form = reactive({
+  title: '',
+  agenda: '',
+  date: '',
+  time: '',
+  duration: 30,
+  participantIds: [] as string[],
+  recurrence: '' as MeetingRecurrence | '',
+  guestAccess: false,
+})
 
 const DURATIONS: SelectFieldOption[] = [15, 30, 45, 60, 90, 120, 180].map((minutes) => ({
   value: String(minutes),
@@ -75,6 +86,8 @@ watch(
       time: startsAt ? format(startsAt, 'HH:mm') : nextSlot(),
       duration: meeting?.durationMinutes ?? 30,
       participantIds: meeting?.participants.map((person) => person.id).filter((id) => id !== meeting.host?.id) ?? [...new Set(presetPeople.map((person) => person.id))],
+      recurrence: meeting?.recurrence ?? '',
+      guestAccess: meeting?.guestAccess ?? false,
     })
     const [users, departments] = await Promise.all([usersApi.search({}).catch(() => []), structureApi.list().catch(() => [])])
     const known = [...(meeting?.participants ?? []), ...presetPeople, ...users]
@@ -103,6 +116,12 @@ const errors = computed(() => {
 })
 const errorFor = (key: keyof typeof errors.value) => (showErrors.value ? errors.value[key] : null)
 const endsLabel = computed(() => (startsAt.value ? format(addMinutes(startsAt.value, form.duration), 'HH:mm') : ''))
+
+const REPEATS: MeetingRecurrence[] = ['daily', 'weekdays', 'weekly', 'monthly']
+const repeatOptions = computed<SelectFieldOption[]>(() => [
+  { value: '', label: 'Does not repeat' },
+  ...REPEATS.map((value) => ({ value, label: recurrenceLabel(value, startsAt.value ?? now.value) })),
+])
 
 const chosen = computed(() => form.participantIds.map((id) => people.value.find((person) => person.id === id)).filter((person): person is UserSummary => Boolean(person)))
 const matches = computed(() => {
@@ -133,11 +152,12 @@ async function save() {
     startsAt: startsAt.value.toISOString(),
     durationMinutes: form.duration,
     participantIds: form.participantIds,
+    recurrence: form.recurrence || null,
   }
   try {
     const meeting = editing.value
       ? await meetingsApi.update(editing.value.id, input)
-      : await meetingsApi.create({ ...input, contextType: context.value?.type ?? null, contextId: context.value?.id ?? null })
+      : await meetingsApi.create({ ...input, guestAccess: form.guestAccess, contextType: context.value?.type ?? null, contextId: context.value?.id ?? null })
     toast.success(editing.value ? 'Meeting updated' : 'Meeting scheduled', { description: 'Invitations are in everyone’s Inbox and calendar.' })
     emit('saved', meeting)
     target.value = null
@@ -191,6 +211,28 @@ async function save() {
             />
           </FormField>
         </div>
+
+        <FormField
+          label="Repeat"
+          for="meeting-repeat"
+          :hint="form.recurrence ? 'The next meeting is added to everyone’s calendar once this one starts.' : undefined"
+        >
+          <SelectField
+            id="meeting-repeat"
+            :model-value="form.recurrence"
+            :options="repeatOptions"
+            @update:model-value="(value) => (form.recurrence = (value ?? '') as MeetingRecurrence | '')"
+          />
+        </FormField>
+
+        <label v-if="!editing" class="flex items-start gap-3 border border-border/70 p-3">
+          <Link2 class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm font-medium">Let guests join with a link</span>
+            <span class="block text-xs text-muted-foreground">For people outside your organization. They wait until someone in the call lets them in.</span>
+          </span>
+          <Switch v-model="form.guestAccess" aria-label="Let guests join with a link" />
+        </label>
 
         <FormField label="Agenda" for="meeting-agenda" optional>
           <Textarea id="meeting-agenda" v-model="form.agenda" rows="3" placeholder="What you will talk about, and what people should prepare" maxlength="4000" />

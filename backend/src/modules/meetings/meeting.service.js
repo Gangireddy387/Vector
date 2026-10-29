@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Op } from 'sequelize';
 import { CalendarEvent, Department, Meeting, MeetingParticipant, MeetingUpdate, OrganizationMember, Project, Team, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
@@ -5,7 +6,9 @@ import { emitToUser, isUserOnline } from '../../shared/realtime/socket.js';
 import { localDateTime } from '../../shared/utils/timezone.js';
 import { notifyUsers } from '../notifications/notification.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
-import { peopleInCall } from './meeting.signaling.js';
+import { flushBoard, forgetBoard, meetingPolls } from './meeting.collab.js';
+import { nextStart } from './meeting.recurrence.js';
+import { closeCall, dismissLobby, guestsInCall, peopleInCall } from './meeting.signaling.js';
 
 /*
  * Every function takes the `viewer`: { id, name, organization, isAdmin }. Organization admins, department heads and
@@ -13,6 +16,7 @@ import { peopleInCall } from './meeting.signaling.js';
  */
 
 const PAST_GRACE_MS = 5 * 60_000;
+const MAX_DURATION_MS = 480 * 60_000;
 const meetingLink = (meeting) => `/meetings/${meeting.id}`;
 const includeAll = [
   { model: User, as: 'host', attributes: USER_SUMMARY_ATTRIBUTES },
@@ -27,9 +31,11 @@ export async function canSchedule(viewer) {
 }
 
 const endsAt = (meeting) => new Date(new Date(meeting.startsAt).getTime() + meeting.durationMinutes * 60_000);
+const newGuestToken = () => crypto.randomBytes(18).toString('base64url');
 
 function summarize(meeting, viewer) {
   const json = meeting.toJSON();
+  const canManage = viewer.isAdmin || json.hostId === viewer.id;
   return {
     id: json.id,
     title: json.title,
@@ -50,8 +56,14 @@ function summarize(meeting, viewer) {
       })
       .sort((a, b) => a.name.localeCompare(b.name)),
     context: json.contextType && json.contextId ? { type: json.contextType, id: json.contextId } : null,
+    recurrence: json.recurrence,
+    seriesId: json.seriesId,
     inCall: peopleInCall(json.id),
-    canManage: viewer.isAdmin || json.hostId === viewer.id,
+    guestsInCall: guestsInCall(json.id),
+    /** Only the people who manage the meeting see (and share) the guest link. */
+    guestToken: canManage ? json.guestToken : null,
+    guestAccess: Boolean(json.guestToken),
+    canManage,
   };
 }
 
@@ -70,25 +82,37 @@ function assertManage(viewer, meeting) {
 /** Upcoming (scheduled or live, not over yet) or past meetings this person is part of; admins see all of them. */
 export async function listMeetings(viewer, scope, context = null) {
   const organizationId = viewer.organization.id;
-  const where = { organizationId, ...(context ? { contextType: context.type, contextId: context.id } : {}) };
+  const now = Date.now();
+  const conditions = [{ organizationId }];
+  if (context) conditions.push({ contextType: context.type, contextId: context.id });
   if (!viewer.isAdmin) {
     const ids = (await MeetingParticipant.findAll({ where: { userId: viewer.id }, attributes: ['meetingId'], raw: true })).map((row) => row.meetingId);
-    where[Op.or] = [{ hostId: viewer.id }, { id: ids }];
+    conditions.push({ [Op.or]: [{ hostId: viewer.id }, { id: ids }] });
   }
-  const meetings = await Meeting.findAll({ where, include: includeAll, order: [['startsAt', scope === 'past' ? 'DESC' : 'ASC']], limit: 200 });
-  const now = Date.now();
+  // Narrowed in the database first (a meeting lasts at most 8 hours), so old meetings never crowd out upcoming ones.
+  conditions.push(
+    scope === 'past'
+      ? { [Op.or]: [{ status: ['ended', 'cancelled'] }, { status: 'scheduled', startsAt: { [Op.lt]: new Date(now) } }] }
+      : { [Op.or]: [{ status: 'live' }, { status: 'scheduled', startsAt: { [Op.gte]: new Date(now - MAX_DURATION_MS) } }] },
+  );
+  const meetings = await Meeting.findAll({ where: { [Op.and]: conditions }, include: includeAll, order: [['startsAt', scope === 'past' ? 'DESC' : 'ASC']], limit: 200 });
   const isUpcoming = (meeting) => meeting.status === 'live' || (meeting.status === 'scheduled' && endsAt(meeting).getTime() > now);
   return meetings.filter((meeting) => (scope === 'past' ? !isUpcoming(meeting) : isUpcoming(meeting))).map((meeting) => summarize(meeting, viewer));
 }
 
 export async function getMeeting(viewer, meetingId) {
   const meeting = await loadMeeting(viewer, meetingId);
-  const updates = await MeetingUpdate.findAll({
-    where: { meetingId },
-    include: [{ model: User, as: 'author', attributes: USER_SUMMARY_ATTRIBUTES }],
-    order: [['createdAt', 'ASC']],
-  });
-  return { meeting: summarize(meeting, viewer), updates };
+  if (peopleInCall(meeting.id).length) await flushBoard(meeting.id);
+  const [updates, polls, board] = await Promise.all([
+    MeetingUpdate.findAll({
+      where: { meetingId },
+      include: [{ model: User, as: 'author', attributes: USER_SUMMARY_ATTRIBUTES }],
+      order: [['createdAt', 'ASC']],
+    }),
+    meetingPolls(meetingId, viewer.id),
+    Meeting.findByPk(meetingId, { attributes: ['whiteboard'] }),
+  ]);
+  return { meeting: summarize(meeting, viewer), updates, polls, whiteboard: board?.whiteboard?.strokes?.length ? board.whiteboard : null };
 }
 
 async function activeMemberIds(organizationId, userIds) {
@@ -170,7 +194,9 @@ export async function createMeeting(viewer, input) {
   if (!participantIds.length) throw ApiError.badRequest('Invite at least one person from your organization');
 
   const context = await meetingContext(viewer.organization.id, input.contextType, input.contextId);
+  const id = crypto.randomUUID();
   const created = await Meeting.create({
+    id,
     organizationId: viewer.organization.id,
     hostId: viewer.id,
     title: input.title,
@@ -179,6 +205,9 @@ export async function createMeeting(viewer, input) {
     durationMinutes: input.durationMinutes,
     contextType: context?.type ?? null,
     contextId: context?.id ?? null,
+    recurrence: input.recurrence ?? null,
+    seriesId: input.recurrence ? id : null,
+    guestToken: input.guestAccess ? newGuestToken() : null,
   });
   await MeetingParticipant.bulkCreate(participantIds.map((userId) => ({ meetingId: created.id, userId })));
   const meeting = await reload(created);
@@ -193,6 +222,9 @@ const notifyChanged = (meeting) => {
   for (const userId of new Set(people)) emitToUser(userId, 'meeting:changed', { id: meeting.id, status: meeting.status });
 };
 
+/** Occurrences of a series that have not happened yet (this one included when it is still ahead). */
+const openOccurrences = (meeting) => ({ seriesId: meeting.seriesId, status: ['scheduled', 'live'] });
+
 export async function updateMeeting(viewer, meetingId, changes) {
   const meeting = await loadMeeting(viewer, meetingId);
   assertManage(viewer, meeting);
@@ -201,7 +233,13 @@ export async function updateMeeting(viewer, meetingId, changes) {
   }
   if (changes.startsAt && new Date(changes.startsAt).getTime() !== new Date(meeting.startsAt).getTime()) assertNotInPast(changes.startsAt);
 
-  const { participantIds, ...fields } = changes;
+  const { participantIds, recurrence, ...fields } = changes;
+  if (recurrence !== undefined && recurrence !== meeting.recurrence) {
+    // The rule belongs to the series: it changes on every occurrence still ahead, and the newest one carries it on.
+    if (meeting.seriesId) await Meeting.update({ recurrence }, { where: openOccurrences(meeting) });
+    else if (recurrence) fields.seriesId = meeting.id;
+    fields.recurrence = recurrence;
+  }
   await meeting.update(fields);
   let added = [];
   if (participantIds) added = await setParticipants(meeting, await activeMemberIds(viewer.organization.id, participantIds));
@@ -212,22 +250,41 @@ export async function updateMeeting(viewer, meetingId, changes) {
   return summarize(updated, viewer);
 }
 
-export async function cancelMeeting(viewer, meetingId) {
+/**
+ * Cancels one meeting. For a repeating meeting, `series` cancels this and every later occurrence and stops the
+ * repeat; otherwise only this one is skipped and the next occurrence is scheduled right away.
+ */
+export async function cancelMeeting(viewer, meetingId, { series = false } = {}) {
   const meeting = await loadMeeting(viewer, meetingId);
   assertManage(viewer, meeting);
   if (meeting.status === 'ended') throw ApiError.badRequest('This meeting already ended');
-  await meeting.update({ status: 'cancelled' });
-  await syncCalendar(meeting);
+
+  const cancelled = [meeting];
+  if (series && meeting.seriesId) {
+    const later = await Meeting.findAll({
+      where: { seriesId: meeting.seriesId, status: 'scheduled', startsAt: { [Op.gt]: meeting.startsAt }, id: { [Op.ne]: meeting.id } },
+      include: includeAll,
+    });
+    cancelled.push(...later);
+    await Meeting.update({ recurrence: null }, { where: { seriesId: meeting.seriesId } });
+  }
+  for (const item of cancelled) {
+    await item.update({ status: 'cancelled', ...(series ? { recurrence: null } : {}) });
+    closeCall(item.id, 'cancelled');
+    await syncCalendar(item);
+    notifyChanged(item);
+  }
+  if (!series && meeting.recurrence && !meeting.continued) await continueOccurrence(meeting);
+
   await notifyUsers({
     userIds: meeting.participants.map((participant) => participant.userId),
     actorId: viewer.id,
     type: 'meeting_cancelled',
-    title: `“${meeting.title}” was cancelled`,
-    body: `${viewer.name} cancelled the meeting.`,
+    title: series && cancelled.length > 1 ? `“${meeting.title}” no longer repeats` : `“${meeting.title}” was cancelled`,
+    body: series && cancelled.length > 1 ? `${viewer.name} cancelled this and the following meetings.` : `${viewer.name} cancelled the meeting.`,
     link: meetingLink(meeting),
     email: false,
   });
-  notifyChanged(meeting);
   return summarize(await reload(meeting), viewer);
 }
 
@@ -236,6 +293,7 @@ export async function endMeeting(viewer, meetingId) {
   const meeting = await loadMeeting(viewer, meetingId);
   assertManage(viewer, meeting);
   if (meeting.status !== 'ended') await meeting.update({ status: 'ended', endedAt: new Date() });
+  closeCall(meeting.id, 'ended');
   notifyChanged(meeting);
   return summarize(await reload(meeting), viewer);
 }
@@ -246,9 +304,25 @@ export async function deleteMeeting(viewer, meetingId) {
   assertManage(viewer, meeting);
   const isOver = ['ended', 'cancelled'].includes(meeting.status) || (meeting.status === 'scheduled' && endsAt(meeting).getTime() <= Date.now());
   if (!isOver || peopleInCall(meeting.id).length) throw ApiError.badRequest('Only past meetings can be deleted. Cancel an upcoming meeting instead.');
+  forgetBoard(meeting.id);
   await CalendarEvent.destroy({ where: { meetingId: meeting.id } });
   await meeting.destroy();
   notifyChanged(meeting);
+}
+
+/**
+ * Turns the guest link on or off, or replaces it (`reset`) so the old one stops working. A repeating meeting keeps
+ * one link for all its occurrences still ahead.
+ */
+export async function setGuestAccess(viewer, meetingId, { enabled, reset = false }) {
+  const meeting = await loadMeeting(viewer, meetingId);
+  assertManage(viewer, meeting);
+  if (['ended', 'cancelled'].includes(meeting.status)) throw ApiError.badRequest('This meeting is over');
+  const guestToken = enabled ? (reset || !meeting.guestToken ? newGuestToken() : meeting.guestToken) : null;
+  if (meeting.seriesId) await Meeting.update({ guestToken }, { where: openOccurrences(meeting) });
+  await meeting.update({ guestToken });
+  if (!guestToken) dismissLobby(meeting.id);
+  return summarize(await reload(meeting), viewer);
 }
 
 export async function postUpdate(viewer, meetingId, body) {
@@ -269,4 +343,58 @@ export async function deleteUpdate(viewer, meetingId, updateId) {
   await update.destroy();
   const people = new Set([meeting.hostId, ...meeting.participants.map((participant) => participant.userId)].filter(Boolean));
   for (const userId of people) emitToUser(userId, 'meeting:update-removed', { meetingId, id: updateId });
+}
+
+/**
+ * Schedules the next occurrence of a repeating meeting: same people, agenda, length and guest link, at the same local
+ * time for the host. Occurrences that would already be over (e.g. after the server was down) are skipped.
+ */
+async function continueOccurrence(meeting) {
+  const [host, root] = await Promise.all([
+    meeting.hostId ? User.findByPk(meeting.hostId, { attributes: ['timezone'] }) : null,
+    meeting.seriesId && meeting.seriesId !== meeting.id ? Meeting.findByPk(meeting.seriesId, { attributes: ['startsAt'] }) : meeting,
+  ]);
+  const timeZone = host?.timezone ?? 'UTC';
+  const anchorDay = Number(localDateTime(timeZone, new Date((root ?? meeting).startsAt)).date.slice(8));
+  const startsAt = nextStart({ startsAt: meeting.startsAt, recurrence: meeting.recurrence, timeZone, anchorDay, after: new Date() });
+
+  const [claimed] = await Meeting.update({ continued: true }, { where: { id: meeting.id, continued: false } });
+  if (!claimed) return null;
+  const participants = await MeetingParticipant.findAll({ where: { meetingId: meeting.id }, attributes: ['userId'], raw: true });
+  const participantIds = await activeMemberIds(
+    meeting.organizationId,
+    participants.map((participant) => participant.userId),
+  );
+  const next = await Meeting.create({
+    organizationId: meeting.organizationId,
+    hostId: meeting.hostId,
+    title: meeting.title,
+    agenda: meeting.agenda,
+    startsAt,
+    durationMinutes: meeting.durationMinutes,
+    contextType: meeting.contextType,
+    contextId: meeting.contextId,
+    recurrence: meeting.recurrence,
+    seriesId: meeting.seriesId ?? meeting.id,
+    guestToken: meeting.guestToken,
+  });
+  if (participantIds.length) await MeetingParticipant.bulkCreate(participantIds.map((userId) => ({ meetingId: next.id, userId })), { ignoreDuplicates: true });
+  const loaded = await reload(next);
+  await syncCalendar(loaded);
+  notifyChanged(loaded);
+  return loaded;
+}
+
+/** Background job: once an occurrence of a repeating meeting starts, the next one is put on everyone's calendar. */
+export async function continueMeetingSeries() {
+  const due = await Meeting.findAll({ where: { recurrence: { [Op.ne]: null }, continued: false, startsAt: { [Op.lte]: new Date() } } });
+  let created = 0;
+  for (const meeting of due) {
+    try {
+      if (await continueOccurrence(meeting)) created += 1;
+    } catch (error) {
+      console.error(`[meetings] could not schedule the next “${meeting.title}”:`, error.message);
+    }
+  }
+  return created;
 }

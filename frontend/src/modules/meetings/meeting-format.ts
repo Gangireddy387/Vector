@@ -1,5 +1,14 @@
 import { differenceInMinutes, format, isToday, isTomorrow, parseISO } from 'date-fns'
-import type { Meeting } from './meetings.api'
+import type { Meeting, MeetingRecurrence } from './meetings.api'
+
+/** "Every weekday", "Every week on Tuesday"… for a repeating meeting that starts at `startsAt`. */
+export function recurrenceLabel(recurrence: MeetingRecurrence, startsAt: string | Date) {
+  const start = typeof startsAt === 'string' ? parseISO(startsAt) : startsAt
+  if (recurrence === 'daily') return 'Every day'
+  if (recurrence === 'weekdays') return 'Every weekday (Mon–Fri)'
+  if (recurrence === 'weekly') return `Every week on ${format(start, 'EEEE')}`
+  return `Every month on the ${format(start, 'do')}`
+}
 
 export const timeRange = (meeting: Meeting) => `${format(parseISO(meeting.startsAt), 'HH:mm')} – ${format(parseISO(meeting.endsAt), 'HH:mm')}`
 

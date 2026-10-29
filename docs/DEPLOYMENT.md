@@ -150,6 +150,13 @@ STUN_URLS=stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302
 TURN_URLS=turn:turn.annaaccounting.com:3478?transport=udp,turn:turn.annaaccounting.com:3478?transport=tcp,turns:turn.annaaccounting.com:5349?transport=tcp
 TURN_SECRET=<OUTPUT_OF_openssl_rand_-hex_32>
 TURN_TTL_SECONDS=21600
+
+# --- Push notifications (calls ring on phones and computers)
+# Generate once: `cd /opt/vector/app/backend && npx web-push generate-vapid-keys`. Never change them afterwards:
+# new keys silently stop every device's notifications.
+VAPID_PUBLIC_KEY=<PUBLIC_KEY>
+VAPID_PRIVATE_KEY=<PRIVATE_KEY>
+VAPID_SUBJECT=mailto:admin@annaaccounting.com
 ```
 
 ```bash
@@ -415,6 +422,12 @@ Then open <https://webrtc.github.io/samples/src/content/peerconnection/trickle-i
 | 5 | Turn Wi-Fi off for about 10 seconds during a call | "Reconnecting…" banner, then the call resumes |
 | 6 | Host clicks "End for everyone" | Everyone leaves; the meeting shows as Ended |
 | 7 | Everyone leaves before the planned end | The meeting no longer shows "Live now" |
+| 8 | Phone with the installed app and **Meetings → Turn on** (on iPhone: add to Home Screen first); app closed; someone starts a call | The phone shows "… started …" with **Join** |
+| 9 | Turn on **Let guests join with a link**, open the link in a private window | The guest waits; people in the call see "wants to join" and can let them in |
+| 10 | In a call, open the board from the sidebar | The call continues in a small window in the corner; **Pop out** keeps it on top of other apps (Chrome/Edge) |
+| 11 | Schedule a meeting that repeats every weekday and start it | The next weekday's meeting appears in Upcoming |
+
+Automated check of the live features (chat, hands, polls, whiteboard, breakout rooms, guests, repeating meetings) against a running backend: `npm run test:meetings --prefix backend` (it creates and deletes a temporary meeting).
 
 ## 11. Updating to a new version
 
@@ -467,3 +480,5 @@ Copy `/var/backups` off the server (object storage or another machine). Restore 
 | Users see an old version after an update | Service worker or `index.html` cached | Check the `no-cache` rules for `/sw.js` and `/index.html` |
 | Upload fails with 413 | Nginx body limit | Raise `client_max_body_size` |
 | Online status or calls behave oddly | More than one backend instance running | Run exactly one `vector` service |
+| "Turn on" for call notifications does nothing on iPhone | The site is open in Safari, not the installed app | Share → Add to Home Screen, open Vector from there, then turn it on |
+| Notifications stopped on every device | VAPID keys changed | Restore the old `VAPID_*` values; otherwise everyone turns notifications on again |

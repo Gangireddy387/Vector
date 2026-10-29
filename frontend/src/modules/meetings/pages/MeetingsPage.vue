@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
-import { CalendarClock, Clock3, Ellipsis, History, Info, PencilLine, Plus, Radio, Trash2, Video, XCircle } from 'lucide-vue-next'
+import { CalendarClock, CalendarX2, Clock3, Ellipsis, History, Info, Link2, PencilLine, Plus, Radio, Repeat, Trash2, Video, XCircle } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -16,8 +16,9 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
 import { getSocket } from '@/lib/realtime'
+import PushPrompt from '../components/PushPrompt.vue'
 import ScheduleMeetingSheet from '../components/ScheduleMeetingSheet.vue'
-import { BADGE_CLASSES, dayLabel, durationLabel, isJoinable, meetingBadge, timeRange } from '../meeting-format'
+import { BADGE_CLASSES, dayLabel, durationLabel, isJoinable, meetingBadge, recurrenceLabel, timeRange } from '../meeting-format'
 import { type Meeting, meetingsApi } from '../meetings.api'
 
 const router = useRouter()
@@ -62,18 +63,31 @@ const peopleOf = (meeting: Meeting) => [...(meeting.host ? [meeting.host] : []),
 
 const open = (meeting: Meeting) => router.push({ name: 'meeting-room', params: { meetingId: meeting.id } })
 
-async function cancel(meeting: Meeting) {
-  const ok = await confirm({
-    title: 'Cancel this meeting?',
-    description: `Everyone invited to “${meeting.title}” is told, and it leaves their calendars.`,
-    confirmLabel: 'Cancel meeting',
-    cancelLabel: 'Keep it',
-    destructive: true,
-  })
+/** `series`: cancel this and every later occurrence of a repeating meeting, and stop repeating it. */
+async function cancel(meeting: Meeting, series = false) {
+  const ok = await confirm(
+    series
+      ? {
+          title: 'Stop this repeating meeting?',
+          description: `This and every later “${meeting.title}” are cancelled and leave everyone’s calendars. Past ones keep their notes.`,
+          confirmLabel: 'Cancel all upcoming',
+          cancelLabel: 'Keep them',
+          destructive: true,
+        }
+      : {
+          title: meeting.recurrence ? 'Skip this meeting?' : 'Cancel this meeting?',
+          description: meeting.recurrence
+            ? `Only this “${meeting.title}” is cancelled; the next one stays on everyone’s calendar.`
+            : `Everyone invited to “${meeting.title}” is told, and it leaves their calendars.`,
+          confirmLabel: 'Cancel meeting',
+          cancelLabel: 'Keep it',
+          destructive: true,
+        },
+  )
   if (!ok) return
   try {
-    await meetingsApi.cancel(meeting.id)
-    toast.success('Meeting cancelled')
+    await meetingsApi.cancel(meeting.id, series)
+    toast.success(series ? 'The repeating meeting was stopped' : 'Meeting cancelled')
     await load()
   } catch (error) {
     toast.error(getErrorMessage(error))
@@ -142,6 +156,8 @@ onBeforeUnmount(() => getSocket()?.off('meeting:changed', onChanged))
       </p>
     </div>
 
+    <PushPrompt />
+
     <div v-if="isLoading" class="space-y-3">
       <Skeleton v-for="index in 3" :key="index" class="h-28 w-full" />
     </div>
@@ -194,6 +210,8 @@ onBeforeUnmount(() => getSocket()?.off('meeting:changed', onChanged))
             <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
               <span class="inline-flex items-center gap-1"><Clock3 class="size-3.5" /> {{ timeRange(meeting) }} · {{ durationLabel(meeting.durationMinutes) }}</span>
               <span v-if="meeting.host" class="inline-flex items-center gap-1.5"><UserAvatar :user="meeting.host" size="xs" /> Hosted by {{ meeting.host.name }}</span>
+              <span v-if="meeting.recurrence" class="inline-flex items-center gap-1"><Repeat class="size-3.5" /> {{ recurrenceLabel(meeting.recurrence, meeting.startsAt) }}</span>
+              <span v-if="meeting.guestAccess" class="inline-flex items-center gap-1"><Link2 class="size-3.5" /> Guests can join</span>
             </p>
             <p v-if="meeting.agenda" class="line-clamp-1 text-sm text-muted-foreground/90">{{ meeting.agenda }}</p>
           </div>
@@ -212,7 +230,12 @@ onBeforeUnmount(() => getSocket()?.off('meeting:changed', onChanged))
                   <template v-else>
                     <DropdownMenuItem @select="sheetTarget = { meeting }"><PencilLine /> Edit meeting</DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem class="text-destructive focus:text-destructive" @select="cancel(meeting)"><XCircle /> Cancel meeting</DropdownMenuItem>
+                    <DropdownMenuItem class="text-destructive focus:text-destructive" @select="cancel(meeting)">
+                      <XCircle /> {{ meeting.recurrence ? 'Cancel this one' : 'Cancel meeting' }}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem v-if="meeting.recurrence" class="text-destructive focus:text-destructive" @select="cancel(meeting, true)">
+                      <CalendarX2 /> Cancel all upcoming
+                    </DropdownMenuItem>
                   </template>
                 </DropdownMenuContent>
               </DropdownMenu>

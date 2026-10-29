@@ -10,6 +10,8 @@ import { useTimezoneSync } from '@/composables/useTimezoneSync'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import IssueCreateSheet from '@/modules/issues/components/IssueCreateSheet.vue'
 import IssueDetailSheet from '@/modules/issues/components/IssueDetailSheet.vue'
+import IncomingCall from '@/modules/meetings/components/IncomingCall.vue'
+import MiniCall from '@/modules/meetings/components/MiniCall.vue'
 import { useMessagesStore } from '@/modules/messages/messages.store'
 import { useNotificationsStore } from '@/modules/notifications/notifications.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
@@ -88,4 +90,6 @@ useHotkeys({
   <IssueDetailSheet v-if="isDesktop" />
   <IssueCreateSheet v-if="isDesktop" />
   <KeyboardShortcutsDialog v-model:open="isShortcutsOpen" />
+  <MiniCall variant="floating" />
+  <IncomingCall v-if="auth.hasFeature('meetings')" />
 </template>

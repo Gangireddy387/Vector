@@ -11,3 +11,8 @@ export const meetingRoutes: RouteRecordRaw[] = [
     meta: { title: 'Meeting', requiresFeature: ['meetings'], mobileBack: true, hideMobileTabBar: true },
   },
 ]
+
+/** Guest links: people outside the organization ask to join a call (no account needed). */
+export const meetingGuestRoutes: RouteRecordRaw[] = [
+  { path: '/join/:token', name: 'meeting-guest', component: () => import('./pages/GuestJoinPage.vue'), props: true, meta: { title: 'Join meeting' } },
+]

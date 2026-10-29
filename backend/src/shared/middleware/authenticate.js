@@ -17,6 +17,7 @@ export async function authenticate(req, _res, next) {
   } catch {
     throw ApiError.unauthorized('Your session has expired. Please sign in again.');
   }
+  if (payload.typ === 'guest') throw ApiError.unauthorized();
 
   const user = await User.findByPk(payload.sub);
   if (!user || user.status !== 'active') throw ApiError.unauthorized();

@@ -67,6 +67,13 @@ export const config = {
     cloudflareTurnKeyId: process.env.CLOUDFLARE_TURN_KEY_ID || '',
     cloudflareTurnApiToken: process.env.CLOUDFLARE_TURN_API_TOKEN || '',
   },
+  /** Web Push (calls ringing on phones and computers). Without keys, a pair is generated once and kept in `keysFile`. */
+  push: {
+    publicKey: process.env.VAPID_PUBLIC_KEY || '',
+    privateKey: process.env.VAPID_PRIVATE_KEY || '',
+    subject: process.env.VAPID_SUBJECT || '',
+    keysFile: path.resolve(process.env.VAPID_KEYS_FILE ?? 'data/vapid-keys.json'),
+  },
   /** Portal owner who approves new organizations. Without an email, new organizations are approved automatically. */
   superAdmin: {
     email: (process.env.SUPER_ADMIN_EMAIL ?? '').trim().toLowerCase(),

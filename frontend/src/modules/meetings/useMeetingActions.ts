@@ -56,8 +56,9 @@ export function useMeetingActions() {
         contextType: preset.context?.type ?? null,
         contextId: preset.context?.id ?? null,
       })
-      toast.success('Meeting started', { description: `${participantIds.length} ${participantIds.length === 1 ? 'person was' : 'people were'} invited to join.` })
-      await router.push({ name: 'meeting-room', params: { meetingId: meeting.id } })
+      toast.success('Calling…', { description: `${participantIds.length} ${participantIds.length === 1 ? 'person is' : 'people are'} being rung.` })
+      // Straight into the call, which rings everyone invited.
+      await router.push({ name: 'meeting-room', params: { meetingId: meeting.id }, query: { join: '1' } })
     } catch (error) {
       toast.error(getErrorMessage(error))
     } finally {

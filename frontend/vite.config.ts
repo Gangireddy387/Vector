@@ -37,9 +37,18 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Push notifications (calls ringing) are handled by this extra script inside the generated service worker.
+        importScripts: ['/push-handler.js'],
+        // The background-blur engine (~14 MB) is only downloaded by people who turn blur on, then kept.
+        globIgnores: ['**/*.wasm'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/socket\.io/],
         runtimeCaching: [
+          {
+            urlPattern: ({ url }) => /\.(wasm|tflite)$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: { cacheName: 'vector-blur', expiration: { maxEntries: 6, maxAgeSeconds: 60 * 60 * 24 * 60 } },
+          },
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/') && !url.pathname.includes('/download'),
             handler: 'NetworkFirst',
@@ -57,6 +66,7 @@ export default defineConfig({
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
   server: {
+    host: true,
     port: 5173,
     proxy: {
       '/api': API_TARGET,
