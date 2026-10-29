@@ -1,13 +1,18 @@
 import { fileURLToPath, URL } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const API_TARGET = process.env.VITE_API_PROXY ?? 'http://localhost:4000'
 
-export default defineConfig({
+// The dev server uses https: browsers only allow camera and microphone on https (or localhost), so other computers on
+// the network need it to take part in calls. The certificate is self-signed; each browser asks once to trust it.
+// `npm run dev:http` serves plain http instead.
+export default defineConfig(({ command, mode }) => ({
   plugins: [
+    ...(command === 'serve' && mode !== 'http' ? [basicSsl()] : []),
     vue(),
     tailwindcss(),
     VitePWA({
@@ -73,4 +78,4 @@ export default defineConfig({
       '/socket.io': { target: API_TARGET, ws: true },
     },
   },
-})
+}))

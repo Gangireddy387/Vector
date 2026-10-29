@@ -69,8 +69,13 @@ interface Connection {
   polite: boolean
   makingOffer: boolean
   ignoreOffer: boolean
+  /** An answer is being applied: an offer arriving now follows it and is not a collision. */
+  settingAnswer: boolean
   /** One sender per kind, reused when the camera or screen changes so no new negotiation is needed. */
   senders: { audio?: RTCRtpSender; video?: RTCRtpSender }
+  /** Sending media; the polite side waits for the first offer before it starts. */
+  started: boolean
+  startTimer?: ReturnType<typeof setTimeout>
   restartTimer?: ReturnType<typeof setTimeout>
 }
 
@@ -235,7 +240,7 @@ function createCall() {
       localStream.value = new MediaStream()
       deviceNote.value = window.isSecureContext
         ? 'This browser cannot make video calls. Use a current version of Chrome, Edge, Firefox or Safari.'
-        : 'Video calls need a secure (https://) address. Open Vector over https to use your camera and microphone.'
+        : `Browsers only allow the camera and microphone on secure (https://) addresses. Open https://${window.location.host}${window.location.pathname} to be seen and heard. You can still join to watch and listen.`
       status.value = 'preview'
       return
     }
@@ -325,6 +330,7 @@ function createCall() {
   /** Sends the current microphone and camera/screen to everyone (after a device or screen change). */
   async function refreshOutgoing() {
     for (const connection of connections.values()) {
+      if (!connection.started) continue
       await attach(connection, 'audio', audioTrack())
       await attach(connection, 'video', outgoingVideo())
     }
@@ -339,16 +345,22 @@ function createCall() {
     }, delay)
   }
 
+  function start(connection: Connection) {
+    if (connection.started) return
+    connection.started = true
+    clearTimeout(connection.startTimer)
+    // Without it nothing is negotiated while nobody has a camera or microphone, and the tile waits forever.
+    connection.pc.createDataChannel('vector', { negotiated: true, id: 0 })
+    void attach(connection, 'audio', audioTrack())
+    void attach(connection, 'video', outgoingVideo())
+  }
+
   function connect(peerId: string) {
     const existing = connections.get(peerId)
     if (existing) return existing
     const pc = new RTCPeerConnection(rtcConfig)
-    const connection: Connection = { pc, polite: (selfId.value ?? '') < peerId, makingOffer: false, ignoreOffer: false, senders: {} }
+    const connection: Connection = { pc, polite: (selfId.value ?? '') < peerId, makingOffer: false, ignoreOffer: false, settingAnswer: false, senders: {}, started: false }
     connections.set(peerId, connection)
-    // Without it nothing is negotiated while nobody has a camera or microphone, and the tile waits forever.
-    pc.createDataChannel('vector', { negotiated: true, id: 0 })
-    void attach(connection, 'audio', audioTrack())
-    void attach(connection, 'video', outgoingVideo())
 
     pc.onicecandidate = (event) => event.candidate && send(peerId, { candidate: event.candidate.toJSON() })
     pc.ontrack = (event) => {
@@ -377,6 +389,10 @@ function createCall() {
         connection.makingOffer = false
       }
     }
+    // Only one side makes the first offer: after both offer at once, Chrome may never gather network candidates on
+    // the side that gives way, and the call never connects.
+    if (connection.polite) connection.startTimer = setTimeout(() => start(connection), 4000)
+    else start(connection)
     return connection
   }
 
@@ -385,11 +401,18 @@ function createCall() {
     const { pc } = connection
     try {
       if (data.description) {
-        const collision = data.description.type === 'offer' && (connection.makingOffer || pc.signalingState !== 'stable')
+        const ready = !connection.makingOffer && (pc.signalingState === 'stable' || connection.settingAnswer)
+        const collision = data.description.type === 'offer' && !ready
         connection.ignoreOffer = !connection.polite && collision
         if (connection.ignoreOffer) return
-        await pc.setRemoteDescription(data.description)
+        connection.settingAnswer = data.description.type === 'answer'
+        try {
+          await pc.setRemoteDescription(data.description)
+        } finally {
+          connection.settingAnswer = false
+        }
         if (data.description.type === 'offer') {
+          start(connection)
           await pc.setLocalDescription()
           send(from, { description: pc.localDescription!.toJSON() })
         }
@@ -406,6 +429,7 @@ function createCall() {
   function dropPeer(socketId: string) {
     const connection = connections.get(socketId)
     if (connection) {
+      clearTimeout(connection.startTimer)
       clearTimeout(connection.restartTimer)
       connection.pc.close()
     }
