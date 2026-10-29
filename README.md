@@ -133,6 +133,8 @@ NODE_ENV=production npm --prefix backend start
 
 Serve `frontend/dist` from any static host or CDN and proxy `/api` and `/socket.io` to the backend (or set `VITE_API_URL` / `VITE_SOCKET_URL` at build time and `CLIENT_URL` on the backend for CORS and email links).
 
+Step-by-step server setup (Nginx, HTTPS, PostgreSQL, systemd and the coturn relay for meeting video): see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ### Before you deploy
 - **Legal pages** — `/privacy` and `/terms` are public and linked from sign-in, registration and invitations. Set `VITE_LEGAL_COMPANY_NAME`, `VITE_LEGAL_CONTACT_EMAIL`, `VITE_LEGAL_POSTAL_ADDRESS`, `VITE_LEGAL_JURISDICTION` and `VITE_LEGAL_EFFECTIVE_DATE` in `frontend/.env` (see `.env.example`) before building, and have the text (`frontend/src/modules/legal/pages`) reviewed for your jurisdiction.
 - **Secrets** — set a long random `JWT_SECRET`, real database credentials, and `SENDGRID_*` / `OPENAI_API_KEY` if you use email and AI.

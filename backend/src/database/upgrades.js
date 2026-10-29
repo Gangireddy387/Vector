@@ -24,6 +24,9 @@ const ADDED_COLUMNS = [
   { table: 'support_messages', column: 'kind', definition: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'message' } },
   { table: 'support_messages', column: 'deleted_at', definition: { type: DataTypes.DATE, allowNull: true } },
   { table: 'support_messages', column: 'expires_at', definition: { type: DataTypes.DATE, allowNull: true } },
+  { table: 'calendar_events', column: 'meeting_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'meetings', column: 'context_type', definition: { type: DataTypes.STRING(12), allowNull: true } },
+  { table: 'meetings', column: 'context_id', definition: { type: DataTypes.UUID, allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

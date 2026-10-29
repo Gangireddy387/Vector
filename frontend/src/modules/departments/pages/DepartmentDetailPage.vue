@@ -16,6 +16,8 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import MeetButton from '@/modules/meetings/components/MeetButton.vue'
+import type { MeetingPreset } from '@/modules/meetings/useMeetingActions'
 import type { TeamWork, UserSummary, WorkCounts } from '@/types/models'
 import ProjectRow from '../components/ProjectRow.vue'
 import SetupGuide from '../components/SetupGuide.vue'
@@ -37,6 +39,9 @@ onMounted(() => structure.load().catch((error) => toast.error(getErrorMessage(er
 
 const department = computed(() => structure.department(props.departmentId))
 const people = computed(() => (department.value ? departmentPeople(department.value) : []))
+const meetPreset = computed<MeetingPreset | null>(() =>
+  department.value ? { title: `${department.value.name} meeting`, people: people.value, context: { type: 'department', id: department.value.id } } : null,
+)
 const percent = (counts: WorkCounts) => (counts.total ? Math.round((counts.done / counts.total) * 100) : 0)
 
 const TABS = ['teams', 'projects', 'people'] as const
@@ -156,6 +161,7 @@ async function remove() {
               <h1 class="truncate text-2xl font-bold tracking-tight sm:text-3xl">{{ department.name }}</h1>
               <p class="max-w-2xl text-sm text-muted-foreground">{{ department.description || 'No description yet.' }}</p>
             </div>
+            <MeetButton v-if="meetPreset" :preset="meetPreset" size="default" />
             <DropdownMenu v-if="isAdmin">
               <DropdownMenuTrigger as-child>
                 <Button variant="outline" size="icon" aria-label="Department actions"><Ellipsis /></Button>

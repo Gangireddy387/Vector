@@ -11,6 +11,8 @@ import {
   MessagesSquare,
   Rocket,
   UserPlus,
+  Video,
+  VideoOff,
   Workflow,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
@@ -37,6 +39,8 @@ const KINDS: Record<string, KindStyle> = {
   member_added: { label: 'Access', icon: UserPlus, tone: 'bg-teal-500/15 text-teal-600 dark:text-teal-400' },
   chat_task: { label: 'Chat', icon: MessagesSquare, tone: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400' },
   support_message: { label: 'Vector team', icon: MessageCircle, tone: 'bg-[#00a884]/15 text-[#00a884]' },
+  meeting_invite: { label: 'Meeting', icon: Video, tone: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },
+  meeting_cancelled: { label: 'Meeting cancelled', icon: VideoOff, tone: 'bg-slate-500/15 text-slate-600 dark:text-slate-300' },
 }
 const FALLBACK: KindStyle = { label: 'Update', icon: Bell, tone: 'bg-primary/10 text-primary' }
 
@@ -54,7 +58,7 @@ export const INBOX_FILTERS: Array<{ value: InboxFilter; label: string; icon: Com
     value: 'updates',
     label: 'Updates',
     icon: CircleCheck,
-    types: ['status_changed', 'commented', 'sprint_started', 'sprint_completed', 'member_added', 'automation', 'chat_task'],
+    types: ['status_changed', 'commented', 'sprint_started', 'sprint_completed', 'member_added', 'automation', 'chat_task', 'meeting_invite', 'meeting_cancelled'],
   },
   { value: 'reminders', label: 'Reminders', icon: AlarmClock, types: ['due_soon', 'standup_blocker'] },
   { value: 'support', label: 'Vector team', icon: MessageCircle, types: ['support_message'] },
@@ -63,6 +67,7 @@ export const INBOX_FILTERS: Array<{ value: InboxFilter; label: string; icon: Com
 /** What the reading pane's main button says for a notification's link. */
 export function openLabel(notification: AppNotification) {
   if (notification.type === 'support_message') return 'Open chat'
+  if (notification.link?.startsWith('/meetings/')) return 'Open meeting'
   if (notification.link?.startsWith('/issues/') || notification.link?.includes('issue=')) return 'Open task'
   if (notification.link?.includes('/projects/')) return 'Open project'
   return 'Open'

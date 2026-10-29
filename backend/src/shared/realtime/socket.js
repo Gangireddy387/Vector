@@ -2,6 +2,8 @@ import { Server } from 'socket.io';
 import { config } from '../../config/index.js';
 import { User } from '../../database/models.js';
 import { verifyAccessToken } from '../../modules/auth/token.js';
+import { relayConfigured } from '../../modules/meetings/ice-servers.js';
+import { registerMeetingSignaling } from '../../modules/meetings/meeting.signaling.js';
 import { canWatchProject } from '../../modules/projects/project-access.js';
 
 let io = null;
@@ -30,6 +32,9 @@ export function initRealtime(httpServer) {
   io = new Server(httpServer, {
     cors: { origin: config.clientUrl.split(','), credentials: true },
   });
+  if (!relayConfigured()) {
+    console.warn('[meetings] no TURN relay configured: video calls fail on networks that block direct connections (see TURN_* in .env.example)');
+  }
 
   io.use((socket, next) => {
     try {
@@ -53,6 +58,7 @@ export function initRealtime(httpServer) {
     });
 
     socket.on('project:leave', (projectId) => socket.leave(`project:${projectId}`));
+    registerMeetingSignaling(io, socket);
 
     socket.on('disconnect', () => {
       const left = (connections.get(userId) ?? 1) - 1;

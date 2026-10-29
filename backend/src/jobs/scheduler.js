@@ -3,6 +3,7 @@ import { config } from '../config/index.js';
 import { sendDueReminders } from '../modules/issues/due-reminder.job.js';
 import { sendDailyDigests } from '../modules/notifications/daily-digest.job.js';
 import { runDueRecurringTasks } from '../modules/recurring-tasks/recurring-task.service.js';
+import { settleIdleMeetings } from '../modules/meetings/meeting.signaling.js';
 import { purgeExpiredMessages } from '../modules/support/support.service.js';
 
 const JOBS = [
@@ -11,6 +12,7 @@ const JOBS = [
   // Hourly: each user receives it at 8:00 in their own time zone.
   { name: 'daily-digest', schedule: '0 * * * *', run: () => sendDailyDigests() },
   { name: 'expired-support-messages', schedule: '*/5 * * * *', run: purgeExpiredMessages },
+  { name: 'idle-meetings', schedule: '*/2 * * * *', run: settleIdleMeetings },
 ];
 
 /** Wraps a job so overlapping executions are skipped and failures are logged. */

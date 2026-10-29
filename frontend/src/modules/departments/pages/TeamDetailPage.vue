@@ -14,6 +14,8 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import MeetButton from '@/modules/meetings/components/MeetButton.vue'
+import type { MeetingPreset } from '@/modules/meetings/useMeetingActions'
 import SetupGuide from '../components/SetupGuide.vue'
 import StructureBreadcrumb from '../components/StructureBreadcrumb.vue'
 import TeamMembersPanel from '../components/TeamMembersPanel.vue'
@@ -35,6 +37,9 @@ onMounted(() => structure.load().catch((error) => toast.error(getErrorMessage(er
 
 const team = computed(() => structure.team(props.teamId))
 const department = computed(() => (team.value ? structure.department(team.value.departmentId) : null))
+const meetPreset = computed<MeetingPreset | null>(() =>
+  team.value ? { title: `${team.value.name} sync`, people: [...(team.value.lead ? [team.value.lead] : []), ...team.value.members], context: { type: 'team', id: team.value.id } } : null,
+)
 const percentDone = computed(() => (team.value?.work.total ? Math.round((team.value.work.done / team.value.work.total) * 100) : 0))
 
 /** The open tab lives in the URL, so links and the back button keep it. */
@@ -126,6 +131,7 @@ async function remove() {
               <h1 class="truncate text-2xl font-bold tracking-tight sm:text-3xl">{{ team.name }}</h1>
               <p class="max-w-2xl text-sm text-muted-foreground">{{ team.description || 'No description yet.' }}</p>
             </div>
+            <MeetButton v-if="meetPreset" :preset="meetPreset" size="default" />
             <DropdownMenu v-if="isAdmin">
               <DropdownMenuTrigger as-child>
                 <Button variant="outline" size="icon" aria-label="Team actions"><Ellipsis /></Button>

@@ -17,6 +17,7 @@ import { timeAgo } from '@/lib/format'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
 import { shareInviteLink } from '@/lib/invite-link'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import MeetButton from '@/modules/meetings/components/MeetButton.vue'
 import { useDirectMessage } from '@/modules/messages/useDirectMessage'
 import type { WorkspaceMember, WorkspaceRole } from '@/types/models'
 import { workspaceApi } from '../admin.api'
@@ -275,6 +276,7 @@ async function sendInvite() {
               >
                 <MessageCircle /> Message
               </Button>
+              <MeetButton v-if="member.status === 'active'" compact :preset="{ title: `Call with ${member.name}`, people: [member] }" />
               <Button variant="outline" size="sm" class="flex-1" as-child>
                 <RouterLink :to="{ name: 'member-profile', params: { userId: member.id } }">View profile</RouterLink>
               </Button>

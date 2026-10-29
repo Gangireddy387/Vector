@@ -8,6 +8,12 @@ const toInt = (value, fallback) => {
   return Number.isNaN(parsed) ? fallback : parsed;
 };
 
+const list = (value) =>
+  (value ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 const DEFAULT_JWT_SECRET = 'vector-dev-secret-change-me';
 
 export const config = {
@@ -47,6 +53,19 @@ export const config = {
   },
   jobs: {
     enabled: process.env.JOBS_ENABLED !== 'false',
+  },
+  /** How meeting video finds a path between browsers: STUN always, plus a TURN relay for networks that block direct calls. */
+  meetings: {
+    stunUrls: list(process.env.STUN_URLS ?? 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302'),
+    turnUrls: list(process.env.TURN_URLS),
+    /** coturn `static-auth-secret`: each person gets a password that expires after `turnTtlSeconds`. */
+    turnSecret: process.env.TURN_SECRET || '',
+    /** Fixed TURN login, for providers without expiring passwords. */
+    turnUsername: process.env.TURN_USERNAME || '',
+    turnPassword: process.env.TURN_PASSWORD || '',
+    turnTtlSeconds: toInt(process.env.TURN_TTL_SECONDS, 6 * 60 * 60),
+    cloudflareTurnKeyId: process.env.CLOUDFLARE_TURN_KEY_ID || '',
+    cloudflareTurnApiToken: process.env.CLOUDFLARE_TURN_API_TOKEN || '',
   },
   /** Portal owner who approves new organizations. Without an email, new organizations are approved automatically. */
   superAdmin: {

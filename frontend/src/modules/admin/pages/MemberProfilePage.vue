@@ -38,6 +38,7 @@ import { getErrorMessage } from '@/lib/http'
 import { cityOf, localTime } from '@/lib/timezone'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { describeActivity } from '@/modules/issues/activity-format'
+import MeetButton from '@/modules/meetings/components/MeetButton.vue'
 import { useDirectMessage } from '@/modules/messages/useDirectMessage'
 import type { WorkspaceRole } from '@/types/models'
 import { type MemberProfile, workspaceApi } from '../admin.api'
@@ -173,6 +174,7 @@ async function copyEmail() {
               >
                 <MessageCircle /> Message
               </Button>
+              <MeetButton v-if="status === 'active'" :preset="{ title: `Call with ${person.name}`, people: [person] }" />
               <Button variant="outline" size="sm" as-child>
                 <a :href="`mailto:${person.email}`"><Mail /> Email</a>
               </Button>

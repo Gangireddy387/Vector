@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import MeetButton from '@/modules/meetings/components/MeetButton.vue'
 import { useDirectMessage } from '@/modules/messages/useDirectMessage'
 import type { Team, UserSummary } from '@/types/models'
 import { structureApi } from '../departments.api'
@@ -153,6 +154,7 @@ defineExpose({ openAdd })
             >
               <MessageCircle /> Message
             </Button>
+            <MeetButton compact :preset="{ title: `Call with ${member.name}`, people: [member] }" />
             <template v-if="isAdmin">
               <template v-if="member.id !== team.leadId">
                 <Button variant="ghost" size="sm" :disabled="busy" @click="makeLead(member)"><Star /> Make lead</Button>

@@ -13,6 +13,7 @@ import {
   Send,
   Sparkles,
   UsersRound,
+  Video,
   Workflow,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
@@ -27,6 +28,7 @@ export type PlanFeatureKey =
   | 'chat'
   | 'directMessages'
   | 'teamChat'
+  | 'meetings'
   | 'attachments'
   | 'timeTracking'
   | 'emailInvitations'
@@ -64,6 +66,7 @@ export const PLAN_FEATURES: PlanFeature[] = [
   { key: 'chat', label: 'Team chat & standups', description: 'Project chat, follow-ups and daily standups', icon: MessagesSquare, group: 'app' },
   { key: 'directMessages', label: 'Direct messages', description: 'Private one-to-one chats between people', icon: MessageCircle, group: 'app' },
   { key: 'teamChat', label: 'Team & department chat', description: 'A group chat for every team and department', icon: UsersRound, group: 'app' },
+  { key: 'meetings', label: 'Meetings & video calls', description: 'Schedule meetings, video call in the browser and share updates', icon: Video, group: 'app' },
   { key: 'attachments', label: 'File attachments', description: 'Upload files to tasks', icon: Paperclip, group: 'app' },
   { key: 'timeTracking', label: 'Time tracking', description: 'Log work time on tasks', icon: Clock, group: 'app' },
   {

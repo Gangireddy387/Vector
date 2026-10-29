@@ -29,6 +29,7 @@ import { Department, Team, TeamMember } from '../modules/departments/department.
 import { CalendarEvent } from '../modules/calendar/calendar-event.model.js';
 import { SupportMessage } from '../modules/support/support-message.model.js';
 import { Conversation, ConversationMember, ConversationMessage } from '../modules/messages/conversation.model.js';
+import { Meeting, MeetingParticipant, MeetingUpdate } from '../modules/meetings/meeting.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
 
@@ -168,6 +169,14 @@ ConversationMessage.belongsTo(User, { as: 'author', foreignKey: 'authorId', onDe
 Conversation.belongsTo(Team, { as: 'team', foreignKey: 'teamId', constraints: false });
 Conversation.belongsTo(Department, { as: 'department', foreignKey: 'departmentId', constraints: false });
 
+// Video meetings
+Organization.hasMany(Meeting, { as: 'meetings', foreignKey: 'organizationId', ...cascade });
+Meeting.belongsTo(User, { as: 'host', foreignKey: 'hostId', onDelete: 'SET NULL' });
+Meeting.hasMany(MeetingParticipant, { as: 'participants', foreignKey: 'meetingId', ...cascade });
+MeetingParticipant.belongsTo(User, { as: 'user', foreignKey: 'userId', ...cascade });
+Meeting.hasMany(MeetingUpdate, { as: 'updates', foreignKey: 'meetingId', ...cascade });
+MeetingUpdate.belongsTo(User, { as: 'author', foreignKey: 'authorId', onDelete: 'SET NULL' });
+
 // Portal-wide configuration
 WorkspaceSetting.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
 
@@ -207,4 +216,7 @@ export {
   Conversation,
   ConversationMember,
   ConversationMessage,
+  Meeting,
+  MeetingParticipant,
+  MeetingUpdate,
 };

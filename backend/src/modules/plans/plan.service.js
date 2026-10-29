@@ -73,12 +73,12 @@ export async function getDefaultPlan() {
   return (await Plan.findOne({ where: { isDefault: true } })) ?? (await Plan.findOne({ order: [['position', 'ASC']] }));
 }
 
-/** Messaging switches added later: plans that already include project chat get them too. */
-const CHAT_FEATURE_KEYS = ['directMessages', 'teamChat'];
+/** Collaboration switches added later: plans that already include project chat get them too. */
+const CHAT_FEATURE_KEYS = ['directMessages', 'teamChat', 'meetings'];
 
 /**
- * Plans saved before newer switches existed: they keep sending emails, and get direct and team chat when they
- * already include project chat, until the super admin changes them.
+ * Plans saved before newer switches existed: they keep sending emails, and get direct and team chat and meetings
+ * when they already include project chat, until the super admin changes them.
  */
 async function backfillEmailFeatures() {
   for (const plan of await Plan.findAll()) {

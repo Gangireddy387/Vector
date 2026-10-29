@@ -8,6 +8,7 @@ export const PLAN_FEATURES = [
   { key: 'chat', label: 'Team chat & standups' },
   { key: 'directMessages', label: 'Direct messages' },
   { key: 'teamChat', label: 'Team & department chat' },
+  { key: 'meetings', label: 'Meetings & video calls' },
   { key: 'attachments', label: 'File attachments' },
   { key: 'timeTracking', label: 'Time tracking' },
   // Emails that grow with usage (SendGrid volume). Password reset, added-to-organization and approval emails always send.
@@ -43,7 +44,7 @@ export const DEFAULT_PLANS = [
     priceLabel: '₹999 / month',
     maxMembers: 25,
     maxProjects: 20,
-    features: features('automations', 'recurringTasks', 'templates', 'reports', 'chat', 'directMessages', 'teamChat', 'attachments', 'timeTracking', ...EMAIL_FEATURE_KEYS),
+    features: features('automations', 'recurringTasks', 'templates', 'reports', 'chat', 'directMessages', 'teamChat', 'meetings', 'attachments', 'timeTracking', ...EMAIL_FEATURE_KEYS),
     isDefault: false,
     position: 1,
   },

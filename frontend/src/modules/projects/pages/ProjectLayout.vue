@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import MeetButton from '@/modules/meetings/components/MeetButton.vue'
+import type { MeetingPreset } from '@/modules/meetings/useMeetingActions'
 import { useUiStore } from '@/stores/ui.store'
 import { useProjectsStore } from '../projects.store'
 
@@ -20,6 +22,9 @@ const { isDesktop } = useDevice()
 const notFound = ref(false)
 
 const project = computed(() => projects.details[props.projectId])
+const meetPreset = computed<MeetingPreset | null>(() =>
+  project.value ? { title: `${project.value.name} sync`, people: project.value.members, context: { type: 'project', id: project.value.id } } : null,
+)
 const navigation = computed(() => (project.value ? getProjectNavigation(project.value, auth.hasFeature) : []))
 
 watch(
@@ -60,7 +65,10 @@ onBeforeUnmount(() => (projects.currentProjectId = null))
           <span v-if="project.team" class="truncate text-xs text-muted-foreground">· {{ project.team.name }} team</span>
         </div>
         <UserAvatarStack :users="project.members" :max="5" class="ml-2" />
-        <Button size="sm" class="ml-auto" @click="ui.openCreateIssue({ projectId: project.id })"><Plus /> Task</Button>
+        <span class="ml-auto flex items-center gap-2">
+          <MeetButton v-if="meetPreset" :preset="meetPreset" />
+          <Button size="sm" @click="ui.openCreateIssue({ projectId: project.id })"><Plus /> Task</Button>
+        </span>
       </div>
       <nav class="mt-2 -mb-px flex gap-1" aria-label="Project sections">
         <RouterLink

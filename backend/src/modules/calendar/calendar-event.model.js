@@ -26,6 +26,8 @@ CalendarEvent.init(
     completedAt: { type: DataTypes.DATE, allowNull: true },
     /** Shared by the copies created when an event repeats. */
     seriesId: { type: DataTypes.UUID, allowNull: true },
+    /** Added by a meeting invitation; it moves or disappears with the meeting. */
+    meetingId: { type: DataTypes.UUID, allowNull: true },
   },
   {
     sequelize,

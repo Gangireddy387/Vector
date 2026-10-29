@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { BarChart3, Building2, CalendarDays, MessagesSquare, ChevronsLeft, ChevronsRight, FolderKanban, House, Inbox, ListTodo, Plus, ShieldCheck } from 'lucide-vue-next'
+import { BarChart3, Building2, CalendarDays, MessagesSquare, ChevronsLeft, ChevronsRight, FolderKanban, House, Inbox, ListTodo, Plus, ShieldCheck, Video } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
@@ -93,6 +93,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
       <SidebarLink v-if="auth.hasFeature('reports')" :to="{ name: 'reports' }" label="Reports" :icon="BarChart3" :collapsed="isCollapsed" exact />
       <SidebarLink :to="{ name: 'departments' }" label="Departments" :icon="Building2" :collapsed="isCollapsed" />
       <SidebarLink :to="{ name: 'calendar' }" label="Calendar" :icon="CalendarDays" :collapsed="isCollapsed" />
+      <SidebarLink v-if="auth.hasFeature('meetings')" :to="{ name: 'meetings' }" label="Meetings" :icon="Video" :collapsed="isCollapsed" />
       <SidebarLink
         v-if="workspace.isAdmin"
         :to="{ name: 'workspace-admin' }"

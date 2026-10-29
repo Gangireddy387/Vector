@@ -13,6 +13,7 @@ import departmentRoutes from './modules/departments/department.routes.js';
 import issueRoutes from './modules/issues/issue.routes.js';
 import labelRoutes from './modules/labels/label.routes.js';
 import messageRoutes from './modules/messages/messages.routes.js';
+import meetingRoutes from './modules/meetings/meeting.routes.js';
 import notificationRoutes from './modules/notifications/notification.routes.js';
 import projectRoutes from './modules/projects/project.routes.js';
 import recurringTaskRoutes from './modules/recurring-tasks/recurring-task.routes.js';
@@ -70,6 +71,7 @@ export function createApiRouter() {
     standupRoutes,
     calendarRoutes,
     messageRoutes,
+    meetingRoutes,
     aiRoutes,
   ].forEach((moduleRouter) => router.use(moduleRouter));
 
