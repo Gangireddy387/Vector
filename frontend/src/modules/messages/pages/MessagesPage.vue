@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { format, isToday, isYesterday, parseISO } from 'date-fns'
-import { ArrowLeft, Building2, MessageCirclePlus, MessagesSquare, Search, UsersRound } from 'lucide-vue-next'
-import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
+import { ArrowLeft, Building2, EllipsisVertical, Eraser, MessageCirclePlus, MessagesSquare, Search, UsersRound } from 'lucide-vue-next'
+import { computed, onMounted, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
@@ -27,6 +28,7 @@ const auth = useAuthStore()
 const store = useMessagesStore()
 const { isDesktop } = useDevice()
 const search = ref('')
+const thread = useTemplateRef<InstanceType<typeof ConversationThread>>('thread')
 
 const canDirect = computed(() => auth.hasFeature('directMessages'))
 const canGroup = computed(() => auth.hasFeature('teamChat'))
@@ -180,8 +182,16 @@ async function startChat(person: UserSummary) {
               {{ presence(selected) }}
             </span>
           </span>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="ghost" size="icon-sm" aria-label="Chat options" title="Chat options"><EllipsisVertical /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="w-48">
+              <DropdownMenuItem variant="destructive" :disabled="thread?.isEmpty" @select="thread?.clearChat()"><Eraser /> Clear chat</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
-        <ConversationThread :key="selected.id" :conversation="selected" class="min-h-0 flex-1" />
+        <ConversationThread ref="thread" :key="selected.id" :conversation="selected" class="min-h-0 flex-1" />
       </section>
 
       <section v-else-if="isDesktop" class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center">

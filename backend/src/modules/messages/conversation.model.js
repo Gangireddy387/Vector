@@ -40,6 +40,8 @@ ConversationMember.init(
     conversationId: { type: DataTypes.UUID, allowNull: false },
     userId: { type: DataTypes.UUID, allowNull: false },
     lastReadAt: { type: DataTypes.DATE, allowNull: true },
+    /** "Clear chat": this person no longer sees messages sent before this moment; others keep theirs. */
+    clearedAt: { type: DataTypes.DATE, allowNull: true },
   },
   {
     sequelize,
@@ -59,11 +61,31 @@ ConversationMessage.init(
     body: { type: DataTypes.TEXT, allowNull: false },
     /** Deleted for everyone by its author; the bubble says so. */
     deletedAt: { type: DataTypes.DATE, allowNull: true },
+    /** Last changed by its author; the bubble says "edited". */
+    editedAt: { type: DataTypes.DATE, allowNull: true },
   },
   {
     sequelize,
     modelName: 'ConversationMessage',
     tableName: 'conversation_messages',
     indexes: [{ fields: ['conversation_id', 'created_at'] }],
+  },
+);
+
+/** "Delete for me": a message one person removed from their own view; everyone else still sees it. */
+export class ConversationHiddenMessage extends Model {}
+
+ConversationHiddenMessage.init(
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    conversationId: { type: DataTypes.UUID, allowNull: false },
+    messageId: { type: DataTypes.UUID, allowNull: false },
+    userId: { type: DataTypes.UUID, allowNull: false },
+  },
+  {
+    sequelize,
+    modelName: 'ConversationHiddenMessage',
+    tableName: 'conversation_hidden_messages',
+    indexes: [{ unique: true, fields: ['message_id', 'user_id'] }, { fields: ['user_id', 'conversation_id'] }],
   },
 );

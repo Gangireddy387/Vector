@@ -31,10 +31,30 @@ export const useMessagesStore = defineStore('messages', () => {
     const isMine = message.authorId === auth.user?.id
     upsert({
       ...conversation,
-      lastMessage: { body: message.body, deleted: false, createdAt: message.createdAt, author: message.author },
+      lastMessage: { id: message.id, body: message.body, deleted: false, createdAt: message.createdAt, author: message.author },
       updatedAt: message.createdAt,
       unread: isMine || openId.value === conversation.id ? conversation.unread : conversation.unread + 1,
     })
+  }
+
+  /** An edit or delete of the newest message changes the preview in the list. */
+  function onUpdated(message: ChatMessage) {
+    const conversation = conversations.value?.find((item) => item.id === message.conversationId)
+    if (conversation?.lastMessage?.id !== message.id) return
+    conversation.lastMessage = { ...conversation.lastMessage, body: message.body, deleted: Boolean(message.deletedAt) }
+  }
+
+  function onCleared({ conversationId }: { conversationId: string }) {
+    const conversation = conversations.value?.find((item) => item.id === conversationId)
+    if (!conversation) return
+    conversation.lastMessage = null
+    conversation.unread = 0
+  }
+
+  /** Deleted for me in another tab: the preview needs the message before it, which only the server knows. */
+  function onHidden({ conversationId, messageId }: { conversationId: string; messageId: string }) {
+    const conversation = conversations.value?.find((item) => item.id === conversationId)
+    if (conversation?.lastMessage?.id === messageId) void load()
   }
 
   function markReadLocally(conversationId: string) {
@@ -47,6 +67,9 @@ export const useMessagesStore = defineStore('messages', () => {
     if (!socket || isBound) return
     isBound = true
     socket.on('conversation:message', onMessage)
+    socket.on('conversation:updated', onUpdated)
+    socket.on('conversation:cleared', onCleared)
+    socket.on('conversation:hidden', onHidden)
     socket.on('conversation:read', (event: { conversationId: string; userId: string }) => {
       if (event.userId === auth.user?.id) markReadLocally(event.conversationId)
     })

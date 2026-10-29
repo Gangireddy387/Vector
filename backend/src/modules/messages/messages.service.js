@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import {
   Conversation,
+  ConversationHiddenMessage,
   ConversationMember,
   ConversationMessage,
   Department,
@@ -107,16 +108,29 @@ async function directConversations(viewer) {
 }
 
 /** List entry: title, the other person (direct chats), last message and how many messages are unread. */
+/** Messages this person still sees: those after they last cleared the chat, minus those they deleted for themselves. */
+async function visibleTo(viewer, conversationId, membership) {
+  const hidden = (await ConversationHiddenMessage.findAll({ where: { conversationId, userId: viewer.id }, attributes: ['messageId'], raw: true })).map((row) => row.messageId);
+  return {
+    ...(membership?.clearedAt ? { createdAt: { [Op.gt]: membership.clearedAt } } : {}),
+    ...(hidden.length ? { id: { [Op.notIn]: hidden } } : {}),
+  };
+}
+
 async function summarize(viewer, { conversation, team = null, department = null }, people = null) {
-  const [membership, lastMessage] = await Promise.all([
-    ConversationMember.findOne({ where: { conversationId: conversation.id, userId: viewer.id } }),
-    ConversationMessage.findOne({ where: { conversationId: conversation.id }, include: authorInclude, order: [['createdAt', 'DESC']] }),
-  ]);
+  const membership = await ConversationMember.findOne({ where: { conversationId: conversation.id, userId: viewer.id } });
+  const visible = await visibleTo(viewer, conversation.id, membership);
+  const lastMessage = await ConversationMessage.findOne({
+    where: { conversationId: conversation.id, ...visible },
+    include: authorInclude,
+    order: [['createdAt', 'DESC']],
+  });
   const unread = await ConversationMessage.count({
     where: {
       conversationId: conversation.id,
       deletedAt: null,
       authorId: { [Op.ne]: viewer.id },
+      ...(visible.id ? { id: visible.id } : {}),
       ...(membership?.lastReadAt ? { createdAt: { [Op.gt]: membership.lastReadAt } } : {}),
     },
   });
@@ -126,7 +140,13 @@ async function summarize(viewer, { conversation, team = null, department = null 
     kind: conversation.kind,
     unread,
     lastMessage: lastMessage
-      ? { body: lastMessage.deletedAt ? '' : lastMessage.body, deleted: Boolean(lastMessage.deletedAt), createdAt: lastMessage.createdAt, author: lastMessage.author }
+      ? {
+          id: lastMessage.id,
+          body: lastMessage.deletedAt ? '' : lastMessage.body,
+          deleted: Boolean(lastMessage.deletedAt),
+          createdAt: lastMessage.createdAt,
+          author: lastMessage.author,
+        }
       : null,
     updatedAt: lastMessage?.createdAt ?? conversation.createdAt,
   };
@@ -186,7 +206,13 @@ async function describe(viewer, conversation, people) {
 /** The conversation with its latest messages, oldest first. */
 export async function getConversation(viewer, conversationId) {
   const { conversation, people } = await loadConversation(viewer, conversationId);
-  const messages = await ConversationMessage.findAll({ where: { conversationId }, include: authorInclude, order: [['createdAt', 'DESC']], limit: THREAD_LIMIT });
+  const membership = await ConversationMember.findOne({ where: { conversationId, userId: viewer.id } });
+  const messages = await ConversationMessage.findAll({
+    where: { conversationId, ...(await visibleTo(viewer, conversationId, membership)) },
+    include: authorInclude,
+    order: [['createdAt', 'DESC']],
+    limit: THREAD_LIMIT,
+  });
   return { conversation: await describe(viewer, conversation, people), messages: messages.reverse() };
 }
 
@@ -222,4 +248,37 @@ export async function deleteMessage(viewer, conversationId, messageId) {
   const updated = (await ConversationMessage.findByPk(message.id, { include: authorInclude })).toJSON();
   broadcast(people, 'conversation:updated', updated);
   return updated;
+}
+
+/** Changes the text of your own message; everyone sees the new text, marked as edited. */
+export async function editMessage(viewer, conversationId, messageId, body) {
+  const { people } = await loadConversation(viewer, conversationId);
+  const message = await ConversationMessage.findOne({ where: { id: messageId, conversationId } });
+  if (!message) throw ApiError.notFound('Message not found');
+  if (message.authorId !== viewer.id) throw ApiError.forbidden('You can only edit your own messages');
+  if (message.deletedAt) throw ApiError.badRequest('This message was deleted');
+  if (message.body !== body) await message.update({ body, editedAt: new Date() });
+  const updated = (await ConversationMessage.findByPk(message.id, { include: authorInclude })).toJSON();
+  broadcast(people, 'conversation:updated', updated);
+  return updated;
+}
+
+/** "Delete for me": anyone can remove any message from their own view; everyone else still sees it. */
+export async function hideMessage(viewer, conversationId, messageId) {
+  const { conversation, people } = await loadConversation(viewer, conversationId);
+  const message = await ConversationMessage.findOne({ where: { id: messageId, conversationId }, attributes: ['id'] });
+  if (!message) throw ApiError.notFound('Message not found');
+  await ConversationHiddenMessage.findOrCreate({ where: { messageId, userId: viewer.id }, defaults: { conversationId } });
+  emitToUser(viewer.id, 'conversation:hidden', { conversationId, messageId });
+  return describe(viewer, conversation, people);
+}
+
+/** "Clear chat": empties the conversation for this person only; everyone else keeps every message. */
+export async function clearConversation(viewer, conversationId) {
+  const { conversation, people } = await loadConversation(viewer, conversationId);
+  const clearedAt = new Date();
+  const [membership] = await ConversationMember.findOrCreate({ where: { conversationId, userId: viewer.id } });
+  await membership.update({ clearedAt, lastReadAt: clearedAt });
+  emitToUser(viewer.id, 'conversation:cleared', { conversationId, clearedAt });
+  return describe(viewer, conversation, people);
 }

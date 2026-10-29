@@ -11,6 +11,8 @@ export interface ChatMessage {
   body: string
   /** Deleted for everyone by its author. */
   deletedAt: string | null
+  /** Last changed by its author. */
+  editedAt: string | null
   createdAt: string
 }
 
@@ -22,7 +24,7 @@ export interface ConversationSummary {
   subtitle: string
   unread: number
   updatedAt: string
-  lastMessage: { body: string; deleted: boolean; createdAt: string; author: UserSummary | null } | null
+  lastMessage: { id: string; body: string; deleted: boolean; createdAt: string; author: UserSummary | null } | null
   /** Direct chats: the other person, with whether they have the app open. */
   person?: (UserSummary & { lastSeenAt: string | null; isOnline: boolean }) | null
   /** Direct chats: when the other person last read it (for read ticks). */
@@ -40,6 +42,13 @@ export const messagesApi = {
   send: (conversationId: string, body: string) =>
     http.post<{ message: ChatMessage }>(`/conversations/${conversationId}/messages`, { body }).then((r) => r.data.message),
   markRead: (conversationId: string) => http.post(`/conversations/${conversationId}/read`),
+  edit: (conversationId: string, messageId: string, body: string) =>
+    http.patch<{ message: ChatMessage }>(`/conversations/${conversationId}/messages/${messageId}`, { body }).then((r) => r.data.message),
   remove: (conversationId: string, messageId: string) =>
     http.delete<{ message: ChatMessage }>(`/conversations/${conversationId}/messages/${messageId}`).then((r) => r.data.message),
+  /** Removes one message from your view only; returns the chat with its new last message. */
+  hide: (conversationId: string, messageId: string) =>
+    http.post<{ conversation: ConversationSummary }>(`/conversations/${conversationId}/messages/${messageId}/hide`).then((r) => r.data.conversation),
+  /** Empties the chat for you only. */
+  clear: (conversationId: string) => http.post<{ conversation: ConversationSummary }>(`/conversations/${conversationId}/clear`).then((r) => r.data.conversation),
 }
