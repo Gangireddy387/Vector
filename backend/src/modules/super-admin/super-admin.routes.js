@@ -6,6 +6,7 @@ import { FEATURE_KEYS } from '../plans/plan.constants.js';
 import { createPlan, deletePlan, listPlans, updatePlan } from '../plans/plan.service.js';
 import {
   approveOrganization,
+  changeOrganizationFeatures,
   changeOrganizationPlan,
   getOrganizationDetail,
   isSuperAdmin,
@@ -16,6 +17,12 @@ import { deleteMessage, getThread, markRead, sendMessage, setDisappearing, unrea
 
 const rejectSchema = z.object({ reason: z.string().trim().max(500).optional() });
 const setPlanSchema = z.object({ planId: z.string().uuid('Choose a plan') });
+/** `true` / `false` overrides the plan for this organization; `null` follows the plan again. */
+const setFeaturesSchema = z.object({
+  features: z
+    .object(Object.fromEntries(FEATURE_KEYS.map((key) => [key, z.boolean().nullable().optional()])))
+    .refine((value) => Object.keys(value).length > 0, 'Provide at least one feature'),
+});
 
 const limit = z.number().int().min(1, 'Use at least 1, or leave empty for unlimited').max(100000).nullable();
 const planFields = z.object({
@@ -48,6 +55,9 @@ superAdminRoutes.post('/super-admin/organizations/:organizationId/reject', valid
 );
 superAdminRoutes.put('/super-admin/organizations/:organizationId/plan', validate({ body: setPlanSchema }), async (req, res) =>
   res.json({ organization: await changeOrganizationPlan(req.params.organizationId, req.body.planId) }),
+);
+superAdminRoutes.put('/super-admin/organizations/:organizationId/features', validate({ body: setFeaturesSchema }), async (req, res) =>
+  res.json(await changeOrganizationFeatures(req.params.organizationId, req.body.features)),
 );
 
 // Support chat with each organization's admins

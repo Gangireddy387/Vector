@@ -74,6 +74,9 @@ const usageRows = computed(() => {
             <span class="min-w-0 flex-1">
               <span class="block text-sm font-medium">{{ feature.label }}</span>
               <span class="block text-xs text-muted-foreground">{{ feature.description }}</span>
+              <span v-if="overview.entitlements.customFeatures?.includes(feature.key)" class="mt-0.5 block text-[11px] font-medium text-brand">
+                {{ overview.entitlements.features[feature.key] ? 'Added' : 'Turned off' }} for your organization
+              </span>
             </span>
             <span
               class="flex size-6 shrink-0 items-center justify-center"

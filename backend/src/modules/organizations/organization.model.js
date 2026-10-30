@@ -25,6 +25,8 @@ Organization.init(
     rejectionReason: { type: DataTypes.STRING(500), allowNull: true },
     /** The plan the super admin assigned; decides which features and how many people and projects it may use. */
     planId: { type: DataTypes.UUID, allowNull: true },
+    /** Features the super admin turned on or off for this organization only, e.g. `{ reports: true }`; they win over the plan. */
+    featureOverrides: { type: DataTypes.JSON, allowNull: true },
     /** Support chat with the super admin: new messages disappear after this many hours (null = kept). */
     supportDisappearHours: { type: DataTypes.INTEGER, allowNull: true },
     createdById: { type: DataTypes.UUID, allowNull: true },

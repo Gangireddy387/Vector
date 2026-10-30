@@ -467,16 +467,26 @@ function signOut() {
               </div>
 
               <!-- Plan -->
-              <SelectField
-                :model-value="organization.plan?.id ?? null"
-                :options="planOptions"
-                placeholder="No plan"
-                size="sm"
-                class="w-full max-w-48"
-                :disabled="busyId !== null || !planOptions.length"
-                :aria-label="`Plan for ${organization.name}`"
-                @update:model-value="(value) => changePlan(organization, value ?? null)"
-              />
+              <div class="min-w-0 space-y-1">
+                <SelectField
+                  :model-value="organization.plan?.id ?? null"
+                  :options="planOptions"
+                  placeholder="No plan"
+                  size="sm"
+                  class="w-full max-w-48"
+                  :disabled="busyId !== null || !planOptions.length"
+                  :aria-label="`Plan for ${organization.name}`"
+                  @update:model-value="(value) => changePlan(organization, value ?? null)"
+                />
+                <button
+                  v-if="organization.customFeatureCount"
+                  type="button"
+                  class="block text-[11px] font-medium text-brand hover:underline"
+                  @click="openId = organization.id"
+                >
+                  + {{ organization.customFeatureCount }} custom feature{{ organization.customFeatureCount === 1 ? '' : 's' }}
+                </button>
+              </div>
 
               <!-- Usage -->
               <div class="flex gap-3 text-xs text-muted-foreground xl:flex-col xl:gap-0.5">
@@ -527,7 +537,7 @@ function signOut() {
     </main>
     </div>
 
-    <OrganizationDetailSheet v-model:organization-id="openId" :unread="openId ? unread[openId] : 0" @read="(id) => (unread[id] = 0)" />
+    <OrganizationDetailSheet v-model:organization-id="openId" :unread="openId ? unread[openId] : 0" @read="(id) => (unread[id] = 0)" @updated="replace" />
 
     <Dialog v-model:open="isRejectOpen">
       <DialogContent class="sm:max-w-md">

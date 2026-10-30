@@ -11,6 +11,8 @@ export interface ReviewedOrganization {
   status: OrganizationStatus
   rejectionReason: string | null
   plan: { id: string; name: string } | null
+  /** Features turned on or off for this organization only, unlike its plan. */
+  customFeatureCount: number
   createdAt: string
   reviewedAt: string | null
   creator: (UserSummary & { title: string | null }) | null
@@ -34,9 +36,16 @@ export interface OrganizationPerson extends UserSummary {
   skills: string[]
 }
 
+/** What the plan gives, and what the super admin turned on (`true`) or off (`false`) for this organization only. */
+export interface OrganizationFeatures {
+  plan: Record<PlanFeatureKey, boolean>
+  overrides: Partial<Record<PlanFeatureKey, boolean>>
+}
+
 export interface OrganizationDetail {
   organization: ReviewedOrganization
   limits: { maxMembers: number | null; maxProjects: number | null }
+  features: OrganizationFeatures
   counts: { departments: number; teams: number; openTasks: number; doneTasks: number }
   admins: OrganizationPerson[]
   members: OrganizationPerson[]
@@ -67,6 +76,11 @@ export const superAdminApi = {
     http.post<{ organization: ReviewedOrganization }>(`/super-admin/organizations/${organizationId}/reject`, { reason }).then((r) => r.data.organization),
   setPlan: (organizationId: string, planId: string) =>
     http.put<{ organization: ReviewedOrganization }>(`/super-admin/organizations/${organizationId}/plan`, { planId }).then((r) => r.data.organization),
+  /** `null` follows the plan again. */
+  setFeatures: (organizationId: string, features: Partial<Record<PlanFeatureKey, boolean | null>>) =>
+    http
+      .put<{ organization: ReviewedOrganization; features: OrganizationFeatures }>(`/super-admin/organizations/${organizationId}/features`, { features })
+      .then((r) => r.data),
 
   plans: () => http.get<{ plans: Plan[] }>('/super-admin/plans').then((r) => r.data.plans),
   createPlan: (input: PlanInput) => http.post<{ plan: Plan }>('/super-admin/plans', input).then((r) => r.data.plan),

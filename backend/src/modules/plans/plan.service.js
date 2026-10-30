@@ -7,18 +7,32 @@ export const withPlan = () => [planInclude];
 
 const normalizeFeatures = (features = {}) => Object.fromEntries(FEATURE_KEYS.map((key) => [key, Boolean(features[key])]));
 
+/** What the plan alone gives; organizations without a plan have everything. */
+const planFeatures = (plan) => (plan ? normalizeFeatures(plan.features) : { ...ALL_FEATURES });
+
+/** Only known features that really differ from the plan, so a later plan change is not masked by stale entries. */
+function cleanOverrides(overrides, plan) {
+  const base = planFeatures(plan);
+  return Object.fromEntries(
+    Object.entries(overrides ?? {}).filter(([key, value]) => FEATURE_KEYS.includes(key) && typeof value === 'boolean' && value !== base[key]),
+  );
+}
+
 /**
- * What an organization may use. Organizations without a plan (created before plans existed and never assigned)
- * keep full access. `organization.plan` must be loaded.
+ * What an organization may use: its plan, then anything the super admin turned on or off for this organization.
+ * Organizations without a plan (created before plans existed and never assigned) keep full access.
+ * `organization.plan` must be loaded.
  */
 export function entitlementsFor(organization) {
   const plan = organization?.plan;
-  if (!plan) return { planId: null, planName: null, features: { ...ALL_FEATURES }, limits: { members: null, projects: null } };
+  const overrides = cleanOverrides(organization?.featureOverrides, plan);
   return {
-    planId: plan.id,
-    planName: plan.name,
-    features: normalizeFeatures(plan.features),
-    limits: { members: plan.maxMembers ?? null, projects: plan.maxProjects ?? null },
+    planId: plan?.id ?? null,
+    planName: plan?.name ?? null,
+    features: { ...planFeatures(plan), ...overrides },
+    /** Features that differ from the plan for this organization only. */
+    customFeatures: Object.keys(overrides),
+    limits: { members: plan?.maxMembers ?? null, projects: plan?.maxProjects ?? null },
   };
 }
 
@@ -27,7 +41,10 @@ const loadOrganization = (organizationId) => Organization.findByPk(organizationI
 export function assertFeature(organization, key) {
   const entitlements = entitlementsFor(organization);
   if (entitlements.features[key]) return;
-  throw new ApiError(403, `The ${entitlements.planName} plan does not include ${featureLabel(key).toLowerCase()}. Ask the portal administrator to upgrade.`, {
+  const message = entitlements.customFeatures.includes(key)
+    ? `${featureLabel(key)} is turned off for your organization. Ask the portal administrator to turn it on.`
+    : `The ${entitlements.planName} plan does not include ${featureLabel(key).toLowerCase()}. Ask the portal administrator to upgrade.`;
+  throw new ApiError(403, message, {
     code: 'plan_feature',
     feature: key,
   });
@@ -167,6 +184,27 @@ export async function setOrganizationPlan(organizationId, planId) {
   const [organization, plan] = await Promise.all([Organization.findByPk(organizationId), Plan.findByPk(planId)]);
   if (!organization) throw ApiError.notFound('Organization not found');
   if (!plan) throw ApiError.notFound('Plan not found');
-  await organization.update({ planId });
+  await organization.update({ planId, featureOverrides: cleanOverrides(organization.featureOverrides, plan) });
   return loadOrganization(organizationId);
+}
+
+/**
+ * Sets the features this organization gets beyond or instead of its plan: `true` turns one on, `false` turns it off
+ * and `null` follows the plan again. Returns the organization with its plan loaded.
+ */
+export async function setOrganizationFeatures(organizationId, changes) {
+  const organization = await loadOrganization(organizationId);
+  if (!organization) throw ApiError.notFound('Organization not found');
+  const next = { ...(organization.featureOverrides ?? {}) };
+  for (const [key, value] of Object.entries(changes)) {
+    if (value === null) delete next[key];
+    else next[key] = value;
+  }
+  await organization.update({ featureOverrides: cleanOverrides(next, organization.plan) });
+  return loadOrganization(organizationId);
+}
+
+/** The plan's own switches and this organization's changes to them, for the super admin. */
+export function featureSettingsFor(organization) {
+  return { plan: planFeatures(organization.plan), overrides: cleanOverrides(organization.featureOverrides, organization.plan) };
 }

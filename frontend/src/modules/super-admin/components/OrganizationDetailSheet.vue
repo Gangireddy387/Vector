@@ -12,13 +12,16 @@ import {
   Crown,
   FolderKanban,
   Gem,
+  LayoutDashboard,
   Link2,
   ListTodo,
   Mail,
   MapPin,
   MessageCircle,
   Phone,
+  RotateCcw,
   ShieldCheck,
+  SlidersHorizontal,
   Users,
   UsersRound,
   X,
@@ -32,7 +35,10 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatDate, timeAgo } from '@/lib/format'
+import { PLAN_FEATURE_GROUPS, PLAN_FEATURES, type PlanFeatureKey } from '@/lib/plan-features'
 import { assetUrl, getErrorMessage } from '@/lib/http'
 import { cityOf, localTime } from '@/lib/timezone'
 import { organizationAddress, organizationUrl } from '@/modules/auth/organization-slug'
@@ -40,16 +46,18 @@ import { profileCoverStyle } from '@/modules/admin/profile-cover'
 import SupportChatThread from '@/modules/support/components/SupportChatThread.vue'
 import { type DisappearHours, portalSupportApi } from '@/modules/support/support.api'
 import { getSocket } from '@/lib/realtime'
-import { type OrganizationDetail, type OrganizationPerson, superAdminApi } from '../super-admin.api'
+import { type OrganizationDetail, type OrganizationPerson, type ReviewedOrganization, superAdminApi } from '../super-admin.api'
 
 /** The super admin's look inside one organization: who runs it, who is in it and how much of its plan it uses. */
 const organizationId = defineModel<string | null>('organizationId', { default: null })
 /** Unread messages from this organization, shown on the Chat button. */
 defineProps<{ unread?: number }>()
-const emit = defineEmits<{ read: [organizationId: string] }>()
+const emit = defineEmits<{ read: [organizationId: string]; updated: [organization: ReviewedOrganization] }>()
 
 const detail = ref<OrganizationDetail | null>(null)
 const view = ref<'details' | 'chat'>('details')
+const tab = ref<'overview' | 'people' | 'features'>('overview')
+const everyone = computed(() => [...(detail.value?.admins ?? []), ...(detail.value?.members ?? [])])
 
 /** Like a messaging app: "online" when an admin was active in the last few minutes, otherwise when they were last seen. */
 const adminsOnline = computed(() => (detail.value?.admins ?? []).some((admin) => admin.isOnline))
@@ -81,6 +89,7 @@ watch(
   async (id) => {
     detail.value = null
     view.value = 'details'
+    tab.value = 'overview'
     if (!id) return
     try {
       detail.value = await superAdminApi.organization(id)
@@ -121,6 +130,41 @@ const COUNTS = computed(() => {
     { label: 'Done tasks', value: counts.doneTasks, icon: CheckCircle2 },
   ]
 })
+
+/** Each feature as this organization gets it: the plan's switch, unless the super admin changed it for this organization. */
+const featureGroups = computed(() => {
+  const settings = detail.value?.features
+  if (!settings) return []
+  return PLAN_FEATURE_GROUPS.map((group) => ({
+    ...group,
+    items: PLAN_FEATURES.filter((feature) => feature.group === group.value).map((feature) => {
+      const override = settings.overrides[feature.key]
+      return { ...feature, inPlan: settings.plan[feature.key], enabled: override ?? settings.plan[feature.key], isCustom: override !== undefined }
+    }),
+  }))
+})
+const customCount = computed(() => Object.keys(detail.value?.features.overrides ?? {}).length)
+const savingFeature = ref<PlanFeatureKey | 'all' | null>(null)
+
+async function saveFeatures(changes: Partial<Record<PlanFeatureKey, boolean | null>>, busy: PlanFeatureKey | 'all') {
+  const current = detail.value
+  if (!current) return
+  savingFeature.value = busy
+  try {
+    const result = await superAdminApi.setFeatures(current.organization.id, changes)
+    if (detail.value?.organization.id === current.organization.id) detail.value = { ...detail.value, organization: result.organization, features: result.features }
+    emit('updated', result.organization)
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    savingFeature.value = null
+  }
+}
+
+/** Switching back to what the plan says removes the custom setting, so the organization follows the plan again. */
+const toggleFeature = (key: PlanFeatureKey, enabled: boolean) => saveFeatures({ [key]: enabled === detail.value?.features.plan[key] ? null : enabled }, key)
+const resetFeatures = () =>
+  saveFeatures(Object.fromEntries(Object.keys(detail.value?.features.overrides ?? {}).map((key) => [key, null])), 'all')
 
 /** People come online and go offline while the panel is open; their dot and "last seen" follow along. */
 function onPresence(event: { userId: string; online: boolean; lastSeenAt: string }) {
@@ -247,7 +291,42 @@ async function copyEmail(email: string) {
           <Skeleton class="h-32 w-full" />
         </template>
 
-        <template v-else>
+        <Tabs v-else v-model="tab" class="gap-5">
+          <TabsList class="w-full">
+            <TabsTrigger value="overview"><LayoutDashboard /> Overview</TabsTrigger>
+            <TabsTrigger value="people">
+              <Users /> People <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ everyone.length }}</span>
+            </TabsTrigger>
+            <TabsTrigger value="features">
+              <SlidersHorizontal /> Features <span v-if="customCount" class="ml-1 bg-brand/15 px-1.5 text-xs text-brand tabular-nums">{{ customCount }}</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" class="space-y-6">
+          <!-- Plan usage and work -->
+          <section class="grid gap-3 sm:grid-cols-2">
+            <div class="space-y-3 border border-border/80 bg-card p-4 shadow-soft">
+              <h3 class="text-sm font-semibold">Plan · {{ detail.organization.plan?.name ?? 'No plan' }}</h3>
+              <div v-for="item in usage" :key="item.label" class="space-y-1">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-muted-foreground">{{ item.label }}</span>
+                  <span class="font-medium tabular-nums">{{ item.used }} / {{ item.limit ?? '∞' }}</span>
+                </div>
+                <Progress :model-value="item.limit ? item.percent : 0" class="h-1.5" :indicator-class="item.percent >= 90 ? 'bg-destructive' : 'bg-brand'" />
+              </div>
+              <button v-if="customCount" type="button" class="text-[11px] font-medium text-brand hover:underline" @click="tab = 'features'">
+                + {{ customCount }} custom feature{{ customCount === 1 ? '' : 's' }}
+              </button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div v-for="item in COUNTS" :key="item.label" class="border border-border/80 bg-card p-3 shadow-soft">
+                <component :is="item.icon" class="mb-1.5 size-4 text-muted-foreground" />
+                <span class="block text-xl leading-none font-semibold tabular-nums">{{ item.value }}</span>
+                <span class="mt-1 block text-[11px] text-muted-foreground">{{ item.label }}</span>
+              </div>
+            </div>
+          </section>
+
           <!-- Admins: full profile cards -->
           <section class="space-y-3">
             <h3 class="flex items-center gap-2 text-sm font-semibold"><Crown class="size-4 text-amber-500" /> Organization admins</h3>
@@ -307,43 +386,74 @@ async function copyEmail(email: string) {
             <p v-if="!detail.admins.length" class="border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">This organization has no admin.</p>
           </section>
 
-          <!-- Plan usage and work -->
-          <section class="grid gap-3 sm:grid-cols-2">
-            <div class="space-y-3 border border-border/80 bg-card p-4 shadow-soft">
-              <h3 class="text-sm font-semibold">Plan · {{ detail.organization.plan?.name ?? 'No plan' }}</h3>
-              <div v-for="item in usage" :key="item.label" class="space-y-1">
-                <div class="flex items-center justify-between text-xs">
-                  <span class="text-muted-foreground">{{ item.label }}</span>
-                  <span class="font-medium tabular-nums">{{ item.used }} / {{ item.limit ?? '∞' }}</span>
-                </div>
-                <Progress :model-value="item.limit ? item.percent : 0" class="h-1.5" :indicator-class="item.percent >= 90 ? 'bg-destructive' : 'bg-brand'" />
-              </div>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <div v-for="item in COUNTS" :key="item.label" class="border border-border/80 bg-card p-3 shadow-soft">
-                <component :is="item.icon" class="mb-1.5 size-4 text-muted-foreground" />
-                <span class="block text-xl leading-none font-semibold tabular-nums">{{ item.value }}</span>
-                <span class="mt-1 block text-[11px] text-muted-foreground">{{ item.label }}</span>
-              </div>
-            </div>
-          </section>
+          </TabsContent>
 
-          <!-- Everyone else -->
-          <section class="space-y-2">
-            <h3 class="flex items-center gap-2 text-sm font-semibold"><Users class="size-4 text-muted-foreground" /> Members <span class="text-xs font-normal text-muted-foreground">{{ detail.members.length }}</span></h3>
-            <ul v-if="detail.members.length" class="divide-y divide-border/60 border border-border/70">
-              <li v-for="member in detail.members" :key="member.id" class="flex items-center gap-3 px-3 py-2.5">
-                <UserAvatar :user="member" size="md" />
-                <span class="min-w-0 flex-1">
-                  <span class="block truncate text-sm font-medium">{{ member.name }}</span>
-                  <span class="block truncate text-xs text-muted-foreground">{{ member.title ? `${member.title} · ` : '' }}{{ member.email }}</span>
+          <!-- Features for this organization: the plan's switches, changed here for this organization only -->
+          <TabsContent value="features" class="space-y-3">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h3 class="flex items-center gap-2 text-sm font-semibold">
+                  <SlidersHorizontal class="size-4 text-muted-foreground" /> Features for {{ detail.organization.name }}
+                  <Badge v-if="customCount" variant="soft">{{ customCount }} custom</Badge>
+                </h3>
+                <p class="mt-0.5 text-xs text-muted-foreground">
+                  Starts from the {{ detail.organization.plan?.name ?? 'full access' }} plan. Changes here apply to this organization only and take effect right away.
+                </p>
+              </div>
+              <Button v-if="customCount" variant="ghost" size="sm" :loading="savingFeature === 'all'" :disabled="savingFeature !== null" @click="resetFeatures">
+                <RotateCcw /> Reset to plan
+              </Button>
+            </div>
+            <div v-for="group in featureGroups" :key="group.value" class="space-y-1.5">
+              <p class="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{{ group.label }}</p>
+              <ul class="divide-y divide-border/60 border border-border/70">
+                <li v-for="feature in group.items" :key="feature.key">
+                  <label class="flex cursor-pointer items-center gap-3 px-3 py-2.5" :class="feature.isCustom && 'bg-brand/5'">
+                    <span class="flex size-7 shrink-0 items-center justify-center bg-primary/10 text-primary"><component :is="feature.icon" class="size-3.5" /></span>
+                    <span class="min-w-0 flex-1">
+                      <span class="block text-sm font-medium">{{ feature.label }}</span>
+                      <span class="block text-xs text-muted-foreground">
+                        <template v-if="feature.isCustom">
+                          <span class="font-medium text-brand">{{ feature.enabled ? 'Added' : 'Turned off' }} for this organization</span>
+                          · {{ feature.inPlan ? 'in' : 'not in' }} the plan
+                        </template>
+                        <template v-else>{{ feature.inPlan ? 'Included in the plan' : 'Not in the plan' }}</template>
+                      </span>
+                    </span>
+                    <Switch
+                      :model-value="feature.enabled"
+                      :disabled="savingFeature !== null"
+                      :aria-label="`${feature.label} for ${detail.organization.name}`"
+                      @update:model-value="(value) => toggleFeature(feature.key, Boolean(value))"
+                    />
+                  </label>
+                </li>
+              </ul>
+            </div>
+          </TabsContent>
+
+          <!-- Everyone in the organization, admins first -->
+          <TabsContent value="people" class="space-y-2">
+            <ul class="divide-y divide-border/60 border border-border/70">
+              <li v-for="person in everyone" :key="person.id" class="flex items-center gap-3 px-3 py-2.5">
+                <span class="relative">
+                  <UserAvatar :user="person" size="md" />
+                  <span v-if="person.isOnline" class="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-success ring-2 ring-card" title="Online now" />
                 </span>
-                <Badge :variant="member.status === 'active' ? 'secondary' : member.status === 'invited' ? 'warning' : 'outline'">{{ PERSON_STATUS[member.status] }}</Badge>
+                <span class="min-w-0 flex-1">
+                  <span class="flex items-center gap-1.5 text-sm font-medium">
+                    <span class="truncate">{{ person.name }}</span>
+                    <Crown v-if="person.role === 'admin'" class="size-3.5 shrink-0 text-amber-500" />
+                  </span>
+                  <span class="block truncate text-xs text-muted-foreground">{{ person.title ? `${person.title} · ` : '' }}{{ person.email }}</span>
+                </span>
+                <Badge v-if="person.role === 'admin'" variant="soft">Admin</Badge>
+                <Badge :variant="person.status === 'active' ? 'secondary' : person.status === 'invited' ? 'warning' : 'outline'">{{ PERSON_STATUS[person.status] }}</Badge>
               </li>
             </ul>
-            <p v-else class="flex items-center gap-2 border border-dashed px-4 py-4 text-sm text-muted-foreground"><FolderKanban class="size-4" /> No other members yet.</p>
-          </section>
-        </template>
+            <p v-if="!detail.members.length" class="flex items-center gap-2 border border-dashed px-4 py-4 text-sm text-muted-foreground"><FolderKanban class="size-4" /> No other members yet.</p>
+          </TabsContent>
+        </Tabs>
       </div>
       </template>
     </SheetContent>

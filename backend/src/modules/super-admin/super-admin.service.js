@@ -7,7 +7,7 @@ import { isUserOnline } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { organizationApprovedEmail, organizationRejectedEmail } from '../../shared/services/email-templates.js';
 import { broadcastOrganization, toPublicOrganization } from '../organizations/organization.service.js';
-import { setOrganizationPlan, withPlan } from '../plans/plan.service.js';
+import { entitlementsFor, featureSettingsFor, setOrganizationFeatures, setOrganizationPlan, withPlan } from '../plans/plan.service.js';
 import { pickAvatarColor } from '../users/user.service.js';
 
 export const isSuperAdmin = (user) => Boolean(config.superAdmin.email) && user?.email?.toLowerCase() === config.superAdmin.email;
@@ -47,6 +47,7 @@ export async function listOrganizations() {
     ...toPublicOrganization(organization),
     rejectionReason: organization.rejectionReason ?? null,
     plan: organization.plan ? { id: organization.plan.id, name: organization.plan.name } : null,
+    customFeatureCount: entitlementsFor(organization).customFeatures.length,
     createdAt: organization.createdAt,
     reviewedAt: organization.reviewedAt,
     creator: creators.find((creator) => creator.id === organization.createdById) ?? null,
@@ -98,6 +99,7 @@ export async function getOrganizationDetail(organizationId) {
   return {
     organization: summary,
     limits: { maxMembers: organization.plan?.maxMembers ?? null, maxProjects: organization.plan?.maxProjects ?? null },
+    features: featureSettingsFor(organization),
     counts: { departments, teams, openTasks, doneTasks },
     admins: people.filter((person) => person.role === 'admin'),
     members: people.filter((person) => person.role !== 'admin'),
@@ -125,6 +127,13 @@ async function review(organizationId, actor, status, reason = null) {
 export async function changeOrganizationPlan(organizationId, planId) {
   await broadcastOrganization(await setOrganizationPlan(organizationId, planId));
   return (await listOrganizations()).find((item) => item.id === organizationId);
+}
+
+/** Turns features on or off for one organization, whatever its plan says; its people see the change right away. */
+export async function changeOrganizationFeatures(organizationId, changes) {
+  const organization = await setOrganizationFeatures(organizationId, changes);
+  await broadcastOrganization(organization);
+  return { organization: (await listOrganizations()).find((item) => item.id === organizationId), features: featureSettingsFor(organization) };
 }
 
 export const approveOrganization = (organizationId, actor) => review(organizationId, actor, 'approved');

@@ -38,6 +38,8 @@ export interface Entitlements {
   planId: string | null
   planName: string | null
   features: Record<PlanFeatureKey, boolean>
+  /** Features the super admin turned on or off for this organization, unlike its plan. */
+  customFeatures?: PlanFeatureKey[]
   limits: { members: number | null; projects: number | null }
 }
 
