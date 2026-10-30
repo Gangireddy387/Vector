@@ -20,6 +20,7 @@
     "test:collaboration": "node scripts/collaboration-test.js",
     "test:organizations": "node scripts/organizations-test.js",
     "test:meetings": "node scripts/meetings-live-test.js",
+    "test:presence": "node scripts/presence-live-test.js",
     "test:meetings:unit": "node --test test/meetings.unit.test.js"
   },
   "dependencies": {

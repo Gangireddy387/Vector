@@ -48,6 +48,8 @@ User.init(
     resetToken: { type: DataTypes.STRING, allowNull: true },
     resetTokenExpiresAt: { type: DataTypes.DATE, allowNull: true },
     lastSeenAt: { type: DataTypes.DATE, allowNull: true },
+    /** Status the person chose (busy, dnd, brb, away, offline = appear offline); null follows their activity. */
+    presenceStatus: { type: DataTypes.STRING(10), allowNull: true },
   },
   {
     sequelize,

@@ -7,6 +7,7 @@ import { callCapacity, mediaFor, publishSources, sfuEnabled } from '../src/modul
 import { remindedAtFor, whenFor } from '../src/modules/meetings/meeting.notify.js';
 import { nextStart } from '../src/modules/meetings/meeting.recurrence.js';
 import { ringsNow } from '../src/modules/meetings/meeting.signaling.js';
+import { effectiveStatus } from '../src/shared/realtime/presence.js';
 import { shared } from '../src/shared/realtime/shared-state.js';
 
 const meeting = {
@@ -168,6 +169,29 @@ describe('shared state (Redis)', { skip: !process.env.REDIS_URL && 'set REDIS_UR
     assert.deepEqual(await shared.hget('test:redis-hash', 'a'), { n: 1 });
     assert.equal(await shared.hcount('test:redis-hash'), 1);
     await shared.del('test:redis-hash');
+  });
+});
+
+describe('presence', () => {
+  const active = { idle: false, inCall: false };
+  const idle = { idle: true, inCall: false };
+  const calling = { idle: false, inCall: true };
+
+  it('follows activity when nothing was chosen', () => {
+    assert.equal(effectiveStatus([], null), 'offline');
+    assert.equal(effectiveStatus([active], null), 'available');
+    assert.equal(effectiveStatus([idle, idle], null), 'away');
+    assert.equal(effectiveStatus([idle, active], null), 'available');
+    assert.equal(effectiveStatus([idle, calling], null), 'in-call');
+  });
+
+  it('lets a chosen status win, except calls over "busy"', () => {
+    assert.equal(effectiveStatus([active], 'dnd'), 'dnd');
+    assert.equal(effectiveStatus([calling], 'dnd'), 'dnd');
+    assert.equal(effectiveStatus([calling], 'busy'), 'in-call');
+    assert.equal(effectiveStatus([active], 'brb'), 'brb');
+    assert.equal(effectiveStatus([active], 'offline'), 'offline');
+    assert.equal(effectiveStatus([], 'busy'), 'offline');
   });
 });
 

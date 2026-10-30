@@ -5,6 +5,7 @@ import { computed, onMounted, ref } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { toast } from 'vue-sonner'
+import PresenceBadge from '@/components/common/PresenceBadge.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ import { shareInviteLink } from '@/lib/invite-link'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import MeetButton from '@/modules/meetings/components/MeetButton.vue'
 import { useDirectMessage } from '@/modules/messages/useDirectMessage'
+import { usePresenceStore } from '@/stores/presence.store'
 import type { WorkspaceMember, WorkspaceRole } from '@/types/models'
 import { workspaceApi } from '../admin.api'
 import { profileCoverStyle } from '../profile-cover'
@@ -64,7 +66,10 @@ const FILTERS = computed(() =>
 
 const STATUS_BADGE = { active: 'success', invited: 'warning', disabled: 'outline' } as const
 const STATUS_LABEL = { active: 'Active', invited: 'Invited', disabled: 'Deactivated' } as const
-const isOnline = (member: WorkspaceMember) => Boolean(member.lastSeenAt) && Date.now() - new Date(member.lastSeenAt!).getTime() < 15 * 60_000
+const presence = usePresenceStore()
+/** Live status ("Available", "In a call", "Offline · last seen 2 hours ago"), or when they last used Vector. */
+const activity = (member: WorkspaceMember) =>
+  (member.status === 'active' && presence.describe(member.id)) || (member.lastSeenAt ? `Active ${timeAgo(member.lastSeenAt)}` : 'Not signed in yet')
 const ROLE_OPTIONS: SelectFieldOption[] = [
   { value: 'admin', label: 'Admin', description: 'Organization settings and people' },
   { value: 'member', label: 'Member', description: 'Works in the projects they join' },
@@ -242,10 +247,11 @@ async function sendInvite() {
             >
               <span class="relative">
                 <UserAvatar :user="member" size="xl" class="ring-4 ring-card shadow-md" />
-                <span
-                  v-if="isOnline(member)"
-                  class="absolute right-1 bottom-1 size-4 rounded-full bg-success ring-3 ring-card"
-                  title="Active now"
+                <PresenceBadge
+                  v-if="member.status === 'active' && presence.statusOf(member.id)"
+                  :status="presence.statusOf(member.id)!"
+                  size="lg"
+                  class="absolute right-1 bottom-1"
                 />
               </span>
               <span class="mt-2 flex items-center gap-1.5">
@@ -261,7 +267,7 @@ async function sendInvite() {
               </span>
               <span class="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
                 <span class="inline-flex items-center gap-1"><FolderKanban class="size-3.5" /> {{ member.projectCount }} project{{ member.projectCount === 1 ? '' : 's' }}</span>
-                <span>{{ member.lastSeenAt ? `Active ${timeAgo(member.lastSeenAt)}` : 'Not signed in yet' }}</span>
+                <span>{{ activity(member) }}</span>
               </span>
             </RouterLink>
 
@@ -291,7 +297,7 @@ async function sendInvite() {
               class="group flex min-w-0 flex-1 items-center gap-3"
               :title="`View ${member.name}'s profile`"
             >
-              <UserAvatar :user="member" size="md" />
+              <UserAvatar :user="member" size="md" :presence="member.status === 'active'" />
               <div class="min-w-0 flex-1">
                 <p class="flex flex-wrap items-center gap-2 text-sm font-medium">
                   <span class="transition-colors group-hover:text-primary">{{ member.name }}</span>
@@ -300,7 +306,7 @@ async function sendInvite() {
                 </p>
                 <p class="truncate text-xs text-muted-foreground">
                   <template v-if="member.title">{{ member.title }} · </template>{{ member.email }} · {{ member.projectCount }} project{{ member.projectCount === 1 ? '' : 's' }}
-                  <template v-if="member.lastSeenAt"> · active {{ timeAgo(member.lastSeenAt) }}</template>
+                  <template v-if="member.lastSeenAt || presence.statusOf(member.id)"> · {{ activity(member) }}</template>
                 </p>
               </div>
             </RouterLink>

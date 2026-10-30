@@ -15,6 +15,9 @@ import { getErrorMessage } from '@/lib/http'
 import { timeAgo } from '@/lib/format'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { usersApi } from '@/modules/projects/projects.api'
+import PresenceBadge from '@/components/common/PresenceBadge.vue'
+import { PRESENCE_LOOK } from '@/lib/presence'
+import { usePresenceStore } from '@/stores/presence.store'
 import type { UserSummary } from '@/types/models'
 import ConversationThread from '../components/ConversationThread.vue'
 import { type ConversationSummary, messagesApi } from '../messages.api'
@@ -26,6 +29,7 @@ const props = defineProps<{ conversationId?: string }>()
 const router = useRouter()
 const auth = useAuthStore()
 const store = useMessagesStore()
+const presenceStore = usePresenceStore()
 const { isDesktop } = useDevice()
 const search = ref('')
 const thread = useTemplateRef<InstanceType<typeof ConversationThread>>('thread')
@@ -61,11 +65,15 @@ const preview = (conversation: ConversationSummary) => {
   const who = last.author?.id === auth.user?.id ? 'You' : conversation.kind === 'direct' ? '' : (last.author?.name.split(' ')[0] ?? '')
   return who ? `${who}: ${last.body}` : last.body
 }
+/** Live, like Teams: "Available", "In a call", "Offline · last seen 5 minutes ago"… */
 const presence = (conversation: ConversationSummary) => {
   if (conversation.kind !== 'direct') return `${conversation.memberCount ?? 0} people · ${conversation.subtitle}`
-  if (conversation.person?.isOnline) return 'online'
+  const live = presenceStore.describe(conversation.person?.id)
+  if (live) return live
+  if (conversation.person?.isOnline) return 'Available'
   return conversation.person?.lastSeenAt ? `last seen ${timeAgo(conversation.person.lastSeenAt)}` : (conversation.subtitle || 'Direct message')
 }
+const statusOf = (conversation: ConversationSummary) => (conversation.kind === 'direct' ? presenceStore.statusOf(conversation.person?.id) : null)
 
 // --- New direct chat ---------------------------------------------------------
 const isPickerOpen = ref(false)
@@ -146,7 +154,7 @@ async function startChat(person: UserSummary) {
                 <UsersRound v-if="conversation.kind === 'team'" class="size-5" />
                 <Building2 v-else class="size-5" />
               </span>
-              <span v-if="conversation.person?.isOnline" class="absolute right-0 bottom-0 size-3.5 rounded-full bg-[#25d366] ring-2 ring-card" />
+              <PresenceBadge v-if="statusOf(conversation)" :status="statusOf(conversation)!" size="md" class="absolute right-0 bottom-0" />
             </span>
             <span class="min-w-0 flex-1 border-b border-border/50 pb-2.5">
               <span class="flex items-baseline gap-2">
@@ -177,8 +185,8 @@ async function startChat(person: UserSummary) {
           </span>
           <span class="min-w-0 flex-1">
             <span class="block truncate text-[15px] font-semibold">{{ selected.title }}</span>
-            <span class="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-              <span v-if="selected.person?.isOnline" class="size-2 rounded-full bg-[#25d366]" />
+            <span class="flex items-center gap-1.5 truncate text-xs" :class="statusOf(selected) ? PRESENCE_LOOK[statusOf(selected)!].text : 'text-muted-foreground'">
+              <PresenceBadge v-if="statusOf(selected)" :status="statusOf(selected)!" size="xs" />
               {{ presence(selected) }}
             </span>
           </span>
@@ -224,10 +232,10 @@ async function startChat(person: UserSummary) {
             :disabled="isOpening !== null"
             @click="startChat(person)"
           >
-            <UserAvatar :user="person" size="md" class="size-10" />
+            <UserAvatar :user="person" size="md" class="size-10" presence />
             <span class="min-w-0 flex-1">
               <span class="block truncate text-sm font-medium">{{ person.name }}</span>
-              <span class="block truncate text-xs text-muted-foreground">{{ person.title || person.email }}</span>
+              <span class="block truncate text-xs text-muted-foreground">{{ presenceStore.describe(person.id) || person.title || person.email }}</span>
             </span>
             <span v-if="isOpening === person.id" class="text-xs text-muted-foreground">Opening…</span>
           </button>

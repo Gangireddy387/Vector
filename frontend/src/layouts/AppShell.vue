@@ -15,6 +15,7 @@ import MiniCall from '@/modules/meetings/components/MiniCall.vue'
 import { useMessagesStore } from '@/modules/messages/messages.store'
 import { useNotificationsStore } from '@/modules/notifications/notifications.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
+import { usePresenceStore } from '@/stores/presence.store'
 import { useUiStore } from '@/stores/ui.store'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import type { AppNotification } from '@/types/models'
@@ -28,6 +29,7 @@ const notifications = useNotificationsStore()
 const workspace = useWorkspaceStore()
 const auth = useAuthStore()
 const messages = useMessagesStore()
+const presence = usePresenceStore()
 const isShortcutsOpen = ref(false)
 useTimezoneSync()
 
@@ -37,6 +39,7 @@ function openNotification(notification: AppNotification) {
 }
 
 onMounted(async () => {
+  presence.start()
   await Promise.all([projects.fetchProjects(), notifications.fetchNotifications(), messages.load().catch(() => undefined)])
   notifications.bindRealtime(openNotification)
   workspace.bindRealtime()

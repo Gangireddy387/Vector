@@ -217,10 +217,7 @@ const showGuestLink = computed(() => props.meeting.canManage && !isOver.value)
     <ul v-else-if="tab === 'people'" class="min-h-0 flex-1 divide-y divide-border/60 overflow-y-auto">
       <li v-if="showGuestLink" class="p-3"><GuestLinkCard :meeting="meeting" @changed="(value) => emit('changed', value)" /></li>
       <li v-for="person in people" :key="person.id" class="flex items-center gap-3 px-4 py-2.5">
-        <span class="relative">
-          <UserAvatar :user="person" size="md" />
-          <span v-if="meeting.inCall.includes(person.id)" class="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-emerald-500 ring-2 ring-card" />
-        </span>
+        <UserAvatar :user="person" size="md" presence />
         <span class="min-w-0 flex-1">
           <span class="flex items-center gap-1.5 truncate text-sm font-medium">
             {{ person.name }}<span v-if="person.id === auth.user?.id" class="text-muted-foreground">(you)</span>

@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
 import { Meeting, MeetingChatMessage, MeetingParticipant, MeetingRecording, MeetingTranscriptLine, Organization, OrganizationMember, User } from '../../database/models.js';
+import { presenceInCall } from '../../shared/realtime/presence.js';
 import { shared } from '../../shared/realtime/shared-state.js';
 import { entitlementsFor, withPlan } from '../plans/plan.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
@@ -299,6 +300,7 @@ async function evict(io, meetingId, socketId) {
   });
   if (!result) return;
   const { peer, call } = result;
+  if (!peer.guest) void presenceInCall(peer.user.id, socketId, false).catch(() => undefined);
   io.in(socketId).socketsLeave([meetingChannel(meetingId), admitChannel(meetingId), roomChannel(meetingId, peer.room)]);
   io.to(roomChannel(meetingId, peer.room)).emit('meeting:peer-left', { socketId });
   if (result.spotlightCleared) io.to(meetingChannel(meetingId)).emit('meeting:spotlight', { socketId: null });
@@ -370,6 +372,7 @@ export async function closeCall(meetingId, reason) {
   const sockets = [...Object.keys(before.peers), ...Object.keys(before.lobby)];
   if (!sockets.length) return;
   for (const socketId of sockets) ioRef.to(socketId).emit('meeting:closed', { meetingId, reason });
+  for (const peer of Object.values(before.peers)) if (!peer.guest) void presenceInCall(peer.user.id, peer.socketId, false).catch(() => undefined);
   ioRef.in(sockets).socketsLeave(allChannels(meetingId, before));
   if (Object.keys(before.peers).length) callEmptied(meetingId);
 }
@@ -498,6 +501,7 @@ export function registerMeetingSignaling(io, socket) {
       socket.data.meetingId = meetingId;
       socket.to(roomChannel(meetingId, null)).emit('meeting:peer-joined', publicPeer(self));
       const started = guest ? false : await recordJoin(meeting, user.id);
+      if (!guest) void presenceInCall(user.id, socket.id, true).catch(() => undefined);
       ack?.({
         ok: true,
         selfId: socket.id,

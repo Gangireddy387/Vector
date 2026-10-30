@@ -26,6 +26,7 @@ import {
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PresenceBadge from '@/components/common/PresenceBadge.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
 import { Badge } from '@/components/ui/badge'
@@ -35,7 +36,9 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { formatDate, timeAgo } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
+import { PRESENCE_LOOK } from '@/lib/presence'
 import { cityOf, localTime } from '@/lib/timezone'
+import { usePresenceStore } from '@/stores/presence.store'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { describeActivity } from '@/modules/issues/activity-format'
 import MeetButton from '@/modules/meetings/components/MeetButton.vue'
@@ -68,6 +71,8 @@ watch(() => props.userId, () => ((profile.value = null), (notFound.value = false
 const person = computed(() => profile.value?.person ?? null)
 const isSelf = computed(() => person.value?.id === auth.user?.id)
 const status = computed(() => (person.value?.status === 'invited' ? 'invited' : (person.value?.membershipStatus ?? 'active')))
+const presence = usePresenceStore()
+const liveStatus = computed(() => (person.value && status.value === 'active' ? presence.statusOf(person.value.id) : null))
 const STATUS = {
   active: { label: 'Active', variant: 'success' },
   invited: { label: 'Invitation sent', variant: 'warning' },
@@ -223,9 +228,10 @@ async function copyEmail() {
               <span v-if="person.location" class="inline-flex items-center gap-1.5"><MapPin class="size-4" /> {{ person.location }}</span>
               <span class="inline-flex items-center gap-1.5"><Clock class="size-4" /> {{ localTime(person.timezone) }} local time · {{ cityOf(person.timezone) }}</span>
               <span class="inline-flex items-center gap-1.5"><CalendarDays class="size-4" /> Joined {{ auth.organization?.name }} {{ formatDate(person.joinedAt, 'MMM yyyy') }}</span>
-              <span class="inline-flex items-center gap-1.5">
-                <span class="size-2 rounded-full" :class="person.lastSeenAt && Date.now() - new Date(person.lastSeenAt).getTime() < 15 * 60_000 ? 'bg-success' : 'bg-muted-foreground/40'" />
-                {{ person.lastSeenAt ? `Active ${timeAgo(person.lastSeenAt)}` : 'Not signed in yet' }}
+              <span class="inline-flex items-center gap-1.5" :class="liveStatus && PRESENCE_LOOK[liveStatus].text">
+                <PresenceBadge v-if="liveStatus" :status="liveStatus" size="sm" />
+                <span v-else class="size-2 rounded-full bg-muted-foreground/40" />
+                {{ (liveStatus && presence.describe(person.id)) || (person.lastSeenAt ? `Active ${timeAgo(person.lastSeenAt)}` : 'Not signed in yet') }}
               </span>
             </p>
           </div>

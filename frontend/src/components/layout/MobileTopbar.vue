@@ -35,7 +35,7 @@ function goBack() {
         <RouterLink :to="{ name: 'search' }" aria-label="Search"><Search class="size-5" /></RouterLink>
       </Button>
       <RouterLink :to="{ name: 'settings' }" class=" p-1" aria-label="Your account">
-        <UserAvatar :user="auth.user" size="md" />
+        <UserAvatar :user="auth.user" size="md" presence />
       </RouterLink>
     </div>
   </header>

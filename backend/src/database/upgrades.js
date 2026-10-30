@@ -33,6 +33,7 @@ const ADDED_COLUMNS = [
   { table: 'meetings', column: 'continued', definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false } },
   { table: 'meetings', column: 'guest_token', definition: { type: DataTypes.STRING(64), allowNull: true } },
   { table: 'meetings', column: 'whiteboard', definition: { type: DataTypes.JSON, allowNull: true } },
+  { table: 'users', column: 'presence_status', definition: { type: DataTypes.STRING(10), allowNull: true } },
   { table: 'meetings', column: 'reminded_at', definition: { type: DataTypes.DATE, allowNull: true } },
   { table: 'meetings', column: 'summary', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'conversation_messages', column: 'edited_at', definition: { type: DataTypes.DATE, allowNull: true } },

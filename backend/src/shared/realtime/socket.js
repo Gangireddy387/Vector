@@ -7,6 +7,7 @@ import { relayConfigured } from '../../modules/meetings/ice-servers.js';
 import { registerMeetingCollab } from '../../modules/meetings/meeting.collab.js';
 import { registerMeetingSignaling } from '../../modules/meetings/meeting.signaling.js';
 import { canWatchProject } from '../../modules/projects/project-access.js';
+import { presenceConnected, presenceDisconnected, registerPresence } from './presence.js';
 
 let io = null;
 
@@ -22,18 +23,13 @@ async function superAdminUserId() {
   return superAdminId ?? null;
 }
 
-/** Records the moment and tells the super admin, whose views show who is online right now. */
-async function presenceChanged(userId, online) {
-  const lastSeenAt = new Date();
-  await User.update({ lastSeenAt }, { where: { id: userId }, silent: true }).catch(() => undefined);
-  const watcher = await superAdminUserId().catch(() => null);
-  if (watcher && watcher !== userId) io?.to(`user:${watcher}`).emit('presence:changed', { userId, online, lastSeenAt });
-}
-
 /** `redis`: the clients from `initSharedState()`; with them, messages reach people connected to any backend server. */
 export function initRealtime(httpServer, redis = null) {
   io = new Server(httpServer, {
     cors: { origin: config.clientUrl.split(','), credentials: true },
+    // A connection that dies without closing (Wi-Fi off, laptop asleep) is noticed within ~18 s, so presence goes offline.
+    pingInterval: 10_000,
+    pingTimeout: 8_000,
   });
   if (redis) io.adapter(createAdapter(redis.client, redis.subscriber, { key: `${config.redis.prefix}socket.io` }));
   if (!relayConfigured()) {
@@ -59,9 +55,13 @@ export function initRealtime(httpServer, redis = null) {
 
     const { userId } = socket.data;
     socket.join(`user:${userId}`);
-    const open = (connections.get(userId) ?? 0) + 1;
-    connections.set(userId, open);
-    if (open === 1) void presenceChanged(userId, true);
+    connections.set(userId, (connections.get(userId) ?? 0) + 1);
+    registerPresence(io, socket);
+    void presenceConnected(io, socket).catch((error) => console.warn('[presence] could not mark online:', error.message));
+    // The portal's super admin sees everyone's presence, across organizations.
+    void superAdminUserId()
+      .then((id) => id === userId && socket.join('presence:watchers'))
+      .catch(() => undefined);
 
     socket.on('project:join', async (projectId) => {
       if (await canWatchProject(projectId, socket.data.userId)) socket.join(`project:${projectId}`);
@@ -71,9 +71,9 @@ export function initRealtime(httpServer, redis = null) {
 
     socket.on('disconnect', () => {
       const left = (connections.get(userId) ?? 1) - 1;
-      if (left > 0) return connections.set(userId, left);
-      connections.delete(userId);
-      void presenceChanged(userId, false);
+      if (left > 0) connections.set(userId, left);
+      else connections.delete(userId);
+      void presenceDisconnected(socket).catch((error) => console.warn('[presence] could not mark offline:', error.message));
     });
   });
 
