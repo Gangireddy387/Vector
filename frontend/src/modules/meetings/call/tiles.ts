@@ -1,5 +1,5 @@
-import { computed } from 'vue'
-import type { PeerConnection } from '../useMeetingCall'
+import { computed, ref } from 'vue'
+import type { CallQuality, CallRole, PeerConnection } from '../useMeetingCall'
 import { type CallUser, useMeetingCall } from '../useMeetingCall'
 
 export interface Tile {
@@ -16,7 +16,17 @@ export interface Tile {
   hand: number | null
   speaking: boolean
   guest: boolean
+  callRole: CallRole
+  quality: CallQuality | null
+  qualityNote: string | null
+  /** The host shows this person large for everyone. */
+  spotlit: boolean
+  /** This person chose to keep this tile large on their own screen. */
+  pinned: boolean
 }
+
+/** A tile this person keeps large on their own screen (only here; the host's spotlight is for everyone). */
+const pinned = ref<string | null>(null)
 
 /** One tile per person in this room of the call, this person first; plus who to show when there is room for one. */
 export function useCallTiles() {
@@ -36,6 +46,11 @@ export function useCallTiles() {
       hand: call.hand.value,
       speaking: call.speaking.value.includes('self'),
       guest: call.isGuest.value,
+      callRole: call.role.value,
+      quality: call.quality.value,
+      qualityNote: null,
+      spotlit: call.spotlight.value === call.selfId.value,
+      pinned: pinned.value === 'self',
     },
     ...call.peers.value.map((peer) => ({
       id: peer.socketId,
@@ -51,11 +66,26 @@ export function useCallTiles() {
       hand: peer.hand,
       speaking: call.speaking.value.includes(peer.socketId),
       guest: peer.guest,
+      callRole: peer.role ?? null,
+      quality: peer.quality,
+      qualityNote: peer.qualityNote,
+      spotlit: call.spotlight.value === peer.socketId,
+      pinned: pinned.value === peer.socketId,
     })),
   ])
 
-  /** Someone presenting gets the big tile (others before yourself). */
-  const presenter = computed(() => tiles.value.find((tile) => tile.screen && !tile.self) ?? tiles.value.find((tile) => tile.screen) ?? null)
+  /**
+   * Who gets the big tile: someone presenting (others before yourself), else the tile this person pinned, else the
+   * person the host put in the spotlight.
+   */
+  const presenter = computed(
+    () =>
+      tiles.value.find((tile) => tile.screen && !tile.self) ??
+      tiles.value.find((tile) => tile.screen) ??
+      tiles.value.find((tile) => tile.pinned) ??
+      tiles.value.find((tile) => tile.spotlit) ??
+      null,
+  )
 
   /** For a single tile (small window, picture-in-picture): the presenter, else whoever spoke last, else someone else. */
   const featured = computed(
@@ -69,5 +99,7 @@ export function useCallTiles() {
   /** Raised hands, first raised first. */
   const raisedHands = computed(() => tiles.value.filter((tile) => tile.hand).sort((a, b) => (a.hand ?? 0) - (b.hand ?? 0)))
 
-  return { tiles, presenter, featured, raisedHands }
+  const togglePin = (id: string) => (pinned.value = pinned.value === id ? null : id)
+
+  return { tiles, presenter, featured, raisedHands, togglePin }
 }

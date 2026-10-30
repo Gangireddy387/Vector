@@ -3,6 +3,7 @@ import { config } from '../config/index.js';
 import { sendDueReminders } from '../modules/issues/due-reminder.job.js';
 import { sendDailyDigests } from '../modules/notifications/daily-digest.job.js';
 import { runDueRecurringTasks } from '../modules/recurring-tasks/recurring-task.service.js';
+import { sendMeetingReminders } from '../modules/meetings/meeting.notify.js';
 import { continueMeetingSeries } from '../modules/meetings/meeting.service.js';
 import { settleIdleMeetings } from '../modules/meetings/meeting.signaling.js';
 import { purgeExpiredMessages } from '../modules/support/support.service.js';
@@ -15,6 +16,7 @@ const JOBS = [
   { name: 'expired-support-messages', schedule: '*/5 * * * *', run: purgeExpiredMessages },
   { name: 'idle-meetings', schedule: '*/2 * * * *', run: settleIdleMeetings },
   { name: 'meeting-series', schedule: '* * * * *', run: continueMeetingSeries },
+  { name: 'meeting-reminders', schedule: '* * * * *', run: sendMeetingReminders },
 ];
 
 /** Wraps a job so overlapping executions are skipped and failures are logged. */

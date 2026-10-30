@@ -1,3 +1,4 @@
+import { createAdapter } from '@socket.io/redis-adapter';
 import { Server } from 'socket.io';
 import { config } from '../../config/index.js';
 import { User } from '../../database/models.js';
@@ -29,10 +30,12 @@ async function presenceChanged(userId, online) {
   if (watcher && watcher !== userId) io?.to(`user:${watcher}`).emit('presence:changed', { userId, online, lastSeenAt });
 }
 
-export function initRealtime(httpServer) {
+/** `redis`: the clients from `initSharedState()`; with them, messages reach people connected to any backend server. */
+export function initRealtime(httpServer, redis = null) {
   io = new Server(httpServer, {
     cors: { origin: config.clientUrl.split(','), credentials: true },
   });
+  if (redis) io.adapter(createAdapter(redis.client, redis.subscriber, { key: `${config.redis.prefix}socket.io` }));
   if (!relayConfigured()) {
     console.warn('[meetings] no TURN relay configured: video calls fail on networks that block direct connections (see TURN_* in .env.example)');
   }

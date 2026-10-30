@@ -1,9 +1,19 @@
 import type { Socket } from 'socket.io-client'
-import { computed, reactive, ref, shallowRef, triggerRef } from 'vue'
+import { computed, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
+import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/lib/http'
 import { getSocket } from '@/lib/realtime'
 import type { UserSummary } from '@/types/models'
 import { type BlurredCamera, blurBackground, blurSupported } from './call/background-blur'
+import { captionsSupported, createCaptioner } from './call/captions'
+import { type DeviceKind, type DeviceLists, canChooseSpeaker, listDevices, saveDevice, savedDevice, withDevice } from './call/devices'
+import { type CallRecorder, recordingSupported, startRecorder } from './call/recorder'
+import { type CallQuality, createSfuTransport } from './call/sfu'
+import { type StatsSample, measure as measureConnection, worstQuality } from './call/stats'
 import { type MeetingPoll, type WhiteboardStroke, meetingsApi } from './meetings.api'
+
+export type { CallQuality }
+export { canChooseSpeaker, captionsSupported, recordingSupported }
 
 export interface MediaState {
   audio: boolean
@@ -16,6 +26,13 @@ export type PeerConnection = RTCPeerConnectionState
 /** People in a call: organization members, or guests who came with the meeting's guest link. */
 export type CallUser = UserSummary
 
+/** The meeting's host, an organization admin, a co-host the host chose for this call, or nobody special. */
+export type CallRole = 'host' | 'admin' | 'cohost' | null
+
+const ROLE_RANKS: Record<string, number> = { host: 2, admin: 2, cohost: 1 }
+export const roleRank = (role: CallRole) => (role ? (ROLE_RANKS[role] ?? 0) : 0)
+export const ROLE_LABELS: Record<NonNullable<CallRole>, string> = { host: 'Host', admin: 'Admin', cohost: 'Co-host' }
+
 interface PeerInfo {
   socketId: string
   user: CallUser
@@ -23,6 +40,7 @@ interface PeerInfo {
   /** When the hand went up (people are called on in that order), or null. */
   hand: number | null
   room: string | null
+  role: CallRole
   guest: boolean
 }
 
@@ -31,6 +49,25 @@ export interface CallPeer extends PeerInfo {
   /** Bumped whenever a track arrives or resumes, so the tile re-attaches its video. */
   revision: number
   connection: PeerConnection
+  /** How well the connection with this person carries the call (null: not measured yet). */
+  quality: CallQuality | null
+  qualityNote: string | null
+}
+
+/** What people who do not run the call may do. */
+export interface CallPermissions {
+  chat: boolean
+  share: boolean
+  unmute: boolean
+}
+
+export interface Caption {
+  id: string
+  socketId: string
+  speaker: { id: string; name: string; guest: boolean }
+  text: string
+  final: boolean
+  at: number
 }
 
 export interface ChatMessage {
@@ -86,12 +123,23 @@ type JoinResult = {
   waiting?: boolean
   selfId?: string
   canManage?: boolean
+  role?: CallRole
+  locked?: boolean
+  permissions?: CallPermissions
+  spotlight?: string | null
+  recording?: { by: string; since: string } | null
+  transcribing?: { by: string; since: string } | null
+  boardOpen?: boolean
   peers?: PeerInfo[]
   chat?: ChatMessage[]
   breakouts?: BreakoutState | null
   lobby?: LobbyGuest[]
+  media?: MediaRoute
+  capacity?: number
 }
-type Ack = { ok: boolean; error?: string; poll?: MeetingPoll }
+/** How this browser sends and receives video: directly with each person, or through the media server. */
+type MediaRoute = { mode: 'direct' } | { mode: 'sfu'; url: string; token: string }
+type Ack = { ok: boolean; error?: string; poll?: MeetingPoll; recordingId?: string; muted?: number }
 
 export type CallStatus = 'idle' | 'preview' | 'joining' | 'waiting' | 'joined' | 'reconnecting' | 'left'
 
@@ -100,7 +148,11 @@ const VIDEO: MediaTrackConstraints = { width: { ideal: 1280 }, height: { ideal: 
 const FALLBACK_ICE: RTCIceServer[] = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }]
 export const REACTIONS = ['👍', '👏', '😂', '🎉', '❤️', '😮', '🙏', '🤔']
 const BLUR_KEY = 'vector.meetings.blur'
+const CAPTIONS_KEY = 'vector.meetings.captions'
 const SPEAKING_LEVEL = 0.035
+const STATS_EVERY_MS = 3000
+const CAPTION_LINGER_MS = 6000
+const DEFAULT_PERMISSIONS: CallPermissions = { chat: true, share: true, unmute: true }
 
 export const mediaSupported = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia)
 export const canShareScreen = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getDisplayMedia)
@@ -143,8 +195,9 @@ function videoBudget(peerCount: number, screen: boolean) {
  * The call this browser is in. It lives for the whole app (not one page), so people can keep talking while they
  * open the board or other pages; a small call window follows them around.
  *
- * Each person in the call gets a direct connection to every other person in the same room (through a TURN relay when
- * their network blocks direct ones); the server only passes connection details along.
+ * Without a media server, each person in the call gets a direct connection to every other person in the same room
+ * (through a TURN relay when their network blocks direct ones); the server only passes connection details along.
+ * With one (LiveKit), everyone sends their media once to it and receives the others' from it (see call/sfu.ts).
  */
 function createCall() {
   const meetingId = ref<string | null>(null)
@@ -153,6 +206,9 @@ function createCall() {
   /** This person as others in the call see them. */
   const selfUser = ref<CallUser | null>(null)
   const canManage = ref(false)
+  const role = ref<CallRole>(null)
+  /** Nobody new may join until someone running the call opens it again. */
+  const locked = ref(false)
   const localStream = shallowRef<MediaStream | null>(null)
   const localRevision = ref(0)
   const screenStream = shallowRef<MediaStream | null>(null)
@@ -183,6 +239,26 @@ function createCall() {
   const boardRevision = ref(0)
   const boardStrokes = new Map<string, WhiteboardStroke>()
   const boardListeners = new Set<(event: BoardEvent) => void>()
+  const permissions = ref<CallPermissions>({ ...DEFAULT_PERMISSIONS })
+  /** The person everyone sees large, chosen by the host (a socket id), or null. */
+  const spotlight = ref<string | null>(null)
+  /** Someone is recording the call (everyone is shown this). */
+  const recording = ref<{ by: string; since: string } | null>(null)
+  /** This browser is the one recording, and how far the upload got afterwards. */
+  const recordingHere = ref(false)
+  const uploadProgress = ref<number | null>(null)
+  const transcribing = ref<{ by: string; since: string } | null>(null)
+  const captions = ref<Caption[]>([])
+  const showCaptions = ref(localStorage.getItem(CAPTIONS_KEY) !== '0')
+  const quality = ref<CallQuality | null>(null)
+  const mediaMode = ref<'direct' | 'sfu'>('direct')
+  const capacity = ref<number | null>(null)
+  const devices = ref<DeviceLists>({ audioinput: [], videoinput: [], audiooutput: [] })
+  const chosenDevices = reactive<Record<DeviceKind, string | null>>({
+    audioinput: savedDevice('audioinput'),
+    videoinput: savedDevice('videoinput'),
+    audiooutput: savedDevice('audiooutput'),
+  })
 
   const inCall = computed(() => status.value === 'joined' || status.value === 'reconnecting')
   /** What this person's own tile shows: the shared screen, the blurred camera, or the camera. */
@@ -197,6 +273,11 @@ function createCall() {
   let fixedIce: RTCIceServer[] | null = null
   let blurred: BlurredCamera | null = null
   let reactionKey = 0
+  let route: MediaRoute = { mode: 'direct' }
+  /** People whose media connection to the media server is up (by socket id). */
+  const sfuPresent = new Set<string>()
+  let recorder: CallRecorder | null = null
+  let recordingId: string | null = null
 
   const audioTrack = () => localStream.value?.getAudioTracks()[0] ?? null
   const cameraTrack = () => localStream.value?.getVideoTracks()[0] ?? null
@@ -233,6 +314,80 @@ function createCall() {
     }
   }
 
+  const audioConstraints = () => withDevice(AUDIO, chosenDevices.audioinput)
+  const videoConstraints = () => withDevice(VIDEO, chosenDevices.videoinput)
+
+  async function refreshDevices() {
+    devices.value = await listDevices()
+    // A chosen device that is gone (unplugged headset) falls back to the system default.
+    for (const kind of ['audioinput', 'videoinput', 'audiooutput'] as DeviceKind[]) {
+      const id = chosenDevices[kind]
+      if (id && devices.value[kind].length && !devices.value[kind].some((device) => device.id === id)) chosenDevices[kind] = null
+    }
+  }
+
+  /** Gets a track from the chosen device, or from the default one when that device cannot be used. */
+  async function openTrack(kind: 'audio' | 'video') {
+    const chosen = kind === 'audio' ? chosenDevices.audioinput : chosenDevices.videoinput
+    const base = kind === 'audio' ? AUDIO : VIDEO
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(kind === 'audio' ? { audio: audioConstraints() } : { video: videoConstraints() })
+      return stream.getTracks()[0]!
+    } catch (error) {
+      if (!chosen) throw error
+      const stream = await navigator.mediaDevices.getUserMedia(kind === 'audio' ? { audio: base } : { video: base })
+      return stream.getTracks()[0]!
+    }
+  }
+
+  /**
+   * Switches to another microphone, camera or speaker, also in the middle of a call (the others get the new one
+   * without reconnecting). `null` is the system default.
+   */
+  async function chooseDevice(kind: DeviceKind, id: string | null) {
+    chosenDevices[kind] = id
+    saveDevice(kind, id)
+    if (kind === 'audiooutput') return
+    const stream = localStream.value
+    if (!stream || !mediaSupported) return
+    if (kind === 'audioinput' && audioTrack()) {
+      const old = audioTrack()!
+      const next = await openTrack('audio').catch((error) => {
+        throw new Error(deviceProblem(error, 'microphone'))
+      })
+      next.enabled = media.audio
+      stream.removeTrack(old)
+      old.stop()
+      stream.addTrack(next)
+      touchLocal()
+    }
+    if (kind === 'videoinput' && cameraTrack()) {
+      const old = cameraTrack()!
+      const next = await openTrack('video').catch((error) => {
+        throw new Error(deviceProblem(error, 'camera'))
+      })
+      stream.removeTrack(old)
+      old.stop()
+      stream.addTrack(next)
+      await applyBlur().catch((error: Error) => (deviceNote.value = error.message))
+    }
+    await refreshOutgoing()
+    void refreshDevices()
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener) {
+    navigator.mediaDevices.addEventListener('devicechange', () => {
+      void refreshDevices().then(async () => {
+        // The microphone or camera in use was unplugged: carry on with the default one.
+        const lostAudio = audioTrack()?.readyState === 'ended'
+        const lostVideo = cameraTrack()?.readyState === 'ended'
+        if (lostAudio) await chooseDevice('audioinput', null).catch(() => undefined)
+        if (lostVideo) await chooseDevice('videoinput', null).catch(() => undefined)
+        if (lostAudio || lostVideo) toast('A device was disconnected', { description: 'Vector switched to your default microphone and camera.' })
+      })
+    })
+  }
+
   /** Asks for camera and microphone; falls back to one of them, then to joining without devices. */
   async function startPreview() {
     if (localStream.value) return
@@ -245,7 +400,9 @@ function createCall() {
       return
     }
     let firstError: unknown = null
-    for (const constraints of [{ audio: AUDIO, video: VIDEO }, { audio: AUDIO }, { video: VIDEO }] as MediaStreamConstraints[]) {
+    const chosen = { audio: audioConstraints(), video: videoConstraints() }
+    const attempts: MediaStreamConstraints[] = [chosen, ...(chosenDevices.audioinput || chosenDevices.videoinput ? [{ audio: AUDIO, video: VIDEO }] : []), { audio: AUDIO }, { video: VIDEO }]
+    for (const constraints of attempts) {
       try {
         localStream.value = await navigator.mediaDevices.getUserMedia(constraints)
         break
@@ -264,6 +421,7 @@ function createCall() {
     media.audio = Boolean(audioTrack())
     media.video = Boolean(cameraTrack())
     if (status.value === 'idle' || status.value === 'left') status.value = 'preview'
+    void refreshDevices()
     await applyBlur().catch((error: Error) => (deviceNote.value = error.message))
   }
 
@@ -282,8 +440,7 @@ function createCall() {
   async function requestTrack(kind: 'audio' | 'video') {
     if (!mediaSupported) throw new Error(deviceNote.value ?? 'This browser cannot use a camera or microphone here.')
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(kind === 'audio' ? { audio: AUDIO } : { video: VIDEO })
-      const track = stream.getTracks()[0]!
+      const track = await openTrack(kind)
       if (!localStream.value) localStream.value = new MediaStream()
       localStream.value.addTrack(track)
       touchLocal()
@@ -329,12 +486,76 @@ function createCall() {
 
   /** Sends the current microphone and camera/screen to everyone (after a device or screen change). */
   async function refreshOutgoing() {
+    if (route.mode === 'sfu') {
+      if (!sfu.connected()) return
+      try {
+        await sfu.sendAudio(audioTrack(), media.audio)
+        await sfu.sendVideo(media.screen || media.video ? outgoingVideo() : null, media.screen)
+      } catch {
+        // Not allowed right now (the host limited sharing or unmuting); the server's state already says so.
+      }
+      return
+    }
     for (const connection of connections.values()) {
       if (!connection.started) continue
       await attach(connection, 'audio', audioTrack())
       await attach(connection, 'video', outgoingVideo())
     }
     void tuneSenders()
+  }
+
+  /** Someone's media arrived: it goes into their stream, and their tile picks it up. */
+  function receiveTrack(peerId: string, track: MediaStreamTrack) {
+    const stream = streams.get(peerId) ?? new MediaStream()
+    for (const old of stream.getTracks()) if (old.kind === track.kind && old !== track) stream.removeTrack(old)
+    if (!stream.getTracks().includes(track)) stream.addTrack(track)
+    streams.set(peerId, stream)
+    const bump = () => updatePeer(peerId, (peer) => ({ stream, revision: peer.revision + 1 }))
+    track.onunmute = bump
+    bump()
+  }
+
+  const sfu = createSfuTransport({
+    onTrack: receiveTrack,
+    onTrackGone: (peerId, track) => {
+      const stream = streams.get(peerId)
+      if (!stream) return
+      stream.removeTrack(track)
+      updatePeer(peerId, (peer) => ({ stream, revision: peer.revision + 1 }))
+    },
+    onPresence: (peerId, present) => {
+      if (present) sfuPresent.add(peerId)
+      else sfuPresent.delete(peerId)
+      updatePeer(peerId, { connection: present ? 'connected' : 'connecting' })
+    },
+    onQuality: (who, value) => {
+      if (who === 'self') quality.value = value
+      else updatePeer(who, { quality: value, qualityNote: null })
+    },
+    onForcedOff: (kind) => {
+      if (kind === 'audio') forceMute(null)
+      else if (media.screen) void stopScreenShare()
+    },
+    onState: (state) => {
+      if (state === 'reconnecting' && status.value === 'joined') status.value = 'reconnecting'
+      if (state === 'connected' && status.value === 'reconnecting' && boundSocket?.connected) status.value = 'joined'
+      // The media server dropped this browser for good: join the call again for a new pass.
+      if (state === 'lost' && inCall.value) void rejoin()
+    },
+  })
+
+  /** Connects this browser's media the way the server says (direct connections, or the media server). */
+  async function useRoute(next: MediaRoute | undefined) {
+    route = next ?? { mode: 'direct' }
+    mediaMode.value = route.mode
+    if (route.mode !== 'sfu') return sfu.disconnect()
+    sfuPresent.clear()
+    try {
+      await sfu.connect(route.url, route.token)
+      await refreshOutgoing()
+    } catch (error) {
+      callError.value = `Could not reach the video server: ${getErrorMessage(error)}`
+    }
   }
 
   function scheduleIceRestart(connection: Connection, delay: number) {
@@ -355,23 +576,17 @@ function createCall() {
     void attach(connection, 'video', outgoingVideo())
   }
 
+  /** A direct connection to this person (with the media server, everyone's media arrives through it instead). */
   function connect(peerId: string) {
     const existing = connections.get(peerId)
     if (existing) return existing
+    if (route.mode === 'sfu') return null
     const pc = new RTCPeerConnection(rtcConfig)
     const connection: Connection = { pc, polite: (selfId.value ?? '') < peerId, makingOffer: false, ignoreOffer: false, settingAnswer: false, senders: {}, started: false }
     connections.set(peerId, connection)
 
     pc.onicecandidate = (event) => event.candidate && send(peerId, { candidate: event.candidate.toJSON() })
-    pc.ontrack = (event) => {
-      const stream = streams.get(peerId) ?? new MediaStream()
-      for (const old of stream.getTracks()) if (old.kind === event.track.kind && old !== event.track) stream.removeTrack(old)
-      if (!stream.getTracks().includes(event.track)) stream.addTrack(event.track)
-      streams.set(peerId, stream)
-      const bump = () => updatePeer(peerId, (peer) => ({ stream, revision: peer.revision + 1 }))
-      event.track.onunmute = bump
-      bump()
-    }
+    pc.ontrack = (event) => receiveTrack(peerId, event.track)
     pc.onconnectionstatechange = () => {
       updatePeer(peerId, { connection: pc.connectionState })
       if (pc.connectionState === 'connected') void tuneSenders()
@@ -398,6 +613,7 @@ function createCall() {
 
   async function onSignal({ from, data }: { from: string; data: Signal }) {
     const connection = connections.get(from) ?? connect(from)
+    if (!connection) return
     const { pc } = connection
     try {
       if (data.description) {
@@ -443,13 +659,17 @@ function createCall() {
     ...peer,
     stream: streams.get(peer.socketId) ?? null,
     revision: 0,
-    connection: connections.get(peer.socketId)?.pc.connectionState ?? 'new',
+    connection: route.mode === 'sfu' ? (sfuPresent.has(peer.socketId) ? 'connected' : 'connecting') : (connections.get(peer.socketId)?.pc.connectionState ?? 'new'),
+    quality: null,
+    qualityNote: null,
   })
 
   /** The people in this room now: connections to people still here stay, new people are connected to. */
   function reconcile(list: PeerInfo[]) {
     const keep = new Set(list.map((peer) => peer.socketId))
-    for (const socketId of [...connections.keys()]) if (!keep.has(socketId)) dropPeer(socketId)
+    for (const socketId of new Set([...connections.keys(), ...streams.keys(), ...peers.value.map((peer) => peer.socketId)])) {
+      if (!keep.has(socketId)) dropPeer(socketId)
+    }
     const current = new Map(peers.value.map((peer) => [peer.socketId, peer]))
     peers.value = list.map((peer) => {
       const known = current.get(peer.socketId)
@@ -527,6 +747,35 @@ function createCall() {
     audioContext = null
     speaking.value = []
     activeSpeaker.value = null
+  }
+
+  // --- Connection quality (direct connections; the media server reports its own) ------------------------------------
+
+  const samples = new Map<string, StatsSample>()
+  let statsTimer: ReturnType<typeof setInterval> | null = null
+
+  async function measureConnections() {
+    if (route.mode === 'sfu') return
+    const results: Array<CallQuality | null> = []
+    for (const [peerId, connection] of connections) {
+      const health = await measureConnection(connection.pc, samples.get(peerId) ?? null)
+      if (!health) continue
+      samples.set(peerId, health.sample)
+      results.push(health.quality)
+      const parts = [health.rttMs !== null && `${health.rttMs} ms delay`, health.lossPercent !== null && `${health.lossPercent}% lost`].filter(Boolean)
+      updatePeer(peerId, { quality: health.quality, qualityNote: parts.length ? parts.join(', ') : null })
+    }
+    quality.value = worstQuality(results)
+  }
+
+  function startStats() {
+    statsTimer ??= setInterval(() => void measureConnections(), STATS_EVERY_MS)
+  }
+  function stopStats() {
+    if (statsTimer) clearInterval(statsTimer)
+    statsTimer = null
+    samples.clear()
+    quality.value = null
   }
 
   // --- Keeping the screen awake -------------------------------------------------------------------------------------
@@ -619,12 +868,17 @@ function createCall() {
     if (socketId === selfId.value) hand.value = raised
     else updatePeer(socketId, { hand: raised })
   }
-  const onMoved = (payload: { room: string | null; roomName: string | null; peers: PeerInfo[]; chat: ChatMessage[] }) => {
+  const onMoved = async (payload: { room: string | null; roomName: string | null; peers: PeerInfo[]; chat?: ChatMessage[]; media?: MediaRoute }) => {
     const changedRoom = payload.room !== room.value
     room.value = payload.room
     roomName.value = payload.roomName
+    // With the media server, each room is its own media room: move there before connecting to the people in it.
+    if (changedRoom && payload.media?.mode === 'sfu') {
+      reconcile([])
+      await useRoute(payload.media)
+    }
     reconcile(payload.peers)
-    if (changedRoom) {
+    if (changedRoom && payload.chat) {
       chat.value = payload.chat
       unreadChat.value = 0
     }
@@ -639,11 +893,81 @@ function createCall() {
   }
   const onAdmitted = () => void enter()
   const onDenied = ({ reason }: { reason?: string }) => {
-    callError.value = reason === 'guests-off' ? 'The host turned off guest access.' : 'Nobody let you in this time. You can ask again.'
+    callError.value =
+      reason === 'guests-off'
+        ? 'The host turned off guest access.'
+        : reason === 'locked'
+          ? 'The host locked the call, so nobody new can join right now.'
+          : 'Nobody let you in this time. You can ask again.'
     stopWatching()
     bind(null)
     status.value = 'preview'
   }
+  /**
+   * Someone running the call turned this microphone off (`by`), or the host does not allow unmuting now (`by` null).
+   * Turning it back on stays up to this person when the host allows it.
+   */
+  function forceMute(by: string | null) {
+    const track = audioTrack()
+    if (track) track.enabled = false
+    if (!media.audio) return
+    media.audio = false
+    void refreshOutgoing()
+    shareMedia()
+    if (by) toast(`${by} muted you`, { description: permissions.value.unmute || canManage.value ? 'Unmute when you want to speak.' : undefined })
+    else toast('The host turned off unmuting for now')
+  }
+  const onMuted = ({ by }: { by: string | null }) => forceMute(by)
+  const onStopShare = ({ by }: { by: string | null }) => {
+    if (!media.screen) return
+    void stopScreenShare()
+    toast(by ? `${by} stopped your screen sharing` : 'The host turned off screen sharing for now')
+  }
+  const onPermissions = ({ permissions: next, by }: { permissions: CallPermissions; by: string }) => {
+    const before = permissions.value
+    permissions.value = next
+    if (canManage.value) return
+    if (before.chat !== next.chat) toast(next.chat ? `${by} turned chat back on` : `${by} turned chat off`)
+    if (before.share !== next.share) toast(next.share ? `${by} allows screen sharing again` : `${by} turned off screen sharing`)
+    if (before.unmute !== next.unmute) toast(next.unmute ? `${by} allows unmuting again` : `${by} muted everyone and turned off unmuting`)
+  }
+  const onSpotlight = ({ socketId, by }: { socketId: string | null; by?: string }) => {
+    spotlight.value = socketId
+    if (socketId === selfId.value && by) toast(`${by} put you in the spotlight`, { description: 'Everyone sees you large now.' })
+  }
+  const onRecording = ({ recording: next }: { recording: { by: string; since: string } | null }) => {
+    const started = !recording.value && next
+    recording.value = next
+    if (started && !recordingHere.value) toast(`${next.by} started recording the call`, { description: 'Everyone in the call can watch the recording afterwards.' })
+  }
+  const onTranscribing = ({ transcribing: next, by }: { transcribing: { by: string; since: string } | null; by: string }) => {
+    const changed = Boolean(transcribing.value) !== Boolean(next)
+    transcribing.value = next
+    if (!next) captions.value = []
+    if (changed && by !== selfUser.value?.name) toast(next ? `${by} turned on live captions` : `${by} turned off live captions`)
+  }
+  const onCaption = (caption: Omit<Caption, 'at'>) => {
+    const entry = { ...caption, at: Date.now() }
+    const known = captions.value.findIndex((item) => item.id === caption.id)
+    const list = known >= 0 ? captions.value.map((item, index) => (index === known ? entry : item)) : [...captions.value, entry]
+    captions.value = list.filter((item) => !item.final || Date.now() - item.at < CAPTION_LINGER_MS).slice(-4)
+    if (caption.final) setTimeout(() => (captions.value = captions.value.filter((item) => item.id !== caption.id || !item.final)), CAPTION_LINGER_MS)
+  }
+  const onRemoved = ({ meetingId: id }: { meetingId: string }) => {
+    if (id !== meetingId.value) return
+    closedReason.value = 'removed'
+    leave()
+  }
+  const onRole = ({ role: next, by }: { role: CallRole; by: string }) => {
+    role.value = next
+    canManage.value = Boolean(next)
+    toast(next ? `${by} made you a co-host` : `${by} took back your co-host role`)
+  }
+  const onLocked = ({ locked: next, by }: { locked: boolean; by: string }) => {
+    locked.value = next
+    toast(next ? `${by} locked the call` : `${by} unlocked the call`)
+  }
+
   const onSocketDown = () => {
     if (status.value === 'joined') status.value = 'reconnecting'
   }
@@ -674,6 +998,17 @@ function createCall() {
     'meeting:wb:open': ({ open }: { open: boolean }) => (boardOpen.value = open),
     'meeting:closed': onClosed,
     'meeting:changed': onChanged,
+    'meeting:muted': onMuted,
+    'meeting:removed': onRemoved,
+    'meeting:role': onRole,
+    'meeting:peer-role': ({ socketId, role: next }: { socketId: string; role: CallRole }) => updatePeer(socketId, { role: next }),
+    'meeting:locked': onLocked,
+    'meeting:stop-share': onStopShare,
+    'meeting:permissions': onPermissions,
+    'meeting:spotlight': onSpotlight,
+    'meeting:recording': onRecording,
+    'meeting:transcribing': onTranscribing,
+    'meeting:caption': onCaption,
     disconnect: onSocketDown,
     connect: onSocketUp,
   } as const
@@ -693,7 +1028,7 @@ function createCall() {
   }
 
   function closeConnections() {
-    for (const socketId of [...connections.keys()]) dropPeer(socketId)
+    for (const socketId of new Set([...connections.keys(), ...streams.keys()])) dropPeer(socketId)
     peers.value = []
   }
 
@@ -721,16 +1056,27 @@ function createCall() {
     }
     selfId.value = result.selfId ?? selfId.value
     canManage.value = Boolean(result.canManage)
+    role.value = result.role ?? null
+    locked.value = Boolean(result.locked)
+    permissions.value = result.permissions ?? { ...DEFAULT_PERMISSIONS }
+    spotlight.value = result.spotlight ?? null
+    recording.value = result.recording ?? null
+    transcribing.value = result.transcribing ?? null
+    capacity.value = result.capacity ?? null
     room.value = null
     roomName.value = null
     chat.value = result.chat ?? []
     breakouts.value = result.breakouts ?? null
     lobby.value = result.lobby ?? []
+    // The host may not allow unmuting right now: join muted.
+    if (media.audio && !canManage.value && !permissions.value.unmute) forceMute(null)
+    await useRoute(result.media)
     reconcile(result.peers ?? [])
     status.value = 'joined'
     if (media.audio || media.video) shareMedia()
     if (hand.value) boundSocket?.emit('meeting:hand', { raised: true })
     startMeters()
+    startStats()
     void holdScreen()
     void loadShared()
   }
@@ -780,13 +1126,18 @@ function createCall() {
     socketWatch = null
   }
 
-  /** Leaves the call (or the lobby) and releases the camera and microphone. */
+  /** Leaves the call (or the lobby) and releases the camera and microphone. A recording made here is still saved. */
   function leave() {
+    if (recordingHere.value) void stopRecording()
     if (meetingId.value) boundSocket?.emit('meeting:leave')
     stopWatching()
     bind(null)
     closeConnections()
+    void sfu.disconnect()
+    route = { mode: 'direct' }
     stopMeters()
+    stopStats()
+    captioner.stop()
     releaseScreen()
     stopBlur()
     screenStream.value?.getTracks().forEach((track) => track.stop())
@@ -804,6 +1155,12 @@ function createCall() {
     room.value = null
     roomName.value = null
     breakouts.value = null
+    locked.value = false
+    permissions.value = { ...DEFAULT_PERMISSIONS }
+    spotlight.value = null
+    recording.value = null
+    transcribing.value = null
+    captions.value = []
     polls.value = []
     boardOpen.value = false
     boardStrokes.clear()
@@ -819,6 +1176,7 @@ function createCall() {
     title.value = ''
     isGuest.value = false
     canManage.value = false
+    role.value = null
     if (status.value === 'left') status.value = 'idle'
   }
 
@@ -826,6 +1184,7 @@ function createCall() {
 
   /** Mutes or unmutes; asks for the microphone first when it was not allowed or found before. */
   async function toggleAudio() {
+    if (!media.audio && inCall.value && !canManage.value && !permissions.value.unmute) throw new Error('The host turned off unmuting for now.')
     if (!audioTrack()) {
       await requestTrack('audio')
       media.audio = true
@@ -879,6 +1238,7 @@ function createCall() {
   async function toggleScreenShare() {
     if (media.screen) return stopScreenShare()
     if (!canShareScreen) throw new Error('This device cannot share its screen.')
+    if (!canManage.value && !permissions.value.share) throw new Error('The host turned off screen sharing for now.')
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 15, max: 30 } }, audio: false })
       screenStream.value = stream
@@ -910,6 +1270,97 @@ function createCall() {
   const moveToRoom = (socketId: string | null, roomId: string | null) => act('meeting:breakouts:move', { socketId, room: roomId })
   const closeBreakouts = () => act('meeting:breakouts:close')
   const broadcastToRooms = (body: string) => act('meeting:breakouts:broadcast', { body })
+
+  /** Whether this person may mute or remove someone with `other` role (only people ranked below them). */
+  const canModerate = (other: CallRole) => canManage.value && roleRank(other) < roleRank(role.value)
+  const mutePerson = (socketId: string) => act('meeting:mute', { socketId })
+  async function muteEveryone() {
+    const result = (await act('meeting:mute-all')) as Ack & { muted?: number }
+    return result.muted ?? 0
+  }
+  const removePerson = (socketId: string) => act('meeting:remove', { socketId })
+  async function setLocked(next: boolean) {
+    await act('meeting:lock', { locked: next })
+    locked.value = next
+  }
+  const setCohost = (socketId: string, cohost: boolean) => act('meeting:cohost', { socketId, cohost })
+  const stopShareOf = (socketId: string) => act('meeting:stop-share', { socketId })
+  async function setPermissions(changes: Partial<CallPermissions>) {
+    await act('meeting:permissions', changes)
+    permissions.value = { ...permissions.value, ...changes }
+  }
+  const setSpotlight = (socketId: string | null) => act('meeting:spotlight', { socketId })
+
+  // --- Live captions ----------------------------------------------------------------------------------------------
+
+  const captioner = createCaptioner(
+    (part) => boundSocket?.emit('meeting:caption', part),
+    (reason) => (deviceNote.value = reason),
+  )
+  // Each browser captions its own speaker, only while captions are on and its microphone is.
+  watch(
+    () => Boolean(inCall.value && transcribing.value && media.audio),
+    (on) => (on && captionsSupported ? captioner.start() : captioner.stop()),
+  )
+  const setTranscribing = (on: boolean) => act('meeting:transcribe', { on })
+  function toggleCaptionsView() {
+    showCaptions.value = !showCaptions.value
+    localStorage.setItem(CAPTIONS_KEY, showCaptions.value ? '1' : '0')
+  }
+
+  // --- Recording ----------------------------------------------------------------------------------------------------
+
+  const voices = () => [audioTrack(), ...peers.value.map((peer) => peer.stream?.getAudioTracks()[0] ?? null)].filter((track): track is MediaStreamTrack => Boolean(track))
+  watch(
+    () => [peers.value.map((peer) => `${peer.socketId}:${peer.revision}`).join(), localRevision.value, media.audio] as const,
+    () => recorder?.setAudio(voices()),
+  )
+
+  /** Records the call in this browser; everyone is told. The file is uploaded to the meeting when it stops. */
+  async function startRecording() {
+    if (!recordingSupported) throw new Error('This browser cannot record calls. Use Chrome or Edge on a computer.')
+    const started = await act('meeting:recording', { on: true })
+    const id = started.recordingId!
+    const forMeeting = meetingId.value!
+    try {
+      recorder = await startRecorder(() => void stopRecording())
+    } catch (error) {
+      await emit('meeting:recording', { on: false })
+      await meetingsApi.removeRecording(forMeeting, id).catch(() => undefined)
+      if (error instanceof DOMException && error.name === 'NotAllowedError') return
+      throw new Error('Recording could not start: choose this tab when the browser asks what to record.')
+    }
+    recordingId = id
+    recordingHere.value = true
+    recorder.setAudio(voices())
+  }
+
+  async function stopRecording() {
+    const current = recorder
+    const id = recordingId
+    const forMeeting = meetingId.value
+    if (!current || !id || !forMeeting) return
+    recorder = null
+    recordingId = null
+    recordingHere.value = false
+    void emit('meeting:recording', { on: false })
+    const finished = await current.stop()
+    uploadProgress.value = 0
+    try {
+      await meetingsApi.uploadRecording(forMeeting, id, finished.blob, finished.durationSeconds, (percent) => (uploadProgress.value = percent))
+      toast.success('Recording saved', { description: 'Everyone invited can watch it from the meeting page.' })
+    } catch (error) {
+      toast.error(`The recording could not be saved: ${getErrorMessage(error)}`)
+    } finally {
+      uploadProgress.value = null
+    }
+  }
+
+  // With the media server and a big call, only the person shown large comes in at full quality.
+  watch(
+    () => spotlight.value ?? peers.value.find((peer) => peer.media.screen)?.socketId ?? activeSpeaker.value,
+    (identity) => sfu.feature(identity),
+  )
 
   async function createPoll(question: string, options: string[]) {
     const result = await act('meeting:poll:create', { question, options })
@@ -981,6 +1432,8 @@ function createCall() {
     isGuest,
     selfUser,
     canManage,
+    role,
+    locked,
     localStream,
     localRevision,
     screenStream,
@@ -1010,6 +1463,21 @@ function createCall() {
     boardStrokes,
     blurOn,
     blurBusy,
+    permissions,
+    spotlight,
+    recording,
+    recordingHere,
+    uploadProgress,
+    transcribing,
+    captions,
+    showCaptions,
+    quality,
+    mediaMode,
+    capacity,
+    devices,
+    chosenDevices,
+    refreshDevices,
+    chooseDevice,
     startPreview,
     stopPreview,
     join,
@@ -1028,6 +1496,19 @@ function createCall() {
     moveToRoom,
     closeBreakouts,
     broadcastToRooms,
+    canModerate,
+    mutePerson,
+    muteEveryone,
+    removePerson,
+    setLocked,
+    setCohost,
+    stopShareOf,
+    setPermissions,
+    setSpotlight,
+    setTranscribing,
+    toggleCaptionsView,
+    startRecording,
+    stopRecording,
     createPoll,
     vote,
     closePoll,

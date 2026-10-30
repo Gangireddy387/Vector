@@ -2,7 +2,7 @@ import { MeetingParticipant, Organization } from '../../database/models.js';
 import { pushToUsers } from '../push/push.service.js';
 
 /** Organization links open the meeting in the right organization, also for people who belong to several. */
-async function meetingUrl(meeting) {
+export async function meetingUrl(meeting) {
   const organization = await Organization.findByPk(meeting.organizationId, { attributes: ['slug'] });
   return organization ? `/${organization.slug}/meetings/${meeting.id}` : `/meetings/${meeting.id}`;
 }

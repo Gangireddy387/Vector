@@ -14,6 +14,7 @@ import { connectGuestRealtime, connectRealtime, disconnectRealtime } from '@/lib
 import { useAuthStore } from '@/modules/auth/auth.store'
 import CallView from '../components/CallView.vue'
 import GuestPanel from '../components/GuestPanel.vue'
+import DeviceSettings from '../components/DeviceSettings.vue'
 import VideoTile from '../components/VideoTile.vue'
 import { type GuestLinkInfo, meetingsApi } from '../meetings.api'
 import { type CallUser, blurSupported, useMeetingCall } from '../useMeetingCall'
@@ -122,7 +123,11 @@ watch(
   () => call.closedReason.value,
   (reason) => {
     if (!reason) return
-    ended.value = reason === 'cancelled' ? 'The meeting was cancelled.' : 'The host ended the meeting.'
+    const messages: Record<string, string> = {
+      cancelled: 'The meeting was cancelled.',
+      removed: 'You were removed from the call.',
+    }
+    ended.value = messages[reason] ?? 'The host ended the meeting.'
     call.closedReason.value = null
     stopGuestConnection()
   },
@@ -207,6 +212,7 @@ const startsLabel = computed(() => (info.value ? format(parseISO(info.value.meet
                 >
                   <Sparkles class="size-5" />
                 </button>
+                <DeviceSettings button-class="flex size-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25" />
               </div>
             </div>
             <p v-if="call.deviceNote.value" class="border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 dark:text-warning">{{ call.deviceNote.value }}</p>

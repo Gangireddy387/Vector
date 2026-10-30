@@ -29,7 +29,15 @@ import { Department, Team, TeamMember } from '../modules/departments/department.
 import { CalendarEvent } from '../modules/calendar/calendar-event.model.js';
 import { SupportMessage } from '../modules/support/support-message.model.js';
 import { Conversation, ConversationHiddenMessage, ConversationMember, ConversationMessage } from '../modules/messages/conversation.model.js';
-import { Meeting, MeetingParticipant, MeetingPoll, MeetingUpdate } from '../modules/meetings/meeting.model.js';
+import {
+  Meeting,
+  MeetingChatMessage,
+  MeetingParticipant,
+  MeetingPoll,
+  MeetingRecording,
+  MeetingTranscriptLine,
+  MeetingUpdate,
+} from '../modules/meetings/meeting.model.js';
 import { PushSubscription } from '../modules/push/push-subscription.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
@@ -181,6 +189,10 @@ Meeting.hasMany(MeetingUpdate, { as: 'updates', foreignKey: 'meetingId', ...casc
 MeetingUpdate.belongsTo(User, { as: 'author', foreignKey: 'authorId', onDelete: 'SET NULL' });
 Meeting.hasMany(MeetingPoll, { as: 'polls', foreignKey: 'meetingId', ...cascade });
 MeetingPoll.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+Meeting.hasMany(MeetingChatMessage, { as: 'chatMessages', foreignKey: 'meetingId', ...cascade });
+Meeting.hasMany(MeetingTranscriptLine, { as: 'transcript', foreignKey: 'meetingId', ...cascade });
+Meeting.hasMany(MeetingRecording, { as: 'recordings', foreignKey: 'meetingId', ...cascade });
+MeetingRecording.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
 
 // Devices that receive this person's push notifications
 User.hasMany(PushSubscription, { as: 'pushSubscriptions', foreignKey: 'userId', ...cascade });
@@ -229,5 +241,8 @@ export {
   MeetingParticipant,
   MeetingUpdate,
   MeetingPoll,
+  MeetingChatMessage,
+  MeetingTranscriptLine,
+  MeetingRecording,
   PushSubscription,
 };

@@ -1,14 +1,31 @@
 import crypto from 'node:crypto';
 import { Op } from 'sequelize';
-import { CalendarEvent, Department, Meeting, MeetingParticipant, MeetingUpdate, OrganizationMember, Project, Team, User } from '../../database/models.js';
+import {
+  CalendarEvent,
+  Department,
+  Meeting,
+  MeetingChatMessage,
+  MeetingParticipant,
+  MeetingRecording,
+  MeetingTranscriptLine,
+  MeetingUpdate,
+  OrganizationMember,
+  Project,
+  Team,
+  User,
+} from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { emitToUser, isUserOnline } from '../../shared/realtime/socket.js';
 import { localDateTime } from '../../shared/utils/timezone.js';
+import { deleteStoredFile } from '../attachments/attachment.storage.js';
 import { notifyUsers } from '../notifications/notification.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { flushBoard, forgetBoard, meetingPolls } from './meeting.collab.js';
+import { emailMeeting, remindedAtFor } from './meeting.notify.js';
 import { nextStart } from './meeting.recurrence.js';
-import { closeCall, dismissLobby, guestsInCall, peopleInCall } from './meeting.signaling.js';
+import { recordingView } from './meeting.recordings.js';
+import { callPresence, closeCall, dismissLobby } from './meeting.signaling.js';
+import { canSummarize, summarizeInBackground, summarizeMeeting } from './meeting.summary.js';
 
 /*
  * Every function takes the `viewer`: { id, name, organization, isAdmin }. Organization admins, department heads and
@@ -33,7 +50,10 @@ export async function canSchedule(viewer) {
 const endsAt = (meeting) => new Date(new Date(meeting.startsAt).getTime() + meeting.durationMinutes * 60_000);
 const newGuestToken = () => crypto.randomBytes(18).toString('base64url');
 
-function summarize(meeting, viewer) {
+const NOBODY = { inCall: [], guests: 0 };
+
+/** `presence`: who is in its call now (from `callPresence`). */
+function summarize(meeting, viewer, presence = NOBODY) {
   const json = meeting.toJSON();
   const canManage = viewer.isAdmin || json.hostId === viewer.id;
   return {
@@ -58,13 +78,18 @@ function summarize(meeting, viewer) {
     context: json.contextType && json.contextId ? { type: json.contextType, id: json.contextId } : null,
     recurrence: json.recurrence,
     seriesId: json.seriesId,
-    inCall: peopleInCall(json.id),
-    guestsInCall: guestsInCall(json.id),
+    inCall: presence.inCall,
+    guestsInCall: presence.guests,
+    summary: json.summary ?? null,
     /** Only the people who manage the meeting see (and share) the guest link. */
     guestToken: canManage ? json.guestToken : null,
     guestAccess: Boolean(json.guestToken),
     canManage,
   };
+}
+
+async function present(meeting, viewer) {
+  return summarize(meeting, viewer, (await callPresence([meeting.id])).get(meeting.id));
 }
 
 async function loadMeeting(viewer, meetingId) {
@@ -97,13 +122,17 @@ export async function listMeetings(viewer, scope, context = null) {
   );
   const meetings = await Meeting.findAll({ where: { [Op.and]: conditions }, include: includeAll, order: [['startsAt', scope === 'past' ? 'DESC' : 'ASC']], limit: 200 });
   const isUpcoming = (meeting) => meeting.status === 'live' || (meeting.status === 'scheduled' && endsAt(meeting).getTime() > now);
-  return meetings.filter((meeting) => (scope === 'past' ? !isUpcoming(meeting) : isUpcoming(meeting))).map((meeting) => summarize(meeting, viewer));
+  const listed = meetings.filter((meeting) => (scope === 'past' ? !isUpcoming(meeting) : isUpcoming(meeting)));
+  const presence = await callPresence(listed.map((meeting) => meeting.id));
+  return listed.map((meeting) => summarize(meeting, viewer, presence.get(meeting.id)));
 }
 
+/** Everything kept with a meeting: updates, polls, whiteboard, the call's chat and transcript, and recordings. */
 export async function getMeeting(viewer, meetingId) {
   const meeting = await loadMeeting(viewer, meetingId);
-  if (peopleInCall(meeting.id).length) await flushBoard(meeting.id);
-  const [updates, polls, board] = await Promise.all([
+  const presence = (await callPresence([meeting.id])).get(meeting.id);
+  if (presence.inCall.length) await flushBoard(meeting.id);
+  const [updates, polls, board, chat, transcript, recordings] = await Promise.all([
     MeetingUpdate.findAll({
       where: { meetingId },
       include: [{ model: User, as: 'author', attributes: USER_SUMMARY_ATTRIBUTES }],
@@ -111,8 +140,19 @@ export async function getMeeting(viewer, meetingId) {
     }),
     meetingPolls(meetingId, viewer.id),
     Meeting.findByPk(meetingId, { attributes: ['whiteboard'] }),
+    MeetingChatMessage.findAll({ where: { meetingId }, order: [['createdAt', 'ASC']], limit: 2000 }),
+    MeetingTranscriptLine.findAll({ where: { meetingId }, order: [['spokenAt', 'ASC']], limit: 5000 }),
+    MeetingRecording.findAll({ where: { meetingId }, include: [{ model: User, as: 'createdBy', attributes: ['id', 'name'] }], order: [['startedAt', 'ASC']] }),
   ]);
-  return { meeting: summarize(meeting, viewer), updates, polls, whiteboard: board?.whiteboard?.strokes?.length ? board.whiteboard : null };
+  return {
+    meeting: summarize(meeting, viewer, presence),
+    updates,
+    polls,
+    whiteboard: board?.whiteboard?.strokes?.length ? board.whiteboard : null,
+    chat: chat.map((row) => ({ id: row.id, at: row.createdAt, author: row.author, body: row.body, room: row.room, roomName: row.roomName, broadcast: row.broadcast })),
+    transcript: transcript.map((line) => ({ id: line.id, speaker: line.speaker, text: line.text, at: line.spokenAt })),
+    recordings: recordings.map((recording) => recordingView(recording, viewer, meeting)),
+  };
 }
 
 async function activeMemberIds(organizationId, userIds) {
@@ -160,6 +200,7 @@ async function setParticipants(meeting, userIds) {
   return added;
 }
 
+/** In the app, and by email with a calendar file (sent in the background so saving the meeting stays quick). */
 async function invite(meeting, viewer, userIds) {
   if (!userIds.length) return;
   await notifyUsers({
@@ -171,7 +212,11 @@ async function invite(meeting, viewer, userIds) {
     link: meetingLink(meeting),
     email: false,
   });
+  mailLater(meeting, 'invite', userIds);
 }
+
+const mailLater = (meeting, kind, userIds) =>
+  void emailMeeting(meeting, kind, userIds).catch((error) => console.warn(`[meetings] could not email the ${kind} for “${meeting.title}”:`, error.message));
 
 const CONTEXT_MODELS = { department: Department, team: Team, project: Project };
 
@@ -208,6 +253,7 @@ export async function createMeeting(viewer, input) {
     recurrence: input.recurrence ?? null,
     seriesId: input.recurrence ? id : null,
     guestToken: input.guestAccess ? newGuestToken() : null,
+    remindedAt: remindedAtFor(input.startsAt),
   });
   await MeetingParticipant.bulkCreate(participantIds.map((userId) => ({ meetingId: created.id, userId })));
   const meeting = await reload(created);
@@ -240,14 +286,27 @@ export async function updateMeeting(viewer, meetingId, changes) {
     else if (recurrence) fields.seriesId = meeting.id;
     fields.recurrence = recurrence;
   }
+  const moved = fields.startsAt && new Date(fields.startsAt).getTime() !== new Date(meeting.startsAt).getTime();
+  if (moved) fields.remindedAt = remindedAtFor(fields.startsAt);
+  const detailsChanged =
+    moved ||
+    (fields.durationMinutes !== undefined && fields.durationMinutes !== meeting.durationMinutes) ||
+    (fields.title !== undefined && fields.title !== meeting.title) ||
+    (fields.agenda !== undefined && fields.agenda !== meeting.agenda);
+  const before = new Set(meeting.participants.map((participant) => participant.userId));
   await meeting.update(fields);
   let added = [];
   if (participantIds) added = await setParticipants(meeting, await activeMemberIds(viewer.organization.id, participantIds));
   const updated = await reload(meeting);
-  if (participantIds || fields.startsAt || fields.durationMinutes || fields.title || fields.agenda !== undefined) await syncCalendar(updated);
+  if (participantIds || detailsChanged) await syncCalendar(updated);
   await invite(updated, viewer, added);
+  if (detailsChanged && updated.status === 'scheduled') {
+    mailLater(updated, 'update', updated.participants.map((participant) => participant.userId).filter((userId) => before.has(userId)));
+  }
+  const removed = [...before].filter((userId) => !updated.participants.some((participant) => participant.userId === userId));
+  if (removed.length) mailLater(updated, 'cancel', removed);
   notifyChanged(updated);
-  return summarize(updated, viewer);
+  return present(updated, viewer);
 }
 
 /**
@@ -270,9 +329,10 @@ export async function cancelMeeting(viewer, meetingId, { series = false } = {}) 
   }
   for (const item of cancelled) {
     await item.update({ status: 'cancelled', ...(series ? { recurrence: null } : {}) });
-    closeCall(item.id, 'cancelled');
+    await closeCall(item.id, 'cancelled');
     await syncCalendar(item);
     notifyChanged(item);
+    mailLater(item, 'cancel', item.participants.map((participant) => participant.userId));
   }
   if (!series && meeting.recurrence && !meeting.continued) await continueOccurrence(meeting);
 
@@ -285,28 +345,32 @@ export async function cancelMeeting(viewer, meetingId, { series = false } = {}) 
     link: meetingLink(meeting),
     email: false,
   });
-  return summarize(await reload(meeting), viewer);
+  return present(await reload(meeting), viewer);
 }
 
-/** Ends the call for everyone; the notes and updates stay. */
+/** Ends the call for everyone; the notes, updates, chat and transcript stay (and a summary is written when possible). */
 export async function endMeeting(viewer, meetingId) {
   const meeting = await loadMeeting(viewer, meetingId);
   assertManage(viewer, meeting);
   if (meeting.status !== 'ended') await meeting.update({ status: 'ended', endedAt: new Date() });
-  closeCall(meeting.id, 'ended');
+  await closeCall(meeting.id, 'ended');
   notifyChanged(meeting);
+  summarizeInBackground(meeting.id);
   return summarize(await reload(meeting), viewer);
 }
 
-/** Removes a meeting that is over (ended, cancelled, or its time passed without a call), with its updates and notes. */
+/** Removes a meeting that is over (ended, cancelled, or its time passed without a call), with everything kept with it. */
 export async function deleteMeeting(viewer, meetingId) {
   const meeting = await loadMeeting(viewer, meetingId);
   assertManage(viewer, meeting);
   const isOver = ['ended', 'cancelled'].includes(meeting.status) || (meeting.status === 'scheduled' && endsAt(meeting).getTime() <= Date.now());
-  if (!isOver || peopleInCall(meeting.id).length) throw ApiError.badRequest('Only past meetings can be deleted. Cancel an upcoming meeting instead.');
-  forgetBoard(meeting.id);
+  const { inCall } = (await callPresence([meeting.id])).get(meeting.id);
+  if (!isOver || inCall.length) throw ApiError.badRequest('Only past meetings can be deleted. Cancel an upcoming meeting instead.');
+  await forgetBoard(meeting.id);
+  const recordings = await MeetingRecording.findAll({ where: { meetingId: meeting.id }, attributes: ['storageKey'] });
   await CalendarEvent.destroy({ where: { meetingId: meeting.id } });
   await meeting.destroy();
+  await Promise.all(recordings.filter((recording) => recording.storageKey).map((recording) => deleteStoredFile(recording.storageKey)));
   notifyChanged(meeting);
 }
 
@@ -321,8 +385,21 @@ export async function setGuestAccess(viewer, meetingId, { enabled, reset = false
   const guestToken = enabled ? (reset || !meeting.guestToken ? newGuestToken() : meeting.guestToken) : null;
   if (meeting.seriesId) await Meeting.update({ guestToken }, { where: openOccurrences(meeting) });
   await meeting.update({ guestToken });
-  if (!guestToken) dismissLobby(meeting.id);
-  return summarize(await reload(meeting), viewer);
+  if (!guestToken) await dismissLobby(meeting.id);
+  return present(await reload(meeting), viewer);
+}
+
+/** The meeting row itself, for someone who may open it (e.g. to build its calendar file). */
+export const meetingRecord = (viewer, meetingId) => loadMeeting(viewer, meetingId);
+
+/** Writes the meeting's summary again from what was said, written and shared (host and admins). */
+export async function writeSummary(viewer, meetingId) {
+  const meeting = await loadMeeting(viewer, meetingId);
+  assertManage(viewer, meeting);
+  if (!canSummarize()) throw ApiError.badRequest('Summaries need the AI assistant. Set OPENAI_API_KEY on the server to turn it on.');
+  const summary = await summarizeMeeting(meeting.id);
+  if (!summary) throw ApiError.badRequest('There is nothing to summarize yet: turn on captions, chat, or share updates and notes first.');
+  return summary;
 }
 
 export async function postUpdate(viewer, meetingId, body) {
@@ -377,6 +454,7 @@ async function continueOccurrence(meeting) {
     recurrence: meeting.recurrence,
     seriesId: meeting.seriesId ?? meeting.id,
     guestToken: meeting.guestToken,
+    remindedAt: remindedAtFor(startsAt),
   });
   if (participantIds.length) await MeetingParticipant.bulkCreate(participantIds.map((userId) => ({ meetingId: next.id, userId })), { ignoreDuplicates: true });
   const loaded = await reload(next);

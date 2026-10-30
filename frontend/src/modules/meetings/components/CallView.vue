@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { differenceInSeconds, parseISO } from 'date-fns'
-import { DoorOpen, LoaderCircle, Undo2, UsersRound } from 'lucide-vue-next'
+import { CloudUpload, DoorOpen, LoaderCircle, Lock, Undo2, UsersRound } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useDevice } from '@/composables/useDevice'
@@ -39,9 +39,13 @@ const gridClass = computed(() => {
   const count = tiles.value.length
   if (count === 1) return 'grid-cols-1 max-w-4xl'
   if (count <= 4) return 'grid-cols-1 sm:grid-cols-2 max-w-6xl'
-  return 'grid-cols-2 lg:grid-cols-3'
+  if (count <= 9) return 'grid-cols-2 lg:grid-cols-3'
+  if (count <= 16) return 'grid-cols-3 lg:grid-cols-4'
+  return 'grid-cols-3 md:grid-cols-4 xl:grid-cols-6 content-start'
 })
 const firstWaiting = computed(() => (call.isGuest.value ? null : (call.lobby.value[0] ?? null)))
+const shownCaptions = computed(() => (call.transcribing.value && call.showCaptions.value ? call.captions.value : []))
+const speakerName = (caption: { socketId: string; speaker: { name: string } }) => (caption.socketId === call.selfId.value ? 'You' : caption.speaker.name)
 
 const backToMain = () => call.moveToRoom(null, null).catch((error: Error) => toast.error(error.message))
 </script>
@@ -54,6 +58,24 @@ const backToMain = () => call.moveToRoom(null, null).catch((error: Error) => toa
         <h1 class="min-w-0 truncate text-sm font-semibold">{{ title }}</h1>
         <span v-if="call.roomName.value" class="shrink-0 rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-200">{{ call.roomName.value }}</span>
         <span class="font-mono text-xs text-white/60 tabular-nums">{{ elapsed }}</span>
+        <span
+          v-if="call.locked.value"
+          class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-200"
+          title="Nobody new can join until the call is unlocked"
+        >
+          <Lock class="size-3" /> Locked
+        </span>
+        <span
+          v-if="call.recording.value"
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-red-500/20 px-2 py-0.5 text-[11px] font-semibold text-red-200"
+          :title="`${call.recording.value.by} is recording this call`"
+          role="status"
+        >
+          <span class="size-2 animate-pulse rounded-full bg-red-500" /> REC
+        </span>
+        <span v-if="call.uploadProgress.value !== null" class="inline-flex shrink-0 items-center gap-1 text-[11px] text-white/70" role="status">
+          <CloudUpload class="size-3.5" /> Saving recording {{ call.uploadProgress.value }}%
+        </span>
         <span class="ml-auto inline-flex items-center gap-1.5 text-xs text-white/70"><UsersRound class="size-3.5" /> {{ tiles.length }} {{ call.room.value ? 'in this room' : 'in the call' }}</span>
       </header>
 
@@ -74,6 +96,17 @@ const backToMain = () => call.moveToRoom(null, null).catch((error: Error) => toa
         <button type="button" class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium hover:bg-white/10" @click="backToMain"><Undo2 class="size-3.5" /> Main room</button>
       </div>
 
+      <div class="relative flex min-h-0 flex-1 flex-col">
+      <div v-if="shownCaptions.length" class="pointer-events-none absolute inset-x-0 bottom-4 z-10 mx-auto flex max-w-3xl flex-col items-center gap-1 px-4" aria-live="polite">
+        <p
+          v-for="caption in shownCaptions"
+          :key="caption.id"
+          class="max-w-full rounded-lg bg-black/75 px-3 py-1.5 text-center text-sm leading-snug text-white shadow-lg backdrop-blur"
+          :class="!caption.final && 'text-white/85'"
+        >
+          <span class="font-semibold text-sky-200">{{ speakerName(caption) }}:</span> {{ caption.text }}
+        </p>
+      </div>
       <div class="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
         <div v-if="call.boardOpen.value" class="flex h-full min-h-0 flex-col gap-3 lg:flex-row">
           <div class="min-h-[320px] min-w-0 flex-1"><CallWhiteboard @close="call.setBoardOpen(false)" /></div>
@@ -90,6 +123,7 @@ const backToMain = () => call.moveToRoom(null, null).catch((error: Error) => toa
         <div v-else class="mx-auto grid h-full content-center gap-3" :class="gridClass">
           <VideoTile v-for="tile in tiles" :key="tile.id" :data-tile-id="tile.id" v-bind="tile" />
         </div>
+      </div>
       </div>
 
       <CallControls :panel-open="panelOpen" :can-end="canEnd" @panel="panelOpen = !panelOpen" @leave="emit('leave')" @end="emit('end')" @breakouts="breakoutsOpen = true" />

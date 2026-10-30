@@ -41,6 +41,7 @@ const KINDS: Record<string, KindStyle> = {
   support_message: { label: 'Vector team', icon: MessageCircle, tone: 'bg-[#00a884]/15 text-[#00a884]' },
   meeting_invite: { label: 'Meeting', icon: Video, tone: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },
   meeting_cancelled: { label: 'Meeting cancelled', icon: VideoOff, tone: 'bg-slate-500/15 text-slate-600 dark:text-slate-300' },
+  meeting_reminder: { label: 'Meeting soon', icon: AlarmClock, tone: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },
 }
 const FALLBACK: KindStyle = { label: 'Update', icon: Bell, tone: 'bg-primary/10 text-primary' }
 
@@ -60,7 +61,7 @@ export const INBOX_FILTERS: Array<{ value: InboxFilter; label: string; icon: Com
     icon: CircleCheck,
     types: ['status_changed', 'commented', 'sprint_started', 'sprint_completed', 'member_added', 'automation', 'chat_task', 'meeting_invite', 'meeting_cancelled'],
   },
-  { value: 'reminders', label: 'Reminders', icon: AlarmClock, types: ['due_soon', 'standup_blocker'] },
+  { value: 'reminders', label: 'Reminders', icon: AlarmClock, types: ['due_soon', 'standup_blocker', 'meeting_reminder'] },
   { value: 'support', label: 'Vector team', icon: MessageCircle, types: ['support_message'] },
 ]
 

@@ -9,11 +9,12 @@ export const isEmailEnabled = () => isConfigured;
 /**
  * Sends a transactional email through SendGrid.
  * Without SENDGRID_API_KEY the message is logged instead, so every flow works in development.
+ * `attachments`: [{ filename, type, content (string or Buffer) }].
  */
-export async function sendEmail({ to, subject, html, text }) {
+export async function sendEmail({ to, subject, html, text, attachments = [] }) {
   if (!to) return { delivered: false };
   if (!isConfigured) {
-    console.info(`[email:dry-run] to=${to} subject="${subject}"`);
+    console.info(`[email:dry-run] to=${to} subject="${subject}"${attachments.length ? ` attachments=${attachments.map((file) => file.filename).join(',')}` : ''}`);
     return { delivered: false, dryRun: true };
   }
   try {
@@ -23,6 +24,16 @@ export async function sendEmail({ to, subject, html, text }) {
       subject,
       html,
       text: text ?? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+      ...(attachments.length
+        ? {
+            attachments: attachments.map(({ filename, type, content }) => ({
+              filename,
+              type,
+              disposition: 'attachment',
+              content: Buffer.from(content).toString('base64'),
+            })),
+          }
+        : {}),
     });
     return { delivered: true };
   } catch (error) {

@@ -9,6 +9,17 @@ import { useMeetingCall } from '../useMeetingCall'
 const call = useMeetingCall()
 const players = new Map<string, { element: HTMLAudioElement; revision: number }>()
 
+/** Plays on the speaker the person chose (browsers that cannot choose use the system's). */
+function route(element: HTMLAudioElement) {
+  const sink = call.chosenDevices.audiooutput ?? ''
+  const target = element as HTMLAudioElement & { sinkId?: string; setSinkId?: (id: string) => Promise<void> }
+  if (target.setSinkId && target.sinkId !== sink) void target.setSinkId(sink).catch(() => undefined)
+}
+watch(
+  () => call.chosenDevices.audiooutput,
+  () => players.forEach((player) => route(player.element)),
+)
+
 watch(
   () => call.peers.value.map((peer) => [peer.socketId, peer.stream, peer.revision] as const),
   (list) => {
@@ -23,6 +34,7 @@ watch(
       if (!player) {
         const element = new Audio()
         element.autoplay = true
+        route(element)
         player = { element, revision: -1 }
         players.set(socketId, player)
       }

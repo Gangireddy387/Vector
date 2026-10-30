@@ -19,10 +19,12 @@
     "test:tracking": "node scripts/tracking-test.js",
     "test:collaboration": "node scripts/collaboration-test.js",
     "test:organizations": "node scripts/organizations-test.js",
-    "test:meetings": "node scripts/meetings-live-test.js"
+    "test:meetings": "node scripts/meetings-live-test.js",
+    "test:meetings:unit": "node --test test/meetings.unit.test.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
+    "@socket.io/redis-adapter": "^8.3.0",
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.2",
     "cors": "^2.8.6",
@@ -31,11 +33,13 @@
     "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
+    "livekit-server-sdk": "^2.19.2",
     "morgan": "^1.12.1",
     "multer": "^2.5.0",
     "node-cron": "^4.6.0",
     "pg": "^8.23.1",
     "pg-hstore": "^2.3.4",
+    "redis": "^6.3.1",
     "sequelize": "^6.37.8",
     "socket.io": "^4.8.4",
     "sqlite3": "^6.0.1",

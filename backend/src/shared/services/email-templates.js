@@ -282,6 +282,44 @@ export const notificationEmail = ({ title, body, link }) => ({
   }),
 });
 
+const MEETING_EMAIL_COPY = {
+  invite: { eyebrow: 'Meeting invitation', subject: 'Invitation', action: 'Open the meeting' },
+  update: { eyebrow: 'Meeting changed', subject: 'Updated', action: 'Open the meeting' },
+  cancel: { eyebrow: 'Meeting cancelled', subject: 'Cancelled', action: null },
+};
+
+/**
+ * A meeting invitation, change or cancellation (`kind`), sent with a calendar file. `when` is already written in the
+ * recipient's own time zone.
+ */
+export const meetingEmail = ({ kind, title, when, duration, hostName, organization, agenda, link }) => {
+  const copy = MEETING_EMAIL_COPY[kind];
+  const heading =
+    kind === 'invite' ? `${hostName ?? 'Someone'} invited you to “${title}”` : kind === 'update' ? `“${title}” has changed` : `“${title}” was cancelled`;
+  const agendaHtml = agenda ? `<p style="margin:12px 0 0;white-space:pre-wrap">${escapeHtml(agenda)}</p>` : '';
+  return {
+    subject: `${copy.subject}: ${title} · ${when}`,
+    html: renderLayout({
+      preheader: `${when} · ${duration}`,
+      brand: organization ? { name: organization.name, slug: organization.slug, logoUrl: organization.logoUrl } : null,
+      eyebrow: copy.eyebrow,
+      heading,
+      intro:
+        kind === 'cancel'
+          ? `<p style="margin:0">${escapeHtml(hostName ?? 'The host')} cancelled this meeting. Open the attached calendar file to remove it from your calendar.</p>`
+          : `<p style="margin:0">${kind === 'invite' ? 'You are invited to a video meeting in Vector.' : 'The meeting’s details changed. Here they are now.'}</p>${agendaHtml}`,
+      details: [
+        { label: 'When', value: escapeHtml(when), hint: duration },
+        ...(hostName ? [{ label: 'Host', value: escapeHtml(hostName) }] : []),
+      ],
+      actionLabel: copy.action,
+      actionUrl: copy.action && link ? appUrl(link) : null,
+      note: kind === 'cancel' ? null : 'The attached calendar file adds the meeting to Outlook, Google Calendar or Apple Calendar.',
+      footer: 'You received this email because you were invited to a meeting in Vector. Manage email notifications in Settings → Notifications.',
+    }),
+  };
+};
+
 export const dailyDigestEmail = ({ name, sections }) => ({
   subject: 'Your Vector daily digest',
   html: renderLayout({

@@ -8,6 +8,7 @@ import { registerListeners } from './events/register-listeners.js';
 import { ensureDefaultPlans } from './modules/plans/plan.service.js';
 import { ensureSuperAdmin } from './modules/super-admin/super-admin.service.js';
 import { startScheduler } from './jobs/scheduler.js';
+import { closeSharedState, initSharedState } from './shared/realtime/shared-state.js';
 import { initRealtime } from './shared/realtime/socket.js';
 
 async function bootstrap() {
@@ -19,9 +20,10 @@ async function bootstrap() {
   await ensureSuperAdmin();
 
   registerListeners();
+  const redis = await initSharedState();
 
   const server = http.createServer(createApp());
-  initRealtime(server);
+  initRealtime(server, redis);
   startScheduler();
 
   server.listen(config.port, () => {
@@ -31,6 +33,7 @@ async function bootstrap() {
   const shutdown = async (signal) => {
     console.info(`[server] ${signal} received, shutting down`);
     server.close();
+    await closeSharedState();
     await sequelize.close();
     process.exit(0);
   };

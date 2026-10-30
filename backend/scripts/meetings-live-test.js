@@ -124,7 +124,69 @@ try {
   const apiPass = await fetch(`${BASE}/api/projects`, { headers: { Authorization: `Bearer ${pass.token}` } });
   check('guest pass opens no API', apiPass.status === 401);
 
-  const closedSeen = Promise.all([next(host, 'meeting:closed'), next(member, 'meeting:closed'), next(guest, 'meeting:closed')]);
+  // --- Running the call: permissions, moderation, captions -------------------------------------------------------
+  const chatOff = await ask(host, 'meeting:permissions', { chat: false });
+  const memberChat = await ask(member, 'meeting:chat', { body: 'can I talk?' });
+  check('host turns chat off for others', chatOff.ok && !memberChat.ok, memberChat.error);
+  await ask(host, 'meeting:permissions', { chat: true });
+  const memberChatAgain = await ask(member, 'meeting:chat', { body: 'back on' });
+  check('chat works again when turned on', memberChatAgain.ok);
+
+  const mutedSeen = next(member, 'meeting:muted');
+  const muted = await ask(host, 'meeting:mute', { socketId: member.id });
+  check('host mutes someone', muted.ok && Boolean(await mutedSeen), muted.error);
+  const memberMutes = await ask(member, 'meeting:mute', { socketId: host.id });
+  check('people cannot mute the host', !memberMutes.ok);
+
+  const spotlightSeen = next(member, 'meeting:spotlight');
+  const spotlit = await ask(host, 'meeting:spotlight', { socketId: member.id });
+  check('host spotlights someone for everyone', spotlit.ok && (await spotlightSeen)?.socketId === member.id, spotlit.error);
+
+  const roleSeen = next(member, 'meeting:role');
+  const made = await ask(host, 'meeting:cohost', { socketId: member.id, cohost: true });
+  check('host makes a co-host', made.ok && (await roleSeen)?.role === 'cohost', made.error);
+  const cohostMutesHost = await ask(member, 'meeting:mute', { socketId: host.id });
+  check('a co-host cannot moderate the host', !cohostMutesHost.ok);
+  const guestCohost = await ask(host, 'meeting:cohost', { socketId: guest.id, cohost: true });
+  check('guests cannot be co-hosts', !guestCohost.ok);
+  await ask(host, 'meeting:cohost', { socketId: member.id, cohost: false });
+
+  const captionsOn = await ask(host, 'meeting:transcribe', { on: true });
+  const captionSeen = next(host, 'meeting:caption');
+  member.emit('meeting:caption', { id: 'c1', text: 'We ship on Friday', final: true });
+  const caption = await captionSeen;
+  check('captions reach the others', captionsOn.ok && caption?.text === 'We ship on Friday' && caption.speaker.id === pair.member);
+
+  const recordingSeen = next(member, 'meeting:recording');
+  const recordingStarted = await ask(host, 'meeting:recording', { on: true });
+  check('recording is announced to everyone', recordingStarted.ok && Boolean(recordingStarted.recordingId) && Boolean((await recordingSeen)?.recording), recordingStarted.error);
+  const memberRecords = await ask(member, 'meeting:recording', { on: true });
+  check('only the host or co-hosts record', !memberRecords.ok);
+  await ask(host, 'meeting:recording', { on: false });
+
+  const lockSeen = next(member, 'meeting:locked');
+  const locked = await ask(host, 'meeting:lock', { locked: true });
+  check('host locks the call', locked.ok && (await lockSeen)?.locked === true, locked.error);
+
+  const removedSeen = next(guest, 'meeting:removed');
+  const removed = await ask(host, 'meeting:remove', { socketId: guest.id });
+  check('host removes a guest', removed.ok && Boolean(await removedSeen), removed.error);
+  const guestBack = await ask(guest, 'meeting:join', { meetingId: meeting.id, media: {} });
+  check('a removed person cannot come back', !guestBack.ok && /removed|locked/i.test(guestBack.error ?? ''), guestBack.error);
+  await ask(host, 'meeting:lock', { locked: false });
+
+  const memberToken = signAccessToken({ id: pair.member, email: 'member@test' });
+  const saved = await fetch(`${BASE}/api/meetings/${meeting.id}`, { headers: { Authorization: `Bearer ${memberToken}`, 'X-Organization-Id': pair.organizationId } }).then((response) =>
+    response.json(),
+  );
+  check('chat is kept with the meeting', saved.chat?.some((item) => item.body === 'Hello team'), saved.message);
+  check('the transcript is kept with the meeting', saved.transcript?.some((line) => line.text === 'We ship on Friday'));
+
+  const ics = await fetch(`${BASE}/api/meetings/${meeting.id}/calendar.ics`, { headers: { Authorization: `Bearer ${memberToken}`, 'X-Organization-Id': pair.organizationId } });
+  const icsText = await ics.text();
+  check('calendar file downloads', ics.ok && icsText.includes('BEGIN:VEVENT') && icsText.includes(`UID:${meeting.id}@vector`), `status ${ics.status}`);
+
+  const closedSeen = Promise.all([next(host, 'meeting:closed'), next(member, 'meeting:closed')]);
   const hostToken = signAccessToken({ id: pair.host, email: 'host@test' });
   const ended = await fetch(`${BASE}/api/meetings/${meeting.id}/end`, {
     method: 'POST',

@@ -1,12 +1,17 @@
 import { Meeting, MeetingPoll, User } from '../../database/models.js';
-import { currentCall, onCallEmptied } from './meeting.signaling.js';
+import { shared } from '../../shared/realtime/shared-state.js';
+import { currentCall, mutate, onCallEmptied } from './meeting.signaling.js';
 
-/** Polls and the shared whiteboard of a call. Both are kept with the meeting, so they can be read afterwards. */
+/**
+ * Polls and the shared whiteboard of a call. Both are kept with the meeting, so they can be read afterwards. While a
+ * call runs, its whiteboard lives in the shared store (one entry per stroke) and is saved to the meeting regularly.
+ */
 
 const MAX_OPTIONS = 6;
 const MAX_STROKES = 3000;
 const MAX_STROKE_NUMBERS = 4000;
 const SAVE_DELAY_MS = 3000;
+const BOARD_TTL_SECONDS = 24 * 60 * 60;
 const COLOR = /^#[0-9a-f]{6}$/i;
 
 const voterOf = (peer) => peer.user.id;
@@ -33,7 +38,7 @@ export async function meetingPolls(meetingId, voter = null) {
   return polls.map((poll) => pollView(poll, voter));
 }
 
-/** Votes on one poll are applied one after another, so none is lost when people vote at the same moment. */
+/** Work on one key runs one task after another in this process (votes on a poll, parts of one stroke). */
 const queues = new Map();
 function serial(key, task) {
   const previous = queues.get(key) ?? Promise.resolve();
@@ -45,37 +50,45 @@ function serial(key, task) {
   return next;
 }
 
-/** meetingId → { strokes: Map(id → stroke), open, saveTimer } */
-const boards = new Map();
+const strokesKey = (meetingId) => `board:${meetingId}`;
+const loadedKey = (meetingId) => `board-loaded:${meetingId}`;
 
-async function boardFor(meetingId) {
-  let board = boards.get(meetingId);
-  if (board) return board;
-  const meeting = await Meeting.findByPk(meetingId, { attributes: ['id', 'whiteboard'] });
-  board = boards.get(meetingId) ?? { strokes: new Map((meeting?.whiteboard?.strokes ?? []).map((stroke) => [stroke.id, stroke])), open: false, saveTimer: null };
-  boards.set(meetingId, board);
-  return board;
+/** Puts the meeting's saved whiteboard in the shared store the first time the call uses it. */
+function ensureBoard(meetingId) {
+  return serial(`load:${meetingId}`, async () => {
+    if (await shared.get(loadedKey(meetingId))) return;
+    const meeting = await Meeting.findByPk(meetingId, { attributes: ['id', 'whiteboard'] });
+    for (const stroke of meeting?.whiteboard?.strokes ?? []) await shared.hset(strokesKey(meetingId), stroke.id, stroke, BOARD_TTL_SECONDS);
+    await shared.set(loadedKey(meetingId), true, BOARD_TTL_SECONDS);
+  });
 }
 
+async function boardStrokes(meetingId) {
+  await ensureBoard(meetingId);
+  return shared.hvalues(strokesKey(meetingId));
+}
+
+const saveTimers = new Map();
+
 async function saveBoard(meetingId) {
-  const board = boards.get(meetingId);
-  if (!board) return;
-  clearTimeout(board.saveTimer);
-  board.saveTimer = null;
-  const strokes = [...board.strokes.values()];
+  clearTimeout(saveTimers.get(meetingId));
+  saveTimers.delete(meetingId);
+  if (!(await shared.get(loadedKey(meetingId)))) return;
+  const strokes = await shared.hvalues(strokesKey(meetingId));
   await Meeting.update({ whiteboard: strokes.length ? { strokes } : null }, { where: { id: meetingId } }).catch((error) =>
     console.warn('[meetings] could not save the whiteboard:', error.message),
   );
 }
 
-function scheduleSave(meetingId, board) {
-  clearTimeout(board.saveTimer);
-  board.saveTimer = setTimeout(() => void saveBoard(meetingId), SAVE_DELAY_MS);
+function scheduleSave(meetingId) {
+  clearTimeout(saveTimers.get(meetingId));
+  const timer = setTimeout(() => void saveBoard(meetingId), SAVE_DELAY_MS);
+  timer.unref?.();
+  saveTimers.set(meetingId, timer);
 }
 
 onCallEmptied((meetingId) => {
-  if (!boards.has(meetingId)) return;
-  void saveBoard(meetingId).finally(() => boards.delete(meetingId));
+  void saveBoard(meetingId).finally(() => shared.del(strokesKey(meetingId), loadedKey(meetingId)));
 });
 
 const cleanPoints = (points) =>
@@ -88,14 +101,13 @@ export function registerMeetingCollab(io, socket) {
 
   /** What a person joining the call needs: the polls (with their own votes) and the whiteboard. */
   socket.on('meeting:collab', async (_payload, ack) => {
-    const here = currentCall(socket);
+    const here = await currentCall(socket);
     if (!here) return ack?.({ ok: false });
-    const board = await boardFor(here.meetingId);
-    ack?.({ ok: true, polls: await meetingPolls(here.meetingId, voterOf(here.peer)), board: { open: board.open, strokes: [...board.strokes.values()] } });
+    ack?.({ ok: true, polls: await meetingPolls(here.meetingId, voterOf(here.peer)), board: { open: here.call.boardOpen, strokes: await boardStrokes(here.meetingId) } });
   });
 
   socket.on('meeting:poll:create', async ({ question, options } = {}, ack) => {
-    const here = currentCall(socket);
+    const here = await currentCall(socket);
     if (!here || here.peer.guest) return ack?.({ ok: false, error: 'Only people from the organization can start a poll' });
     const text = typeof question === 'string' ? question.trim().slice(0, 200) : '';
     const answers = (Array.isArray(options) ? options : []).map((option) => (typeof option === 'string' ? option.trim().slice(0, 80) : '')).filter(Boolean);
@@ -108,10 +120,10 @@ export function registerMeetingCollab(io, socket) {
   });
 
   socket.on('meeting:poll:vote', async ({ pollId, option } = {}, ack) => {
-    const here = currentCall(socket);
+    const here = await currentCall(socket);
     if (!here) return ack?.({ ok: false });
     try {
-      const view = await serial(pollId, async () => {
+      const view = await serial(`poll:${pollId}`, async () => {
         const poll = await MeetingPoll.findOne({ where: { id: pollId, meetingId: here.meetingId }, include: [{ model: User, as: 'createdBy', attributes: ['id', 'name'] }] });
         if (!poll) throw new Error('This poll was removed');
         if (poll.status !== 'open') throw new Error('This poll is closed');
@@ -129,7 +141,7 @@ export function registerMeetingCollab(io, socket) {
   });
 
   socket.on('meeting:poll:close', async ({ pollId } = {}, ack) => {
-    const here = currentCall(socket);
+    const here = await currentCall(socket);
     if (!here) return ack?.({ ok: false });
     const poll = await MeetingPoll.findOne({ where: { id: pollId, meetingId: here.meetingId }, include: [{ model: User, as: 'createdBy', attributes: ['id', 'name'] }] });
     if (!poll) return ack?.({ ok: false, error: 'This poll was removed' });
@@ -141,18 +153,23 @@ export function registerMeetingCollab(io, socket) {
 
   /** Part of a stroke while someone draws: `points` are new [x, y, x, y…] between 0 and 1. */
   socket.on('meeting:wb:stroke', async ({ id, color, width, tool, points } = {}) => {
-    const here = currentCall(socket);
     const cleaned = cleanPoints(points);
-    if (!here || typeof id !== 'string' || id.length > 40 || !cleaned) return;
-    const board = await boardFor(here.meetingId);
+    if (typeof id !== 'string' || id.length > 40 || !cleaned) return;
+    const here = await currentCall(socket);
+    if (!here) return;
+    const { meetingId } = here;
     const owner = here.peer.user.id;
-    let stroke = board.strokes.get(id);
-    if (stroke) {
-      if (stroke.owner !== owner || stroke.points.length + cleaned.length > MAX_STROKE_NUMBERS) return;
-      stroke.points.push(...cleaned);
-    } else {
-      if (board.strokes.size >= MAX_STROKES) return;
-      stroke = {
+    const stroke = await serial(`stroke:${meetingId}:${id}`, async () => {
+      await ensureBoard(meetingId);
+      const existing = await shared.hget(strokesKey(meetingId), id);
+      if (existing) {
+        if (existing.owner !== owner || existing.points.length + cleaned.length > MAX_STROKE_NUMBERS) return null;
+        existing.points.push(...cleaned);
+        await shared.hset(strokesKey(meetingId), id, existing, BOARD_TTL_SECONDS);
+        return existing;
+      }
+      if ((await shared.hcount(strokesKey(meetingId))) >= MAX_STROKES) return null;
+      const created = {
         id,
         owner,
         color: COLOR.test(color) ? color : '#111827',
@@ -160,47 +177,48 @@ export function registerMeetingCollab(io, socket) {
         tool: tool === 'highlighter' ? 'highlighter' : 'pen',
         points: cleaned,
       };
-      board.strokes.set(id, stroke);
-    }
-    socket.to(room(here.meetingId)).emit('meeting:wb:stroke', { id, owner, color: stroke.color, width: stroke.width, tool: stroke.tool, points: cleaned });
-    scheduleSave(here.meetingId, board);
+      await shared.hset(strokesKey(meetingId), id, created, BOARD_TTL_SECONDS);
+      return created;
+    });
+    if (!stroke) return;
+    socket.to(room(meetingId)).emit('meeting:wb:stroke', { id, owner, color: stroke.color, width: stroke.width, tool: stroke.tool, points: cleaned });
+    scheduleSave(meetingId);
   });
 
   /** Erases one stroke: your own, or anyone's for the host. */
   socket.on('meeting:wb:remove', async ({ id } = {}) => {
-    const here = currentCall(socket);
-    if (!here) return;
-    const board = await boardFor(here.meetingId);
-    const stroke = board.strokes.get(id);
+    const here = await currentCall(socket);
+    if (!here || typeof id !== 'string') return;
+    const stroke = await shared.hget(strokesKey(here.meetingId), id);
     if (!stroke || (stroke.owner !== here.peer.user.id && !here.peer.canManage)) return;
-    board.strokes.delete(id);
+    await shared.hdel(strokesKey(here.meetingId), id);
     io.to(room(here.meetingId)).emit('meeting:wb:remove', { id });
-    scheduleSave(here.meetingId, board);
+    scheduleSave(here.meetingId);
   });
 
   socket.on('meeting:wb:clear', async () => {
-    const here = currentCall(socket);
+    const here = await currentCall(socket);
     if (!here?.peer.canManage) return;
-    const board = await boardFor(here.meetingId);
-    board.strokes.clear();
+    await shared.del(strokesKey(here.meetingId));
     io.to(room(here.meetingId)).emit('meeting:wb:clear', { by: here.peer.user.name });
-    scheduleSave(here.meetingId, board);
+    scheduleSave(here.meetingId);
   });
 
-  /** Shows (or hides) the whiteboard as the main view for everyone in the call. */
+  /** Shows (or hides) the whiteboard as the main view for everyone in the call; guests cannot. */
   socket.on('meeting:wb:open', async ({ open } = {}) => {
-    const here = currentCall(socket);
-    if (!here) return;
-    const board = await boardFor(here.meetingId);
-    board.open = Boolean(open);
-    io.to(room(here.meetingId)).emit('meeting:wb:open', { open: board.open, by: here.peer.user.name });
+    const here = await currentCall(socket);
+    if (!here || here.peer.guest) return;
+    await mutate(here.meetingId, (call) => {
+      call.boardOpen = Boolean(open);
+    });
+    io.to(room(here.meetingId)).emit('meeting:wb:open', { open: Boolean(open), by: here.peer.user.name });
   });
 }
 
 /** Saves a whiteboard that is still being drawn on, e.g. before the meeting it belongs to is shown or deleted. */
 export const flushBoard = (meetingId) => saveBoard(meetingId);
-export const forgetBoard = (meetingId) => {
-  const board = boards.get(meetingId);
-  if (board) clearTimeout(board.saveTimer);
-  boards.delete(meetingId);
-};
+export async function forgetBoard(meetingId) {
+  clearTimeout(saveTimers.get(meetingId));
+  saveTimers.delete(meetingId);
+  await shared.del(strokesKey(meetingId), loadedKey(meetingId));
+}

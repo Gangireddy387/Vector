@@ -34,6 +34,10 @@ Meeting.init(
     guestToken: { type: DataTypes.STRING(64), allowNull: true },
     /** The shared whiteboard: `{ strokes: [...] }`. */
     whiteboard: { type: DataTypes.JSON, allowNull: true },
+    /** When invited people were reminded that it starts soon. */
+    remindedAt: { type: DataTypes.DATE, allowNull: true },
+    /** Written from the transcript, chat and notes: `{ text, decisions: [], actionItems: [{ text, owner }], generatedAt }`. */
+    summary: { type: DataTypes.JSON, allowNull: true },
   },
   {
     sequelize,
@@ -90,4 +94,56 @@ MeetingPoll.init(
     status: { type: DataTypes.STRING(10), allowNull: false, defaultValue: 'open' },
   },
   { sequelize, modelName: 'MeetingPoll', tableName: 'meeting_polls', indexes: [{ fields: ['meeting_id', 'created_at'] }] },
+);
+
+/** Chat during a call, kept with the meeting. `room` is the breakout room it was sent in (null: the main room). */
+export class MeetingChatMessage extends Model {}
+
+MeetingChatMessage.init(
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    meetingId: { type: DataTypes.UUID, allowNull: false },
+    /** Who wrote it as they appeared in the call (guests have no account): `{ id, name, avatarColor, avatarUrl, title }`. */
+    author: { type: DataTypes.JSON, allowNull: false },
+    room: { type: DataTypes.STRING(20), allowNull: true },
+    roomName: { type: DataTypes.STRING(40), allowNull: true },
+    /** Sent by the host to every breakout room. */
+    broadcast: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    body: { type: DataTypes.TEXT, allowNull: false },
+  },
+  { sequelize, modelName: 'MeetingChatMessage', tableName: 'meeting_chat_messages', indexes: [{ fields: ['meeting_id', 'created_at'] }] },
+);
+
+/** One finished sentence of the live captions: who said it and when. */
+export class MeetingTranscriptLine extends Model {}
+
+MeetingTranscriptLine.init(
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    meetingId: { type: DataTypes.UUID, allowNull: false },
+    speaker: { type: DataTypes.JSON, allowNull: false },
+    text: { type: DataTypes.TEXT, allowNull: false },
+    spokenAt: { type: DataTypes.DATE, allowNull: false },
+  },
+  { sequelize, modelName: 'MeetingTranscriptLine', tableName: 'meeting_transcript_lines', indexes: [{ fields: ['meeting_id', 'spoken_at'] }] },
+);
+
+export const RECORDING_STATUSES = ['recording', 'ready', 'failed'];
+
+/** A recording of a call, made in the browser of the person who recorded it and uploaded when they stopped. */
+export class MeetingRecording extends Model {}
+
+MeetingRecording.init(
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    meetingId: { type: DataTypes.UUID, allowNull: false },
+    createdById: { type: DataTypes.UUID, allowNull: true },
+    status: { type: DataTypes.STRING(10), allowNull: false, defaultValue: 'recording' },
+    storageKey: { type: DataTypes.STRING(255), allowNull: true },
+    mimeType: { type: DataTypes.STRING(80), allowNull: true },
+    sizeBytes: { type: DataTypes.BIGINT, allowNull: true },
+    durationSeconds: { type: DataTypes.INTEGER, allowNull: true },
+    startedAt: { type: DataTypes.DATE, allowNull: false },
+  },
+  { sequelize, modelName: 'MeetingRecording', tableName: 'meeting_recordings', indexes: [{ fields: ['meeting_id', 'started_at'] }] },
 );

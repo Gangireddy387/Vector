@@ -66,6 +66,26 @@ export const config = {
     turnTtlSeconds: toInt(process.env.TURN_TTL_SECONDS, 6 * 60 * 60),
     cloudflareTurnKeyId: process.env.CLOUDFLARE_TURN_KEY_ID || '',
     cloudflareTurnApiToken: process.env.CLOUDFLARE_TURN_API_TOKEN || '',
+    /** Calls where every browser connects to every other one stay small; a LiveKit server lifts the cap. */
+    directCallSize: toInt(process.env.MEETING_DIRECT_CALL_SIZE, 8),
+    /** Minutes before the start when invited people get a reminder. */
+    reminderMinutes: toInt(process.env.MEETING_REMINDER_MINUTES, 10),
+    recordingMaxMb: toInt(process.env.MEETING_RECORDING_MAX_MB, 1024),
+  },
+  /**
+   * LiveKit media server (self-hosted or LiveKit Cloud). When set, calls send video through it instead of between
+   * browsers, so they can be much larger and the host's mute, remove and sharing controls are enforced by the server.
+   */
+  livekit: {
+    url: process.env.LIVEKIT_URL || '',
+    apiKey: process.env.LIVEKIT_API_KEY || '',
+    apiSecret: process.env.LIVEKIT_API_SECRET || '',
+    callSize: toInt(process.env.LIVEKIT_CALL_SIZE, 100),
+  },
+  /** Shared state for running several backend servers (and keeping calls through a restart). Without it, one server. */
+  redis: {
+    url: process.env.REDIS_URL || '',
+    prefix: process.env.REDIS_PREFIX || 'vector:',
   },
   /** Web Push (calls ringing on phones and computers). Without keys, a pair is generated once and kept in `keysFile`. */
   push: {

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { Hand, LoaderCircle, MicOff, MonitorUp, WifiOff } from 'lucide-vue-next'
+import { Hand, LoaderCircle, MicOff, MonitorUp, Pin, SignalHigh, SignalLow, SignalMedium, Star, WifiOff } from 'lucide-vue-next'
 import { computed, onMounted, useTemplateRef, watch } from 'vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import type { UserSummary } from '@/types/models'
-import { useMeetingCall, type PeerConnection } from '../useMeetingCall'
+import { type CallQuality, type CallRole, ROLE_LABELS, useMeetingCall, type PeerConnection } from '../useMeetingCall'
 
 /**
  * One person in the call: their video, or their photo while the camera is off. Sound plays separately (CallAudio),
@@ -24,10 +24,24 @@ const props = withDefaults(
     hand?: number | null
     speaking?: boolean
     guest?: boolean
+    callRole?: CallRole
+    quality?: CallQuality | null
+    qualityNote?: string | null
+    spotlit?: boolean
+    pinned?: boolean
     compact?: boolean
   }>(),
-  { id: undefined, hand: null, speaking: false, guest: false, compact: false },
+  { id: undefined, hand: null, speaking: false, guest: false, callRole: null, quality: null, qualityNote: null, spotlit: false, pinned: false, compact: false },
 )
+
+const QUALITY_LOOK: Record<CallQuality, { icon: typeof SignalHigh; label: string; tone: string }> = {
+  good: { icon: SignalHigh, label: 'Good connection', tone: 'text-emerald-300' },
+  fair: { icon: SignalMedium, label: 'Unstable connection', tone: 'text-amber-300' },
+  poor: { icon: SignalLow, label: 'Poor connection', tone: 'text-red-300' },
+  lost: { icon: WifiOff, label: 'Connection lost', tone: 'text-red-300' },
+}
+const signal = computed(() => (props.quality ? QUALITY_LOOK[props.quality] : null))
+const signalTitle = computed(() => (signal.value ? [signal.value.label, props.qualityNote].filter(Boolean).join(' · ') : ''))
 
 const call = useMeetingCall()
 const element = useTemplateRef<HTMLVideoElement>('video')
@@ -89,7 +103,13 @@ defineExpose({ video: element })
     </span>
     <div class="absolute bottom-2 left-2 flex max-w-[85%] items-center gap-1.5 rounded-md bg-black/55 px-2 py-1 text-xs font-medium text-white backdrop-blur">
       <MonitorUp v-if="screen" class="size-3.5 shrink-0 text-sky-300" />
+      <Star v-if="spotlit" class="size-3.5 shrink-0 fill-amber-300 text-amber-300" aria-label="In the spotlight" />
+      <Pin v-else-if="pinned" class="size-3.5 shrink-0 text-sky-300" aria-label="Pinned for you" />
       <span class="truncate">{{ label }}</span>
+      <span v-if="callRole && !compact" class="shrink-0 rounded bg-white/15 px-1 text-[10px] font-semibold tracking-wide uppercase">{{ ROLE_LABELS[callRole] }}</span>
+      <span v-if="signal && (quality !== 'good' || !compact)" :title="signalTitle" :aria-label="signalTitle" class="shrink-0">
+        <component :is="signal.icon" class="size-3.5" :class="signal.tone" />
+      </span>
     </div>
     <span v-if="!audio" class="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-red-500/90 text-white" title="Muted">
       <MicOff class="size-3.5" />

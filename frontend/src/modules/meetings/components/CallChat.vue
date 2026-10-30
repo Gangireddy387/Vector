@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { format, parseISO } from 'date-fns'
 import { Megaphone, MessageCircle, Send } from 'lucide-vue-next'
-import { nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
@@ -9,8 +9,9 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useMeetingCall } from '../useMeetingCall'
 
-/** Chat with the people in the call (in a breakout room: with that room). It lasts as long as the call. */
+/** Chat with the people in the call (in a breakout room: with that room). It is kept with the meeting. */
 const call = useMeetingCall()
+const chatOff = computed(() => !call.permissions.value.chat && !call.canManage.value)
 const draft = ref('')
 const toAllRooms = ref(false)
 const isSending = ref(false)
@@ -70,10 +71,15 @@ async function send() {
       </li>
       <li v-if="!call.chat.value.length" class="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-muted-foreground">
         <MessageCircle class="size-8 text-muted-foreground/60" />
-        {{ call.room.value ? `Messages here go to the people in ${call.roomName.value ?? 'this room'}.` : 'Messages go to everyone in the call and disappear when it ends.' }}
+        {{
+          call.room.value
+            ? `Messages here go to the people in ${call.roomName.value ?? 'this room'}.`
+            : 'Messages go to everyone in the call. They are kept with the meeting, so people can read them afterwards.'
+        }}
       </li>
     </ol>
-    <form class="shrink-0 space-y-2 border-t border-border/70 p-3" @submit.prevent="send">
+    <p v-if="chatOff" class="shrink-0 border-t border-border/70 p-3 text-center text-xs text-muted-foreground">The host turned chat off for now.</p>
+    <form v-else class="shrink-0 space-y-2 border-t border-border/70 p-3" @submit.prevent="send">
       <Textarea v-model="draft" rows="2" maxlength="1000" placeholder="Send a message…" class="resize-none text-sm" @keydown.enter.exact.prevent="send" />
       <div class="flex items-center gap-2">
         <label v-if="call.canManage.value && call.breakouts.value" class="flex items-center gap-2 text-xs text-muted-foreground">

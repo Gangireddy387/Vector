@@ -1,10 +1,15 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../../shared/middleware/validate.js';
+import { config } from '../../config/index.js';
 import { requireFeature } from '../plans/plan.service.js';
 import { iceServersFor } from './ice-servers.js';
+import { callCapacity, sfuEnabled } from './meeting.media.js';
 import { MEETING_CONTEXTS, MEETING_RECURRENCES } from './meeting.model.js';
+import { calendarFile } from './meeting.notify.js';
+import { meetingRecordingRoutes } from './meeting.recordings.js';
 import * as service from './meeting.service.js';
+import { canSummarize } from './meeting.summary.js';
 
 const fields = {
   title: z.string().trim().min(2, 'Give the meeting a title of at least 2 characters').max(160),
@@ -39,6 +44,10 @@ router.get(base, validate({ query: listSchema }), async (req, res) => {
   res.json({ meetings: await service.listMeetings(viewer(req), scope ?? 'upcoming', contextType && contextId ? { type: contextType, id: contextId } : null) });
 });
 router.get(`${base}/permissions`, async (req, res) => res.json({ canSchedule: await service.canSchedule(viewer(req)) }));
+/** What this server's calls can do, so the app shows only what works. */
+router.get(`${base}/capabilities`, (_req, res) =>
+  res.json({ media: sfuEnabled() ? 'sfu' : 'direct', capacity: callCapacity(), summaries: canSummarize(), reminderMinutes: config.meetings.reminderMinutes, recordingMaxMb: config.meetings.recordingMaxMb }),
+);
 router.get(`${base}/ice-servers`, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json(await iceServersFor(req.user.id));
@@ -66,5 +75,14 @@ router.delete(`${base}/:meetingId/updates/:updateId`, async (req, res) => {
   await service.deleteUpdate(viewer(req), req.params.meetingId, req.params.updateId);
   res.status(204).end();
 });
+/** The meeting as a calendar file, to add it to Outlook, Google Calendar or Apple Calendar. */
+router.get(`${base}/:meetingId/calendar.ics`, async (req, res) => {
+  const meeting = await service.meetingRecord(viewer(req), req.params.meetingId);
+  res.set('Content-Type', 'text/calendar; charset=utf-8');
+  res.attachment(`${meeting.title.replace(/[^\w\s-]+/g, '').trim().slice(0, 60) || 'meeting'}.ics`);
+  res.send(await calendarFile(meeting));
+});
+router.post(`${base}/:meetingId/summary`, async (req, res) => res.json({ summary: await service.writeSummary(viewer(req), req.params.meetingId) }));
+router.use(meetingRecordingRoutes);
 
 export default router;

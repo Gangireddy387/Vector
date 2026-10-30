@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { isAxiosError } from 'axios'
-import { format, parseISO } from 'date-fns'
-import { ArrowLeft, CalendarDays, Clock3, Mic, MicOff, PhoneCall, Repeat, Sparkles, Trash2, Video, VideoOff } from 'lucide-vue-next'
+import { differenceInMinutes, format, parseISO } from 'date-fns'
+import { ArrowLeft, CalendarDays, CalendarPlus, Clock3, Mic, MicOff, PhoneCall, Repeat, Sparkles, Trash2, Video, VideoOff } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -17,10 +17,22 @@ import { getSocket } from '@/lib/realtime'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import CallView from '../components/CallView.vue'
 import CallWhiteboard from '../components/CallWhiteboard.vue'
+import DeviceSettings from '../components/DeviceSettings.vue'
 import MeetingPanel, { type MeetingPanelTab } from '../components/MeetingPanel.vue'
+import MeetingRecap from '../components/MeetingRecap.vue'
 import VideoTile from '../components/VideoTile.vue'
 import { BADGE_CLASSES, dayLabel, durationLabel, isJoinable, meetingBadge, recurrenceLabel, timeRange } from '../meeting-format'
-import { type Meeting, type MeetingPoll, type MeetingUpdate, type WhiteboardStroke, meetingsApi } from '../meetings.api'
+import {
+  type Meeting,
+  type MeetingCapabilities,
+  type MeetingPoll,
+  type MeetingRecording,
+  type MeetingUpdate,
+  type SavedChatMessage,
+  type TranscriptLine,
+  type WhiteboardStroke,
+  meetingsApi,
+} from '../meetings.api'
 import { blurSupported, useMeetingCall } from '../useMeetingCall'
 
 const props = defineProps<{ meetingId: string }>()
@@ -37,6 +49,10 @@ const meeting = ref<Meeting | null>(null)
 const updates = ref<MeetingUpdate[]>([])
 const polls = ref<MeetingPoll[]>([])
 const whiteboard = ref<WhiteboardStroke[] | null>(null)
+const savedChat = ref<SavedChatMessage[]>([])
+const transcript = ref<TranscriptLine[]>([])
+const recordings = ref<MeetingRecording[]>([])
+const capabilities = ref<MeetingCapabilities | null>(null)
 const isLoading = ref(true)
 const isJoining = ref(false)
 const panelOpen = ref(isDesktop.value)
@@ -49,6 +65,9 @@ async function load() {
     updates.value = data.updates
     polls.value = data.polls
     whiteboard.value = data.whiteboard?.strokes ?? null
+    savedChat.value = data.chat
+    transcript.value = data.transcript
+    recordings.value = data.recordings
   } catch (error) {
     toast.error(getErrorMessage(error))
     if (!meeting.value || (isAxiosError(error) && error.response?.status === 404)) {
@@ -64,6 +83,17 @@ async function load() {
 const inThisCall = computed(() => call.inCall.value && call.meetingId.value === props.meetingId)
 const inOtherCall = computed(() => (call.inCall.value || call.status.value === 'waiting') && call.meetingId.value !== props.meetingId)
 const canJoin = computed(() => Boolean(meeting.value && isJoinable(meeting.value, now.value)))
+/** Starting a call long before its time rings nobody; people are reminded when the time comes. */
+const isEarly = computed(() => Boolean(meeting.value && differenceInMinutes(parseISO(meeting.value.startsAt), now.value) > 15))
+
+async function addToCalendar() {
+  if (!meeting.value) return
+  try {
+    await meetingsApi.downloadCalendar(meeting.value)
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  }
+}
 const hasLeft = computed(() => call.status.value === 'left' && call.meetingId.value === props.meetingId)
 
 /** Device and screen buttons can fail (permission refused, camera busy); say why instead of doing nothing. */
@@ -88,7 +118,11 @@ watch(
   () => call.closedReason.value,
   (reason) => {
     if (!reason || call.meetingId.value !== props.meetingId) return
-    toast.info(reason === 'cancelled' ? 'The meeting was cancelled' : 'The host ended the meeting')
+    const messages: Record<string, string> = {
+      cancelled: 'The meeting was cancelled',
+      removed: 'You were removed from the call',
+    }
+    toast.info(messages[reason] ?? 'The host ended the meeting')
     call.closedReason.value = null
     void load()
   },
@@ -173,6 +207,9 @@ const SOCKET_EVENTS = {
   'meeting:update-removed': ({ meetingId, id }: { meetingId: string; id: string }) => {
     if (meetingId === props.meetingId) updates.value = updates.value.filter((item) => item.id !== id)
   },
+  'meeting:recordings': async ({ meetingId }: { meetingId: string }) => {
+    if (meetingId === props.meetingId) await load()
+  },
 } as const
 
 function bindSocket(on: boolean) {
@@ -213,6 +250,10 @@ watch(
 
 onMounted(async () => {
   bindSocket(true)
+  void meetingsApi
+    .capabilities()
+    .then((value) => (capabilities.value = value))
+    .catch(() => undefined)
   await prepare()
 })
 onBeforeUnmount(() => {
@@ -229,6 +270,8 @@ const onPosted = (update: MeetingUpdate) => {
 const onRemoved = (id: string) => (updates.value = updates.value.filter((item) => item.id !== id))
 const onNotes = (notes: string | null) => meeting.value && (meeting.value = { ...meeting.value, notes })
 const onChanged = (value: Meeting) => (meeting.value = value)
+const onSummary = (summary: Meeting['summary']) => meeting.value && (meeting.value = { ...meeting.value, summary })
+const previewButton = 'flex size-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25'
 </script>
 
 <template>
@@ -321,6 +364,7 @@ const onChanged = (value: Meeting) => (meeting.value = value)
                 >
                   <Sparkles class="size-5" :class="call.blurBusy.value && 'animate-pulse'" />
                 </button>
+                <DeviceSettings :button-class="previewButton" />
               </div>
             </div>
             <p v-if="call.deviceNote.value" class="border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 dark:text-warning">{{ call.deviceNote.value }}</p>
@@ -330,7 +374,9 @@ const onChanged = (value: Meeting) => (meeting.value = value)
                 <p class="text-sm font-semibold">{{ hasLeft ? 'You left the call' : 'Ready to join?' }}</p>
                 <p class="text-xs text-muted-foreground">
                   <template v-if="meeting.inCall.length">{{ meeting.inCall.length }} {{ meeting.inCall.length === 1 ? 'person is' : 'people are' }} in the call now.</template>
+                  <template v-else-if="isEarly">It is early: starting now rings nobody. Everyone gets a reminder {{ capabilities?.reminderMinutes ?? 10 }} minutes before it starts.</template>
                   <template v-else>No one is in the call yet. Starting it rings everyone invited.</template>
+                  <template v-if="capabilities"> Up to {{ capabilities.capacity }} people can join.</template>
                 </p>
               </div>
               <UserAvatarStack
@@ -353,6 +399,16 @@ const onChanged = (value: Meeting) => (meeting.value = value)
             <Button v-if="meeting.canManage" variant="ghost" size="sm" class="mt-2 text-destructive" @click="remove"><Trash2 /> Delete meeting</Button>
           </div>
 
+          <MeetingRecap
+            :meeting="meeting"
+            :chat="savedChat"
+            :transcript="transcript"
+            :recordings="recordings"
+            :can-summarize="Boolean(capabilities?.summaries)"
+            @summary="onSummary"
+            @changed="load"
+          />
+
           <section v-if="!canJoin && whiteboard?.length" class="h-[420px] border border-border/70 bg-slate-100 p-3 shadow-soft dark:bg-slate-900">
             <CallWhiteboard :strokes="whiteboard" :closable="false" />
           </section>
@@ -371,6 +427,9 @@ const onChanged = (value: Meeting) => (meeting.value = value)
               <div v-if="meeting.host" class="flex items-center gap-2 text-muted-foreground"><UserAvatar :user="meeting.host" size="xs" /> Hosted by {{ meeting.host.name }}</div>
             </dl>
             <p v-if="meeting.agenda" class="border-t border-border/60 pt-3 text-sm whitespace-pre-wrap">{{ meeting.agenda }}</p>
+            <Button v-if="meeting.status === 'scheduled' || meeting.status === 'live'" variant="outline" size="sm" @click="addToCalendar">
+              <CalendarPlus /> Add to my calendar
+            </Button>
           </section>
 
           <section class="flex h-[460px] min-h-0 flex-col overflow-hidden border border-border/70 shadow-soft">

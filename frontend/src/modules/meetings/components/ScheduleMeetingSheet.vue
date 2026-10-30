@@ -179,7 +179,7 @@ async function save() {
         </span>
         <div class="min-w-0 flex-1">
           <SheetTitle class="truncate text-base font-semibold">{{ editing ? 'Edit meeting' : 'Schedule a meeting' }}</SheetTitle>
-          <SheetDescription class="truncate text-xs">Everyone invited gets it in their Inbox and calendar, with a link to join the video call.</SheetDescription>
+          <SheetDescription class="truncate text-xs">Everyone invited gets it in their Inbox, calendar and email (with a calendar invite), and a reminder before it starts.</SheetDescription>
         </div>
         <Button variant="ghost" size="icon-sm" aria-label="Close" @click="isOpen = false"><X /></Button>
       </header>

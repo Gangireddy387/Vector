@@ -6,7 +6,7 @@ import { config } from '../../config/index.js';
 
 fs.mkdirSync(config.uploads.dir, { recursive: true });
 
-const storage = multer.diskStorage({
+export const storage = multer.diskStorage({
   destination: (_req, _file, callback) => {
     const folder = path.join(config.uploads.dir, new Date().toISOString().slice(0, 7));
     fs.mkdirSync(folder, { recursive: true });

@@ -14,6 +14,7 @@ import issueRoutes from './modules/issues/issue.routes.js';
 import labelRoutes from './modules/labels/label.routes.js';
 import messageRoutes from './modules/messages/messages.routes.js';
 import { publicMeetingRoutes } from './modules/meetings/meeting.guest.js';
+import { publicRecordingRoutes } from './modules/meetings/meeting.recordings.js';
 import meetingRoutes from './modules/meetings/meeting.routes.js';
 import pushRoutes from './modules/push/push.routes.js';
 import notificationRoutes from './modules/notifications/notification.routes.js';
@@ -41,6 +42,7 @@ export function createApiRouter() {
   router.use(publicAvatarRoutes);
   router.use(publicOrganizationRoutes);
   router.use(publicMeetingRoutes);
+  router.use(publicRecordingRoutes);
 
   router.use(authenticate);
   router.use(avatarRoutes);

@@ -42,6 +42,64 @@ export interface Meeting {
   guestToken: string | null
   /** Host or organization admin: can edit, cancel and end it. */
   canManage: boolean
+  /** Written by the AI assistant from the transcript, chat, updates and notes. */
+  summary: MeetingSummary | null
+}
+
+export interface MeetingSummary {
+  text: string
+  decisions: string[]
+  actionItems: Array<{ text: string; owner: string | null }>
+  generatedAt: string
+}
+
+/** A message from the call's chat, kept with the meeting (`roomName`: the breakout room it was sent in). */
+export interface SavedChatMessage {
+  id: string
+  at: string
+  author: UserSummary
+  body: string
+  room: string | null
+  roomName: string | null
+  broadcast: boolean
+}
+
+export interface TranscriptLine {
+  id: string
+  speaker: { id: string; name: string; guest: boolean }
+  text: string
+  at: string
+}
+
+export interface MeetingRecording {
+  id: string
+  status: 'recording' | 'ready' | 'failed'
+  mimeType: string | null
+  sizeBytes: number | null
+  durationSeconds: number | null
+  startedAt: string
+  createdBy: { id: string; name: string } | null
+  canDelete: boolean
+}
+
+/** What this server's calls can do. */
+export interface MeetingCapabilities {
+  /** 'sfu': video goes through a media server (large calls); 'direct': between browsers. */
+  media: 'sfu' | 'direct'
+  capacity: number
+  summaries: boolean
+  reminderMinutes: number
+  recordingMaxMb: number
+}
+
+export interface MeetingDetails {
+  meeting: Meeting
+  updates: MeetingUpdate[]
+  polls: MeetingPoll[]
+  whiteboard: { strokes: WhiteboardStroke[] } | null
+  chat: SavedChatMessage[]
+  transcript: TranscriptLine[]
+  recordings: MeetingRecording[]
 }
 
 export interface MeetingUpdate {
@@ -121,10 +179,31 @@ export const meetingsApi = {
     http.get<{ iceServers: RTCIceServer[]; relay: boolean; ttlSeconds: number }>('/meetings/ice-servers').then((r) => r.data),
   canSchedule: () => http.get<{ canSchedule: boolean }>('/meetings/permissions').then((r) => r.data.canSchedule),
   create: (input: MeetingInput) => http.post<{ meeting: Meeting }>('/meetings', input).then((r) => r.data.meeting),
-  get: (meetingId: string) =>
-    http
-      .get<{ meeting: Meeting; updates: MeetingUpdate[]; polls: MeetingPoll[]; whiteboard: { strokes: WhiteboardStroke[] } | null }>(`/meetings/${meetingId}`)
-      .then((r) => r.data),
+  get: (meetingId: string) => http.get<MeetingDetails>(`/meetings/${meetingId}`).then((r) => r.data),
+  capabilities: () => http.get<MeetingCapabilities>('/meetings/capabilities').then((r) => r.data),
+  /** Downloads the meeting as a calendar file. */
+  async downloadCalendar(meeting: Pick<Meeting, 'id' | 'title'>) {
+    const response = await http.get<Blob>(`/meetings/${meeting.id}/calendar.ics`, { responseType: 'blob' })
+    const url = URL.createObjectURL(response.data)
+    const link = Object.assign(document.createElement('a'), { href: url, download: `${meeting.title.replace(/[^\w\s-]+/g, '').trim() || 'meeting'}.ics` })
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  },
+  summarize: (meetingId: string) => http.post<{ summary: MeetingSummary }>(`/meetings/${meetingId}/summary`).then((r) => r.data.summary),
+  uploadRecording: (meetingId: string, recordingId: string, file: Blob, durationSeconds: number, onProgress?: (percent: number) => void) => {
+    const form = new FormData()
+    form.append('durationSeconds', String(durationSeconds))
+    form.append('file', file, `recording.${file.type.includes('mp4') ? 'mp4' : 'webm'}`)
+    return http
+      .post<{ recording: MeetingRecording }>(`/meetings/${meetingId}/recordings/${recordingId}`, form, {
+        timeout: 0,
+        onUploadProgress: (event) => event.total && onProgress?.(Math.round((event.loaded / event.total) * 100)),
+      })
+      .then((r) => r.data.recording)
+  },
+  recordingLink: (meetingId: string, recordingId: string) =>
+    http.get<{ url: string }>(`/meetings/${meetingId}/recordings/${recordingId}/link`).then((r) => r.data.url),
+  removeRecording: (meetingId: string, recordingId: string) => http.delete(`/meetings/${meetingId}/recordings/${recordingId}`),
   update: (meetingId: string, changes: Partial<MeetingInput> & { notes?: string | null }) =>
     http.patch<{ meeting: Meeting }>(`/meetings/${meetingId}`, changes).then((r) => r.data.meeting),
   remove: (meetingId: string) => http.delete(`/meetings/${meetingId}`),
