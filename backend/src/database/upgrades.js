@@ -39,6 +39,11 @@ const ADDED_COLUMNS = [
   { table: 'users', column: 'token_version', definition: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 } },
   { table: 'meetings', column: 'reminded_at', definition: { type: DataTypes.DATE, allowNull: true } },
   { table: 'meetings', column: 'summary', definition: { type: DataTypes.JSON, allowNull: true } },
+  { table: 'meetings', column: 'lobby', definition: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'guests' } },
+  { table: 'meetings', column: 'dial_in_pin', definition: { type: DataTypes.STRING(12), allowNull: true } },
+  { table: 'meetings', column: 'sip_rule_id', definition: { type: DataTypes.STRING(80), allowNull: true } },
+  { table: 'meeting_participants', column: 'response', definition: { type: DataTypes.STRING(12), allowNull: true } },
+  { table: 'meeting_chat_messages', column: 'attachment', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'conversation_messages', column: 'edited_at', definition: { type: DataTypes.DATE, allowNull: true } },
   { table: 'conversation_members', column: 'cleared_at', definition: { type: DataTypes.DATE, allowNull: true } },
 ];

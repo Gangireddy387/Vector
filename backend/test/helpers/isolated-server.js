@@ -10,7 +10,8 @@ import { fileURLToPath } from 'node:url';
  */
 const backendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-export async function startIsolatedServer({ port = 4100 + Math.floor(Math.random() * 500) } = {}) {
+/** `env`: extra settings for this test's server (e.g. a super admin to turn on plan features). */
+export async function startIsolatedServer({ port = 4100 + Math.floor(Math.random() * 500), env: extra = {} } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vector-test-'));
   const env = {
     ...process.env,
@@ -32,6 +33,10 @@ export async function startIsolatedServer({ port = 4100 + Math.floor(Math.random
     JOBS_ENABLED: 'false',
     API_RATE_LIMIT_PER_MINUTE: '100000',
     CLIENT_URL: 'http://localhost:5173',
+    GOOGLE_CLIENT_ID: '',
+    MICROSOFT_CLIENT_ID: '',
+    DIALIN_NUMBER: '',
+    ...extra,
   };
   const child = spawn(process.execPath, ['src/server.js'], { cwd: backendDir, env, stdio: ['ignore', 'pipe', 'pipe'] });
   let output = '';

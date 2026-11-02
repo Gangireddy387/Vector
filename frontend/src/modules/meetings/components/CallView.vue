@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { differenceInSeconds, parseISO } from 'date-fns'
-import { CloudUpload, DoorOpen, LoaderCircle, Lock, Undo2, UsersRound } from 'lucide-vue-next'
+import { CloudUpload, DoorOpen, LoaderCircle, Lock, Plus, Timer, Undo2, UsersRound } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useDevice } from '@/composables/useDevice'
@@ -43,7 +43,16 @@ const gridClass = computed(() => {
   if (count <= 16) return 'grid-cols-3 lg:grid-cols-4'
   return 'grid-cols-3 md:grid-cols-4 xl:grid-cols-6 content-start'
 })
-const firstWaiting = computed(() => (call.isGuest.value ? null : (call.lobby.value[0] ?? null)))
+const firstWaiting = computed(() => (call.canAdmit.value ? (call.lobby.value[0] ?? null) : null))
+
+/** Breakout rooms with a time limit: how long until everyone comes back. */
+const breakoutLeft = computed(() => {
+  const endsAt = call.breakouts.value?.endsAt
+  if (!endsAt) return null
+  const seconds = Math.max(0, differenceInSeconds(parseISO(endsAt), now.value))
+  return { seconds, label: `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` }
+})
+const addBreakoutTime = () => call.extendBreakouts(5).catch((error: Error) => toast.error(error.message))
 const shownCaptions = computed(() => (call.transcribing.value && call.showCaptions.value ? call.captions.value : []))
 const speakerName = (caption: { socketId: string; speaker: { name: string } }) => (caption.socketId === call.selfId.value ? 'You' : caption.speaker.name)
 
@@ -85,10 +94,26 @@ const backToMain = () => call.moveToRoom(null, null).catch((error: Error) => toa
       <div v-if="firstWaiting" class="mx-4 mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-sky-500/15 px-3 py-2 text-sm text-sky-100" role="status">
         <DoorOpen class="size-4 shrink-0" />
         <span class="min-w-0 flex-1 truncate">
-          <strong>{{ firstWaiting.user.name }}</strong> (guest) wants to join<template v-if="call.lobby.value.length > 1"> · {{ call.lobby.value.length - 1 }} more waiting</template>
+          <strong>{{ firstWaiting.user.name }}</strong> ({{ firstWaiting.guest ? 'guest' : 'invited' }}) wants to join<template v-if="call.lobby.value.length > 1"> · {{ call.lobby.value.length - 1 }} more waiting</template>
         </span>
         <button type="button" class="rounded-full px-3 py-1 text-xs font-medium hover:bg-white/10" @click="call.admit(firstWaiting.socketId, false)">Turn away</button>
         <button type="button" class="rounded-full bg-sky-500 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-500/90" @click="call.admit(firstWaiting.socketId, true)">Let in</button>
+      </div>
+      <div
+        v-if="breakoutLeft && (call.room.value || call.canManage.value)"
+        class="mx-4 mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+        :class="breakoutLeft.seconds <= 60 ? 'bg-amber-500/20 text-amber-100' : 'bg-white/5 text-white/80'"
+        role="timer"
+        aria-live="off"
+      >
+        <Timer class="size-4 shrink-0" />
+        <span class="min-w-0 flex-1 truncate">
+          Breakout rooms close in <strong class="font-mono tabular-nums">{{ breakoutLeft.label }}</strong>
+          <template v-if="breakoutLeft.seconds <= 60"> · everyone comes back to the main room</template>
+        </span>
+        <button v-if="call.canManage.value" type="button" class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium hover:bg-white/10" @click="addBreakoutTime">
+          <Plus class="size-3.5" /> 5 min
+        </button>
       </div>
       <div v-if="call.room.value" class="mx-4 mb-2 flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm text-white/80" role="status">
         <DoorOpen class="size-4 shrink-0 text-sky-300" />

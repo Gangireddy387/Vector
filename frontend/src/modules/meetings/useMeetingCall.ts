@@ -9,9 +9,10 @@ import { type BlurredCamera, blurBackground, blurSupported } from './call/backgr
 import { captionsSupported, createCaptioner } from './call/captions'
 import { type DeviceKind, type DeviceLists, canChooseSpeaker, listDevices, saveDevice, savedDevice, withDevice } from './call/devices'
 import { type CallRecorder, recordingSupported, startRecorder } from './call/recorder'
+import { type CallShortcutAction, callShortcutFor, isTalkKey } from './call/shortcuts'
 import { type CallQuality, createSfuTransport } from './call/sfu'
 import { type StatsSample, measure as measureConnection, worstQuality } from './call/stats'
-import { type MeetingPoll, type WhiteboardStroke, meetingsApi } from './meetings.api'
+import { type MeetingFile, type MeetingLobby, type MeetingPoll, type MeetingQuestion, type WhiteboardStroke, meetingsApi } from './meetings.api'
 
 export type { CallQuality }
 export { canChooseSpeaker, captionsSupported, recordingSupported }
@@ -79,17 +80,30 @@ export interface CallChatMessage {
   room: string | null
   /** Sent by the host to every breakout room. */
   broadcast: boolean
+  attachment: MeetingFile | null
 }
 
+/** Someone waiting to be let in: a guest from the link, or (with the lobby for everyone) an invited member. */
 export interface LobbyGuest {
   socketId: string
   user: CallUser
   since: string
+  guest: boolean
 }
 
 export interface BreakoutState {
   rooms: Array<{ id: string; name: string; people: Array<{ socketId: string; user: CallUser }> }>
   main: Array<{ socketId: string; user: CallUser }>
+  /** When the rooms close by themselves (null: when the host closes them). */
+  endsAt: string | null
+}
+
+/** Someone who joined by phone (through the media server; identities start with `sip_`). */
+export interface PhoneCaller {
+  identity: string
+  name: string
+  stream: MediaStream | null
+  revision: number
 }
 
 export interface FloatingReaction {
@@ -137,10 +151,13 @@ type JoinResult = {
   lobby?: LobbyGuest[]
   media?: MediaRoute
   capacity?: number
+  lobbyMode?: MeetingLobby
+  /** Waiting with nobody in the call who can let this person in yet. */
+  alone?: boolean
 }
 /** How this browser sends and receives video: directly with each person, or through the media server. */
 type MediaRoute = { mode: 'direct' } | { mode: 'sfu'; url: string; token: string }
-type Ack = { ok: boolean; error?: string; poll?: MeetingPoll; recordingId?: string; muted?: number }
+type Ack = { ok: boolean; error?: string; poll?: MeetingPoll; recordingId?: string; muted?: number; url?: string; questions?: MeetingQuestion[] }
 
 export type CallStatus = 'idle' | 'preview' | 'joining' | 'waiting' | 'joined' | 'reconnecting' | 'left'
 
@@ -154,6 +171,9 @@ const SPEAKING_LEVEL = 0.035
 const STATS_EVERY_MS = 3000
 const CAPTION_LINGER_MS = 6000
 const DEFAULT_PERMISSIONS: CallPermissions = { chat: true, share: true, unmute: true }
+const PHONE_PREFIX = 'sip_'
+/** Numbers per whiteboard message (the server's limit). */
+const BOARD_PART = 400
 
 export const mediaSupported = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia)
 export const canShareScreen = typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getDisplayMedia)
@@ -235,6 +255,13 @@ function createCall() {
   const room = ref<string | null>(null)
   const roomName = ref<string | null>(null)
   const breakouts = ref<BreakoutState | null>(null)
+  /** Who waits in the lobby in this meeting, and whether nobody who can let this person in is in the call yet. */
+  const lobbyMode = ref<MeetingLobby>('guests')
+  const waitingAlone = ref(false)
+  const questions = ref<MeetingQuestion[]>([])
+  const phoneCallers = ref<PhoneCaller[]>([])
+  /** A side panel tab to show (set by keyboard shortcuts; the call view opens it). */
+  const panelRequest = ref<{ tab: string; at: number } | null>(null)
   const polls = ref<MeetingPoll[]>([])
   const boardOpen = ref(false)
   const boardRevision = ref(0)
@@ -517,15 +544,36 @@ function createCall() {
     bump()
   }
 
+  // Phone callers only exist in the media server's room: they get their own list, not the app's peers.
+  const isPhone = (identity: string) => identity.startsWith(PHONE_PREFIX)
+  function updatePhone(identity: string, changes: (caller: PhoneCaller) => Partial<PhoneCaller>) {
+    phoneCallers.value = phoneCallers.value.map((caller) => (caller.identity === identity ? { ...caller, ...changes(caller) } : caller))
+  }
+  function phoneTrack(identity: string, track: MediaStreamTrack, gone = false) {
+    updatePhone(identity, (caller) => {
+      const stream = caller.stream ?? new MediaStream()
+      if (gone) stream.removeTrack(track)
+      else if (!stream.getTracks().includes(track)) stream.addTrack(track)
+      return { stream, revision: caller.revision + 1 }
+    })
+  }
+
   const sfu = createSfuTransport({
-    onTrack: receiveTrack,
+    onTrack: (identity, track) => (isPhone(identity) ? phoneTrack(identity, track) : receiveTrack(identity, track)),
     onTrackGone: (peerId, track) => {
+      if (isPhone(peerId)) return phoneTrack(peerId, track, true)
       const stream = streams.get(peerId)
       if (!stream) return
       stream.removeTrack(track)
       updatePeer(peerId, (peer) => ({ stream, revision: peer.revision + 1 }))
     },
-    onPresence: (peerId, present) => {
+    onPresence: (peerId, present, name) => {
+      if (isPhone(peerId)) {
+        const known = phoneCallers.value.some((caller) => caller.identity === peerId)
+        if (present && !known) phoneCallers.value = [...phoneCallers.value, { identity: peerId, name: name || 'Phone caller', stream: null, revision: 0 }]
+        if (!present) phoneCallers.value = phoneCallers.value.filter((caller) => caller.identity !== peerId)
+        return
+      }
       if (present) sfuPresent.add(peerId)
       else sfuPresent.delete(peerId)
       updatePeer(peerId, { connection: present ? 'connected' : 'connecting' })
@@ -550,6 +598,7 @@ function createCall() {
   async function useRoute(next: MediaRoute | undefined) {
     route = next ?? { mode: 'direct' }
     mediaMode.value = route.mode
+    phoneCallers.value = []
     if (route.mode !== 'sfu') return sfu.disconnect()
     sfuPresent.clear()
     try {
@@ -850,7 +899,11 @@ function createCall() {
   }
 
   async function loadShared() {
-    const result = await emit<{ ok: boolean; polls?: MeetingPoll[]; board?: { open: boolean; strokes: WhiteboardStroke[] } }>('meeting:collab')
+    const [result, asked] = await Promise.all([
+      emit<{ ok: boolean; polls?: MeetingPoll[]; board?: { open: boolean; strokes: WhiteboardStroke[] } }>('meeting:collab'),
+      emit('meeting:qa:list'),
+    ])
+    if (asked.ok) questions.value = asked.questions ?? []
     if (!result.ok) return
     polls.value = result.polls ?? []
     boardStrokes.clear()
@@ -970,6 +1023,18 @@ function createCall() {
     toast(next ? `${by} locked the call` : `${by} unlocked the call`)
   }
 
+  const onLobbyMode = ({ mode, by }: { mode: MeetingLobby; by: string }) => {
+    lobbyMode.value = mode
+    if (inCall.value && canManage.value && by !== selfUser.value?.name) toast(mode === 'everyone' ? `${by}: everyone waits in the lobby now` : `${by}: only guests wait in the lobby now`)
+  }
+  const onBreakoutsEnded = ({ reason, by }: { reason: 'time' | 'host'; by: string | null }) =>
+    toast(reason === 'time' ? 'Time is up: everyone is back in the main room' : `${by ?? 'The host'} closed the breakout rooms`)
+
+  function upsertQuestion(question: MeetingQuestion) {
+    const known = questions.value.some((item) => item.id === question.id)
+    questions.value = known ? questions.value.map((item) => (item.id === question.id ? question : item)) : [...questions.value, question]
+  }
+
   const onSocketDown = () => {
     if (status.value === 'joined') status.value = 'reconnecting'
   }
@@ -1011,6 +1076,15 @@ function createCall() {
     'meeting:recording': onRecording,
     'meeting:transcribing': onTranscribing,
     'meeting:caption': onCaption,
+    'meeting:lobby-mode': onLobbyMode,
+    'meeting:breakouts:ended': onBreakoutsEnded,
+    'meeting:qa': upsertQuestion,
+    'meeting:qa:removed': ({ id }: { id: string }) => (questions.value = questions.value.filter((item) => item.id !== id)),
+    'meeting:phone:joined': ({ name }: { name: string }) => toast(`${name} joined by phone`),
+    'meeting:phone:muted': ({ identity, by }: { identity: string; by: string }) => {
+      const caller = phoneCallers.value.find((item) => item.identity === identity)
+      if (caller && by !== selfUser.value?.name) toast(`${by} muted ${caller.name}`)
+    },
     disconnect: onSocketDown,
     connect: onSocketUp,
   } as const
@@ -1043,9 +1117,12 @@ function createCall() {
     selfId.value = socket.id ?? null
     const result = await enterRoom(socket)
     if (result.waiting) {
+      lobbyMode.value = result.lobbyMode ?? lobbyMode.value
+      waitingAlone.value = Boolean(result.alone)
       status.value = 'waiting'
       return
     }
+    waitingAlone.value = false
     if (!result.ok && initial) {
       // A first attempt that fails (call full, meeting over…) keeps the preview, so the person can try again.
       bind(null)
@@ -1071,6 +1148,7 @@ function createCall() {
     chat.value = result.chat ?? []
     breakouts.value = result.breakouts ?? null
     lobby.value = result.lobby ?? []
+    lobbyMode.value = result.lobbyMode ?? 'guests'
     // The host may not allow unmuting right now: join muted.
     if (media.audio && !canManage.value && !permissions.value.unmute) forceMute(null)
     await useRoute(result.media)
@@ -1157,6 +1235,9 @@ function createCall() {
     room.value = null
     roomName.value = null
     breakouts.value = null
+    questions.value = []
+    phoneCallers.value = []
+    waitingAlone.value = false
     locked.value = false
     permissions.value = { ...DEFAULT_PERMISSIONS }
     spotlight.value = null
@@ -1265,13 +1346,61 @@ function createCall() {
   }
   const lowerHand = (socketId: string) => boundSocket?.emit('meeting:hand', { socketId, raised: false })
   const sendReaction = (emoji: string) => boundSocket?.emit('meeting:reaction', { emoji })
-  const sendChat = (body: string) => act('meeting:chat', { body })
+  const sendChat = (body: string, fileId?: string) => act('meeting:chat', { body, fileId })
+  /** Uploads a file to the meeting and shares it in the chat with `body` (people from the organization only). */
+  async function shareFile(file: File, body = '', onProgress?: (percent: number) => void) {
+    if (isGuest.value || !meetingId.value) throw new Error('Only people from the organization can share files.')
+    const uploaded = await meetingsApi.uploadFile(meetingId.value, file, onProgress)
+    await sendChat(body, uploaded.id)
+  }
+  /** A short-lived address for a file shared in this call's chat. */
+  async function fileUrl(fileId: string) {
+    const result = await act('meeting:file-link', { fileId })
+    return result.url!
+  }
   const admit = (socketId: string, allow: boolean) => boundSocket?.emit('meeting:admit', { socketId, allow })
+  /** People who may let others in now: with the lobby for everyone, only the people running the call. */
+  const canAdmit = computed(() => !isGuest.value && (lobbyMode.value === 'guests' || canManage.value))
+  async function setLobbyMode(mode: MeetingLobby) {
+    await act('meeting:lobby-mode', { mode })
+    lobbyMode.value = mode
+  }
 
-  const openBreakouts = (rooms: Array<{ name: string; socketIds: string[] }>) => act('meeting:breakouts:open', { rooms })
+  /** `minutes`: the rooms close by themselves after this long (none: when the host closes them). */
+  const openBreakouts = (rooms: Array<{ name: string; socketIds: string[] }>, minutes: number | null = null) =>
+    act('meeting:breakouts:open', { rooms, ...(minutes ? { minutes } : {}) })
+  const extendBreakouts = (minutes: number) => act('meeting:breakouts:extend', { minutes })
   const moveToRoom = (socketId: string | null, roomId: string | null) => act('meeting:breakouts:move', { socketId, room: roomId })
   const closeBreakouts = () => act('meeting:breakouts:close')
   const broadcastToRooms = (body: string) => act('meeting:breakouts:broadcast', { body })
+
+  // A minute before breakout rooms close by themselves, everyone is told.
+  let breakoutWarning: ReturnType<typeof setTimeout> | undefined
+  watch(
+    () => breakouts.value?.endsAt ?? null,
+    (endsAt) => {
+      clearTimeout(breakoutWarning)
+      const delay = endsAt ? new Date(endsAt).getTime() - Date.now() - 60_000 : -1
+      if (delay >= 0) breakoutWarning = setTimeout(() => toast('Breakout rooms close in 1 minute', { description: 'Everyone comes back to the main room then.' }), delay)
+    },
+  )
+
+  // --- Q&A ----------------------------------------------------------------------------------------------------------
+
+  async function askQuestion(text: string) {
+    const result = (await act('meeting:qa:ask', { text })) as Ack & { question?: MeetingQuestion }
+    if (result.question) upsertQuestion(result.question)
+  }
+  const upvoteQuestion = (questionId: string) => act('meeting:qa:upvote', { questionId })
+  const answerQuestion = (questionId: string, answered = true) => act('meeting:qa:answer', { questionId, answered })
+  const removeQuestion = (questionId: string) => act('meeting:qa:remove', { questionId })
+
+  // --- Phone callers ------------------------------------------------------------------------------------------------
+
+  const mutePhone = (identity: string) => act('meeting:phone:mute', { identity })
+  const removePhone = (identity: string) => act('meeting:phone:remove', { identity })
+
+  const requestPanel = (tab: string) => (panelRequest.value = { tab, at: Date.now() })
 
   /** Whether this person may mute or remove someone with `other` role (only people ranked below them). */
   const canModerate = (other: CallRole) => canManage.value && roleRank(other) < roleRank(role.value)
@@ -1374,11 +1503,15 @@ function createCall() {
   }
   const closePoll = (pollId: string) => act('meeting:poll:close', { pollId })
 
-  /** Adds points to a stroke being drawn here; others see it appear as it is drawn. */
+  /**
+   * Adds a whiteboard item, or points to a freehand stroke being drawn here; others see it appear as it is drawn.
+   * A long stroke (e.g. one put back with redo) is sent in parts the server accepts.
+   */
   function drawStroke(part: Omit<WhiteboardStroke, 'owner'>) {
     if (!part.points.length) return
     addStrokePart({ ...part, owner: selfUser.value?.id ?? 'self' })
-    boundSocket?.emit('meeting:wb:stroke', part)
+    if ((part.kind ?? 'path') !== 'path' || part.points.length <= BOARD_PART) return void boundSocket?.emit('meeting:wb:stroke', part)
+    for (let index = 0; index < part.points.length; index += BOARD_PART) boundSocket?.emit('meeting:wb:stroke', { ...part, points: part.points.slice(index, index + BOARD_PART) })
   }
   function removeStroke(id: string) {
     if (boardStrokes.delete(id)) boardEvent({ type: 'remove', id })
@@ -1392,6 +1525,61 @@ function createCall() {
   function onBoard(listener: (event: BoardEvent) => void) {
     boardListeners.add(listener)
     return () => boardListeners.delete(listener)
+  }
+
+  // --- Keyboard shortcuts (see call/shortcuts.ts) -------------------------------------------------------------------
+
+  /** Unmuted only while the talk keys are held. */
+  let talking = false
+  const attempt = (task: () => unknown) =>
+    void Promise.resolve()
+      .then(task)
+      .catch((error: unknown) => toast.error(getErrorMessage(error)))
+
+  function onShortcut(event: KeyboardEvent) {
+    if (!inCall.value) return
+    if (isTalkKey(event)) {
+      event.preventDefault()
+      if (!event.repeat && !media.audio && !talking) {
+        talking = true
+        attempt(async () => {
+          try {
+            await toggleAudio()
+          } catch (error) {
+            talking = false
+            throw error
+          }
+        })
+      }
+      return
+    }
+    const action = callShortcutFor(event)
+    if (!action) return
+    event.preventDefault()
+    if (event.repeat) return
+    const actions: Record<CallShortcutAction, () => unknown> = {
+      mute: toggleAudio,
+      camera: toggleVideo,
+      share: toggleScreenShare,
+      hand: toggleHand,
+      chat: () => requestPanel('chat'),
+      people: () => requestPanel('people'),
+      qa: () => requestPanel('qa'),
+      whiteboard: () => (isGuest.value ? undefined : setBoardOpen(!boardOpen.value)),
+      leave,
+      talk: () => undefined,
+    }
+    attempt(actions[action])
+  }
+  function stopTalking() {
+    if (!talking) return
+    talking = false
+    if (media.audio) attempt(toggleAudio)
+  }
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', onShortcut)
+    window.addEventListener('keyup', (event) => (event.code === 'Space' || event.key === 'Control' || event.key === 'Alt') && stopTalking())
+    window.addEventListener('blur', stopTalking)
   }
 
   // --- Media keys and the system's call controls (e.g. in picture-in-picture) --------------------------------------
@@ -1456,6 +1644,14 @@ function createCall() {
     unreadChat,
     chatVisible,
     lobby,
+    lobbyMode,
+    waitingAlone,
+    canAdmit,
+    setLobbyMode,
+    questions,
+    phoneCallers,
+    panelRequest,
+    requestPanel,
     room,
     roomName,
     breakouts,
@@ -1493,11 +1689,20 @@ function createCall() {
     lowerHand,
     sendReaction,
     sendChat,
+    shareFile,
+    fileUrl,
     admit,
     openBreakouts,
+    extendBreakouts,
     moveToRoom,
     closeBreakouts,
     broadcastToRooms,
+    askQuestion,
+    upvoteQuestion,
+    answerQuestion,
+    removeQuestion,
+    mutePhone,
+    removePhone,
     canModerate,
     mutePerson,
     muteEveryone,

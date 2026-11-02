@@ -87,6 +87,27 @@ export const config = {
     apiKey: process.env.LIVEKIT_API_KEY || '',
     apiSecret: process.env.LIVEKIT_API_SECRET || '',
     callSize: toInt(process.env.LIVEKIT_CALL_SIZE, 100),
+    /**
+     * Phone dial-in through LiveKit SIP: the inbound trunk(s) your phone number is connected to, and the number to
+     * show people. Callers dial it and enter the meeting's PIN.
+     */
+    sipTrunkIds: list(process.env.LIVEKIT_SIP_TRUNK_IDS),
+    dialInNumber: process.env.DIALIN_NUMBER || '',
+  },
+  /**
+   * Two-way calendar sync: OAuth apps registered with Google (Calendar API) and/or Microsoft (Graph, Calendars.ReadWrite).
+   * Redirect URI to register: <PUBLIC_API_URL>/api/calendar/oauth/<google|microsoft>/callback
+   */
+  calendar: {
+    publicApiUrl: (process.env.PUBLIC_API_URL || (process.env.CLIENT_URL ?? 'http://localhost:5173').split(',')[0]).replace(/\/$/, ''),
+    google: { clientId: process.env.GOOGLE_CLIENT_ID || '', clientSecret: process.env.GOOGLE_CLIENT_SECRET || '' },
+    microsoft: {
+      clientId: process.env.MICROSOFT_CLIENT_ID || '',
+      clientSecret: process.env.MICROSOFT_CLIENT_SECRET || '',
+      tenant: process.env.MICROSOFT_TENANT || 'common',
+    },
+    /** Encrypts stored calendar sign-ins; defaults to a key derived from JWT_SECRET. */
+    tokenKey: process.env.CALENDAR_TOKEN_KEY || '',
   },
   /** Shared state for running several backend servers (and keeping calls through a restart). Without it, one server. */
   redis: {

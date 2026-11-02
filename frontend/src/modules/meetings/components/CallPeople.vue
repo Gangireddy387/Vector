@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Check, DoorOpen, Ellipsis, Hand, MicOff, MonitorX, Pin, PinOff, ShieldCheck, ShieldOff, Star, StarOff, UserX, X } from 'lucide-vue-next'
+import { Check, DoorOpen, Ellipsis, Hand, MicOff, MonitorX, PhoneOff, Pin, PinOff, ShieldCheck, ShieldOff, Star, StarOff, UserX, X } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useConfirm } from '@/composables/useConfirm'
 import { type Tile, useCallTiles } from '../call/tiles'
@@ -15,8 +16,15 @@ const call = useMeetingCall()
 const confirm = useConfirm()
 const { tiles, raisedHands, togglePin } = useCallTiles()
 
-const canAdmit = computed(() => !call.isGuest.value)
 const admitAll = () => call.lobby.value.forEach((guest) => call.admit(guest.socketId, true))
+const lobbyEveryone = computed(() => call.lobbyMode.value === 'everyone')
+const toggleLobby = () =>
+  run(() => call.setLobbyMode(lobbyEveryone.value ? 'guests' : 'everyone'), lobbyEveryone.value ? 'Only guests wait in the lobby now' : 'Everyone waits in the lobby now')
+
+async function hangUp(tile: Tile) {
+  const ok = await confirm({ title: `Hang up on ${tile.user?.name ?? 'this caller'}?`, description: 'Their phone call ends now.', confirmLabel: 'Hang up', destructive: true })
+  if (ok) await run(() => call.removePhone(tile.id), `${tile.user?.name ?? 'The caller'} was removed from the call`)
+}
 const joinRoom = (roomId: string) => call.moveToRoom(null, roomId).catch((error: Error) => toast.error(error.message))
 
 /** Only the host and admins choose co-hosts, from people in the organization. */
@@ -58,7 +66,17 @@ async function remove(tile: Tile) {
   <div class="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
     <slot />
 
-    <section v-if="canAdmit && call.lobby.value.length" class="space-y-2 border border-amber-500/40 bg-amber-500/5 p-3">
+    <label v-if="isManager" class="flex cursor-pointer items-start gap-2.5 border border-border/70 p-3 text-sm">
+      <Switch :model-value="lobbyEveryone" class="mt-0.5" @update:model-value="toggleLobby" />
+      <span class="min-w-0 flex-1">
+        <span class="block font-medium">Everyone waits in the lobby</span>
+        <span class="block text-xs text-muted-foreground">
+          {{ lobbyEveryone ? 'You or a co-host let each person in, also people from the organization.' : 'Only guests wait; people invited from the organization come straight in.' }}
+        </span>
+      </span>
+    </label>
+
+    <section v-if="call.canAdmit.value && call.lobby.value.length" class="space-y-2 border border-amber-500/40 bg-amber-500/5 p-3">
       <div class="flex items-center gap-2">
         <DoorOpen class="size-4 text-amber-600" />
         <p class="flex-1 text-sm font-semibold">Waiting to join · {{ call.lobby.value.length }}</p>
@@ -67,7 +85,7 @@ async function remove(tile: Tile) {
       <ul class="space-y-1.5">
         <li v-for="guest in call.lobby.value" :key="guest.socketId" class="flex items-center gap-2">
           <UserAvatar :user="guest.user" size="md" />
-          <span class="min-w-0 flex-1 truncate text-sm">{{ guest.user.name }} <span class="text-xs text-muted-foreground">· guest</span></span>
+          <span class="min-w-0 flex-1 truncate text-sm">{{ guest.user.name }} <span class="text-xs text-muted-foreground">· {{ guest.guest ? 'guest' : 'invited' }}</span></span>
           <Button variant="ghost" size="icon-sm" aria-label="Turn away" title="Turn away" @click="call.admit(guest.socketId, false)"><X /></Button>
           <Button variant="brand" size="sm" class="h-7" @click="call.admit(guest.socketId, true)"><Check /> Let in</Button>
         </li>
@@ -101,12 +119,23 @@ async function remove(tile: Tile) {
             <span v-if="tile.speaking && tile.audio" class="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-emerald-500 ring-2 ring-card" />
           </span>
           <span class="min-w-0 flex-1 truncate text-sm">
-            {{ tile.self ? 'You' : tile.user?.name }}<span v-if="tile.guest" class="text-xs text-muted-foreground"> · guest</span>
+            {{ tile.self ? 'You' : tile.user?.name }}<span v-if="tile.phone" class="text-xs text-muted-foreground"> · phone</span
+            ><span v-else-if="tile.guest" class="text-xs text-muted-foreground"> · guest</span>
             <span v-if="tile.callRole" class="ml-1 rounded bg-primary/10 px-1 py-px text-[10px] font-semibold text-primary uppercase">{{ ROLE_LABELS[tile.callRole] }}</span>
           </span>
           <Hand v-if="tile.hand" class="size-4 text-amber-500" />
           <MicOff v-if="!tile.audio" class="size-4 text-muted-foreground" />
-          <DropdownMenu>
+          <DropdownMenu v-if="tile.phone">
+            <DropdownMenuTrigger v-if="isManager" as-child>
+              <Button variant="ghost" size="icon-sm" :aria-label="`Options for ${tile.user?.name}`"><Ellipsis /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="w-48">
+              <DropdownMenuItem @select="run(() => call.mutePhone(tile.id), `${tile.user?.name} was muted`)"><MicOff /> Mute</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem class="text-destructive focus:text-destructive" @select="hangUp(tile)"><PhoneOff /> Hang up</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu v-else>
             <DropdownMenuTrigger as-child>
               <Button variant="ghost" size="icon-sm" :aria-label="`Options for ${tile.self ? 'you' : tile.user?.name}`"><Ellipsis /></Button>
             </DropdownMenuTrigger>

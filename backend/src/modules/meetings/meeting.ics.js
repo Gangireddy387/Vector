@@ -38,11 +38,11 @@ const person = (kind, { name, email }, extra = '') => `${kind};CN=${escapeText(n
  * `meeting`: { id, title, agenda, startsAt, durationMinutes, status, updatedAt }; `url`: where to join;
  * `organizer` / `attendees`: { name, email }.
  */
-export function meetingIcs({ meeting, url, organizer = null, attendees = [], method = 'REQUEST' }) {
+export function meetingIcs({ meeting, url, organizer = null, attendees = [], method = 'REQUEST', dialIn = null }) {
   const start = new Date(meeting.startsAt);
   const end = new Date(start.getTime() + meeting.durationMinutes * 60_000);
   const cancelled = method === 'CANCEL' || meeting.status === 'cancelled';
-  const description = [meeting.agenda, `Join: ${url}`].filter(Boolean).join('\n\n');
+  const description = [meeting.agenda, `Join: ${url}`, dialIn ? `Join by phone: ${dialIn.number} (PIN ${dialIn.pin}#)` : null].filter(Boolean).join('\n\n');
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',

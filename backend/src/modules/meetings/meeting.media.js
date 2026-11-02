@@ -14,10 +14,11 @@ const settings = config.livekit;
 export const sfuEnabled = () => Boolean(settings.url && settings.apiKey && settings.apiSecret);
 export const callCapacity = () => (sfuEnabled() ? settings.callSize : config.meetings.directCallSize);
 
-const roomFor = (meetingId, room) => `meeting-${meetingId}${room ? `-${room}` : ''}`;
+export const roomFor = (meetingId, room) => `meeting-${meetingId}${room ? `-${room}` : ''}`;
+export const livekitHttpUrl = () => settings.url.replace(/^ws/, 'http');
 
 let service = null;
-const rooms = () => (service ??= new RoomServiceClient(settings.url.replace(/^ws/, 'http'), settings.apiKey, settings.apiSecret));
+export const rooms = () => (service ??= new RoomServiceClient(livekitHttpUrl(), settings.apiKey, settings.apiSecret));
 
 /** What this person may send: the people running the call everything; others what the host allows. */
 export function publishSources(peer, permissions) {

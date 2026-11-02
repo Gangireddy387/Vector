@@ -292,7 +292,7 @@ const MEETING_EMAIL_COPY = {
  * A meeting invitation, change or cancellation (`kind`), sent with a calendar file. `when` is already written in the
  * recipient's own time zone.
  */
-export const meetingEmail = ({ kind, title, when, duration, hostName, organization, agenda, link }) => {
+export const meetingEmail = ({ kind, title, when, duration, hostName, organization, agenda, link, dialIn = null }) => {
   const copy = MEETING_EMAIL_COPY[kind];
   const heading =
     kind === 'invite' ? `${hostName ?? 'Someone'} invited you to “${title}”` : kind === 'update' ? `“${title}” has changed` : `“${title}” was cancelled`;
@@ -311,6 +311,7 @@ export const meetingEmail = ({ kind, title, when, duration, hostName, organizati
       details: [
         { label: 'When', value: escapeHtml(when), hint: duration },
         ...(hostName ? [{ label: 'Host', value: escapeHtml(hostName) }] : []),
+        ...(dialIn && kind !== 'cancel' ? [{ label: 'By phone', value: escapeHtml(dialIn.number), hint: `PIN ${escapeHtml(dialIn.pin)}#` }] : []),
       ],
       actionLabel: copy.action,
       actionUrl: copy.action && link ? appUrl(link) : null,

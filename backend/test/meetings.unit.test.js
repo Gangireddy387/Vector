@@ -2,7 +2,11 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import { config } from '../src/config/index.js';
+import { decrypt, encrypt } from '../src/modules/calendar-sync/crypto.js';
+import { PROVIDERS } from '../src/modules/calendar-sync/providers.js';
+import { cleanBoardItem } from '../src/modules/meetings/meeting.collab.js';
 import { meetingIcs } from '../src/modules/meetings/meeting.ics.js';
+import { dialInFor, isPhoneIdentity, phoneCallerName } from '../src/modules/meetings/meeting.phone.js';
 import { callCapacity, mediaFor, publishSources, sfuEnabled } from '../src/modules/meetings/meeting.media.js';
 import { remindedAtFor, whenFor } from '../src/modules/meetings/meeting.notify.js';
 import { nextStart } from '../src/modules/meetings/meeting.recurrence.js';
@@ -235,5 +239,80 @@ describe('shared state (in memory)', () => {
     await shared.set('test:x', 1);
     assert.deepEqual(await shared.getMany(['test:x', 'test:missing']), [1, null]);
     await shared.del('test:x');
+  });
+});
+
+describe('whiteboard items', () => {
+  it('accepts freehand strokes, shapes, text and notes', () => {
+    assert.deepEqual(cleanBoardItem({ points: [0.1, 0.2, 0.3, 0.4] }), { kind: 'path', points: [0.1, 0.2, 0.3, 0.4] });
+    assert.equal(cleanBoardItem({ kind: 'arrow', points: [0, 0, 1, 1] }).kind, 'arrow');
+    assert.deepEqual(cleanBoardItem({ kind: 'note', points: [0.5, 0.5], text: '  Ship it  ' }), { kind: 'note', points: [0.5, 0.5], text: 'Ship it' });
+  });
+
+  it('refuses unknown kinds, wrong point counts, empty text and points off the board', () => {
+    assert.equal(cleanBoardItem({ kind: 'star', points: [0, 0, 1, 1] }), null);
+    assert.equal(cleanBoardItem({ kind: 'rect', points: [0, 0] }), null);
+    assert.equal(cleanBoardItem({ kind: 'text', points: [0.1, 0.1], text: '   ' }), null);
+    assert.equal(cleanBoardItem({ kind: 'line', points: [0, 0, 2, 2] }), null);
+    assert.equal(cleanBoardItem({ kind: 'path', points: [] }), null);
+  });
+
+  it('caps the text of an item', () => {
+    assert.equal(cleanBoardItem({ kind: 'text', points: [0, 0], text: 'x'.repeat(900) }).text.length, 500);
+  });
+});
+
+describe('calendar sync', () => {
+  it('stores sign-ins encrypted, and refuses tampered ones', () => {
+    const sealed = encrypt('ya29.secret-access-token');
+    assert.notEqual(sealed, 'ya29.secret-access-token');
+    assert.equal(decrypt(sealed), 'ya29.secret-access-token');
+    assert.notEqual(encrypt('same'), encrypt('same'), 'each value gets its own nonce');
+    const [version, iv, tag, data] = sealed.split('.');
+    const flipped = `${version}.${iv}.${tag}.${data.slice(0, -2)}${data.slice(-2) === 'AA' ? 'AB' : 'AA'}`;
+    assert.throws(() => decrypt(flipped));
+    assert.equal(decrypt(null), null);
+  });
+
+  const event = {
+    title: 'Planning',
+    description: 'Agenda\n\nJoin the meeting: https://app.example.com/meetings/1',
+    location: 'https://app.example.com/meetings/1',
+    start: new Date('2026-11-03T04:00:00.000Z'),
+    end: new Date('2026-11-03T04:45:00.000Z'),
+    attendees: [{ email: 'one@example.com', name: 'One' }],
+  };
+
+  it('sends Google the times with their offset and everyone invited', () => {
+    const body = PROVIDERS.google.eventBody(event);
+    assert.equal(body.summary, 'Planning');
+    assert.deepEqual(body.start, { dateTime: '2026-11-03T04:00:00.000Z' });
+    assert.deepEqual(body.attendees, [{ email: 'one@example.com', displayName: 'One' }]);
+  });
+
+  it('sends Microsoft local times with the zone named separately', () => {
+    const body = PROVIDERS.microsoft.eventBody(event);
+    assert.equal(body.subject, 'Planning');
+    assert.deepEqual(body.start, { dateTime: '2026-11-03T04:00:00', timeZone: 'UTC' });
+    assert.deepEqual(body.end, { dateTime: '2026-11-03T04:45:00', timeZone: 'UTC' });
+    assert.deepEqual(body.attendees, [{ emailAddress: { address: 'one@example.com', name: 'One' }, type: 'required' }]);
+  });
+
+  it('is off until an OAuth app is configured', () => {
+    assert.equal(PROVIDERS.google.configured(), Boolean(config.calendar.google.clientId && config.calendar.google.clientSecret));
+  });
+});
+
+describe('dial-in', () => {
+  it('shows phone callers without their whole number', () => {
+    assert.equal(phoneCallerName({ identity: 'sip_+919876543210', name: '+919876543210', attributes: {} }), 'Phone (…3210)');
+    assert.equal(phoneCallerName({ identity: 'sip_+919876543210', name: 'Reception desk', attributes: {} }), 'Reception desk');
+    assert.equal(phoneCallerName({ identity: 'sip_x', name: '', attributes: {} }), 'Phone caller');
+    assert.equal(isPhoneIdentity('sip_123'), true);
+    assert.equal(isPhoneIdentity('AbCdEf123'), false);
+  });
+
+  it('gives no dial-in details when the server has none', () => {
+    assert.equal(dialInFor({ dialInPin: '123456789' }), config.livekit.dialInNumber && sfuEnabled() ? { number: config.livekit.dialInNumber, pin: '123456789' } : null);
   });
 });

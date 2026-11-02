@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Command, FolderKanban, Keyboard, ListChecks, Navigation, Search, SearchX } from 'lucide-vue-next'
+import { Command, FolderKanban, Keyboard, ListChecks, Navigation, PenTool, Search, SearchX, Video } from 'lucide-vue-next'
 import { type Component, computed, ref, watch } from 'vue'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { CALL_SHORTCUTS, TALK_SHORTCUT } from '@/modules/meetings/call/shortcuts'
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -65,6 +66,24 @@ const GROUPS: Group[] = [
       { label: 'Move up and down', combo: ['↑', '↓'] },
       { label: 'Open or choose', combo: ['Enter'] },
       { label: 'Jump to first / last', combo: ['Home', 'End'] },
+    ],
+  },
+  {
+    title: 'In a call',
+    icon: Video,
+    shortcuts: [
+      ...CALL_SHORTCUTS.map((shortcut) => ({ label: shortcut.label, combo: shortcut.combo })),
+      { label: TALK_SHORTCUT.label, combo: TALK_SHORTCUT.combo },
+    ],
+  },
+  {
+    title: 'On the whiteboard',
+    icon: PenTool,
+    shortcuts: [
+      { label: 'Undo your last change', combo: [MOD, 'Z'] },
+      { label: 'Redo', combo: [MOD, 'Shift', 'Z'], or: `${MOD} Y` },
+      { label: 'Finish text or a sticky note', combo: ['Enter'] },
+      { label: 'New line in text', combo: ['Shift', 'Enter'] },
     ],
   },
 ]

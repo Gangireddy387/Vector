@@ -4,7 +4,9 @@ import {
   CalendarEvent,
   Department,
   Meeting,
+  MeetingCalendarLink,
   MeetingChatMessage,
+  MeetingFile,
   MeetingParticipant,
   MeetingRecording,
   MeetingTranscriptLine,
@@ -18,10 +20,15 @@ import { ApiError } from '../../shared/errors/api-error.js';
 import { emitToUser, isUserOnline } from '../../shared/realtime/socket.js';
 import { localDateTime } from '../../shared/utils/timezone.js';
 import { deleteStoredFile } from '../attachments/attachment.storage.js';
+import { calendarSendsInvites, pullCalendarChanges, pushMeetingLater } from '../calendar-sync/calendar-sync.service.js';
 import { notifyUsers } from '../notifications/notification.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
+import { attendanceReport } from './meeting.attendance.js';
 import { flushBoard, forgetBoard, meetingPolls } from './meeting.collab.js';
+import { deleteMeetingFiles } from './meeting.files.js';
 import { emailMeeting, remindedAtFor } from './meeting.notify.js';
+import { dialInFor, ensureDialIn, releaseDialIn } from './meeting.phone.js';
+import { meetingQuestions } from './meeting.qa.js';
 import { nextStart } from './meeting.recurrence.js';
 import { recordingView } from './meeting.recordings.js';
 import { callPresence, closeCall, dismissLobby } from './meeting.signaling.js';
@@ -38,6 +45,7 @@ const meetingLink = (meeting) => `/meetings/${meeting.id}`;
 const includeAll = [
   { model: User, as: 'host', attributes: USER_SUMMARY_ATTRIBUTES },
   { model: MeetingParticipant, as: 'participants', include: [{ model: User, as: 'user', attributes: [...USER_SUMMARY_ATTRIBUTES, 'lastSeenAt', 'timezone'] }] },
+  { model: MeetingCalendarLink, as: 'calendarLink', attributes: ['provider', 'lastSyncedAt'] },
 ];
 
 export async function canSchedule(viewer) {
@@ -72,7 +80,7 @@ function summarize(meeting, viewer, presence = NOBODY) {
       .filter((participant) => participant.user)
       .map((participant) => {
         const { timezone: _timezone, ...user } = participant.user;
-        return { ...user, joinedAt: participant.joinedAt, isOnline: isUserOnline(user.id) };
+        return { ...user, joinedAt: participant.joinedAt, response: participant.response ?? null, isOnline: isUserOnline(user.id) };
       })
       .sort((a, b) => a.name.localeCompare(b.name)),
     context: json.contextType && json.contextId ? { type: json.contextType, id: json.contextId } : null,
@@ -84,6 +92,11 @@ function summarize(meeting, viewer, presence = NOBODY) {
     /** Only the people who manage the meeting see (and share) the guest link. */
     guestToken: canManage ? json.guestToken : null,
     guestAccess: Boolean(json.guestToken),
+    /** Who waits in the lobby until someone lets them in: only guests, or everyone except the host and co-hosts. */
+    lobby: json.lobby ?? 'guests',
+    dialIn: ['ended', 'cancelled'].includes(json.status) ? null : dialInFor(json),
+    /** The host's Google or Microsoft calendar carries this meeting (invitations and replies go through it). */
+    calendarSync: json.calendarLink ? { provider: json.calendarLink.provider, lastSyncedAt: json.calendarLink.lastSyncedAt } : null,
     canManage,
   };
 }
@@ -132,7 +145,8 @@ export async function getMeeting(viewer, meetingId) {
   const meeting = await loadMeeting(viewer, meetingId);
   const presence = (await callPresence([meeting.id])).get(meeting.id);
   if (presence.inCall.length) await flushBoard(meeting.id);
-  const [updates, polls, board, chat, transcript, recordings] = await Promise.all([
+  const canManage = viewer.isAdmin || meeting.hostId === viewer.id;
+  const [updates, polls, board, chat, transcript, recordings, questions, files, attendance] = await Promise.all([
     MeetingUpdate.findAll({
       where: { meetingId },
       include: [{ model: User, as: 'author', attributes: USER_SUMMARY_ATTRIBUTES }],
@@ -143,16 +157,39 @@ export async function getMeeting(viewer, meetingId) {
     MeetingChatMessage.findAll({ where: { meetingId }, order: [['createdAt', 'ASC']], limit: 2000 }),
     MeetingTranscriptLine.findAll({ where: { meetingId }, order: [['spokenAt', 'ASC']], limit: 5000 }),
     MeetingRecording.findAll({ where: { meetingId }, include: [{ model: User, as: 'createdBy', attributes: ['id', 'name'] }], order: [['startedAt', 'ASC']] }),
+    meetingQuestions(meetingId),
+    MeetingFile.findAll({ where: { meetingId }, order: [['createdAt', 'ASC']] }),
+    canManage ? attendanceReport(meetingId) : null,
   ]);
   return {
     meeting: summarize(meeting, viewer, presence),
     updates,
     polls,
     whiteboard: board?.whiteboard?.strokes?.length ? board.whiteboard : null,
-    chat: chat.map((row) => ({ id: row.id, at: row.createdAt, author: row.author, body: row.body, room: row.room, roomName: row.roomName, broadcast: row.broadcast })),
+    chat: chat.map((row) => ({
+      id: row.id,
+      at: row.createdAt,
+      author: row.author,
+      body: row.body,
+      room: row.room,
+      roomName: row.roomName,
+      broadcast: row.broadcast,
+      attachment: row.attachment ?? null,
+    })),
     transcript: transcript.map((line) => ({ id: line.id, speaker: line.speaker, text: line.text, at: line.spokenAt })),
     recordings: recordings.map((recording) => recordingView(recording, viewer, meeting)),
+    questions,
+    files: files.map((file) => file.toJSON()),
+    /** Only for the host and organization admins. */
+    attendance,
   };
+}
+
+/** Who joined the call and for how long: one line per person (host and organization admins). */
+export async function meetingAttendance(viewer, meetingId) {
+  const meeting = await loadMeeting(viewer, meetingId);
+  assertManage(viewer, meeting);
+  return attendanceReport(meeting.id);
 }
 
 async function activeMemberIds(organizationId, userIds) {
@@ -215,8 +252,15 @@ async function invite(meeting, viewer, userIds) {
   mailLater(meeting, 'invite', userIds);
 }
 
+/** Invitations, changes and cancellations by email, unless the host's connected calendar already sends them. */
 const mailLater = (meeting, kind, userIds) =>
-  void emailMeeting(meeting, kind, userIds).catch((error) => console.warn(`[meetings] could not email the ${kind} for “${meeting.title}”:`, error.message));
+  void (async () => {
+    if (!userIds.length || (await calendarSendsInvites(meeting))) return;
+    await emailMeeting(meeting, kind, userIds);
+  })().catch((error) => console.warn(`[meetings] could not email the ${kind} for “${meeting.title}”:`, error.message));
+
+/** The host's calendar (when connected) follows the meeting: new, moved, people changed, cancelled. */
+const syncExternal = (meeting) => pushMeetingLater(meeting.id, { dialIn: dialInFor(meeting) });
 
 const CONTEXT_MODELS = { department: Department, team: Team, project: Project };
 
@@ -253,12 +297,15 @@ export async function createMeeting(viewer, input) {
     recurrence: input.recurrence ?? null,
     seriesId: input.recurrence ? id : null,
     guestToken: input.guestAccess ? newGuestToken() : null,
+    lobby: input.lobby ?? 'guests',
     remindedAt: remindedAtFor(input.startsAt),
   });
   await MeetingParticipant.bulkCreate(participantIds.map((userId) => ({ meetingId: created.id, userId })));
+  await ensureDialIn(created);
   const meeting = await reload(created);
   await syncCalendar(meeting);
   await invite(meeting, viewer, participantIds);
+  syncExternal(meeting);
   notifyChanged(meeting);
   return summarize(meeting, viewer);
 }
@@ -271,7 +318,8 @@ const notifyChanged = (meeting) => {
 /** Occurrences of a series that have not happened yet (this one included when it is still ahead). */
 const openOccurrences = (meeting) => ({ seriesId: meeting.seriesId, status: ['scheduled', 'live'] });
 
-export async function updateMeeting(viewer, meetingId, changes) {
+/** `fromCalendar`: the change came from the host's calendar, so it is not sent back there. */
+export async function updateMeeting(viewer, meetingId, changes, { fromCalendar = false } = {}) {
   const meeting = await loadMeeting(viewer, meetingId);
   assertManage(viewer, meeting);
   if (['ended', 'cancelled'].includes(meeting.status) && Object.keys(changes).some((key) => key !== 'notes')) {
@@ -305,15 +353,18 @@ export async function updateMeeting(viewer, meetingId, changes) {
   }
   const removed = [...before].filter((userId) => !updated.participants.some((participant) => participant.userId === userId));
   if (removed.length) mailLater(updated, 'cancel', removed);
+  if (moved || detailsChanged) await MeetingParticipant.update({ response: null }, { where: { meetingId: updated.id } }).catch(() => undefined);
+  if (!updated.dialInPin && updated.status === 'scheduled') await ensureDialIn(updated);
+  if (!fromCalendar && (participantIds || detailsChanged)) syncExternal(updated);
   notifyChanged(updated);
-  return present(updated, viewer);
+  return present(await reload(updated), viewer);
 }
 
 /**
  * Cancels one meeting. For a repeating meeting, `series` cancels this and every later occurrence and stops the
  * repeat; otherwise only this one is skipped and the next occurrence is scheduled right away.
  */
-export async function cancelMeeting(viewer, meetingId, { series = false } = {}) {
+export async function cancelMeeting(viewer, meetingId, { series = false } = {}, { fromCalendar = false } = {}) {
   const meeting = await loadMeeting(viewer, meetingId);
   assertManage(viewer, meeting);
   if (meeting.status === 'ended') throw ApiError.badRequest('This meeting already ended');
@@ -331,6 +382,8 @@ export async function cancelMeeting(viewer, meetingId, { series = false } = {}) 
     await item.update({ status: 'cancelled', ...(series ? { recurrence: null } : {}) });
     await closeCall(item.id, 'cancelled');
     await syncCalendar(item);
+    await releaseDialIn(item);
+    if (!fromCalendar) syncExternal(item);
     notifyChanged(item);
     mailLater(item, 'cancel', item.participants.map((participant) => participant.userId));
   }
@@ -354,6 +407,7 @@ export async function endMeeting(viewer, meetingId) {
   assertManage(viewer, meeting);
   if (meeting.status !== 'ended') await meeting.update({ status: 'ended', endedAt: new Date() });
   await closeCall(meeting.id, 'ended');
+  await releaseDialIn(meeting);
   notifyChanged(meeting);
   summarizeInBackground(meeting.id);
   return summarize(await reload(meeting), viewer);
@@ -367,7 +421,9 @@ export async function deleteMeeting(viewer, meetingId) {
   const { inCall } = (await callPresence([meeting.id])).get(meeting.id);
   if (!isOver || inCall.length) throw ApiError.badRequest('Only past meetings can be deleted. Cancel an upcoming meeting instead.');
   await forgetBoard(meeting.id);
+  await releaseDialIn(meeting);
   const recordings = await MeetingRecording.findAll({ where: { meetingId: meeting.id }, attributes: ['storageKey'] });
+  await deleteMeetingFiles(meeting.id);
   await CalendarEvent.destroy({ where: { meetingId: meeting.id } });
   await meeting.destroy();
   await Promise.all(recordings.filter((recording) => recording.storageKey).map((recording) => deleteStoredFile(recording.storageKey)));
@@ -454,13 +510,36 @@ async function continueOccurrence(meeting) {
     recurrence: meeting.recurrence,
     seriesId: meeting.seriesId ?? meeting.id,
     guestToken: meeting.guestToken,
+    lobby: meeting.lobby ?? 'guests',
     remindedAt: remindedAtFor(startsAt),
   });
   if (participantIds.length) await MeetingParticipant.bulkCreate(participantIds.map((userId) => ({ meetingId: next.id, userId })), { ignoreDuplicates: true });
+  await ensureDialIn(next);
   const loaded = await reload(next);
   await syncCalendar(loaded);
+  syncExternal(loaded);
   notifyChanged(loaded);
   return loaded;
+}
+
+/** Acting for the host, for changes that come from the host's own calendar. */
+const hostViewer = async (meeting) => {
+  const host = await User.findByPk(meeting.hostId, { attributes: ['id', 'name'] });
+  return host ? { id: host.id, name: host.name, organization: { id: meeting.organizationId }, isAdmin: false } : null;
+};
+
+/** Background job: moves, cancellations and replies made in hosts' Google or Microsoft calendars. */
+export function syncFromCalendars() {
+  return pullCalendarChanges({
+    async reschedule(meeting, { startsAt, durationMinutes }) {
+      const viewer = await hostViewer(meeting);
+      if (viewer) await updateMeeting(viewer, meeting.id, { startsAt, durationMinutes }, { fromCalendar: true });
+    },
+    async cancel(meeting) {
+      const viewer = await hostViewer(meeting);
+      if (viewer) await cancelMeeting(viewer, meeting.id, {}, { fromCalendar: true });
+    },
+  });
 }
 
 /** Background job: once an occurrence of a repeating meeting starts, the next one is put on everyone's calendar. */

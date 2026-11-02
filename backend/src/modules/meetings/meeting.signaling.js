@@ -1,9 +1,12 @@
 import { Op } from 'sequelize';
-import { Meeting, MeetingChatMessage, MeetingParticipant, MeetingRecording, MeetingTranscriptLine, Organization, OrganizationMember, User } from '../../database/models.js';
+import { Meeting, MeetingChatMessage, MeetingFile, MeetingParticipant, MeetingRecording, MeetingTranscriptLine, Organization, OrganizationMember, User } from '../../database/models.js';
 import { presenceInCall } from '../../shared/realtime/presence.js';
 import { shared } from '../../shared/realtime/shared-state.js';
 import { entitlementsFor, withPlan } from '../plans/plan.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
+import { isUuid } from '../../shared/utils/ids.js';
+import { closeOpenAttendance, closeStaleAttendance, recordArrival, recordDeparture } from './meeting.attendance.js';
+import { fileLink, fileView, ownFile } from './meeting.files.js';
 import { callCapacity, mediaFor, sfuApplyPermissions, sfuEnabled, sfuMuteMicrophone, sfuRemove, sfuStopScreen } from './meeting.media.js';
 import { knockHost, ringInvitees } from './meeting.ring.js';
 
@@ -150,14 +153,60 @@ const sessionView = (call) => ({
 function breakoutView(call) {
   if (!call.breakouts) return null;
   const people = (room) => Object.values(call.peers).filter((peer) => peer.room === room).map((peer) => ({ socketId: peer.socketId, user: peer.user }));
-  return { rooms: call.breakouts.rooms.map((room) => ({ ...room, people: people(room.id) })), main: people(null) };
+  return { rooms: call.breakouts.rooms.map((room) => ({ ...room, people: people(room.id) })), main: people(null), endsAt: call.breakouts.endsAt ?? null };
 }
 
-const lobbyView = (call) => Object.values(call.lobby).map(({ socketId, user, since }) => ({ socketId, user, since }));
+// --- Breakout room timer -------------------------------------------------------------------------------------------
+
+const MAX_BREAKOUT_MINUTES = 240;
+const breakoutTimers = new Map();
+
+function clearBreakoutTimer(meetingId) {
+  clearTimeout(breakoutTimers.get(meetingId));
+  breakoutTimers.delete(meetingId);
+}
+
+/** Closes the rooms when their time is up (on this server; the background check covers restarts). */
+function scheduleBreakoutClose(io, meetingId, endsAt) {
+  clearBreakoutTimer(meetingId);
+  if (!endsAt) return;
+  const timer = setTimeout(() => void closeBreakouts(io, meetingId, { reason: 'time', expectedEndsAt: endsAt }).catch(() => undefined), Math.max(0, new Date(endsAt).getTime() - Date.now()));
+  timer.unref?.();
+  breakoutTimers.set(meetingId, timer);
+}
+
+/** Everyone comes back to the main room. `expectedEndsAt`: only if the timer was not changed meanwhile. */
+async function closeBreakouts(io, meetingId, { by = null, reason = 'host', expectedEndsAt = undefined } = {}) {
+  clearBreakoutTimer(meetingId);
+  const result = await mutate(meetingId, (call) => {
+    if (!call.breakouts || (expectedEndsAt !== undefined && call.breakouts.endsAt !== expectedEndsAt)) return null;
+    const before = roomsNow(call);
+    call.breakouts = null;
+    for (const peer of Object.values(call.peers)) peer.room = null;
+    return { call, before };
+  });
+  if (!result) return false;
+  io.to(meetingChannel(meetingId)).emit('meeting:breakouts:ended', { reason, by });
+  await regroup(io, meetingId, result.call, result.before);
+  return true;
+}
+
+/** Background check: rooms whose time is over close even if the server that set their timer restarted. */
+async function closeExpiredBreakouts() {
+  if (!ioRef) return;
+  const live = await Meeting.findAll({ where: { status: 'live' }, attributes: ['id'], raw: true });
+  for (const { id } of live) {
+    const call = await readCall(id);
+    const endsAt = call?.breakouts?.endsAt;
+    if (endsAt && new Date(endsAt).getTime() <= Date.now()) await closeBreakouts(ioRef, id, { reason: 'time', expectedEndsAt: endsAt });
+  }
+}
+
+const lobbyView = (call) => Object.values(call.lobby).map(({ socketId, user, since, guest }) => ({ socketId, user, since, guest: guest !== false }));
 const announceLobby = (io, meetingId, call) => io.to(admitChannel(meetingId)).emit('meeting:lobby', lobbyView(call));
 const announceBreakouts = (io, meetingId, call) => io.to(meetingChannel(meetingId)).emit('meeting:breakouts', breakoutView(call));
 
-const chatView = (row) => ({ id: row.id, at: row.createdAt, author: row.author, body: row.body, room: row.room, broadcast: row.broadcast });
+const chatView = (row) => ({ id: row.id, at: row.createdAt, author: row.author, body: row.body, room: row.room, broadcast: row.broadcast, attachment: row.attachment ?? null });
 
 /** The recent chat of a room (null: the main room); host messages to every room show everywhere. */
 async function chatHistory(meetingId, room) {
@@ -301,6 +350,7 @@ async function evict(io, meetingId, socketId) {
   if (!result) return;
   const { peer, call } = result;
   if (!peer.guest) void presenceInCall(peer.user.id, socketId, false).catch(() => undefined);
+  void recordDeparture(meetingId, socketId);
   io.in(socketId).socketsLeave([meetingChannel(meetingId), admitChannel(meetingId), roomChannel(meetingId, peer.room)]);
   io.to(roomChannel(meetingId, peer.room)).emit('meeting:peer-left', { socketId });
   if (result.spotlightCleared) io.to(meetingChannel(meetingId)).emit('meeting:spotlight', { socketId: null });
@@ -370,6 +420,8 @@ export async function closeCall(meetingId, reason) {
     return snapshot;
   });
   const sockets = [...Object.keys(before.peers), ...Object.keys(before.lobby)];
+  void closeOpenAttendance(meetingId);
+  clearBreakoutTimer(meetingId);
   if (!sockets.length) return;
   for (const socketId of sockets) ioRef.to(socketId).emit('meeting:closed', { meetingId, reason });
   for (const peer of Object.values(before.peers)) if (!peer.guest) void presenceInCall(peer.user.id, peer.socketId, false).catch(() => undefined);
@@ -412,6 +464,11 @@ export async function settleIdleMeetings() {
   }
   // Recordings whose upload never came (the browser closed while recording).
   await MeetingRecording.update({ status: 'failed' }, { where: { status: 'recording', startedAt: { [Op.lt]: new Date(Date.now() - 12 * 60 * 60_000) } } });
+  await closeStaleAttendance(async (meetingId) => {
+    const call = await readCall(meetingId);
+    return Boolean(call && Object.keys(call.peers).length);
+  });
+  await closeExpiredBreakouts();
   return settled;
 }
 
@@ -467,9 +524,12 @@ export function registerMeetingSignaling(io, socket) {
         const role = joined.role ?? (call.cohosts.includes(user.id) ? 'cohost' : null);
         if (call.removed.includes(user.id)) return { error: 'The host removed you from this call.' };
         if (call.locked && RANKS[role] !== 2 && !call.allowed.includes(user.id)) return { error: 'The host locked this call, so nobody new can join right now.' };
-        if (guest && !call.admitted.includes(guest.id)) {
-          call.lobby[socket.id] = { socketId: socket.id, user, since: new Date().toISOString() };
-          return { waiting: true, call, alone: !Object.values(call.peers).some((peer) => !peer.guest) };
+        // Guests always wait to be let in; with the lobby for everyone, so do invited people who do not run the call.
+        const waits = guest || (meeting.lobby === 'everyone' && !role);
+        if (waits && !call.admitted.includes(user.id)) {
+          call.lobby[socket.id] = { socketId: socket.id, user, since: new Date().toISOString(), guest: Boolean(guest) };
+          const admitters = Object.values(call.peers).filter((peer) => (meeting.lobby === 'everyone' ? peer.canManage : !peer.guest));
+          return { waiting: true, call, alone: !admitters.length };
         }
         if (Object.keys(call.peers).length >= callCapacity()) return { error: `This call is full (${callCapacity()} people). Try again when someone leaves.` };
         const canManage = Boolean(role);
@@ -493,7 +553,7 @@ export function registerMeetingSignaling(io, socket) {
         socket.data.lobbyMeetingId = meetingId;
         announceLobby(io, meetingId, outcome.call);
         if (outcome.alone) void knockHost(io, meeting, user.name).catch(() => undefined);
-        return ack?.({ ok: false, waiting: true });
+        return ack?.({ ok: false, waiting: true, alone: outcome.alone, lobbyMode: meeting.lobby });
       }
 
       const { self, peers, call } = outcome;
@@ -502,6 +562,7 @@ export function registerMeetingSignaling(io, socket) {
       socket.to(roomChannel(meetingId, null)).emit('meeting:peer-joined', publicPeer(self));
       const started = guest ? false : await recordJoin(meeting, user.id);
       if (!guest) void presenceInCall(user.id, socket.id, true).catch(() => undefined);
+      void recordArrival(meetingId, { userId: guest ? null : user.id, name: user.name, email: user.email || null, kind: guest ? 'guest' : 'member', sessionKey: socket.id });
       ack?.({
         ok: true,
         selfId: socket.id,
@@ -515,6 +576,7 @@ export function registerMeetingSignaling(io, socket) {
         reactions: REACTIONS,
         media: await mediaFor(meetingId, null, self, call.permissions),
         capacity: callCapacity(),
+        lobbyMode: meeting.lobby,
       });
       if (call.breakouts) announceBreakouts(io, meetingId, call);
       void announce(io, meetingId);
@@ -581,28 +643,50 @@ export function registerMeetingSignaling(io, socket) {
     if (here) io.to(roomChannel(here.meetingId, here.peer.room)).emit('meeting:reaction', { socketId: socket.id, emoji });
   });
 
-  /** Chat for the people in the same room; it is kept with the meeting. */
-  socket.on('meeting:chat', async ({ body } = {}, ack) => {
+  /**
+   * Chat for the people in the same room; it is kept with the meeting. `fileId`: a file this person uploaded to the
+   * meeting (POST /meetings/:id/files), shared with the message.
+   */
+  socket.on('meeting:chat', async ({ body, fileId } = {}, ack) => {
     const here = await currentCall(socket);
     const text = typeof body === 'string' ? body.trim().slice(0, 1000) : '';
-    if (!here || !text) return fail(ack, 'Write a message first');
+    if (!here || (!text && !fileId)) return fail(ack, 'Write a message first');
     if (!here.peer.canManage && !here.call.permissions.chat) return fail(ack, 'The host turned chat off for now.');
     if (!allow(socket, 'chatTimes', CHAT_BURST)) return fail(ack, 'You are sending messages too quickly. Wait a moment.');
+    const file = fileId ? (here.peer.guest ? null : await ownFile(here.meetingId, fileId, here.peer.user.id)) : null;
+    if (fileId && !file) return fail(ack, 'That file is not available any more. Attach it again.');
     const row = await MeetingChatMessage.create({
       meetingId: here.meetingId,
       author: here.peer.user,
       room: here.peer.room,
       roomName: roomName(here.call, here.peer.room),
       body: text,
+      attachment: file ? fileView(file) : null,
     });
     io.to(roomChannel(here.meetingId, here.peer.room)).emit('meeting:chat', chatView(row));
     ack?.({ ok: true });
   });
 
-  /** Anyone signed in who is in the call can let a waiting guest in, or turn them away. */
+  /** A short-lived link to a file shared in this call's chat (guests included: they have no other way in). */
+  socket.on('meeting:file-link', async ({ fileId } = {}, ack) => {
+    const here = await currentCall(socket);
+    if (!here || !isUuid(fileId)) return fail(ack, 'File not found');
+    const exists = await MeetingFile.count({ where: { id: fileId, meetingId: here.meetingId } });
+    if (!exists) return fail(ack, 'File not found');
+    ack?.({ ok: true, url: fileLink(fileId) });
+  });
+
+  /**
+   * Lets a waiting person in, or turns them away. With the lobby for guests only, anyone signed in who is in the call
+   * may; with the lobby for everyone, only the people running the call.
+   */
   socket.on('meeting:admit', async ({ socketId, allow: letIn } = {}) => {
     const here = await currentCall(socket);
     if (!here || here.peer.guest) return;
+    if (!here.peer.canManage) {
+      const meeting = await Meeting.findByPk(here.meetingId, { attributes: ['lobby'] });
+      if (meeting?.lobby === 'everyone') return;
+    }
     const result = await mutate(here.meetingId, (call) => {
       const waiting = call.lobby[socketId];
       if (!waiting) return null;
@@ -615,15 +699,22 @@ export function registerMeetingSignaling(io, socket) {
     announceLobby(io, here.meetingId, result);
   });
 
-  /** The host splits the call: `rooms` is [{ name, socketIds }]; anyone not listed stays in the main room. */
-  socket.on('meeting:breakouts:open', async ({ rooms } = {}, ack) => {
+  /**
+   * The host splits the call: `rooms` is [{ name, socketIds }]; anyone not listed stays in the main room. `minutes`
+   * (optional) closes the rooms by themselves when the time is up.
+   */
+  socket.on('meeting:breakouts:open', async ({ rooms, minutes } = {}, ack) => {
     const meetingId = socket.data.meetingId;
     if (!Array.isArray(rooms) || rooms.length < 2 || rooms.length > MAX_BREAKOUT_ROOMS) return fail(ack, `Choose between 2 and ${MAX_BREAKOUT_ROOMS} rooms`);
     if (!meetingId) return fail(ack, 'You are not in the call');
+    const duration = Number.isInteger(minutes) && minutes > 0 ? Math.min(minutes, MAX_BREAKOUT_MINUTES) : null;
     const result = await mutate(meetingId, (call) => {
       if (!call.peers[socket.id]?.canManage) return { error: 'Only the host can open breakout rooms' };
       const before = roomsNow(call);
-      call.breakouts = { rooms: rooms.map((room, index) => ({ id: `room-${index + 1}`, name: String(room?.name ?? '').trim().slice(0, 40) || `Room ${index + 1}` })) };
+      call.breakouts = {
+        rooms: rooms.map((room, index) => ({ id: `room-${index + 1}`, name: String(room?.name ?? '').trim().slice(0, 40) || `Room ${index + 1}` })),
+        endsAt: duration ? new Date(Date.now() + duration * 60_000).toISOString() : null,
+      };
       for (const peer of Object.values(call.peers)) peer.room = null;
       rooms.forEach((room, index) => {
         for (const socketId of Array.isArray(room?.socketIds) ? room.socketIds : []) {
@@ -634,6 +725,25 @@ export function registerMeetingSignaling(io, socket) {
     });
     if (result.error) return fail(ack, result.error);
     await regroup(io, meetingId, result.call, result.before);
+    scheduleBreakoutClose(io, meetingId, result.call.breakouts.endsAt);
+    ack?.({ ok: true });
+  });
+
+  /** Gives the rooms more time (or a time limit when they had none). */
+  socket.on('meeting:breakouts:extend', async ({ minutes } = {}, ack) => {
+    const meetingId = socket.data.meetingId;
+    const extra = Number.isInteger(minutes) && minutes > 0 ? Math.min(minutes, MAX_BREAKOUT_MINUTES) : null;
+    if (!meetingId || !extra) return fail(ack, 'Choose how many minutes to add');
+    const result = await mutate(meetingId, (call) => {
+      if (!call.peers[socket.id]?.canManage) return { error: 'Only the host can change the time' };
+      if (!call.breakouts) return { error: 'Breakout rooms are closed' };
+      const from = Math.max(Date.now(), call.breakouts.endsAt ? new Date(call.breakouts.endsAt).getTime() : Date.now());
+      call.breakouts.endsAt = new Date(from + extra * 60_000).toISOString();
+      return { call };
+    });
+    if (result.error) return fail(ack, result.error);
+    scheduleBreakoutClose(io, meetingId, result.call.breakouts.endsAt);
+    announceBreakouts(io, meetingId, result.call);
     ack?.({ ok: true });
   });
 
@@ -659,17 +769,33 @@ export function registerMeetingSignaling(io, socket) {
   });
 
   socket.on('meeting:breakouts:close', async (_payload, ack) => {
-    const meetingId = socket.data.meetingId;
-    if (!meetingId) return fail(ack, 'You are not in the call');
-    const result = await mutate(meetingId, (call) => {
-      if (!call.peers[socket.id]?.canManage) return { error: 'Only the host can close breakout rooms' };
-      const before = roomsNow(call);
-      call.breakouts = null;
-      for (const peer of Object.values(call.peers)) peer.room = null;
-      return { call, before };
-    });
-    if (result.error) return fail(ack, result.error);
-    await regroup(io, meetingId, result.call, result.before);
+    const here = await currentCall(socket);
+    if (!here) return fail(ack, 'You are not in the call');
+    if (!here.peer.canManage) return fail(ack, 'Only the host can close breakout rooms');
+    await closeBreakouts(io, here.meetingId, { by: here.peer.user.name });
+    ack?.({ ok: true });
+  });
+
+  /** Who waits in the lobby: only guests, or everyone except the people running the call. Kept with the meeting. */
+  socket.on('meeting:lobby-mode', async ({ mode } = {}, ack) => {
+    const here = await currentCall(socket);
+    if (!here?.peer.canManage) return fail(ack, 'Only the host or a co-host can change the lobby');
+    if (!['guests', 'everyone'].includes(mode)) return fail(ack, 'Choose who waits in the lobby');
+    await Meeting.update({ lobby: mode }, { where: { id: here.meetingId } });
+    io.to(meetingChannel(here.meetingId)).emit('meeting:lobby-mode', { mode, by: here.peer.user.name });
+    // Members waiting only because of the lobby for everyone may come in now.
+    if (mode === 'guests') {
+      const members = await mutate(here.meetingId, (call) => {
+        const waiting = Object.values(call.lobby).filter((entry) => entry.guest === false);
+        for (const entry of waiting) {
+          delete call.lobby[entry.socketId];
+          add(call.admitted, entry.user.id);
+        }
+        return { call, waiting };
+      });
+      for (const entry of members.waiting) io.to(entry.socketId).emit('meeting:admitted', { by: here.peer.user.name });
+      if (members.waiting.length) announceLobby(io, here.meetingId, members.call);
+    }
     ack?.({ ok: true });
   });
 

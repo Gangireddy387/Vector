@@ -45,6 +45,22 @@ project's counter under a row lock, backed by a unique `(project_id, number)` in
 signals (`issue:changed` with `projectId`…), and clients reload what they show. Presence (`shared/realtime/presence.js`)
 and call state live in `shared/realtime/shared-state.js`: Redis when `REDIS_URL` is set, memory otherwise.
 
+**Meetings (`modules/meetings`):** REST in `meeting.routes.js` / `meeting.service.js`; the live call runs over the
+socket. Each file owns one part of a call:
+
+| File | Part |
+|---|---|
+| `meeting.signaling.js` | Joining, the lobby (guests only, or everyone), media, host controls, chat, breakout rooms and their timer |
+| `meeting.collab.js` | Polls and the whiteboard (freehand strokes, shapes, text, sticky notes; checked by `cleanBoardItem`) |
+| `meeting.qa.js` | Q&A: ask, upvote, mark answered, remove |
+| `meeting.files.js` | Files shared in the chat: upload (members), short-lived signed links (everyone in the call, guests too) |
+| `meeting.attendance.js` | One row per stay in a call; the report merges overlapping stays per person |
+| `meeting.media.js`, `meeting.phone.js` | LiveKit (optional): media passes, host enforcement; phone dial-in with a PIN per meeting, webhook attendance |
+| `modules/calendar-sync/` | Google / Microsoft calendar sync: OAuth, encrypted tokens, push on change, a 5-minute job pulls moves and RSVPs |
+
+On the client, `useMeetingCall.ts` is the one call of the tab; `call/` holds the transports (direct, LiveKit),
+keyboard shortcuts and tiles; `components/Call*.vue` are the panels.
+
 **Schema changes:** new tables come from `sequelize.sync()`; new columns are listed in `database/upgrades.js`
 (`ADDED_COLUMNS`) and new indexes in `INDEXES`, all idempotent and applied at startup. Keep changes additive.
 

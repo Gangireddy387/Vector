@@ -96,6 +96,26 @@ const cleanPoints = (points) =>
     ? points.map((value) => Math.round(value * 10_000) / 10_000)
     : null;
 
+/**
+ * What a whiteboard item is. `path` is drawn freehand and arrives in parts; the others arrive whole: shapes are two
+ * corners [x1, y1, x2, y2], text and sticky notes one position [x, y] and their `text`.
+ */
+export const BOARD_KINDS = ['path', 'rect', 'ellipse', 'line', 'arrow', 'text', 'note'];
+const MAX_BOARD_TEXT = 500;
+
+/** The item as sent by a client, checked; null when it is not one. */
+export function cleanBoardItem({ kind = 'path', points, text } = {}) {
+  if (!BOARD_KINDS.includes(kind)) return null;
+  const cleaned = cleanPoints(points);
+  if (!cleaned || !cleaned.length) return null;
+  if (kind === 'path') return { kind, points: cleaned };
+  if (kind === 'text' || kind === 'note') {
+    const words = typeof text === 'string' ? text.trim().slice(0, MAX_BOARD_TEXT) : '';
+    return cleaned.length === 2 && words ? { kind, points: cleaned, text: words } : null;
+  }
+  return cleaned.length === 4 ? { kind, points: cleaned } : null;
+}
+
 export function registerMeetingCollab(io, socket) {
   const room = (meetingId) => `meeting:${meetingId}`;
 
@@ -151,10 +171,13 @@ export function registerMeetingCollab(io, socket) {
     ack?.({ ok: true });
   });
 
-  /** Part of a stroke while someone draws: `points` are new [x, y, x, y…] between 0 and 1. */
-  socket.on('meeting:wb:stroke', async ({ id, color, width, tool, points } = {}) => {
-    const cleaned = cleanPoints(points);
-    if (typeof id !== 'string' || id.length > 40 || !cleaned) return;
+  /**
+   * One whiteboard item, or the next part of a freehand stroke while someone draws: `points` are new [x, y, x, y…]
+   * between 0 and 1. See BOARD_KINDS for shapes, text and sticky notes.
+   */
+  socket.on('meeting:wb:stroke', async ({ id, color, width, tool, points, kind, text } = {}) => {
+    const item = cleanBoardItem({ kind, points, text });
+    if (typeof id !== 'string' || id.length > 40 || !item) return;
     const here = await currentCall(socket);
     if (!here) return;
     const { meetingId } = here;
@@ -163,8 +186,9 @@ export function registerMeetingCollab(io, socket) {
       await ensureBoard(meetingId);
       const existing = await shared.hget(strokesKey(meetingId), id);
       if (existing) {
-        if (existing.owner !== owner || existing.points.length + cleaned.length > MAX_STROKE_NUMBERS) return null;
-        existing.points.push(...cleaned);
+        if (item.kind !== 'path' || (existing.kind ?? 'path') !== 'path') return null;
+        if (existing.owner !== owner || existing.points.length + item.points.length > MAX_STROKE_NUMBERS) return null;
+        existing.points.push(...item.points);
         await shared.hset(strokesKey(meetingId), id, existing, BOARD_TTL_SECONDS);
         return existing;
       }
@@ -172,16 +196,18 @@ export function registerMeetingCollab(io, socket) {
       const created = {
         id,
         owner,
+        kind: item.kind,
         color: COLOR.test(color) ? color : '#111827',
         width: Math.min(Math.max(Number(width) || 3, 1), 40),
         tool: tool === 'highlighter' ? 'highlighter' : 'pen',
-        points: cleaned,
+        points: item.points,
+        ...(item.text ? { text: item.text } : {}),
       };
       await shared.hset(strokesKey(meetingId), id, created, BOARD_TTL_SECONDS);
       return created;
     });
     if (!stroke) return;
-    socket.to(room(meetingId)).emit('meeting:wb:stroke', { id, owner, color: stroke.color, width: stroke.width, tool: stroke.tool, points: cleaned });
+    socket.to(room(meetingId)).emit('meeting:wb:stroke', { ...stroke, points: item.points });
     scheduleSave(meetingId);
   });
 

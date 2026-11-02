@@ -7,7 +7,8 @@ export interface SfuHooks {
   /** A person's microphone, camera or screen arrived (or resumed). People are identified by their socket id. */
   onTrack: (identity: string, track: MediaStreamTrack) => void
   onTrackGone: (identity: string, track: MediaStreamTrack) => void
-  onPresence: (identity: string, present: boolean) => void
+  /** `name`: as the media server knows them (phone callers have no other name). */
+  onPresence: (identity: string, present: boolean, name?: string) => void
   onQuality: (identity: string | 'self', quality: CallQuality) => void
   /** The media server muted this person's microphone or stopped their screen (host control). */
   onForcedOff: (kind: 'audio' | 'screen') => void
@@ -69,10 +70,10 @@ export function createSfuTransport(hooks: SfuHooks) {
         }
       })
       .on(RoomEvent.ParticipantConnected, (participant) => {
-        hooks.onPresence(participant.identity, true)
+        hooks.onPresence(participant.identity, true, participant.name)
         applyQuality()
       })
-      .on(RoomEvent.ParticipantDisconnected, (participant) => hooks.onPresence(participant.identity, false))
+      .on(RoomEvent.ParticipantDisconnected, (participant) => hooks.onPresence(participant.identity, false, participant.name))
       .on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
         const value = qualityOf(quality)
         if (value) hooks.onQuality(participant === target.localParticipant ? 'self' : participant.identity, value)
@@ -93,7 +94,7 @@ export function createSfuTransport(hooks: SfuHooks) {
     room = next
     wire(next)
     await next.connect(url, token, { autoSubscribe: true })
-    for (const participant of next.remoteParticipants.values()) hooks.onPresence(participant.identity, true)
+    for (const participant of next.remoteParticipants.values()) hooks.onPresence(participant.identity, true, participant.name)
     hooks.onState('connected')
   }
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { addMinutes, format, parseISO } from 'date-fns'
-import { Check, Link2, PencilLine, Search, UsersRound, Video, X } from 'lucide-vue-next'
+import { Check, DoorOpen, Link2, PencilLine, Search, UsersRound, Video, X } from 'lucide-vue-next'
 import { computed, reactive, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
@@ -18,7 +18,7 @@ import { structureApi } from '@/modules/departments/departments.api'
 import { usersApi } from '@/modules/projects/projects.api'
 import type { Team, UserSummary } from '@/types/models'
 import { recurrenceLabel } from '../meeting-format'
-import { type Meeting, type MeetingContext, type MeetingRecurrence, meetingsApi } from '../meetings.api'
+import { type Meeting, type MeetingContext, type MeetingLobby, type MeetingRecurrence, meetingsApi } from '../meetings.api'
 import type { MeetingPreset } from '../useMeetingActions'
 
 /** `null` closes the sheet, `{}` schedules a new meeting (`preset` fills in who and what it is for), `{ meeting }` edits one. */
@@ -62,6 +62,8 @@ const form = reactive({
   participantIds: [] as string[],
   recurrence: '' as MeetingRecurrence | '',
   guestAccess: false,
+  /** Everyone (not only guests) waits in the lobby until the host or a co-host lets them in. */
+  lobbyEveryone: false,
 })
 
 const DURATIONS: SelectFieldOption[] = [15, 30, 45, 60, 90, 120, 180].map((minutes) => ({
@@ -88,6 +90,7 @@ watch(
       participantIds: meeting?.participants.map((person) => person.id).filter((id) => id !== meeting.host?.id) ?? [...new Set(presetPeople.map((person) => person.id))],
       recurrence: meeting?.recurrence ?? '',
       guestAccess: meeting?.guestAccess ?? false,
+      lobbyEveryone: meeting?.lobby === 'everyone',
     })
     const [users, departments] = await Promise.all([usersApi.search({}).catch(() => []), structureApi.list().catch(() => [])])
     const known = [...(meeting?.participants ?? []), ...presetPeople, ...users]
@@ -153,6 +156,7 @@ async function save() {
     durationMinutes: form.duration,
     participantIds: form.participantIds,
     recurrence: form.recurrence || null,
+    lobby: (form.lobbyEveryone ? 'everyone' : 'guests') as MeetingLobby,
   }
   try {
     const meeting = editing.value
@@ -232,6 +236,17 @@ async function save() {
             <span class="block text-xs text-muted-foreground">For people outside your organization. They wait until someone in the call lets them in.</span>
           </span>
           <Switch v-model="form.guestAccess" aria-label="Let guests join with a link" />
+        </label>
+
+        <label class="flex items-start gap-3 border border-border/70 p-3">
+          <DoorOpen class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <span class="min-w-0 flex-1">
+            <span class="block text-sm font-medium">Everyone waits in the lobby</span>
+            <span class="block text-xs text-muted-foreground">
+              People from your organization also wait until you or a co-host let them in (for interviews, town halls…). You can change this during the call.
+            </span>
+          </span>
+          <Switch v-model="form.lobbyEveryone" aria-label="Everyone waits in the lobby" />
         </label>
 
         <FormField label="Agenda" for="meeting-agenda" optional>

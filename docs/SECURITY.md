@@ -37,6 +37,10 @@ Tested by `backend/test/security.integration.test.js` against a real server (`np
 - **Headers:** the API sends a strict CSP, HSTS (production), `nosniff` and no framing; the app's headers are set in Nginx (`docs/DEPLOYMENT.md` §8.1). CORS only allows the configured app origins and sends no credentials (sign-in is a bearer token, so there is no CSRF exposure).
 - **Errors** never include internal details; clients get a `requestId` to quote, the logs have the full error.
 - **Logs** never contain secrets from addresses (guest passes, recording links and reset tokens are redacted).
+- **Meeting files** (call chat): only invited members of the meeting's organization upload, and only the uploader can attach a file to a message. Links are signed for one file (`typ: 'file'`, 2 hours) and handed out only to people in the call or invited to the meeting; images show inline, everything else downloads, and active types are always plain files.
+- **Calendar sync:** OAuth `state` is a signed, 10-minute token for one person and provider (`typ: 'oauth'`); the callback refuses anything else. Access and refresh tokens are stored encrypted (AES-256-GCM, `CALENDAR_TOKEN_KEY` or a key derived from `JWT_SECRET`) and never sent to browsers; a refused refresh marks the connection for reconnecting.
+- **LiveKit webhook** (phone attendance) is only accepted with LiveKit's signature over the exact body (`WebhookReceiver`); phone callers can only be muted or removed by the host or a co-host of that call.
+- **Attendance reports** (names, emails, times) are only for the host and organization admins.
 
 ## Live connections (Socket.IO)
 

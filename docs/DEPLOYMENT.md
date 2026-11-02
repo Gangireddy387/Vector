@@ -156,6 +156,18 @@ TURN_URLS=turn:turn.annaaccounting.com:3478?transport=udp,turn:turn.annaaccounti
 TURN_SECRET=<OUTPUT_OF_openssl_rand_-hex_32>
 TURN_TTL_SECONDS=21600
 
+# --- Optional: phone dial-in (LiveKit with SIP; see backend/.env.example)
+# DIALIN_NUMBER=+1 555 010 0100
+# LIVEKIT_SIP_TRUNK_IDS=ST_xxxxxxxx
+
+# --- Optional: Google / Outlook calendar sync (redirect URI: https://<domain>/api/calendar/oauth/<google|microsoft>/callback)
+# PUBLIC_API_URL=https://vector.annaaccounting.com
+# GOOGLE_CLIENT_ID=
+# GOOGLE_CLIENT_SECRET=
+# MICROSOFT_CLIENT_ID=
+# MICROSOFT_CLIENT_SECRET=
+# MICROSOFT_TENANT=common
+
 # --- Push notifications (calls ring on phones and computers)
 # Generate once: `cd /opt/vector/app/backend && npx web-push generate-vapid-keys`. Never change them afterwards:
 # new keys silently stop every device's notifications.

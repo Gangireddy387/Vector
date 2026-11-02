@@ -27,13 +27,17 @@ import { Organization, OrganizationMember } from '../modules/organizations/organ
 import { Plan } from '../modules/plans/plan.model.js';
 import { Department, Team, TeamMember } from '../modules/departments/department.model.js';
 import { CalendarEvent } from '../modules/calendar/calendar-event.model.js';
+import { CalendarConnection, MeetingCalendarLink } from '../modules/calendar/calendar-connection.model.js';
 import { SupportMessage } from '../modules/support/support-message.model.js';
 import { Conversation, ConversationHiddenMessage, ConversationMember, ConversationMessage } from '../modules/messages/conversation.model.js';
 import {
   Meeting,
+  MeetingAttendance,
   MeetingChatMessage,
+  MeetingFile,
   MeetingParticipant,
   MeetingPoll,
+  MeetingQuestion,
   MeetingRecording,
   MeetingTranscriptLine,
   MeetingUpdate,
@@ -193,6 +197,13 @@ Meeting.hasMany(MeetingChatMessage, { as: 'chatMessages', foreignKey: 'meetingId
 Meeting.hasMany(MeetingTranscriptLine, { as: 'transcript', foreignKey: 'meetingId', ...cascade });
 Meeting.hasMany(MeetingRecording, { as: 'recordings', foreignKey: 'meetingId', ...cascade });
 MeetingRecording.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+Meeting.hasMany(MeetingAttendance, { as: 'attendance', foreignKey: 'meetingId', ...cascade });
+Meeting.hasMany(MeetingFile, { as: 'files', foreignKey: 'meetingId', ...cascade });
+Meeting.hasMany(MeetingQuestion, { as: 'questions', foreignKey: 'meetingId', ...cascade });
+Meeting.hasOne(MeetingCalendarLink, { as: 'calendarLink', foreignKey: 'meetingId', ...cascade });
+MeetingCalendarLink.belongsTo(Meeting, { as: 'meeting', foreignKey: 'meetingId' });
+User.hasMany(CalendarConnection, { as: 'calendarConnections', foreignKey: 'userId', ...cascade });
+CalendarConnection.hasMany(MeetingCalendarLink, { as: 'links', foreignKey: 'connectionId', ...cascade });
 
 // Devices that receive this person's push notifications
 User.hasMany(PushSubscription, { as: 'pushSubscriptions', foreignKey: 'userId', ...cascade });
@@ -244,5 +255,10 @@ export {
   MeetingChatMessage,
   MeetingTranscriptLine,
   MeetingRecording,
+  MeetingAttendance,
+  MeetingFile,
+  MeetingQuestion,
+  CalendarConnection,
+  MeetingCalendarLink,
   PushSubscription,
 };

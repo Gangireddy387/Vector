@@ -7,7 +7,7 @@ import { config } from '../../config/index.js';
  * accepted as a sign-in. Sign-in tokens also carry the account's `tokenVersion`: changing or resetting the password
  * raises it, which signs out every other session.
  */
-export const TOKEN_TYPES = Object.freeze({ access: 'access', guest: 'guest', recording: 'recording' });
+export const TOKEN_TYPES = Object.freeze({ access: 'access', guest: 'guest', recording: 'recording', file: 'file', oauth: 'oauth' });
 
 export const signAccessToken = (user) =>
   jwt.sign({ sub: user.id, email: user.email, typ: TOKEN_TYPES.access, ver: user.tokenVersion ?? 0 }, config.jwt.secret, { expiresIn: config.jwt.expiresIn });
@@ -27,6 +27,12 @@ export const signGuestToken = ({ meetingId, guestId, name }) =>
 
 /** A short-lived link to one call recording (video players cannot send a sign-in header). */
 export const signRecordingToken = (recordingId) => jwt.sign({ typ: TOKEN_TYPES.recording, rid: recordingId }, config.jwt.secret, { expiresIn: '6h' });
+
+/** A short-lived link to one file shared in a call's chat (images show inline, so the browser loads them by address). */
+export const signFileToken = (fileId) => jwt.sign({ typ: TOKEN_TYPES.file, fid: fileId }, config.jwt.secret, { expiresIn: '2h' });
+
+/** Carries who started connecting a calendar through the provider's sign-in page and back (10 minutes). */
+export const signOAuthState = ({ userId, provider }) => jwt.sign({ typ: TOKEN_TYPES.oauth, sub: userId, provider }, config.jwt.secret, { expiresIn: '10m' });
 
 /** One-time tokens (invites, password resets): the raw value is emailed, only the hash is stored. */
 export const createOneTimeToken = () => {

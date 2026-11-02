@@ -21,7 +21,10 @@ watch(
 )
 
 watch(
-  () => call.peers.value.map((peer) => [peer.socketId, peer.stream, peer.revision] as const),
+  () => [
+    ...call.peers.value.map((peer) => [peer.socketId, peer.stream, peer.revision] as const),
+    ...call.phoneCallers.value.map((caller) => [caller.identity, caller.stream, caller.revision] as const),
+  ],
   (list) => {
     const present = new Set(list.map(([socketId]) => socketId))
     for (const [socketId, player] of players) {

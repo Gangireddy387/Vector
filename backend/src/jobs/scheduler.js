@@ -4,7 +4,7 @@ import { sendDueReminders } from '../modules/issues/due-reminder.job.js';
 import { sendDailyDigests } from '../modules/notifications/daily-digest.job.js';
 import { runDueRecurringTasks } from '../modules/recurring-tasks/recurring-task.service.js';
 import { sendMeetingReminders } from '../modules/meetings/meeting.notify.js';
-import { continueMeetingSeries } from '../modules/meetings/meeting.service.js';
+import { continueMeetingSeries, syncFromCalendars } from '../modules/meetings/meeting.service.js';
 import { settleIdleMeetings } from '../modules/meetings/meeting.signaling.js';
 import { purgeExpiredMessages } from '../modules/support/support.service.js';
 
@@ -17,6 +17,8 @@ const JOBS = [
   { name: 'idle-meetings', schedule: '*/2 * * * *', run: settleIdleMeetings },
   { name: 'meeting-series', schedule: '* * * * *', run: continueMeetingSeries },
   { name: 'meeting-reminders', schedule: '* * * * *', run: sendMeetingReminders },
+  // Moves, cancellations and RSVPs from hosts' connected Google / Microsoft calendars.
+  { name: 'calendar-sync', schedule: '*/5 * * * *', run: async () => (await syncFromCalendars()).changed },
 ];
 
 /** Wraps a job so overlapping executions are skipped and failures are logged. */

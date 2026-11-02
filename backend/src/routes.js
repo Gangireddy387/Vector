@@ -15,6 +15,9 @@ import labelRoutes from './modules/labels/label.routes.js';
 import messageRoutes from './modules/messages/messages.routes.js';
 import { publicMeetingRoutes } from './modules/meetings/meeting.guest.js';
 import { publicRecordingRoutes } from './modules/meetings/meeting.recordings.js';
+import { publicMeetingFileRoutes } from './modules/meetings/meeting.files.js';
+import { livekitWebhookRoutes } from './modules/meetings/meeting.phone.js';
+import { calendarSyncRoutes, publicCalendarSyncRoutes } from './modules/calendar-sync/calendar-sync.routes.js';
 import meetingRoutes from './modules/meetings/meeting.routes.js';
 import pushRoutes from './modules/push/push.routes.js';
 import notificationRoutes from './modules/notifications/notification.routes.js';
@@ -43,9 +46,13 @@ export function createApiRouter() {
   router.use(publicOrganizationRoutes);
   router.use(publicMeetingRoutes);
   router.use(publicRecordingRoutes);
+  router.use(publicMeetingFileRoutes);
+  router.use(publicCalendarSyncRoutes);
+  router.use(livekitWebhookRoutes);
 
   router.use(authenticate);
   router.use(avatarRoutes);
+  router.use(calendarSyncRoutes);
   router.use(pushRoutes);
   router.use(organizationRoutes);
   router.use(organizationAdminRoutes);

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
-import { BarChart3, ClipboardList, Crown, MessageCircle, MessageSquareText, NotebookPen, Send, Trash2, UsersRound } from 'lucide-vue-next'
+import { BarChart3, CircleHelp, ClipboardList, Crown, MessageCircle, MessageSquareText, NotebookPen, Send, Trash2, UsersRound } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -11,17 +11,24 @@ import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
 import { timeAgo } from '@/lib/format'
 import { useAuthStore } from '@/modules/auth/auth.store'
-import { type Meeting, type MeetingPoll, type MeetingUpdate, meetingsApi } from '../meetings.api'
+import { type Meeting, type MeetingPoll, type MeetingQuestion, type MeetingResponse, type MeetingUpdate, meetingsApi } from '../meetings.api'
 import { useMeetingCall } from '../useMeetingCall'
 import CallChat from './CallChat.vue'
 import CallPeople from './CallPeople.vue'
 import CallPolls from './CallPolls.vue'
+import CallQa from './CallQa.vue'
 import GuestLinkCard from './GuestLinkCard.vue'
 
-export type MeetingPanelTab = 'chat' | 'people' | 'polls' | 'updates' | 'notes'
+export type MeetingPanelTab = 'chat' | 'people' | 'qa' | 'polls' | 'updates' | 'notes'
 
-/** Beside the call (`live`): chat, people, polls, updates and notes. Before and after it: updates, people, notes and polls. */
-const props = withDefaults(defineProps<{ meeting: Meeting; updates: MeetingUpdate[]; polls?: MeetingPoll[]; live?: boolean }>(), { polls: () => [], live: false })
+/**
+ * Beside the call (`live`): chat, people, Q&A, polls, updates and notes. Before and after it: updates, people, notes,
+ * and the Q&A and polls it had.
+ */
+const props = withDefaults(
+  defineProps<{ meeting: Meeting; updates: MeetingUpdate[]; polls?: MeetingPoll[]; questions?: MeetingQuestion[]; live?: boolean; fileMaxMb?: number }>(),
+  { polls: () => [], questions: () => [], live: false, fileMaxMb: 20 },
+)
 const emit = defineEmits<{ posted: [update: MeetingUpdate]; removed: [id: string]; notes: [notes: string | null]; changed: [meeting: Meeting]; breakouts: [] }>()
 const tab = defineModel<MeetingPanelTab>('tab', { default: 'updates' })
 const call = useMeetingCall()
@@ -103,6 +110,8 @@ const tabs = computed(() => {
     { value: 'people', label: 'People', icon: UsersRound, count: props.live ? call.peers.value.length + 1 : people.value.length, alert: props.live && call.lobby.value.length > 0 },
     { value: 'updates', label: 'Updates', icon: MessageSquareText, count: props.updates.length || undefined },
   )
+  const openQuestions = call.questions.value.filter((question) => !question.answeredAt).length
+  if (props.live || props.questions.length) list.push({ value: 'qa', label: 'Q&A', icon: CircleHelp, count: props.live ? openQuestions || undefined : props.questions.length })
   if (props.live || props.polls.length) list.push({ value: 'polls', label: 'Polls', icon: BarChart3, count: props.live ? call.polls.value.length || undefined : props.polls.length })
   list.push({ value: 'notes', label: 'Notes', icon: NotebookPen })
   return list
@@ -115,6 +124,13 @@ watch(
   { immediate: true },
 )
 const showGuestLink = computed(() => props.meeting.canManage && !isOver.value)
+
+/** Replies to the invitation, from the host's connected calendar. */
+const RESPONSE_LOOK: Record<MeetingResponse, { label: string; tone: string }> = {
+  accepted: { label: 'Accepted', tone: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
+  tentative: { label: 'Maybe', tone: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
+  declined: { label: 'Declined', tone: 'bg-red-500/15 text-red-700 dark:text-red-300' },
+}
 </script>
 
 <template>
@@ -162,7 +178,9 @@ const showGuestLink = computed(() => props.meeting.canManage && !isOver.value)
       </button>
     </div>
 
-    <CallChat v-if="tab === 'chat' && live" />
+    <CallChat v-if="tab === 'chat' && live" :file-max-mb="fileMaxMb" />
+
+    <CallQa v-else-if="tab === 'qa'" :questions="live ? null : questions" />
 
     <CallPolls v-else-if="tab === 'polls'" :polls="live ? null : polls" />
 
@@ -226,6 +244,14 @@ const showGuestLink = computed(() => props.meeting.canManage && !isOver.value)
           <span class="block truncate text-xs" :class="meeting.inCall.includes(person.id) ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'">
             {{ person.isHost ? (meeting.inCall.includes(person.id) ? 'Host · in the call' : 'Host') : presence(person) }}
           </span>
+        </span>
+        <span
+          v-if="!person.isHost && 'response' in person && person.response"
+          class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
+          :class="RESPONSE_LOOK[person.response].tone"
+          :title="`Replied in their calendar: ${RESPONSE_LOOK[person.response].label}`"
+        >
+          {{ RESPONSE_LOOK[person.response].label }}
         </span>
       </li>
     </ul>

@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useConfirm } from '@/composables/useConfirm'
+import { CALL_SHORTCUTS, type CallShortcutAction } from '../call/shortcuts'
 import { useCallTiles } from '../call/tiles'
 import { usePictureInPicture } from '../call/usePictureInPicture'
 import { type CallPermissions, REACTIONS, blurSupported, canShareScreen, captionsSupported, recordingSupported, useMeetingCall } from '../useMeetingCall'
@@ -94,6 +95,18 @@ async function toggleTranscription() {
   if (on && !captionsSupported) toast('Captions are on', { description: 'This browser cannot caption your own speech; use Chrome or Edge for that.' })
 }
 
+/** "Mute (Ctrl+D)": the keyboard shortcut in the button's tooltip. */
+const hint = (label: string, action: CallShortcutAction) => {
+  const shortcut = CALL_SHORTCUTS.find((item) => item.action === action)
+  return shortcut ? `${label} (${shortcut.combo.join('+')})` : label
+}
+const toggleLobby = () =>
+  run(async () => {
+    const everyone = call.lobbyMode.value !== 'everyone'
+    await call.setLobbyMode(everyone ? 'everyone' : 'guests')
+    toast.success(everyone ? 'Everyone waits in the lobby now' : 'Only guests wait in the lobby now')
+  })
+
 const round = 'flex size-11 shrink-0 items-center justify-center rounded-full transition-colors disabled:opacity-40'
 const idle = 'bg-white/10 hover:bg-white/20'
 const badge = computed(() => (call.unreadChat.value > 9 ? '9+' : String(call.unreadChat.value)))
@@ -105,7 +118,7 @@ const badge = computed(() => (call.unreadChat.value > 9 ? '9+' : String(call.unr
       type="button"
       :class="[round, call.media.audio ? idle : 'bg-red-500 hover:bg-red-500/90']"
       :aria-label="call.media.audio ? 'Mute microphone' : 'Unmute microphone'"
-      :title="call.media.audio ? 'Mute' : 'Unmute'"
+      :title="hint(call.media.audio ? 'Mute' : 'Unmute', 'mute')"
       @click="run(call.toggleAudio)"
     >
       <Mic v-if="call.media.audio" class="size-5" />
@@ -115,7 +128,7 @@ const badge = computed(() => (call.unreadChat.value > 9 ? '9+' : String(call.unr
       type="button"
       :class="[round, call.media.video ? idle : 'bg-red-500 hover:bg-red-500/90']"
       :aria-label="call.media.video ? 'Turn camera off' : 'Turn camera on'"
-      :title="call.media.video ? 'Camera off' : 'Camera on'"
+      :title="hint(call.media.video ? 'Camera off' : 'Camera on', 'camera')"
       @click="run(call.toggleVideo)"
     >
       <Video v-if="call.media.video" class="size-5" />
@@ -126,7 +139,7 @@ const badge = computed(() => (call.unreadChat.value > 9 ? '9+' : String(call.unr
       type="button"
       :class="[round, call.media.screen ? 'bg-sky-500 hover:bg-sky-500/90' : idle]"
       :aria-label="call.media.screen ? 'Stop presenting' : 'Share your screen'"
-      :title="call.media.screen ? 'Stop presenting' : 'Share screen'"
+      :title="hint(call.media.screen ? 'Stop presenting' : 'Share screen', 'share')"
       @click="run(call.toggleScreenShare)"
     >
       <MonitorX v-if="call.media.screen" class="size-5" />
@@ -136,7 +149,7 @@ const badge = computed(() => (call.unreadChat.value > 9 ? '9+' : String(call.unr
       type="button"
       :class="[round, call.hand.value ? 'bg-amber-400 text-amber-950 hover:bg-amber-400/90' : idle]"
       :aria-label="call.hand.value ? 'Lower your hand' : 'Raise your hand'"
-      :title="call.hand.value ? 'Lower hand' : 'Raise hand'"
+      :title="hint(call.hand.value ? 'Lower hand' : 'Raise hand', 'hand')"
       @click="call.toggleHand()"
     >
       <Hand class="size-5" />
@@ -164,7 +177,7 @@ const badge = computed(() => (call.unreadChat.value > 9 ? '9+' : String(call.unr
       type="button"
       :class="[round, call.boardOpen.value ? 'bg-sky-500 hover:bg-sky-500/90' : idle]"
       :aria-label="call.boardOpen.value ? 'Close the whiteboard' : 'Open the whiteboard'"
-      :title="call.boardOpen.value ? 'Close whiteboard' : 'Whiteboard'"
+      :title="hint(call.boardOpen.value ? 'Close whiteboard' : 'Whiteboard', 'whiteboard')"
       @click="call.setBoardOpen(!call.boardOpen.value)"
     >
       <PenTool class="size-5" />
@@ -205,6 +218,9 @@ const badge = computed(() => (call.unreadChat.value > 9 ? '9+' : String(call.unr
             <template v-else><Lock /> Lock the call</template>
           </DropdownMenuItem>
           <DropdownMenuItem @select="emit('breakouts')"><DoorOpen /> Breakout rooms</DropdownMenuItem>
+          <DropdownMenuCheckboxItem :model-value="call.lobbyMode.value === 'everyone'" @select.prevent @update:model-value="toggleLobby">
+            Everyone waits in the lobby
+          </DropdownMenuCheckboxItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel class="text-xs text-muted-foreground">People who do not run the call</DropdownMenuLabel>
           <DropdownMenuCheckboxItem
@@ -232,7 +248,12 @@ const badge = computed(() => (call.unreadChat.value > 9 ? '9+' : String(call.unr
         {{ badge }}
       </span>
     </button>
-    <button type="button" class="ml-2 flex h-11 items-center gap-2 rounded-full bg-red-600 px-5 text-sm font-semibold transition-colors hover:bg-red-600/90" @click="emit('leave')">
+    <button
+      type="button"
+      class="ml-2 flex h-11 items-center gap-2 rounded-full bg-red-600 px-5 text-sm font-semibold transition-colors hover:bg-red-600/90"
+      :title="hint('Leave the call', 'leave')"
+      @click="emit('leave')"
+    >
       <PhoneOff class="size-5" /> Leave
     </button>
     <button

@@ -23,7 +23,11 @@ export interface Tile {
   spotlit: boolean
   /** This person chose to keep this tile large on their own screen. */
   pinned: boolean
+  /** Joined by phone (no video; the host can mute or hang up on them). */
+  phone: boolean
 }
+
+const PHONE_COLOR = '#64748b'
 
 /** A tile this person keeps large on their own screen (only here; the host's spotlight is for everyone). */
 const pinned = ref<string | null>(null)
@@ -51,6 +55,7 @@ export function useCallTiles() {
       qualityNote: null,
       spotlit: call.spotlight.value === call.selfId.value,
       pinned: pinned.value === 'self',
+      phone: false,
     },
     ...call.peers.value.map((peer) => ({
       id: peer.socketId,
@@ -71,6 +76,27 @@ export function useCallTiles() {
       qualityNote: peer.qualityNote,
       spotlit: call.spotlight.value === peer.socketId,
       pinned: pinned.value === peer.socketId,
+      phone: false,
+    })),
+    ...call.phoneCallers.value.map((caller) => ({
+      id: caller.identity,
+      stream: caller.stream,
+      user: { id: caller.identity, name: caller.name, email: '', avatarUrl: null, avatarColor: PHONE_COLOR } satisfies CallUser,
+      label: `${caller.name} (phone)`,
+      audio: true,
+      video: false,
+      screen: false,
+      self: false,
+      revision: caller.revision,
+      hand: null,
+      speaking: false,
+      guest: true,
+      callRole: null,
+      quality: null,
+      qualityNote: null,
+      spotlit: false,
+      pinned: pinned.value === caller.identity,
+      phone: true,
     })),
   ])
 

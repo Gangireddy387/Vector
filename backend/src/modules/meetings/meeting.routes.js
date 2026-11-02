@@ -5,7 +5,9 @@ import { config } from '../../config/index.js';
 import { requireFeature } from '../plans/plan.service.js';
 import { iceServersFor } from './ice-servers.js';
 import { callCapacity, sfuEnabled } from './meeting.media.js';
-import { MEETING_CONTEXTS, MEETING_RECURRENCES } from './meeting.model.js';
+import { meetingFileRoutes } from './meeting.files.js';
+import { MEETING_CONTEXTS, MEETING_LOBBY_MODES, MEETING_RECURRENCES } from './meeting.model.js';
+import { phoneEnabled } from './meeting.phone.js';
 import { calendarFile } from './meeting.notify.js';
 import { meetingRecordingRoutes } from './meeting.recordings.js';
 import * as service from './meeting.service.js';
@@ -23,12 +25,12 @@ const context = {
   contextType: z.enum(MEETING_CONTEXTS).nullable().optional(),
   contextId: z.string().uuid().nullable().optional(),
 };
-const createSchema = z.object({ ...fields, ...context, guestAccess: z.boolean().optional() });
+const createSchema = z.object({ ...fields, ...context, guestAccess: z.boolean().optional(), lobby: z.enum(MEETING_LOBBY_MODES).optional() });
 const cancelSchema = z.object({ series: z.boolean().optional() });
 const guestLinkSchema = z.object({ enabled: z.boolean(), reset: z.boolean().optional() });
 const listSchema = z.object({ scope: z.enum(['upcoming', 'past']).optional(), ...context });
 const updateSchema = z
-  .object({ ...fields, notes: z.string().max(20000).nullable() })
+  .object({ ...fields, notes: z.string().max(20000).nullable(), lobby: z.enum(MEETING_LOBBY_MODES) })
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one change');
 const updatePostSchema = z.object({ body: z.string().trim().min(1, 'Write your update').max(4000) });
@@ -46,7 +48,15 @@ router.get(base, validate({ query: listSchema }), async (req, res) => {
 router.get(`${base}/permissions`, async (req, res) => res.json({ canSchedule: await service.canSchedule(viewer(req)) }));
 /** What this server's calls can do, so the app shows only what works. */
 router.get(`${base}/capabilities`, (_req, res) =>
-  res.json({ media: sfuEnabled() ? 'sfu' : 'direct', capacity: callCapacity(), summaries: canSummarize(), reminderMinutes: config.meetings.reminderMinutes, recordingMaxMb: config.meetings.recordingMaxMb }),
+  res.json({
+    media: sfuEnabled() ? 'sfu' : 'direct',
+    capacity: callCapacity(),
+    summaries: canSummarize(),
+    reminderMinutes: config.meetings.reminderMinutes,
+    recordingMaxMb: config.meetings.recordingMaxMb,
+    fileMaxMb: config.uploads.maxFileSizeMb,
+    dialIn: phoneEnabled(),
+  }),
 );
 router.get(`${base}/ice-servers`, async (req, res) => {
   res.set('Cache-Control', 'no-store');
@@ -83,6 +93,12 @@ router.get(`${base}/:meetingId/calendar.ics`, async (req, res) => {
   res.send(await calendarFile(meeting));
 });
 router.post(`${base}/:meetingId/summary`, async (req, res) => res.json({ summary: await service.writeSummary(viewer(req), req.params.meetingId) }));
+/** Who joined and for how long (host and organization admins). */
+router.get(`${base}/:meetingId/attendance`, async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ attendance: await service.meetingAttendance(viewer(req), req.params.meetingId) });
+});
 router.use(meetingRecordingRoutes);
+router.use(meetingFileRoutes);
 
 export default router;

@@ -1,27 +1,44 @@
 <script setup lang="ts">
 import { format, parseISO } from 'date-fns'
-import { Captions, CircleCheck, Download, FileText, Film, ListTodo, MessageCircle, Play, Sparkles, Trash2 } from 'lucide-vue-next'
+import { Captions, CircleCheck, ClipboardCheck, Download, FileText, Film, ListTodo, MessageCircle, Phone, Play, Sparkles, Trash2 } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { useConfirm } from '@/composables/useConfirm'
 import { assetUrl, getErrorMessage } from '@/lib/http'
+import { attendanceCsv, attendanceDuration } from '../attendance'
 import { durationLabel } from '../meeting-format'
-import { type Meeting, type MeetingRecording, type MeetingSummary, type SavedChatMessage, type TranscriptLine, meetingsApi } from '../meetings.api'
+import {
+  type AttendanceEntry,
+  type Meeting,
+  type MeetingRecording,
+  type MeetingSummary,
+  type SavedChatMessage,
+  type TranscriptLine,
+  meetingsApi,
+} from '../meetings.api'
+import ChatAttachment from './ChatAttachment.vue'
 
-/** What a meeting left behind: the written summary, recordings, the transcript of the captions and the call's chat. */
-const props = defineProps<{
-  meeting: Meeting
-  chat: SavedChatMessage[]
-  transcript: TranscriptLine[]
-  recordings: MeetingRecording[]
-  canSummarize: boolean
-}>()
+/**
+ * What a meeting left behind: the written summary, recordings, the transcript of the captions, the call's chat (with
+ * its files) and, for the host, who attended and for how long.
+ */
+const props = withDefaults(
+  defineProps<{
+    meeting: Meeting
+    chat: SavedChatMessage[]
+    transcript: TranscriptLine[]
+    recordings: MeetingRecording[]
+    canSummarize: boolean
+    attendance?: AttendanceEntry[] | null
+  }>(),
+  { attendance: null },
+)
 const emit = defineEmits<{ summary: [summary: MeetingSummary]; changed: [] }>()
 const confirm = useConfirm()
 
-type Section = 'summary' | 'recordings' | 'transcript' | 'chat'
+type Section = 'summary' | 'recordings' | 'transcript' | 'chat' | 'attendance'
 const hasContent = computed(() => props.chat.length + props.transcript.length > 0 || Boolean(props.meeting.notes))
 const sections = computed(() => {
   const list: Array<{ value: Section; label: string; icon: typeof Sparkles; count?: number }> = []
@@ -29,8 +46,20 @@ const sections = computed(() => {
   if (props.recordings.length) list.push({ value: 'recordings', label: 'Recordings', icon: Film, count: props.recordings.length })
   if (props.transcript.length) list.push({ value: 'transcript', label: 'Transcript', icon: Captions })
   if (props.chat.length) list.push({ value: 'chat', label: 'Chat', icon: MessageCircle, count: props.chat.length })
+  if (props.attendance?.length) list.push({ value: 'attendance', label: 'Attendance', icon: ClipboardCheck, count: props.attendance.length })
   return list
 })
+
+const fileLink = (fileId: string) => meetingsApi.fileLink(props.meeting.id, fileId)
+const KIND_LABELS: Record<AttendanceEntry['kind'], string> = { member: 'Member', guest: 'Guest', phone: 'Phone' }
+const totalAttendance = computed(() => (props.attendance ?? []).reduce((sum, entry) => sum + entry.seconds, 0))
+
+function downloadAttendance() {
+  const blob = new Blob([attendanceCsv(props.attendance ?? [])], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  Object.assign(document.createElement('a'), { href: url, download: `${props.meeting.title.replace(/[^\w\s-]+/g, '').trim() || 'meeting'} attendance.csv` }).click()
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
 const section = ref<Section>('summary')
 watch(
   sections,
@@ -180,9 +209,51 @@ function downloadTranscript() {
             <span v-if="message.broadcast" class="shrink-0 text-[11px] text-amber-600">to all rooms</span>
             <span v-else-if="message.roomName" class="shrink-0 truncate text-[11px] text-muted-foreground">in {{ message.roomName }}</span>
           </div>
-          <p class="mt-0.5 text-sm break-words whitespace-pre-wrap">{{ message.body }}</p>
+          <p v-if="message.body" class="mt-0.5 text-sm break-words whitespace-pre-wrap">{{ message.body }}</p>
+          <ChatAttachment v-if="message.attachment" :file="message.attachment" :resolve="fileLink" />
         </div>
       </li>
     </ol>
+
+    <div v-else-if="section === 'attendance' && attendance" class="flex max-h-[460px] flex-col">
+      <div class="flex flex-wrap items-center gap-2 border-b border-border/70 px-4 py-2.5 text-sm">
+        <span class="min-w-0 flex-1 text-muted-foreground">
+          {{ attendance.length }} {{ attendance.length === 1 ? 'person' : 'people' }} joined · {{ attendanceDuration(totalAttendance) }} in total
+        </span>
+        <Button variant="outline" size="sm" @click="downloadAttendance"><Download /> Download CSV</Button>
+      </div>
+      <div class="min-h-0 flex-1 overflow-auto">
+        <table class="w-full text-sm">
+          <thead class="sticky top-0 bg-card text-left text-xs text-muted-foreground">
+            <tr>
+              <th class="px-4 py-2 font-medium">Name</th>
+              <th class="px-2 py-2 font-medium">Joined</th>
+              <th class="px-2 py-2 font-medium">Left</th>
+              <th class="px-2 py-2 text-right font-medium">Time in call</th>
+              <th class="px-4 py-2 text-right font-medium">Joins</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border/60">
+            <tr v-for="entry in attendance" :key="entry.key">
+              <td class="max-w-[14rem] px-4 py-2">
+                <span class="flex items-center gap-1.5 truncate font-medium">
+                  <Phone v-if="entry.kind === 'phone'" class="size-3.5 shrink-0 text-muted-foreground" />
+                  {{ entry.name }}
+                  <span v-if="entry.kind !== 'member'" class="rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground">{{ KIND_LABELS[entry.kind] }}</span>
+                </span>
+                <span v-if="entry.email" class="block truncate text-xs text-muted-foreground">{{ entry.email }}</span>
+              </td>
+              <td class="px-2 py-2 text-muted-foreground tabular-nums">{{ format(parseISO(entry.firstJoinedAt), 'HH:mm') }}</td>
+              <td class="px-2 py-2 text-muted-foreground tabular-nums">
+                <span v-if="entry.inCall" class="text-emerald-600 dark:text-emerald-400">In the call</span>
+                <template v-else-if="entry.lastLeftAt">{{ format(parseISO(entry.lastLeftAt), 'HH:mm') }}</template>
+              </td>
+              <td class="px-2 py-2 text-right tabular-nums">{{ attendanceDuration(entry.seconds) }}</td>
+              <td class="px-4 py-2 text-right text-muted-foreground tabular-nums">{{ entry.sessions }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </section>
 </template>

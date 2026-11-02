@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { DoorOpen, Megaphone, Shuffle, Undo2 } from 'lucide-vue-next'
+import { format, parseISO } from 'date-fns'
+import { DoorOpen, Megaphone, Shuffle, Timer, Undo2 } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -52,6 +53,14 @@ const roomOptions = computed<SelectFieldOption[]>(() => [
   ...Array.from({ length: count.value }, (_, index) => ({ value: String(index), label: names.value[index] || `Room ${index + 1}` })),
 ])
 const COUNTS: SelectFieldOption[] = [2, 3, 4, 5, 6].map((value) => ({ value: String(value), label: `${value} rooms` }))
+/** How long the rooms stay open in minutes ('none': until the host brings everyone back). */
+const NO_LIMIT = 'none'
+const duration = ref(NO_LIMIT)
+const DURATIONS: SelectFieldOption[] = [
+  { value: NO_LIMIT, label: 'No time limit' },
+  ...[5, 10, 15, 20, 30, 45, 60].map((minutes) => ({ value: String(minutes), label: `${minutes} minutes` })),
+]
+const EXTRA: number[] = [1, 5, 10]
 
 async function run(action: () => Promise<unknown>, done?: string) {
   isBusy.value = true
@@ -72,8 +81,12 @@ function openRooms() {
       .filter(([, room]) => room === String(index))
       .map(([socketId]) => socketId),
   }))
-  void run(() => call.openBreakouts(rooms), 'Breakout rooms are open')
+  const minutes = Number(duration.value) || null
+  void run(() => call.openBreakouts(rooms, minutes), minutes ? `Breakout rooms are open for ${minutes} minutes` : 'Breakout rooms are open')
 }
+
+const extend = (minutes: number) => run(() => call.extendBreakouts(minutes), `Added ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`)
+const closesAt = computed(() => (call.breakouts.value?.endsAt ? format(parseISO(call.breakouts.value.endsAt), 'HH:mm') : null))
 
 /** Rooms that are open now, with the main room first, for moving people. */
 const liveOptions = computed<SelectFieldOption[]>(() => [
@@ -121,6 +134,12 @@ function closeRooms() {
             <Input v-for="index in count" :key="index" v-model="names[index - 1]" :aria-label="`Name of room ${index}`" maxlength="40" class="h-9" />
           </div>
         </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <Timer class="size-4 text-muted-foreground" />
+          <span class="text-sm">Close the rooms after</span>
+          <SelectField :model-value="duration" class="w-44" :options="DURATIONS" aria-label="How long the rooms stay open" @update:model-value="(value) => (duration = value ?? NO_LIMIT)" />
+          <span v-if="duration !== NO_LIMIT" class="text-xs text-muted-foreground">Everyone is warned a minute before.</span>
+        </div>
         <div class="flex items-center justify-between">
           <p class="text-sm font-medium">Who goes where</p>
           <Button variant="ghost" size="sm" @click="distribute(true)"><Shuffle /> Shuffle</Button>
@@ -145,6 +164,11 @@ function closeRooms() {
       </template>
 
       <template v-else>
+        <div class="flex flex-wrap items-center gap-2 border border-border/70 bg-muted/30 px-3 py-2 text-sm">
+          <Timer class="size-4 text-muted-foreground" />
+          <span class="min-w-0 flex-1">{{ closesAt ? `The rooms close by themselves at ${closesAt}.` : 'No time limit: the rooms stay open until you bring everyone back.' }}</span>
+          <Button v-for="minutes in EXTRA" :key="minutes" variant="outline" size="sm" class="h-7" :disabled="isBusy" @click="extend(minutes)">+{{ minutes }} min</Button>
+        </div>
         <ul class="max-h-72 space-y-1.5 overflow-y-auto">
           <li v-for="person in livePeople" :key="person.socketId" class="flex items-center gap-2.5">
             <UserAvatar :user="person.user" size="md" />

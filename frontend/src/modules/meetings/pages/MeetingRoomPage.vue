@@ -2,7 +2,25 @@
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { isAxiosError } from 'axios'
 import { differenceInMinutes, format, parseISO } from 'date-fns'
-import { ArrowLeft, CalendarDays, CalendarPlus, Clock3, Mic, MicOff, PhoneCall, Repeat, Sparkles, Trash2, Video, VideoOff } from 'lucide-vue-next'
+import {
+  ArrowLeft,
+  CalendarDays,
+  CalendarPlus,
+  Clock3,
+  Copy,
+  DoorOpen,
+  LoaderCircle,
+  Mic,
+  MicOff,
+  Phone,
+  PhoneCall,
+  RefreshCw,
+  Repeat,
+  Sparkles,
+  Trash2,
+  Video,
+  VideoOff,
+} from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -23,9 +41,11 @@ import MeetingRecap from '../components/MeetingRecap.vue'
 import VideoTile from '../components/VideoTile.vue'
 import { BADGE_CLASSES, dayLabel, durationLabel, isJoinable, meetingBadge, recurrenceLabel, timeRange } from '../meeting-format'
 import {
+  type AttendanceEntry,
   type Meeting,
   type MeetingCapabilities,
   type MeetingPoll,
+  type MeetingQuestion,
   type MeetingRecording,
   type MeetingUpdate,
   type SavedChatMessage,
@@ -52,6 +72,8 @@ const whiteboard = ref<WhiteboardStroke[] | null>(null)
 const savedChat = ref<SavedChatMessage[]>([])
 const transcript = ref<TranscriptLine[]>([])
 const recordings = ref<MeetingRecording[]>([])
+const questions = ref<MeetingQuestion[]>([])
+const attendance = ref<AttendanceEntry[] | null>(null)
 const capabilities = ref<MeetingCapabilities | null>(null)
 const isLoading = ref(true)
 const isJoining = ref(false)
@@ -68,6 +90,8 @@ async function load() {
     savedChat.value = data.chat
     transcript.value = data.transcript
     recordings.value = data.recordings
+    questions.value = data.questions
+    attendance.value = data.attendance
   } catch (error) {
     toast.error(getErrorMessage(error))
     if (!meeting.value || (isAxiosError(error) && error.response?.status === 404)) {
@@ -95,6 +119,31 @@ async function addToCalendar() {
   }
 }
 const hasLeft = computed(() => call.status.value === 'left' && call.meetingId.value === props.meetingId)
+/** In this meeting's lobby until the host or a co-host lets this person in. */
+const isWaiting = computed(() => call.status.value === 'waiting' && call.meetingId.value === props.meetingId)
+function stopWaiting() {
+  call.leave()
+  call.reset()
+  void call.startPreview()
+}
+
+// Keyboard shortcuts ask for a side panel tab (chat, people, Q&A).
+watch(
+  () => call.panelRequest.value,
+  (request) => {
+    if (!request || !inThisCall.value) return
+    panelTab.value = request.tab as MeetingPanelTab
+    panelOpen.value = true
+  },
+)
+
+const PROVIDER_LABELS = { google: 'Google Calendar', microsoft: 'Outlook' } as const
+async function copyDialIn() {
+  const dialIn = meeting.value?.dialIn
+  if (!dialIn) return
+  await navigator.clipboard.writeText(`${dialIn.number},,${dialIn.pin}#`).catch(() => undefined)
+  toast.success('Phone number and PIN copied')
+}
 
 /** Device and screen buttons can fail (permission refused, camera busy); say why instead of doing nothing. */
 async function run(action: () => Promise<unknown>) {
@@ -292,6 +341,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
           live
           :meeting="meeting"
           :updates="updates"
+          :file-max-mb="capabilities?.fileMaxMb"
           @posted="onPosted"
           @removed="onRemoved"
           @notes="onNotes"
@@ -365,7 +415,23 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
             </div>
             <p v-if="call.deviceNote.value" class="border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 dark:text-warning">{{ call.deviceNote.value }}</p>
 
-            <div class="flex flex-wrap items-center gap-3 border border-border/70 bg-card p-4 shadow-soft">
+            <div v-if="isWaiting" class="flex flex-wrap items-center gap-3 border border-sky-500/40 bg-sky-500/5 p-4 shadow-soft" role="status">
+              <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-300">
+                <LoaderCircle class="size-5 animate-spin" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold">Waiting for someone to let you in</p>
+                <p class="text-xs text-muted-foreground">
+                  {{
+                    call.waitingAlone.value
+                      ? 'The host is not in the call yet. They were told you are waiting; you come in as soon as they or a co-host let you in.'
+                      : 'The host asked everyone to wait in the lobby. You come in as soon as they or a co-host let you in.'
+                  }}
+                </p>
+              </div>
+              <Button variant="outline" @click="stopWaiting">Stop waiting</Button>
+            </div>
+            <div v-else class="flex flex-wrap items-center gap-3 border border-border/70 bg-card p-4 shadow-soft">
               <div class="min-w-0 flex-1">
                 <p class="text-sm font-semibold">{{ hasLeft ? 'You left the call' : 'Ready to join?' }}</p>
                 <p class="text-xs text-muted-foreground">
@@ -400,6 +466,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
             :chat="savedChat"
             :transcript="transcript"
             :recordings="recordings"
+            :attendance="attendance"
             :can-summarize="Boolean(capabilities?.summaries)"
             @summary="onSummary"
             @changed="load"
@@ -421,7 +488,22 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
               <div class="flex items-center gap-2 text-muted-foreground"><Clock3 class="size-4" /> {{ timeRange(meeting) }} · {{ durationLabel(meeting.durationMinutes) }}</div>
               <div v-if="meeting.recurrence" class="flex items-center gap-2 text-muted-foreground"><Repeat class="size-4" /> {{ recurrenceLabel(meeting.recurrence, meeting.startsAt) }}</div>
               <div v-if="meeting.host" class="flex items-center gap-2 text-muted-foreground"><UserAvatar :user="meeting.host" size="xs" /> Hosted by {{ meeting.host.name }}</div>
+              <div v-if="meeting.lobby === 'everyone'" class="flex items-center gap-2 text-muted-foreground"><DoorOpen class="size-4" /> Everyone waits in the lobby until let in</div>
+              <div v-if="meeting.calendarSync" class="flex items-center gap-2 text-muted-foreground" :title="meeting.calendarSync.lastSyncedAt ? `Last synced ${format(parseISO(meeting.calendarSync.lastSyncedAt), 'd MMM, HH:mm')}` : undefined">
+                <RefreshCw class="size-4" /> Synced with the host’s {{ PROVIDER_LABELS[meeting.calendarSync.provider] }}
+              </div>
             </dl>
+            <div v-if="meeting.dialIn" class="flex items-center gap-3 border border-border/70 bg-muted/30 px-3 py-2">
+              <Phone class="size-4 shrink-0 text-muted-foreground" />
+              <div class="min-w-0 flex-1 text-sm">
+                <p class="font-medium">Join by phone</p>
+                <p class="text-xs text-muted-foreground">
+                  Call <span class="font-mono text-foreground">{{ meeting.dialIn.number }}</span> and enter PIN
+                  <span class="font-mono text-foreground">{{ meeting.dialIn.pin }}#</span>
+                </p>
+              </div>
+              <Button variant="ghost" size="icon-sm" aria-label="Copy the phone number and PIN" title="Copy" @click="copyDialIn"><Copy /></Button>
+            </div>
             <p v-if="meeting.agenda" class="border-t border-border/60 pt-3 text-sm whitespace-pre-wrap">{{ meeting.agenda }}</p>
             <Button v-if="meeting.status === 'scheduled' || meeting.status === 'live'" variant="outline" size="sm" @click="addToCalendar">
               <CalendarPlus /> Add to my calendar
@@ -434,6 +516,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
               :meeting="meeting"
               :updates="updates"
               :polls="polls"
+              :questions="questions"
               @posted="onPosted"
               @removed="onRemoved"
               @notes="onNotes"

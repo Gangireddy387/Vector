@@ -6,6 +6,8 @@ import { isAccessToken, isRevoked, TOKEN_TYPES, verifyAccessToken } from '../../
 import { isUuid } from '../utils/ids.js';
 import { relayConfigured } from '../../modules/meetings/ice-servers.js';
 import { registerMeetingCollab } from '../../modules/meetings/meeting.collab.js';
+import { registerMeetingPhone } from '../../modules/meetings/meeting.phone.js';
+import { registerMeetingQa } from '../../modules/meetings/meeting.qa.js';
 import { registerMeetingSignaling } from '../../modules/meetings/meeting.signaling.js';
 import { canWatchProject } from '../../modules/projects/project-access.js';
 import { presenceConnected, presenceDisconnected, registerPresence } from './presence.js';
@@ -83,6 +85,8 @@ export function initRealtime(httpServer, redis = null) {
     guardHandlers(socket);
     registerMeetingSignaling(io, socket);
     registerMeetingCollab(io, socket);
+    registerMeetingQa(io, socket);
+    registerMeetingPhone(io, socket);
     if (socket.data.guest) return;
 
     const { userId } = socket.data;

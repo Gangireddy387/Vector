@@ -9,10 +9,22 @@ export interface MeetingContext {
   id: string
 }
 
+/** A reply to the invitation, from the host's connected Google or Microsoft calendar. */
+export type MeetingResponse = 'accepted' | 'tentative' | 'declined'
+
+/** Who waits in the lobby until someone lets them in: only guests, or everyone except the host and co-hosts. */
+export type MeetingLobby = 'guests' | 'everyone'
+
 export interface MeetingParticipant extends UserSummary {
   joinedAt: string | null
   lastSeenAt: string | null
   isOnline: boolean
+  response: MeetingResponse | null
+}
+
+export interface MeetingDialIn {
+  number: string
+  pin: string
 }
 
 export interface Meeting {
@@ -44,7 +56,14 @@ export interface Meeting {
   canManage: boolean
   /** Written by the AI assistant from the transcript, chat, updates and notes. */
   summary: MeetingSummary | null
+  lobby: MeetingLobby
+  /** Joining by phone (when the server has dial-in). */
+  dialIn: MeetingDialIn | null
+  /** The host's Google or Microsoft calendar carries this meeting: invitations and replies go through it. */
+  calendarSync: { provider: CalendarProvider; lastSyncedAt: string | null } | null
 }
+
+export type CalendarProvider = 'google' | 'microsoft'
 
 export interface MeetingSummary {
   text: string
@@ -62,6 +81,40 @@ export interface SavedChatMessage {
   room: string | null
   roomName: string | null
   broadcast: boolean
+  attachment: MeetingFile | null
+}
+
+/** A file shared in the call's chat. */
+export interface MeetingFile {
+  id: string
+  fileName: string
+  mimeType: string
+  size: number
+}
+
+/** A question asked during the call (Q&A); `voters`: who upvoted it. */
+export interface MeetingQuestion {
+  id: string
+  author: { id: string; name: string; avatarUrl?: string | null; avatarColor?: string | null; guest?: boolean }
+  text: string
+  voters: string[]
+  votes: number
+  answeredAt: string | null
+  createdAt: string
+}
+
+/** One person in the attendance report: all their stays in the call added up. */
+export interface AttendanceEntry {
+  key: string
+  userId: string | null
+  name: string
+  email: string | null
+  kind: 'member' | 'guest' | 'phone'
+  firstJoinedAt: string
+  lastLeftAt: string | null
+  seconds: number
+  sessions: number
+  inCall: boolean
 }
 
 export interface TranscriptLine {
@@ -90,6 +143,9 @@ export interface MeetingCapabilities {
   summaries: boolean
   reminderMinutes: number
   recordingMaxMb: number
+  fileMaxMb: number
+  /** People can join calls by phone. */
+  dialIn: boolean
 }
 
 export interface MeetingDetails {
@@ -100,6 +156,18 @@ export interface MeetingDetails {
   chat: SavedChatMessage[]
   transcript: TranscriptLine[]
   recordings: MeetingRecording[]
+  questions: MeetingQuestion[]
+  files: MeetingFile[]
+  /** Only for the host and organization admins. */
+  attendance: AttendanceEntry[] | null
+}
+
+export interface CalendarConnectionInfo {
+  provider: CalendarProvider
+  label: string
+  /** The server has this calendar set up. */
+  available: boolean
+  connection: { provider: CalendarProvider; accountEmail: string | null; connectedAt: string; needsReconnect: boolean } | null
 }
 
 export interface MeetingUpdate {
@@ -125,14 +193,20 @@ export interface MeetingPoll {
   myVote: number | null
 }
 
+/** Freehand paths are drawn; shapes have two corners; text and sticky notes one position and their words. */
+export type WhiteboardKind = 'path' | 'rect' | 'ellipse' | 'line' | 'arrow' | 'text' | 'note'
+
 export interface WhiteboardStroke {
   id: string
   owner: string
+  /** Missing on boards drawn before shapes existed: a freehand path. */
+  kind?: WhiteboardKind
   color: string
   width: number
   tool: 'pen' | 'highlighter'
   /** [x, y, x, y…] between 0 and 1 of the board. */
   points: number[]
+  text?: string
 }
 
 export interface MeetingInput {
@@ -145,6 +219,7 @@ export interface MeetingInput {
   contextType?: MeetingContext['type'] | null
   contextId?: string | null
   guestAccess?: boolean
+  lobby?: MeetingLobby
 }
 
 export interface GuestLinkInfo {
@@ -215,4 +290,24 @@ export const meetingsApi = {
   removeUpdate: (meetingId: string, updateId: string) => http.delete(`/meetings/${meetingId}/updates/${updateId}`),
   guestLink: (token: string) => http.get<GuestLinkInfo>(`/meeting-links/${token}`).then((r) => r.data),
   joinAsGuest: (token: string, name: string) => http.post<GuestPass>(`/meeting-links/${token}/guests`, { name }).then((r) => r.data),
+  attendance: (meetingId: string) => http.get<{ attendance: AttendanceEntry[] }>(`/meetings/${meetingId}/attendance`).then((r) => r.data.attendance),
+  /** Shares a file in the call's chat: upload first, then send the message with its id. */
+  uploadFile: (meetingId: string, file: File, onProgress?: (percent: number) => void) => {
+    const form = new FormData()
+    form.append('file', file, file.name)
+    return http
+      .post<{ file: MeetingFile }>(`/meetings/${meetingId}/files`, form, {
+        timeout: 0,
+        onUploadProgress: (event) => event.total && onProgress?.(Math.round((event.loaded / event.total) * 100)),
+      })
+      .then((r) => r.data.file)
+  },
+  fileLink: (meetingId: string, fileId: string) => http.get<{ url: string }>(`/meetings/${meetingId}/files/${fileId}/link`).then((r) => r.data.url),
+}
+
+/** Your Google or Microsoft calendar, connected to Vector so meetings appear there and replies come back. */
+export const calendarSyncApi = {
+  list: () => http.get<{ calendars: CalendarConnectionInfo[] }>('/calendar-sync/connections').then((r) => r.data.calendars),
+  connect: (provider: CalendarProvider) => http.post<{ url: string }>(`/calendar-sync/${provider}/connect`).then((r) => r.data.url),
+  disconnect: (provider: CalendarProvider) => http.delete(`/calendar-sync/${provider}`),
 }

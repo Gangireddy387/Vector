@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Hand, LoaderCircle, MicOff, MonitorUp, Pin, SignalHigh, SignalLow, SignalMedium, Star, WifiOff } from 'lucide-vue-next'
+import { Hand, LoaderCircle, MicOff, MonitorUp, Phone, Pin, SignalHigh, SignalLow, SignalMedium, Star, WifiOff } from 'lucide-vue-next'
 import { computed, onMounted, useTemplateRef, watch } from 'vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import type { UserSummary } from '@/types/models'
@@ -30,8 +30,9 @@ const props = withDefaults(
     spotlit?: boolean
     pinned?: boolean
     compact?: boolean
+    phone?: boolean
   }>(),
-  { id: undefined, hand: null, speaking: false, guest: false, callRole: null, quality: null, qualityNote: null, spotlit: false, pinned: false, compact: false },
+  { id: undefined, hand: null, speaking: false, guest: false, callRole: null, quality: null, qualityNote: null, spotlit: false, pinned: false, compact: false, phone: false },
 )
 
 const QUALITY_LOOK: Record<CallQuality, { icon: typeof SignalHigh; label: string; tone: string }> = {
@@ -87,7 +88,10 @@ defineExpose({ video: element })
       muted
     />
     <div v-if="!showsVideo" class="flex flex-col items-center gap-2">
-      <UserAvatar :user="user" size="xl" :class="compact ? 'size-12 text-base ring-2 ring-white/10' : 'size-20 text-2xl ring-4 ring-white/10'" />
+      <span v-if="phone" class="flex items-center justify-center rounded-full bg-slate-600 text-white ring-white/10" :class="compact ? 'size-12 ring-2' : 'size-20 ring-4'">
+        <Phone :class="compact ? 'size-5' : 'size-8'" />
+      </span>
+      <UserAvatar v-else :user="user" size="xl" :class="compact ? 'size-12 text-base ring-2 ring-white/10' : 'size-20 text-2xl ring-4 ring-white/10'" />
     </div>
     <div v-if="network" class="absolute inset-x-0 top-2 flex justify-center">
       <span class="inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur">

@@ -7,6 +7,7 @@ import { notifyUsers } from '../notifications/notification.service.js';
 import { entitlementsFor, withPlan } from '../plans/plan.service.js';
 import { pushToUsers } from '../push/push.service.js';
 import { meetingIcs } from './meeting.ics.js';
+import { dialInFor } from './meeting.phone.js';
 import { meetingUrl, ringInvitees } from './meeting.ring.js';
 import { callPresence, getIo } from './meeting.signaling.js';
 
@@ -47,7 +48,7 @@ export async function calendarFile(meeting, method = 'PUBLISH') {
     User.findAll({ where: { id: participants.map((participant) => participant.userId) }, attributes: ['name', 'email'] }),
   ]);
   const json = typeof meeting.toJSON === 'function' ? meeting.toJSON() : meeting;
-  return meetingIcs({ meeting: json, url: appUrl(await meetingUrl(meeting)), organizer: host, attendees, method });
+  return meetingIcs({ meeting: json, url: appUrl(await meetingUrl(meeting)), organizer: host, attendees, method, dialIn: method === 'CANCEL' ? null : dialInFor(json) });
 }
 
 /** Emails `userIds` that they were invited to (`invite`), that the meeting changed (`update`) or was cancelled (`cancel`). */
@@ -78,6 +79,7 @@ export async function emailMeeting(meeting, kind, userIds) {
             organization,
             agenda: meeting.agenda,
             link,
+            dialIn: dialInFor(meeting),
           }),
           attachments: [{ filename: kind === 'cancel' ? 'cancelled.ics' : 'invite.ics', type: `text/calendar; charset=utf-8; method=${method}`, content: ics }],
         }),
