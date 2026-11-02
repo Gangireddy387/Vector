@@ -1,9 +1,30 @@
 import { Op } from 'sequelize';
 import { config } from '../../config/index.js';
-import { Issue, IssueWatcher, Organization, OrganizationMember, Project, ProjectMember, sequelize, User } from '../../database/models.js';
+import {
+  Attachment,
+  CalendarEvent,
+  Conversation,
+  Department,
+  Issue,
+  IssueWatcher,
+  Meeting,
+  MeetingFile,
+  MeetingRecording,
+  Organization,
+  OrganizationMember,
+  Project,
+  ProjectMember,
+  sequelize,
+  SupportMessage,
+  User,
+} from '../../database/models.js';
 import { writeTransaction } from '../../database/connection.js';
 import { ApiError } from '../../shared/errors/api-error.js';
-import { emitToUser, revokeRealtimeAccess } from '../../shared/realtime/socket.js';
+import { disconnectUser, emitToUser, revokeRealtimeAccess } from '../../shared/realtime/socket.js';
+import { deleteStoredFile } from '../attachments/attachment.storage.js';
+import { forgetBoard } from '../meetings/meeting.collab.js';
+import { releaseDialIn } from '../meetings/meeting.phone.js';
+import { closeCall } from '../meetings/meeting.signaling.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { addedToOrganizationEmail, inviteLinkFor, organizationInviteEmail, organizationReviewRequestEmail } from '../../shared/services/email-templates.js';
 import { createImageStore } from '../../shared/services/image-store.js';
@@ -234,12 +255,79 @@ export async function removeMember(organizationId, actor, userId) {
 /** Deletes the organization with all of its projects and work. People keep their accounts and other organizations. */
 export async function deleteOrganization(organization, { confirmName }) {
   if (confirmName.trim() !== organization.name) throw ApiError.badRequest('Type the organization name exactly to confirm', [{ path: 'confirmName', message: 'The name does not match' }]);
-  const projects = await Project.findAll({ where: { organizationId: organization.id } });
-  for (const project of projects) await project.destroy();
-  await logos.remove(organization.logoUrl);
-  await User.update({ lastOrganizationId: null }, { where: { lastOrganizationId: organization.id } });
-  await OrganizationMember.destroy({ where: { organizationId: organization.id } });
-  await organization.destroy();
+  await purgeOrganization(organization);
+}
+
+/**
+ * Removes an organization and everything in it: projects and their work, meetings (calls end, dial-in PINs stop),
+ * chats, calendars, structure, support messages, memberships, and their files on disk. Members' open tabs are told
+ * at once. With `removeAccounts`, people who belonged to no other organization lose their account too (the email can
+ * sign up again); the portal's super admin never does. Returns how many accounts were removed.
+ */
+export async function purgeOrganization(organization, { removeAccounts = false } = {}) {
+  const organizationId = organization.id;
+  const [projectIds, meetings, memberIds] = await Promise.all([
+    Project.findAll({ where: { organizationId }, attributes: ['id'], raw: true }).then((rows) => rows.map((row) => row.id)),
+    Meeting.findAll({ where: { organizationId }, attributes: ['id', 'status', 'sipRuleId'] }),
+    OrganizationMember.findAll({ where: { organizationId }, attributes: ['userId'], raw: true }).then((rows) => rows.map((row) => row.userId)),
+  ]);
+  const meetingIds = meetings.map((meeting) => meeting.id);
+
+  // Files on disk, found before their rows go.
+  const [attachments, recordings, meetingFiles] = await Promise.all([
+    projectIds.length ? Attachment.findAll({ include: [{ model: Issue, as: 'issue', attributes: [], where: { projectId: projectIds } }], attributes: ['storageKey'], raw: true }) : [],
+    meetingIds.length ? MeetingRecording.findAll({ where: { meetingId: meetingIds }, attributes: ['storageKey'], raw: true }) : [],
+    meetingIds.length ? MeetingFile.findAll({ where: { meetingId: meetingIds }, attributes: ['storageKey'], raw: true }) : [],
+  ]);
+
+  for (const meeting of meetings) {
+    if (meeting.status === 'live') await closeCall(meeting.id, 'cancelled').catch(() => undefined);
+    await forgetBoard(meeting.id).catch(() => undefined);
+    await releaseDialIn(meeting).catch(() => undefined);
+  }
+
+  await writeTransaction(async (transaction) => {
+    const where = { organizationId };
+    await Meeting.destroy({ where, transaction });
+    await Conversation.destroy({ where, transaction });
+    await CalendarEvent.destroy({ where, transaction });
+    await SupportMessage.destroy({ where, transaction });
+    await Project.destroy({ where, transaction });
+    await Department.destroy({ where, transaction });
+    await OrganizationMember.destroy({ where, transaction });
+    await User.update({ lastOrganizationId: null }, { where: { lastOrganizationId: organizationId }, transaction });
+    await Organization.destroy({ where: { id: organizationId }, transaction });
+  });
+
+  await Promise.all(
+    [...attachments, ...recordings, ...meetingFiles]
+      .map((file) => file.storageKey)
+      .filter(Boolean)
+      .map((storageKey) => deleteStoredFile(storageKey).catch(() => undefined)),
+  );
+  await logos.remove(organization.logoUrl).catch(() => undefined);
+
+  for (const userId of memberIds) {
+    emitToUser(userId, 'workspace:removed', { id: organizationId });
+    revokeRealtimeAccess(userId, { organizationId, projectIds });
+  }
+
+  if (!removeAccounts) return 0;
+  let removed = 0;
+  for (const userId of memberIds) {
+    if (await OrganizationMember.count({ where: { userId } })) continue;
+    const user = await User.findByPk(userId);
+    if (!user || (config.superAdmin.email && user.email?.toLowerCase() === config.superAdmin.email)) continue;
+    try {
+      await user.destroy();
+      disconnectUser(userId);
+      removed += 1;
+    } catch (error) {
+      // Something elsewhere still refers to them (e.g. work in an organization they left): keep the account.
+      console.warn(`[organizations] kept the account of ${userId}:`, error.message);
+    }
+  }
+  return removed;
 }
 
 /** Makes sure a person belongs to an organization, creating an invited account for new email addresses. */

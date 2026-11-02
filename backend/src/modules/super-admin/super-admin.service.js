@@ -6,8 +6,9 @@ import { ApiError } from '../../shared/errors/api-error.js';
 import { isUserOnline } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { organizationApprovedEmail, organizationRejectedEmail } from '../../shared/services/email-templates.js';
-import { broadcastOrganization, toPublicOrganization } from '../organizations/organization.service.js';
+import { broadcastOrganization, purgeOrganization, toPublicOrganization } from '../organizations/organization.service.js';
 import { entitlementsFor, featureSettingsFor, setOrganizationFeatures, setOrganizationPlan, withPlan } from '../plans/plan.service.js';
+import { isUuid } from '../../shared/utils/ids.js';
 import { pickAvatarColor } from '../users/user.service.js';
 
 export const isSuperAdmin = (user) => Boolean(config.superAdmin.email) && user?.email?.toLowerCase() === config.superAdmin.email;
@@ -135,6 +136,20 @@ export async function changeOrganizationFeatures(organizationId, changes) {
   const organization = await setOrganizationFeatures(organizationId, changes);
   await broadcastOrganization(organization);
   return { organization: (await listOrganizations()).find((item) => item.id === organizationId), features: featureSettingsFor(organization) };
+}
+
+/**
+ * Removes an organization completely (e.g. a spam signup or a team that left): all its data and files, and the
+ * accounts of people who belonged to no other organization, so the same email can sign up again.
+ */
+export async function removeOrganization(organizationId, { confirmName }) {
+  const organization = isUuid(organizationId) ? await Organization.findByPk(organizationId) : null;
+  if (!organization) throw ApiError.notFound('Organization not found');
+  if (confirmName.trim() !== organization.name) {
+    throw ApiError.badRequest('Type the organization name exactly to confirm', [{ path: 'confirmName', message: 'The name does not match' }]);
+  }
+  const removedAccounts = await purgeOrganization(organization, { removeAccounts: true });
+  return { id: organizationId, name: organization.name, removedAccounts };
 }
 
 export const approveOrganization = (organizationId, actor) => review(organizationId, actor, 'approved');

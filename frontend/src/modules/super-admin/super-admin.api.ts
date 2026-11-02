@@ -74,6 +74,11 @@ export const superAdminApi = {
     http.post<{ organization: ReviewedOrganization }>(`/super-admin/organizations/${organizationId}/approve`).then((r) => r.data.organization),
   reject: (organizationId: string, reason?: string) =>
     http.post<{ organization: ReviewedOrganization }>(`/super-admin/organizations/${organizationId}/reject`, { reason }).then((r) => r.data.organization),
+  /** Removes the organization with everything in it; `confirmName` must be its exact name. */
+  remove: (organizationId: string, confirmName: string) =>
+    http
+      .delete<{ id: string; name: string; removedAccounts: number }>(`/super-admin/organizations/${organizationId}`, { data: { confirmName } })
+      .then((r) => r.data),
   setPlan: (organizationId: string, planId: string) =>
     http.put<{ organization: ReviewedOrganization }>(`/super-admin/organizations/${organizationId}/plan`, { planId }).then((r) => r.data.organization),
   /** `null` follows the plan again. */

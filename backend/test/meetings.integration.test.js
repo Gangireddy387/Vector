@@ -19,6 +19,7 @@ let bob; // invited member
 let meeting;
 let aliceSocket;
 let bobSocket;
+let rootToken;
 
 async function signUp(label) {
   const email = `${label}-${stamp}@example.test`;
@@ -79,6 +80,7 @@ before(async () => {
   // With a portal owner, new organizations wait for approval; meetings are a paid feature they turn on.
   const root = await call('POST', '/auth/login', ADMIN);
   assert.equal(root.status, 200, JSON.stringify(root.body));
+  rootToken = root.body.token;
   const approved = await call('POST', `/super-admin/organizations/${alice.organizationId}/approve`, null, root.body.token);
   assert.equal(approved.status, 200, JSON.stringify(approved.body));
   const enabled = await call('PUT', `/super-admin/organizations/${alice.organizationId}/features`, { features: { meetings: true } }, root.body.token);
@@ -287,5 +289,39 @@ describe('a call', () => {
     assert.equal(details.body.chat.at(-1).attachment.fileName, 'notes.txt');
     assert.ok(Array.isArray(details.body.attendance));
     assert.equal((await asBob('GET', `/meetings/${meeting.id}`)).body.attendance, null);
+  });
+});
+
+describe('removing an organization (super admin)', () => {
+  const remove = (organizationId, confirmName, token = rootToken) => call('DELETE', `/super-admin/organizations/${organizationId}`, { confirmName }, token);
+
+  it('is only for the super admin, with the exact name typed', async () => {
+    assert.equal((await remove(alice.organizationId, 'host Org', alice.token)).status, 403);
+    assert.equal((await remove(alice.organizationId, 'Not the name')).status, 400);
+    assert.equal((await remove('00000000-0000-0000-0000-000000000000', 'x')).status, 404);
+  });
+
+  it('removes a signup completely, so the same email can sign up again', async () => {
+    const spam = await signUp('spam');
+    const removed = await remove(spam.organizationId, 'spam Org');
+    assert.equal(removed.status, 200, JSON.stringify(removed.body));
+    assert.equal(removed.body.removedAccounts, 1);
+    const list = await call('GET', '/super-admin/organizations', null, rootToken);
+    assert.equal(list.body.organizations.some((item) => item.id === spam.organizationId), false);
+    assert.equal((await call('POST', '/auth/login', { email: spam.email, password: PASSWORD })).status, 401);
+    assert.equal((await call('GET', '/auth/me', null, spam.token)).status, 401);
+    const again = await call('POST', '/auth/register', { name: 'Spam Again', email: spam.email, password: PASSWORD, organizationName: 'Spam Two', organizationSlug: `spam2-${stamp}` });
+    assert.equal(again.status, 201, JSON.stringify(again.body));
+  });
+
+  it('removes an organization with meetings and files, keeping people who belong elsewhere', async () => {
+    const told = next(bobSocket, 'workspace:removed', (payload) => payload.id === alice.organizationId);
+    const removed = await remove(alice.organizationId, 'host Org');
+    assert.equal(removed.status, 200, JSON.stringify(removed.body));
+    assert.equal(removed.body.removedAccounts, 1, 'only the host belonged to nothing else');
+    await told;
+    assert.equal((await call('GET', '/auth/me', null, bob.token)).status, 200, 'bob keeps his account and his own organization');
+    assert.notEqual((await asBob('GET', `/meetings/${meeting.id}`)).status, 200);
+    assert.equal((await call('POST', '/auth/login', { email: alice.email, password: PASSWORD })).status, 401);
   });
 });

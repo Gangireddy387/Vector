@@ -129,6 +129,11 @@ export function revokeRealtimeAccess(userId, { organizationId = null, projectIds
   if (rooms.length) io.in(`user:${userId}`).socketsLeave(rooms);
 }
 
+/** Closes every open connection of an account that no longer exists (on any server). */
+export function disconnectUser(userId) {
+  io?.in(`user:${userId}`).disconnectSockets(true);
+}
+
 /** Every project event says which project it is about, so a page showing one project ignores the others. */
 export const emitToProject = (projectId, event, payload) => io?.to(`project:${projectId}`).emit(event, { projectId, ...payload });
 export const emitToUser = (userId, event, payload) => io?.to(`user:${userId}`).emit(event, payload);

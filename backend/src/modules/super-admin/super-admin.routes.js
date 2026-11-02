@@ -12,11 +12,13 @@ import {
   isSuperAdmin,
   listOrganizations,
   rejectOrganization,
+  removeOrganization,
 } from './super-admin.service.js';
 import { deleteMessage, getThread, markRead, sendMessage, setDisappearing, unreadByOrganization } from '../support/support.service.js';
 
 const rejectSchema = z.object({ reason: z.string().trim().max(500).optional() });
 const setPlanSchema = z.object({ planId: z.string().uuid('Choose a plan') });
+const removeSchema = z.object({ confirmName: z.string().max(200) });
 /** `true` / `false` overrides the plan for this organization; `null` follows the plan again. */
 const setFeaturesSchema = z.object({
   features: z
@@ -52,6 +54,10 @@ superAdminRoutes.post('/super-admin/organizations/:organizationId/approve', asyn
 );
 superAdminRoutes.post('/super-admin/organizations/:organizationId/reject', validate({ body: rejectSchema }), async (req, res) =>
   res.json({ organization: await rejectOrganization(req.params.organizationId, req.user, req.body) }),
+);
+/** Removes the organization and everything in it; `confirmName` must be its exact name. */
+superAdminRoutes.delete('/super-admin/organizations/:organizationId', validate({ body: removeSchema }), async (req, res) =>
+  res.json(await removeOrganization(req.params.organizationId, req.body)),
 );
 superAdminRoutes.put('/super-admin/organizations/:organizationId/plan', validate({ body: setPlanSchema }), async (req, res) =>
   res.json({ organization: await changeOrganizationPlan(req.params.organizationId, req.body.planId) }),

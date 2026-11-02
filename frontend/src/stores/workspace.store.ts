@@ -76,7 +76,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function bindRealtime() {
     if (isBound) return
     isBound = true
-    bindSocketEvents({ 'workspace:updated': (next: WorkspaceSettings & { id?: string }) => auth.patchOrganization(next) })
+    bindSocketEvents({
+      'workspace:updated': (next: WorkspaceSettings & { id?: string }) => auth.patchOrganization(next),
+      // The organization was deleted: start again in another one (or on "create an organization").
+      'workspace:removed': ({ id }: { id: string }) => {
+        if (auth.organization?.id === id) window.location.assign('/')
+        else auth.organizations = auth.organizations.filter((item) => item.id !== id)
+      },
+    })
   }
 
   return { settings, isAdmin, load, update, uploadLogo, removeLogo, bindRealtime }

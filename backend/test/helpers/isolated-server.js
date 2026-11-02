@@ -13,12 +13,14 @@ const backendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '.
 /** `env`: extra settings for this test's server (e.g. a super admin to turn on plan features). */
 export async function startIsolatedServer({ port = 4100 + Math.floor(Math.random() * 500), env: extra = {} } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vector-test-'));
+  // TEST_POSTGRES_DB=<name>: run against that (throwaway, created if missing) PostgreSQL database, with the other
+  // DB_* settings from backend/.env, instead of a temporary SQLite file.
+  const postgres = process.env.TEST_POSTGRES_DB;
   const env = {
     ...process.env,
     NODE_ENV: 'test',
     PORT: String(port),
-    DB_DIALECT: 'sqlite',
-    DB_STORAGE: path.join(dir, 'test.sqlite'),
+    ...(postgres ? { DB_DIALECT: 'postgres', DB_NAME: postgres } : { DB_DIALECT: 'sqlite', DB_STORAGE: path.join(dir, 'test.sqlite') }),
     DATABASE_URL: '',
     DB_LOGGING: 'false',
     UPLOAD_DIR: path.join(dir, 'uploads'),

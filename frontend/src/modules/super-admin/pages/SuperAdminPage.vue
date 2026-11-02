@@ -17,6 +17,7 @@ import {
   Search,
   ShieldCheck,
   Sun,
+  Trash2,
   UserRound,
   Users,
 } from 'lucide-vue-next'
@@ -30,6 +31,7 @@ import BrandMark from '@/components/layout/BrandMark.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useDevice } from '@/composables/useDevice'
@@ -187,6 +189,43 @@ async function confirmReject() {
     replace(await superAdminApi.reject(organization.id, reason.value.trim() || undefined))
     toast.success(`${organization.name} was rejected`)
     rejecting.value = null
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    busyId.value = null
+  }
+}
+
+/** Removing an organization for good: its name is typed to confirm. */
+const removing = ref<ReviewedOrganization | null>(null)
+const confirmName = ref('')
+const isRemoveOpen = computed({
+  get: () => Boolean(removing.value),
+  set: (open: boolean) => {
+    if (!open) removing.value = null
+  },
+})
+const nameMatches = computed(() => Boolean(removing.value && confirmName.value.trim() === removing.value.name))
+
+function openRemove(organization: ReviewedOrganization) {
+  confirmName.value = ''
+  removing.value = organization
+}
+
+async function confirmRemove() {
+  const organization = removing.value
+  if (!organization || !nameMatches.value) return
+  busyId.value = organization.id
+  try {
+    const { removedAccounts } = await superAdminApi.remove(organization.id, confirmName.value)
+    organizations.value = (organizations.value ?? []).filter((item) => item.id !== organization.id)
+    if (openId.value === organization.id) openId.value = null
+    removing.value = null
+    toast.success(`${organization.name} was removed`, {
+      description: removedAccounts
+        ? `${removedAccounts} ${removedAccounts === 1 ? 'account' : 'accounts'} that belonged only to it ${removedAccounts === 1 ? 'was' : 'were'} removed too.`
+        : undefined,
+    })
   } catch (error) {
     toast.error(getErrorMessage(error))
   } finally {
@@ -520,6 +559,17 @@ function signOut() {
                 >
                   <Ban /> {{ organization.status === 'approved' ? 'Revoke' : 'Reject' }}
                 </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  class="text-muted-foreground hover:bg-destructive/5 hover:text-destructive"
+                  :disabled="busyId !== null"
+                  :aria-label="`Delete ${organization.name}`"
+                  title="Delete the organization and everything in it"
+                  @click="openRemove(organization)"
+                >
+                  <Trash2 />
+                </Button>
               </div>
 
               <p
@@ -553,6 +603,34 @@ function signOut() {
           <Button variant="ghost" @click="rejecting = null">Cancel</Button>
           <Button type="submit" form="reject-organization" variant="destructive" :loading="busyId === rejecting?.id">
             {{ rejecting?.status === 'approved' ? 'Revoke access' : 'Reject organization' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog v-model:open="isRemoveOpen">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Delete {{ removing?.name }}?</DialogTitle>
+          <DialogDescription>This removes the organization for good. It cannot be undone.</DialogDescription>
+        </DialogHeader>
+        <ul class="space-y-1.5 border border-destructive/30 bg-destructive/5 px-3 py-2.5 text-sm">
+          <li>
+            All its work is deleted: {{ removing?.projectCount ?? 0 }} {{ removing?.projectCount === 1 ? 'project' : 'projects' }} with their tasks and files,
+            meetings and recordings, chats, calendars and support messages.
+          </li>
+          <li>Its {{ removing?.memberCount ?? 0 }} {{ removing?.memberCount === 1 ? 'person loses' : 'people lose' }} access right away.</li>
+          <li>Accounts that belong to no other organization are deleted too, so those emails can sign up again.</li>
+        </ul>
+        <form id="remove-organization" @submit.prevent="confirmRemove">
+          <FormField :label="`Type ${removing?.name ?? 'the name'} to confirm`" for="remove-confirm">
+            <Input id="remove-confirm" v-model="confirmName" autocomplete="off" :placeholder="removing?.name" />
+          </FormField>
+        </form>
+        <DialogFooter>
+          <Button variant="ghost" @click="removing = null">Cancel</Button>
+          <Button type="submit" form="remove-organization" variant="destructive" :disabled="!nameMatches" :loading="busyId === removing?.id">
+            <Trash2 /> Delete for good
           </Button>
         </DialogFooter>
       </DialogContent>
