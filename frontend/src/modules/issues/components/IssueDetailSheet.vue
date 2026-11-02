@@ -18,11 +18,27 @@ const isOpen = computed({
     if (!open) void router.replace({ query: { ...route.query, issue: undefined } })
   },
 })
+
+/**
+ * Keyboard and screen-reader users land in the panel (not on its first field, which would open an editor), so Tab
+ * and Escape work inside it right away.
+ */
+function focusPanel(event: Event) {
+  event.preventDefault()
+  ;(event.currentTarget as HTMLElement | null)?.focus?.()
+}
 </script>
 
 <template>
   <Sheet v-model:open="isOpen">
-    <SheetContent side="right" class="w-full gap-0 p-0 sm:max-w-4xl" hide-close clear-backdrop @open-auto-focus.prevent>
+    <SheetContent
+      side="right"
+      class="w-full gap-0 p-0 outline-none sm:max-w-4xl"
+      tabindex="-1"
+      hide-close
+      clear-backdrop
+      @open-auto-focus="focusPanel"
+    >
       <SheetTitle class="sr-only">Task {{ issueKey }}</SheetTitle>
       <SheetDescription class="sr-only">Task details</SheetDescription>
       <IssueDetailView v-if="issueKey" :issue-key="issueKey" mode="panel" @close="isOpen = false" />

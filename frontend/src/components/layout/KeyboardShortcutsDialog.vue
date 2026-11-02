@@ -54,6 +54,8 @@ const GROUPS: Group[] = [
       { label: 'Board', sequence: ['G', 'B'] },
       { label: 'Backlog', sequence: ['G', 'L'] },
       { label: 'Progress', sequence: ['G', 'O'] },
+      { label: 'Move a focused card to the next / previous column', combo: ['Alt', '← →'] },
+      { label: 'Move a focused card up / down', combo: ['Alt', '↑ ↓'] },
     ],
   },
   {

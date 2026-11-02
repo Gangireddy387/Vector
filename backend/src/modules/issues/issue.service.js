@@ -14,7 +14,7 @@ import {
   User,
   WorkLog,
 } from '../../database/models.js';
-import { likeOperator } from '../../database/connection.js';
+import { likeOperator, writeTransaction } from '../../database/connection.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { DomainEvents, eventBus } from '../../shared/events/event-bus.js';
 import { toDateOnly, toList } from '../../shared/utils/query.js';
@@ -86,6 +86,15 @@ export async function addWatchers(issueId, userIds) {
   if (unique.length) await IssueWatcher.bulkCreate(unique.map((userId) => ({ issueId, userId })), { ignoreDuplicates: true });
 }
 
+/** A task cannot be placed under one of its own descendants (A under B under A would loop forever). */
+async function assertNotAncestor(issueId, parent) {
+  let current = parent;
+  for (let depth = 0; current && depth < 100; depth += 1) {
+    if (current.id === issueId) throw ApiError.badRequest('A task cannot be placed under one of its own sub-tasks');
+    current = current.parentId ? await Issue.findByPk(current.parentId, { attributes: ['id', 'parentId'] }) : null;
+  }
+}
+
 /** Validates that every referenced record belongs to the same project. Returns the resolved status. */
 async function assertRelations(projectId, data, currentIssueId = null) {
   let status = null;
@@ -107,6 +116,7 @@ async function assertRelations(projectId, data, currentIssueId = null) {
     const parent = await Issue.findOne({ where: { id: data.parentId, projectId } });
     if (!parent) throw ApiError.badRequest('Parent task does not belong to this project');
     if (parent.type === 'subtask') throw ApiError.badRequest('Sub-tasks cannot have their own sub-tasks');
+    if (currentIssueId) await assertNotAncestor(currentIssueId, parent);
   }
   if (data.labelIds?.length) {
     const unique = [...new Set(data.labelIds)];
@@ -328,32 +338,39 @@ export async function createIssue(rawInput, actor, context = {}) {
     input.sprintId = (await Issue.findByPk(input.parentId, { attributes: ['sprintId'] }))?.sprintId ?? null;
   }
 
-  await project.increment('issueCounter');
-  await project.reload({ attributes: ['id', 'key', 'issueCounter'] });
-  const number = project.issueCounter;
-
-  const issue = await Issue.create({
-    projectId: project.id,
-    number,
-    key: `${project.key}-${number}`,
-    title: input.title,
-    description: input.description ?? null,
-    type,
-    priority: input.priority ?? 'medium',
-    statusId: status.id,
-    assigneeId,
-    reporterId: actor?.id ?? null,
-    parentId: input.parentId ?? null,
-    sprintId: input.sprintId ?? null,
-    storyPoints: input.storyPoints ?? null,
-    estimateMinutes: input.estimateMinutes ?? null,
-    startDate: input.startDate ?? null,
-    dueDate: input.dueDate ?? null,
-    position: await nextPosition(project.id),
-    completedAt: status.category === 'done' ? new Date() : null,
+  const position = await nextPosition(project.id);
+  // The number comes from the project's counter, locked for the transaction: two tasks created at the same moment
+  // get different keys, and a failure leaves neither a used number nor half a task behind.
+  const issue = await writeTransaction(async (transaction) => {
+    const counter = await Project.findByPk(project.id, { attributes: ['id', 'key', 'issueCounter'], lock: transaction.LOCK.UPDATE, transaction });
+    const number = counter.issueCounter + 1;
+    await counter.update({ issueCounter: number }, { transaction });
+    const created = await Issue.create(
+      {
+        projectId: project.id,
+        number,
+        key: `${counter.key}-${number}`,
+        title: input.title,
+        description: input.description ?? null,
+        type,
+        priority: input.priority ?? 'medium',
+        statusId: status.id,
+        assigneeId,
+        reporterId: actor?.id ?? null,
+        parentId: input.parentId ?? null,
+        sprintId: input.sprintId ?? null,
+        storyPoints: input.storyPoints ?? null,
+        estimateMinutes: input.estimateMinutes ?? null,
+        startDate: input.startDate ?? null,
+        dueDate: input.dueDate ?? null,
+        position,
+        completedAt: status.category === 'done' ? new Date() : null,
+      },
+      { transaction },
+    );
+    if (input.labelIds?.length) await created.setLabels([...new Set(input.labelIds)], { transaction });
+    return created;
   });
-
-  if (input.labelIds?.length) await issue.setLabels([...new Set(input.labelIds)]);
   await addWatchers(issue.id, [issue.reporterId, issue.assigneeId]);
 
   const meta = { source: context.source ?? 'user', ruleName: context.ruleName ?? null };
@@ -450,9 +467,11 @@ export async function deleteIssue(issueId, actor) {
   const attachments = await Attachment.findAll({ where: { issueId: [issueId, ...subtaskIds] } });
 
   const snapshot = issue.toJSON();
-  // Sub-tasks go with their parent; existing databases may still have a SET NULL constraint on parent_id.
-  if (subtaskIds.length) await Issue.destroy({ where: { id: subtaskIds } });
-  await issue.destroy();
+  // Sub-tasks go with their parent (existing databases may still have a SET NULL constraint on parent_id); both or neither.
+  await writeTransaction(async (transaction) => {
+    if (subtaskIds.length) await Issue.destroy({ where: { id: subtaskIds }, transaction });
+    await issue.destroy({ transaction });
+  });
   await Promise.all(attachments.map((attachment) => deleteStoredFile(attachment.storageKey)));
   await logActivity({ projectId: snapshot.projectId, actorId: actor?.id ?? null, action: 'deleted', toValue: `${snapshot.key} ${snapshot.title}` });
   eventBus.publish(DomainEvents.ISSUE_DELETED, { issue: snapshot, actorId: actor?.id ?? null });
@@ -491,6 +510,9 @@ export async function setWatching(issueId, userId, watching) {
 export async function createLink(issue, { targetIssue, type }, actor) {
   const target = await loadIssueWithAccess(targetIssue, actor.id);
   if (target.id === issue.id) throw ApiError.badRequest('A task cannot be linked to itself');
+  // Links stay inside one organization, so nobody in the other one sees a task they have no access to.
+  const projects = await Project.findAll({ where: { id: [...new Set([issue.projectId, target.projectId])] }, attributes: ['organizationId'], raw: true });
+  if (new Set(projects.map((project) => project.organizationId)).size > 1) throw ApiError.badRequest('Tasks can only be linked within the same organization');
   const where = { sourceIssueId: issue.id, targetIssueId: target.id, type };
   if (await IssueLink.count({ where })) throw ApiError.conflict('These tasks are already linked');
   const link = await IssueLink.create({ ...where, createdById: actor.id });

@@ -26,7 +26,7 @@ import {
   UsersRound,
   X,
 } from 'lucide-vue-next'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -45,7 +45,7 @@ import { organizationAddress, organizationUrl } from '@/modules/auth/organizatio
 import { profileCoverStyle } from '@/modules/admin/profile-cover'
 import SupportChatThread from '@/modules/support/components/SupportChatThread.vue'
 import { type DisappearHours, portalSupportApi } from '@/modules/support/support.api'
-import { getSocket } from '@/lib/realtime'
+import { useSocketEvents } from '@/lib/socket-events'
 import { type OrganizationDetail, type OrganizationPerson, type ReviewedOrganization, superAdminApi } from '../super-admin.api'
 
 /** The super admin's look inside one organization: who runs it, who is in it and how much of its plan it uses. */
@@ -172,8 +172,7 @@ function onPresence(event: { userId: string; online: boolean; lastSeenAt: string
   const update = (person: OrganizationPerson) => (person.id === event.userId ? { ...person, isOnline: event.online, lastSeenAt: event.lastSeenAt } : person)
   detail.value = { ...detail.value, admins: detail.value.admins.map(update), members: detail.value.members.map(update) }
 }
-onMounted(() => getSocket()?.on('presence:changed', onPresence))
-onBeforeUnmount(() => getSocket()?.off('presence:changed', onPresence))
+useSocketEvents({ 'presence:changed': onPresence })
 
 async function copyEmail(email: string) {
   await copy(email)

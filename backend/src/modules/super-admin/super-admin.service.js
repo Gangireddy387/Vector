@@ -22,13 +22,14 @@ export async function ensureSuperAdmin() {
     return;
   }
   if (!existing) {
-    await User.create({ name, email, passwordHash: await bcrypt.hash(password, 10), avatarColor: pickAvatarColor(email) });
+    await User.create({ name, email, passwordHash: await bcrypt.hash(password, 12), avatarColor: pickAvatarColor(email) });
     console.info(`[super-admin] created ${email}`);
     return;
   }
   const passwordMatches = existing.passwordHash && (await bcrypt.compare(password, existing.passwordHash));
   if (!passwordMatches || existing.status !== 'active') {
-    await existing.update({ passwordHash: await bcrypt.hash(password, 10), status: 'active', inviteToken: null });
+    // A new password from the env file also signs out the account's existing sessions.
+    await existing.update({ passwordHash: await bcrypt.hash(password, 12), status: 'active', inviteToken: null, tokenVersion: (existing.tokenVersion ?? 0) + 1 });
     console.info(`[super-admin] updated ${email} from the env file`);
   }
 }

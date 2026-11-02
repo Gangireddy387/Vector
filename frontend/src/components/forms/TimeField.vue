@@ -47,6 +47,7 @@ const options = computed(() =>
 
 <template>
   <SelectField
+    :id="id"
     v-model="model"
     :options="options"
     searchable
@@ -55,7 +56,6 @@ const options = computed(() =>
     :empty-text="emptyText ?? 'No matching times'"
     :disabled="disabled"
     :size="size"
-    :id="id"
     :aria-label="ariaLabel ?? 'Time'"
     :class="$props.class"
   />

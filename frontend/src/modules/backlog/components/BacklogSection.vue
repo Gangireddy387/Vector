@@ -18,7 +18,7 @@ import IssueRow from '@/modules/issues/components/IssueRow.vue'
 import QuickAddInput from '@/modules/issues/components/QuickAddInput.vue'
 import type { Issue, Sprint } from '@/types/models'
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     sectionKey: string
     title: string

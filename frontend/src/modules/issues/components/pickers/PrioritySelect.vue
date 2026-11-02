@@ -16,11 +16,11 @@ const OPTIONS: SelectFieldOption[] = PRIORITIES.map((priority) => ({
 
 <template>
   <SelectField
+    :id="id"
     :model-value="model"
     :options="OPTIONS"
     :size="size"
     :disabled="disabled"
-    :id="id"
     aria-label="Priority"
     @update:model-value="(value) => value && (model = value as IssuePriority)"
   />

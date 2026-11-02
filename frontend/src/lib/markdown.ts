@@ -3,6 +3,11 @@ import { marked } from 'marked'
 
 marked.setOptions({ gfm: true, breaks: true })
 
+// Links that open a new tab cannot reach back into Vector's tab (and do not tell the other site where they came from).
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'A' && node.getAttribute('target')) node.setAttribute('rel', 'noopener noreferrer')
+})
+
 const MENTION_PATTERN = /@\[([^\]]+)\]\(([0-9a-f-]{36})\)/gi
 
 /** Renders user-authored markdown safely, turning `@[Name](id)` tokens into mention chips. */

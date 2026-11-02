@@ -112,9 +112,14 @@ NODE_ENV=production
 PORT=4000
 CLIENT_URL=https://vector.annaaccounting.com
 
-# --- Auth
+# --- Auth (the server refuses to start in production with a short or example secret)
 JWT_SECRET=<OUTPUT_OF_openssl_rand_-hex_48>
 JWT_EXPIRES_IN=7d
+
+# --- Reverse proxy and limits
+TRUST_PROXY=1                    # one proxy (Nginx) in front; its X-Forwarded-For gives the real client address
+API_RATE_LIMIT_PER_MINUTE=1200   # per address, whole API; sign-in has stricter limits of its own
+LOG_LEVEL=info                   # JSON log lines in production (debug | info | warn | error)
 
 # --- Super admin (portal owner; the account is created/updated on startup)
 SUPER_ADMIN_EMAIL=<SUPER_ADMIN_EMAIL>
@@ -240,6 +245,14 @@ server {
 
     # Camera, microphone and screen sharing are needed by meetings; never send a header that blocks them.
     add_header Permissions-Policy "camera=(self), microphone=(self), display-capture=(self)" always;
+
+    # Security headers for the app. The CSP allows only this site's own scripts (no inline scripts), the live
+    # connection, uploaded images and call media. With a LiveKit media server, add its wss:// address to connect-src.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' wss://vector.annaaccounting.com; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
     location /api/ {
         proxy_pass http://127.0.0.1:4000;
@@ -463,9 +476,35 @@ Copy `/var/backups` off the server (object storage or another machine). Restore 
 | Restart backend | `sudo systemctl restart vector` |
 | Restart TURN | `sudo systemctl restart coturn` |
 
-- **Changing `.env`** requires `sudo systemctl restart vector`.
+- **Changing `.env`** requires `sudo systemctl restart vector`. A restart is graceful: new work stops, requests in flight finish (up to 10 s), live connections are told to reconnect.
 - **Rotating the TURN secret:** set the new value in both `backend/.env` (`TURN_SECRET`) and `/etc/turnserver.conf` (`static-auth-secret`), then restart both services. People in a call reconnect automatically.
-- **Call size:** up to 8 people per call (browser-to-browser). Larger meetings need a media server (e.g. LiveKit); talk to the development team first.
+- **Rotating `JWT_SECRET`:** set a new random value and restart. Everyone signs in again (all sessions, guest passes and recording links end at once). Do it if the old value may have leaked.
+- **Signing everyone out of one account:** change or reset its password; every other session of that account ends immediately.
+- **Call size:** up to 8 people per call browser-to-browser. With a LiveKit media server (`LIVEKIT_*` in `.env`) calls hold up to `LIVEKIT_CALL_SIZE` people.
+
+### 13.1 Monitoring
+
+| Check | How |
+|---|---|
+| Uptime | Poll `https://vector.annaaccounting.com/api/health` every minute: `200 {"status":"ok"}` means the API runs and reaches PostgreSQL; `503` means the database is unreachable. Alert after two failures. |
+| Errors | In production every log line is JSON. Alert on `"level":"error"` (e.g. `journalctl -u vector -o cat \| grep '"level":"error"'`, or ship journald to your log service). |
+| One failing request | Error responses carry a `requestId` (also the `X-Request-Id` header). Search the logs for it: `journalctl -u vector -o cat \| grep <requestId>`. |
+| Disk | Alert above 80% on `/opt/vector/uploads` (attachments, call recordings) and `/var/backups`. |
+| Log size | journald rotates by itself; cap it with `SystemMaxUse=1G` in `/etc/systemd/journald.conf`. |
+
+### 13.2 More than one backend server
+
+One server comfortably serves hundreds of people. To run several (or to keep calls through restarts), set `REDIS_URL` on every server: live connections, presence, call state and whiteboards are then shared through Redis. Background jobs are safe on several servers (each run claims its work once), but you can keep them on one with `JOBS_ENABLED=false` on the others. Uploads must be on storage every server sees (a shared mount for `UPLOAD_DIR`).
+
+### 13.3 Checks before an update goes live
+
+```bash
+cd /opt/vector/app
+npm ci --prefix backend && npm --prefix backend run lint && npm --prefix backend test   # unit + security integration tests (throwaway database)
+npm ci --prefix frontend && npm --prefix frontend run lint && npm --prefix frontend test && npm --prefix frontend run build
+```
+
+The same checks run automatically on every push (`.github/workflows/ci.yml`).
 
 ## 14. Troubleshooting
 
@@ -479,6 +518,8 @@ Copy `/var/backups` off the server (object storage or another machine). Restore 
 | Backend log: `no TURN relay configured` | TURN keys missing from `.env` | Add `TURN_URLS` and `TURN_SECRET`, then restart |
 | Users see an old version after an update | Service worker or `index.html` cached | Check the `no-cache` rules for `/sw.js` and `/index.html` |
 | Upload fails with 413 | Nginx body limit | Raise `client_max_body_size` |
-| Online status or calls behave oddly | More than one backend instance running | Run exactly one `vector` service |
+| Online status or calls behave oddly | More than one backend instance without Redis | Run one `vector` service, or set `REDIS_URL` on all of them (13.2) |
+| Backend refuses to start: `JWT_SECRET must be a random value…` | Short or example secret in production | Generate one (6.1) and restart |
+| A user is told "Too many sign-in attempts" | 10 wrong passwords for that account in 15 minutes | Wait 15 minutes, or reset the password |
 | "Turn on" for call notifications does nothing on iPhone | The site is open in Safari, not the installed app | Share → Add to Home Screen, open Vector from there, then turn it on |
 | Notifications stopped on every device | VAPID keys changed | Restore the old `VAPID_*` values; otherwise everyone turns notifications on again |

@@ -19,6 +19,12 @@ const DEFAULT_JWT_SECRET = 'vector-dev-secret-change-me';
 export const config = {
   env: process.env.NODE_ENV ?? 'development',
   port: toInt(process.env.PORT, 4000),
+  /** How many reverse proxies (Nginx…) sit in front; their X-Forwarded-For gives the real client address. 0: none. */
+  trustProxy: toInt(process.env.TRUST_PROXY, 1),
+  rateLimit: {
+    /** Requests per minute per address across the whole API. */
+    perMinute: toInt(process.env.API_RATE_LIMIT_PER_MINUTE, 1200),
+  },
   clientUrl: process.env.CLIENT_URL ?? 'http://localhost:5173',
   jwt: {
     secret: process.env.JWT_SECRET || DEFAULT_JWT_SECRET,
@@ -104,6 +110,18 @@ export const config = {
 
 export const isProduction = config.env === 'production';
 
-if (isProduction && config.jwt.secret === DEFAULT_JWT_SECRET) {
-  throw new Error('JWT_SECRET must be set in production');
+/** Values from the code or the example env file, which anyone with the repository knows. */
+const KNOWN_SECRETS = new Set([DEFAULT_JWT_SECRET, 'replace-with-a-long-random-string', 'change-me', 'secret', 'changeme']);
+export const MIN_JWT_SECRET_LENGTH = 32;
+
+/** Whether a signing secret is safe: not a published placeholder, long, and not one repeated character. */
+export function isStrongSecret(secret) {
+  return Boolean(secret) && !KNOWN_SECRETS.has(secret) && secret.length >= MIN_JWT_SECRET_LENGTH && new Set(secret).size >= 10;
+}
+
+if (!isStrongSecret(config.jwt.secret)) {
+  const advice = `JWT_SECRET must be a random value of at least ${MIN_JWT_SECRET_LENGTH} characters (for example: node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))")`;
+  // Anyone who knows the secret can sign in as anyone, so production refuses to start with a weak one.
+  if (isProduction) throw new Error(advice);
+  console.warn(`[security] ${advice}. Using a weak secret is only acceptable on a development machine.`);
 }

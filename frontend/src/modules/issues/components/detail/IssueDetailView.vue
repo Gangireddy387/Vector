@@ -29,6 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDevice } from '@/composables/useDevice'
 import { useProjectRealtime } from '@/composables/useProjectRealtime'
+import { getErrorMessage, isNotFoundError } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import { sprintsApi } from '@/modules/sprints/sprints.api'
@@ -61,6 +62,7 @@ const issue = ref<IssueDetail | null>(null)
 const sprints = ref<Sprint[]>([])
 const isLoading = ref(true)
 const notFound = ref(false)
+const loadError = ref<string | null>(null)
 const refreshKey = ref(0)
 const activeTab = ref('comments')
 
@@ -75,18 +77,28 @@ const canAttach = computed(() => canEdit.value && auth.hasFeature('attachments')
 const isDone = computed(() => issue.value?.status.category === 'done')
 const projectId = computed(() => issue.value?.projectId)
 
+/**
+ * "Not found" only when the server says so. Any other failure (offline, a server restart) keeps what is on screen
+ * during a quiet reload, or offers to try again.
+ */
 async function load(showSkeleton = true) {
   if (showSkeleton) isLoading.value = true
-  notFound.value = false
+  const key = props.issueKey
   try {
-    const loaded = await issuesApi.get(props.issueKey)
+    const loaded = await issuesApi.get(key)
     const detail = await projects.fetchProject(loaded.projectId)
-    sprints.value = detail.type === 'scrum' ? await sprintsApi.list(loaded.projectId) : []
+    const loadedSprints = detail.type === 'scrum' ? await sprintsApi.list(loaded.projectId) : []
+    if (key !== props.issueKey) return
+    sprints.value = loadedSprints
     issue.value = loaded
-  } catch {
-    notFound.value = true
+    notFound.value = false
+    loadError.value = null
+  } catch (error) {
+    if (key !== props.issueKey) return
+    if (isNotFoundError(error)) notFound.value = true
+    else if (showSkeleton || !issue.value) loadError.value = getErrorMessage(error)
   } finally {
-    isLoading.value = false
+    if (key === props.issueKey) isLoading.value = false
   }
 }
 
@@ -142,6 +154,10 @@ function startLinking() {
     <Skeleton class="h-8 w-3/4" />
     <Skeleton class="h-32 w-full" />
   </div>
+
+  <EmptyState v-else-if="loadError && !issue" title="This task did not load" :description="loadError" class="py-20">
+    <Button variant="outline" @click="load()">Try again</Button>
+  </EmptyState>
 
   <EmptyState
     v-else-if="notFound || !issue || !project"

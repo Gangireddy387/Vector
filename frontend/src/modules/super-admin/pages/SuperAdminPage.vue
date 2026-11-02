@@ -20,7 +20,7 @@ import {
   UserRound,
   Users,
 } from 'lucide-vue-next'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -34,7 +34,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useDevice } from '@/composables/useDevice'
 import { useTheme } from '@/composables/useTheme'
-import { getSocket } from '@/lib/realtime'
+import { useSocketEvents } from '@/lib/socket-events'
 import { portalSupportApi, type SupportMessage } from '@/modules/support/support.api'
 import { formatDate, timeAgo } from '@/lib/format'
 import { assetUrl, getErrorMessage } from '@/lib/http'
@@ -121,8 +121,7 @@ const unread = ref<Record<string, number>>({})
 function onSupportMessage(message: SupportMessage) {
   if (!message.fromPortal) unread.value[message.organizationId] = (unread.value[message.organizationId] ?? 0) + 1
 }
-onMounted(() => getSocket()?.on('support:message', onSupportMessage))
-onBeforeUnmount(() => getSocket()?.off('support:message', onSupportMessage))
+useSocketEvents({ 'support:message': onSupportMessage })
 
 async function load() {
   isLoading.value = true

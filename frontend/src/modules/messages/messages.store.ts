@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { getSocket } from '@/lib/realtime'
+import { bindSocketEvents } from '@/lib/socket-events'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type ChatMessage, type ConversationSummary, messagesApi } from './messages.api'
 
@@ -62,17 +62,28 @@ export const useMessagesStore = defineStore('messages', () => {
     if (conversation) conversation.unread = 0
   }
 
+  /** Once per session; follows the connection when it is replaced, and reloads after reconnecting (missed messages). */
   function bindRealtime() {
-    const socket = getSocket()
-    if (!socket || isBound) return
+    if (isBound) return
     isBound = true
-    socket.on('conversation:message', onMessage)
-    socket.on('conversation:updated', onUpdated)
-    socket.on('conversation:cleared', onCleared)
-    socket.on('conversation:hidden', onHidden)
-    socket.on('conversation:read', (event: { conversationId: string; userId: string }) => {
-      if (event.userId === auth.user?.id) markReadLocally(event.conversationId)
-    })
+    let connectedBefore = false
+    bindSocketEvents(
+      {
+        'conversation:message': onMessage,
+        'conversation:updated': onUpdated,
+        'conversation:cleared': onCleared,
+        'conversation:hidden': onHidden,
+        'conversation:read': (event: { conversationId: string; userId: string }) => {
+          if (event.userId === auth.user?.id) markReadLocally(event.conversationId)
+        },
+      },
+      {
+        onConnect: () => {
+          if (connectedBefore) void load().catch(() => undefined)
+          connectedBefore = true
+        },
+      },
+    )
   }
 
   return { conversations, openId, isAvailable, unreadTotal, load, upsert, markReadLocally, bindRealtime }

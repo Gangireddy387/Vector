@@ -2,7 +2,7 @@
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
 import { CalendarClock, CalendarX2, Clock3, Ellipsis, History, Info, Link2, PencilLine, Plus, Radio, Repeat, Trash2, Video, XCircle } from 'lucide-vue-next'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
-import { getSocket } from '@/lib/realtime'
+import { useSocketEvents } from '@/lib/socket-events'
 import PushPrompt from '../components/PushPrompt.vue'
 import ScheduleMeetingSheet from '../components/ScheduleMeetingSheet.vue'
 import { BADGE_CLASSES, dayLabel, durationLabel, isJoinable, meetingBadge, recurrenceLabel, timeRange } from '../meeting-format'
@@ -116,13 +116,11 @@ function onSaved() {
   void load()
 }
 
-const onChanged = () => void load()
+useSocketEvents({ 'meeting:changed': () => void load() })
 onMounted(async () => {
-  getSocket()?.on('meeting:changed', onChanged)
   canSchedule.value = await meetingsApi.canSchedule().catch(() => false)
   await load()
 })
-onBeforeUnmount(() => getSocket()?.off('meeting:changed', onChanged))
 </script>
 
 <template>

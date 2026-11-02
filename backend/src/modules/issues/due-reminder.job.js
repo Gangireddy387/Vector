@@ -26,7 +26,9 @@ export async function sendDueReminders() {
     });
 
     for (const issue of issues) {
-      await issue.update({ dueReminderSentAt: new Date() });
+      // Claimed by one update, so a reminder goes out once even when several servers run this job.
+      const [claimed] = await Issue.update({ dueReminderSentAt: new Date() }, { where: { id: issue.id, dueReminderSentAt: null } });
+      if (!claimed) continue;
       eventBus.publish(DomainEvents.ISSUE_DUE_SOON, { issue: issue.toJSON(), actorId: null, context: { source: 'system' } });
       reminded += 1;
     }

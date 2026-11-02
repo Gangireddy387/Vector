@@ -3,8 +3,28 @@ import { z } from 'zod';
 import { validate } from '../../shared/middleware/validate.js';
 import { pushPublicKey, removePushSubscription, savePushSubscription } from './push.service.js';
 
+/**
+ * The browsers' own push services. The server sends notifications to the address in a subscription, so only these
+ * hosts are accepted: nobody can make the server send requests to an address of their choosing.
+ */
+const PUSH_HOSTS = [
+  /(^|\.)push\.services\.mozilla\.com$/,
+  /^fcm\.googleapis\.com$/,
+  /^android\.googleapis\.com$/,
+  /(^|\.)notify\.windows\.com$/,
+  /(^|\.)push\.apple\.com$/,
+];
+const isPushService = (value) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.port && PUSH_HOSTS.some((pattern) => pattern.test(url.hostname));
+  } catch {
+    return false;
+  }
+};
+
 const subscriptionSchema = z.object({
-  endpoint: z.string().url().startsWith('https://').max(2000),
+  endpoint: z.string().url().max(2000).refine(isPushService, 'This is not a browser push service address'),
   keys: z.object({ p256dh: z.string().min(1).max(255), auth: z.string().min(1).max(255) }),
 });
 const removeSchema = z.object({ endpoint: z.string().max(2000) });

@@ -24,9 +24,10 @@ export const uploadMiddleware = multer({
 
 export const toStorageKey = (absolutePath) => path.relative(config.uploads.dir, absolutePath).split(path.sep).join('/');
 
+/** The file of a storage key; anything that would point outside the uploads folder is refused. */
 export const resolveStoragePath = (storageKey) => {
   const resolved = path.resolve(config.uploads.dir, storageKey);
-  if (!resolved.startsWith(config.uploads.dir)) throw new Error('Invalid storage key');
+  if (!resolved.startsWith(config.uploads.dir + path.sep)) throw new Error('Invalid storage key');
   return resolved;
 };
 

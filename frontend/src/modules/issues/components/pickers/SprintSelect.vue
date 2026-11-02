@@ -30,5 +30,5 @@ const options = computed<SelectFieldOption[]>(() => [
 </script>
 
 <template>
-  <SelectField v-model="model" :options="options" :size="size" :disabled="disabled" :id="id" aria-label="Sprint" />
+  <SelectField :id="id" v-model="model" :options="options" :size="size" :disabled="disabled" aria-label="Sprint" />
 </template>

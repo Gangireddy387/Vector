@@ -79,6 +79,9 @@ export async function runNow(projectId, taskId) {
 export async function runDueRecurringTasks() {
   const dueTasks = await RecurringTask.findAll({ where: { enabled: true, nextRunAt: { [Op.lte]: new Date() } } });
   for (const task of dueTasks) {
+    // Claim this run first: with several servers, only the one whose update succeeds creates the task.
+    const [claimed] = await RecurringTask.update({ nextRunAt: computeNextRunAt(task, new Date()) }, { where: { id: task.id, nextRunAt: task.nextRunAt } });
+    if (!claimed) continue;
     try {
       if (!(await projectHasFeature(task.projectId, 'recurringTasks'))) {
         await task.update({ nextRunAt: computeNextRunAt(task, new Date()) });

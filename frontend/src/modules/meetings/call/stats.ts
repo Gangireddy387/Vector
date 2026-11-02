@@ -27,6 +27,18 @@ export function rate(rttMs: number | null, lossPercent: number | null): CallQual
   return 'poor'
 }
 
+/** The fields read from the browser's connection statistics (transport, candidate pairs, incoming streams). */
+interface StatsEntry {
+  id: string
+  type: string
+  selectedCandidatePairId?: string
+  nominated?: boolean
+  state?: string
+  currentRoundTripTime?: number
+  packetsLost?: number
+  packetsReceived?: number
+}
+
 /** How a direct connection to one person is doing, from the browser's own statistics. */
 export async function measure(pc: RTCPeerConnection, previous: StatsSample | null): Promise<ConnectionHealth | null> {
   if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
@@ -39,10 +51,10 @@ export async function measure(pc: RTCPeerConnection, previous: StatsSample | nul
   let lost = 0
   let received = 0
   let selectedPair: string | null = null
-  report.forEach((entry: any) => {
+  report.forEach((entry: StatsEntry) => {
     if (entry.type === 'transport' && entry.selectedCandidatePairId) selectedPair = entry.selectedCandidatePairId
   })
-  report.forEach((entry: any) => {
+  report.forEach((entry: StatsEntry) => {
     if (entry.type === 'candidate-pair' && (entry.id === selectedPair || (!selectedPair && entry.nominated && entry.state === 'succeeded'))) {
       if (typeof entry.currentRoundTripTime === 'number') rtt = Math.round(entry.currentRoundTripTime * 1000)
     }

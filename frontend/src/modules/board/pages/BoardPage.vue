@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { CalendarCheck, Columns3 } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { SortableEvent } from 'vue-draggable-plus'
 import { toast } from 'vue-sonner'
@@ -27,7 +27,7 @@ const openIssue = useOpenIssue()
 const { isDesktop } = useDevice()
 
 const projectId = computed(() => route.params.projectId as string)
-const { project, issues, sprints, activeSprint, isScrum, isLoading, isDragging, reload } = useBoardData(projectId)
+const { project, issues, sprints, activeSprint, isScrum, isLoading, isDragging, loadError, hiddenCount, reload } = useBoardData(projectId)
 
 const canEdit = computed(() => projects.canEdit(projectId.value))
 const filters = ref<BoardFilterState>({ search: '', assigneeIds: [] })
@@ -97,6 +97,36 @@ async function onDragEnd(event: SortableEvent) {
   await persistMove(issue, status, position)
 }
 
+/** Moves a card with the keyboard (see BoardColumn), then keeps focus on it so it can be moved again. */
+async function moveWithKeyboard(issue: Issue, move: { column?: -1 | 1; within?: -1 | 1 }) {
+  const statuses = project.value?.statuses ?? []
+  const current = statuses.findIndex((status) => status.id === issue.statusId)
+  if (move.column) {
+    const target = statuses[current + move.column]
+    if (!target) return
+    const lastInColumn = (columns.value[target.id] ?? []).at(-1)
+    await persistMove(issue, target, rankBetween(lastInColumn?.position, null))
+    announce(`${issue.key} moved to ${target.name}`)
+  } else if (move.within) {
+    const list = columns.value[issue.statusId] ?? []
+    const index = list.findIndex((item) => item.id === issue.id)
+    const swapWith = index + move.within
+    if (index < 0 || swapWith < 0 || swapWith >= list.length) return
+    const status = statuses[current]
+    if (!status) return
+    // The new spot lies between the neighbour it passes and the one beyond it.
+    const [before, after] = move.within < 0 ? [list[swapWith - 1], list[swapWith]] : [list[swapWith], list[swapWith + 1]]
+    await persistMove(issue, status, rankBetween(before?.position, after?.position))
+    announce(`${issue.key} moved ${move.within < 0 ? 'up' : 'down'}`)
+  }
+  await nextTick()
+  document.querySelector<HTMLElement>(`[data-issue-id="${issue.id}"]`)?.focus()
+}
+
+/** Read out by screen readers after a keyboard move. */
+const liveMessage = ref('')
+const announce = (message: string) => (liveMessage.value = message)
+
 function moveOnMobile(issue: Issue, status: Status) {
   const lastInColumn = issues.value.filter((item) => item.statusId === status.id).at(-1)
   void persistMove(issue, status, rankBetween(lastInColumn?.position, null))
@@ -106,9 +136,14 @@ function moveOnMobile(issue: Issue, status: Status) {
 
 <template>
   <div class="flex h-full min-h-0 flex-col" :class="isDesktop ? '' : 'p-3'">
+    <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
     <div v-if="isLoading" class="flex gap-3 p-4">
       <Skeleton v-for="index in 4" :key="index" class="h-96 min-w-56 flex-1" />
     </div>
+
+    <EmptyState v-else-if="loadError && !project" :icon="Columns3" title="The board did not load" :description="loadError" class="py-20">
+      <Button variant="outline" @click="reload">Try again</Button>
+    </EmptyState>
 
     <EmptyState
       v-else-if="isScrum && !activeSprint"
@@ -123,6 +158,10 @@ function moveOnMobile(issue: Issue, status: Status) {
     </EmptyState>
 
     <template v-else-if="project">
+      <p v-if="hiddenCount" class="mx-4 mt-3 border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 dark:text-warning" role="status">
+        The board shows the first {{ issues.length }} tasks; {{ hiddenCount }} more are in
+        <RouterLink :to="{ name: 'project-issues', params: { projectId } }" class="font-medium underline">the task list</RouterLink>.
+      </p>
       <!-- Desktop: full workflow at a glance -->
       <template v-if="isDesktop">
         <div v-if="activeSprint" class="flex items-center gap-4 border-b px-5 py-2">
@@ -150,6 +189,7 @@ function moveOnMobile(issue: Issue, status: Status) {
               @open="openIssue"
               @drag-start="isDragging = true"
               @drag-end="onDragEnd"
+              @key-move="moveWithKeyboard"
             />
             <EmptyState v-if="!project.statuses.length" :icon="Columns3" title="No workflow statuses" class="w-full" />
           </div>

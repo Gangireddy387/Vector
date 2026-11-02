@@ -1,3 +1,4 @@
+import { col, fn } from 'sequelize';
 import { Attachment, Comment, Issue, Label, Project, Sprint, Status, User } from '../../database/models.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 
@@ -25,22 +26,25 @@ export const issueEventInclude = () => [
   { model: Label, as: 'labels', attributes: ['id', 'name'], through: { attributes: [] } },
 ];
 
-const countBy = (rows, key) =>
-  rows.reduce((counts, row) => counts.set(row[key], (counts.get(row[key]) ?? 0) + 1), new Map());
+/** `{ key → count }` counted by the database (one row per issue, not one per comment or file). */
+async function countPer(model, key, ids) {
+  const rows = await model.findAll({ where: { [key]: ids }, attributes: [key, [fn('COUNT', col('id')), 'count']], group: [key], raw: true });
+  return new Map(rows.map((row) => [row[key], Number(row.count)]));
+}
 
 /** Adds sub-task progress and collaboration counters used by cards and list rows. */
 export async function decorateIssues(issues) {
   if (!issues.length) return [];
   const ids = issues.map((issue) => issue.id);
 
-  const [subtasks, comments, attachments] = await Promise.all([
+  const [subtasks, commentCounts, attachmentCounts] = await Promise.all([
     Issue.findAll({
       where: { parentId: ids },
       attributes: ['parentId'],
       include: [{ model: Status, as: 'status', attributes: ['category'] }],
     }),
-    Comment.findAll({ where: { issueId: ids }, attributes: ['issueId'], raw: true }),
-    Attachment.findAll({ where: { issueId: ids }, attributes: ['issueId'], raw: true }),
+    countPer(Comment, 'issueId', ids),
+    countPer(Attachment, 'issueId', ids),
   ]);
 
   const progress = new Map();
@@ -50,8 +54,6 @@ export async function decorateIssues(issues) {
     if (subtask.status?.category === 'done') entry.done += 1;
     progress.set(subtask.parentId, entry);
   });
-  const commentCounts = countBy(comments, 'issueId');
-  const attachmentCounts = countBy(attachments, 'issueId');
 
   return issues.map((issue) => {
     const json = typeof issue.toJSON === 'function' ? issue.toJSON() : issue;

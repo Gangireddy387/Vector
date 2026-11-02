@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { format, isToday, isYesterday } from 'date-fns'
 import { ArrowRight, Bot, ClipboardList, MessagesSquare } from 'lucide-vue-next'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -11,7 +11,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { useProjectRealtime } from '@/composables/useProjectRealtime'
 import { getErrorMessage } from '@/lib/http'
-import { getSocket } from '@/lib/realtime'
+import { useSocketEvents } from '@/lib/socket-events'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { usersApi } from '@/modules/projects/projects.api'
 import { useProjectsStore } from '@/modules/projects/projects.store'
@@ -146,19 +146,12 @@ const onIncoming = async (message: ChatMessage) => {
   upsert(message)
   if (stick) await scrollToBottom(true)
 }
-const onDeleted = ({ id }: { id: string }) => (messages.value = messages.value.filter((item) => item.id !== id))
-onMounted(() => {
-  const socket = getSocket()
-  socket?.on('chat:message', onIncoming)
-  socket?.on('chat:updated', upsert)
-  socket?.on('chat:deleted', onDeleted)
-})
-onBeforeUnmount(() => {
-  const socket = getSocket()
-  socket?.off('chat:message', onIncoming)
-  socket?.off('chat:updated', upsert)
-  socket?.off('chat:deleted', onDeleted)
-})
+const onDeleted = ({ id }: { id: string; projectId?: string }) => (messages.value = messages.value.filter((item) => item.id !== id))
+/** Only this project's chat (the browser can follow several projects at once). */
+const here = <T extends { projectId?: string }>(handler: (payload: T) => unknown) => (payload: T) => {
+  if (!payload.projectId || payload.projectId === projectId.value) void handler(payload)
+}
+useSocketEvents({ 'chat:message': here(onIncoming), 'chat:updated': here(upsert), 'chat:deleted': here(onDeleted) })
 
 // Day separators and consecutive-message grouping.
 const dayLabel = (date: Date) => (isToday(date) ? 'Today' : isYesterday(date) ? 'Yesterday' : format(date, 'EEEE, d MMMM yyyy'))

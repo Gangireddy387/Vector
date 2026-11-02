@@ -1,9 +1,8 @@
 import { useDebounceFn } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { toast } from 'vue-sonner'
+import { onMounted, ref, watch } from 'vue'
 import { getErrorMessage } from '@/lib/http'
-import { getSocket } from '@/lib/realtime'
+import { useSocketEvents } from '@/lib/socket-events'
 import { useUiStore } from '@/stores/ui.store'
 import { type DashboardData, dashboardApi } from '../dashboard.api'
 
@@ -11,25 +10,25 @@ import { type DashboardData, dashboardApi } from '../dashboard.api'
 export function useDashboardData() {
   const data = ref<DashboardData | null>(null)
   const isLoading = ref(true)
+  /** Why the dashboard could not load (shown with a retry button), or null. */
+  const error = ref<string | null>(null)
   const { issuesVersion } = storeToRefs(useUiStore())
 
   async function load() {
     try {
       data.value = await dashboardApi.get()
-    } catch (error) {
-      toast.error(getErrorMessage(error))
+      error.value = null
+    } catch (problem) {
+      error.value = getErrorMessage(problem)
     } finally {
       isLoading.value = false
     }
   }
   const refresh = useDebounceFn(load, 300)
 
-  onMounted(() => {
-    void load()
-    getSocket()?.on('notification:created', refresh)
-  })
-  onBeforeUnmount(() => getSocket()?.off('notification:created', refresh))
+  onMounted(() => void load())
+  useSocketEvents({ 'notification:created': refresh })
   watch(issuesVersion, refresh)
 
-  return { data, isLoading, reload: load }
+  return { data, isLoading, error, reload: load }
 }

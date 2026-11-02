@@ -55,7 +55,8 @@ export const authApi = {
     return http.post<{ user: User }>('/users/me/avatar', form).then((r) => r.data.user)
   },
   removeAvatar: () => http.delete<{ user: User }>('/users/me/avatar').then((r) => r.data.user),
-  changePassword: (payload: { currentPassword: string; newPassword: string }) => http.patch('/auth/me/password', payload),
+  /** Signs out every other session; the returned token keeps this one signed in. */
+  changePassword: (payload: { currentPassword: string; newPassword: string }) => http.patch<{ token: string }>('/auth/me/password', payload).then((r) => r.data),
 }
 
 export const organizationsApi = {

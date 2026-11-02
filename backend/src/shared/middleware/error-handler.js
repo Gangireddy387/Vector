@@ -1,11 +1,11 @@
 import multer from 'multer';
 import { ApiError } from '../errors/api-error.js';
+import { logger } from '../logger.js';
 
 export function notFoundHandler(req, _res, next) {
   next(ApiError.notFound(`Route ${req.method} ${req.originalUrl} not found`));
 }
 
-// eslint-disable-next-line no-unused-vars
 export function errorHandler(error, _req, res, _next) {
   if (error instanceof ApiError) {
     return res.status(error.status).json({ message: error.message, details: error.details });
@@ -36,6 +36,7 @@ export function errorHandler(error, _req, res, _next) {
     return res.status(400).json({ message: 'Malformed JSON body' });
   }
 
-  console.error('[error]', error);
-  return res.status(500).json({ message: 'Something went wrong. Please try again.' });
+  logger.error('request failed', { error, method: _req.method, path: _req.originalUrl });
+  // The id lets support find this exact failure in the logs; no internal details reach the client.
+  return res.status(500).json({ message: 'Something went wrong. Please try again.', requestId: _req.id });
 }

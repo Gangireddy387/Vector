@@ -3,7 +3,7 @@ import { sequelize } from '../../database/connection.js';
 
 export class Attachment extends Model {
   toJSON() {
-    const { storageKey, ...values } = this.get();
+    const { storageKey: _storageKey, ...values } = this.get();
     return values;
   }
 }

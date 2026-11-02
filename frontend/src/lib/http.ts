@@ -77,6 +77,9 @@ export function getErrorMessage(error: unknown, fallback = 'Something went wrong
   return error instanceof Error ? error.message : fallback
 }
 
+/** The server answered that the thing does not exist (or is not visible to this person), as opposed to a failure. */
+export const isNotFoundError = (error: unknown) => axios.isAxiosError(error) && error.response?.status === 404
+
 /** Returns field-level validation messages keyed by field path. */
 export function getFieldErrors(error: unknown): Record<string, string> {
   if (!axios.isAxiosError<ApiErrorBody>(error)) return {}

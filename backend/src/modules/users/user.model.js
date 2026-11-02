@@ -14,10 +14,13 @@ export const DEFAULT_USER_PREFERENCES = Object.freeze({
   autoTimezone: true,
 });
 
+/** Bookkeeping the server needs (loaded normally) but never sends to browsers. */
+const INTERNAL_FIELDS = ['tokenVersion', 'digestSentOn'];
+
 export class User extends Model {
   toJSON() {
     const values = { ...this.get() };
-    SECRET_FIELDS.forEach((field) => delete values[field]);
+    [...SECRET_FIELDS, ...INTERNAL_FIELDS].forEach((field) => delete values[field]);
     return values;
   }
 }
@@ -50,6 +53,10 @@ User.init(
     lastSeenAt: { type: DataTypes.DATE, allowNull: true },
     /** Status the person chose (busy, dnd, brb, away, offline = appear offline); null follows their activity. */
     presenceStatus: { type: DataTypes.STRING(10), allowNull: true },
+    /** Raised on every password change or reset; sign-in tokens with an older version stop working. */
+    tokenVersion: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    /** The local date (YYYY-MM-DD) the daily digest was last sent, so it goes out once a day. */
+    digestSentOn: { type: DataTypes.STRING(10), allowNull: true },
   },
   {
     sequelize,

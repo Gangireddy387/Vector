@@ -1,4 +1,6 @@
+import { Op } from 'sequelize';
 import { User } from '../../database/models.js';
+import { projectRoleOf } from '../projects/project-access.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { dailyDigestEmail } from '../../shared/services/email-templates.js';
 import { addDaysToDate, localDateTime } from '../../shared/utils/timezone.js';
@@ -26,9 +28,18 @@ export async function sendDailyDigests(now = new Date()) {
     if (local.hour !== DIGEST_HOUR) continue;
 
     const today = local.date;
+    // One digest per person per day, even after a restart or with several servers running this job.
+    const [claimed] = await User.update({ digestSentOn: today }, { where: { id: user.id, [Op.or]: [{ digestSentOn: null }, { digestSentOn: { [Op.ne]: today } }] } });
+    if (!claimed) continue;
     const weekEnd = addDaysToDate(today, 7);
     const open = [];
-    for (const issue of await listMyWork(user.id)) if (issue.status.category !== 'done' && (await allowsDigest(issue.projectId))) open.push(issue);
+    const canSee = new Map();
+    for (const issue of await listMyWork(user.id)) {
+      if (issue.status.category === 'done' || !(await allowsDigest(issue.projectId))) continue;
+      // Only work in projects they can still open (not in organizations that deactivated them).
+      if (!canSee.has(issue.projectId)) canSee.set(issue.projectId, Boolean(await projectRoleOf(issue.projectId, user.id)));
+      if (canSee.get(issue.projectId)) open.push(issue);
+    }
     const sections = [
       { title: 'Overdue', issues: open.filter((issue) => issue.dueDate && issue.dueDate < today) },
       { title: 'Due today', issues: open.filter((issue) => issue.dueDate === today) },

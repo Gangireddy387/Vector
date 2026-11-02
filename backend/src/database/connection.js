@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import pg from 'pg';
-import { Op, Sequelize } from 'sequelize';
+import { Op, Sequelize, Transaction } from 'sequelize';
 import { config } from '../config/index.js';
 
 const logging = config.db.logging ? (sql) => console.log(`[sql] ${sql}`) : false;
@@ -35,6 +35,20 @@ function createConnection() {
 export const sequelize = createConnection();
 export const isSqlite = sequelize.getDialect() === 'sqlite';
 export const isPostgres = sequelize.getDialect() === 'postgres';
+
+let sqliteWrites = Promise.resolve();
+
+/**
+ * A transaction that writes. On PostgreSQL they run side by side, kept apart by row locks
+ * (`lock: transaction.LOCK.UPDATE`). SQLite has one writer at a time: they run one after another in this process,
+ * each taking the write lock as it starts, so none fails with "database is locked".
+ */
+export function writeTransaction(task) {
+  if (!isSqlite) return sequelize.transaction(task);
+  const run = sqliteWrites.then(() => sequelize.transaction({ type: Transaction.TYPES.IMMEDIATE }, task));
+  sqliteWrites = run.catch(() => undefined);
+  return run;
+}
 
 /** Case-insensitive LIKE on every dialect (SQLite's LIKE already ignores case). */
 export const likeOperator = isPostgres ? Op.iLike : Op.like;

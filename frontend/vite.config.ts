@@ -16,7 +16,8 @@ export default defineConfig(({ command, mode }) => ({
     vue(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // A new version waits for the person to choose to reload (never mid-call or mid-form).
+      registerType: 'prompt',
       // Icons are generated from public/logo.svg: `npm run generate-pwa-assets`.
       includeAssets: ['favicon.ico', 'favicon.svg', 'logo.svg', 'apple-touch-icon-180x180.png'],
       manifest: {
@@ -54,15 +55,7 @@ export default defineConfig(({ command, mode }) => ({
             handler: 'CacheFirst',
             options: { cacheName: 'vector-blur', expiration: { maxEntries: 6, maxAgeSeconds: 60 * 60 * 24 * 60 } },
           },
-          {
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/') && !url.pathname.includes('/download'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'vector-api',
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 },
-            },
-          },
+          // API answers are never cached: they hold private work, and a slow network must not show stale data as current.
         ],
       },
     }),

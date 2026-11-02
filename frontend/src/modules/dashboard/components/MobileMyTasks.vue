@@ -18,7 +18,7 @@ type Segment = 'today' | 'upcoming' | 'anytime' | 'done'
 const auth = useAuthStore()
 const actions = useIssueActions()
 const openIssue = useOpenIssue()
-const { data, isLoading, reload } = useDashboardData()
+const { data, isLoading, error, reload } = useDashboardData()
 const segment = ref<Segment>('today')
 
 const SEGMENTS: Array<{ value: Segment; label: string }> = [
@@ -86,6 +86,9 @@ async function complete(issue: Issue) {
     <div v-if="isLoading" class="space-y-2">
       <Skeleton v-for="index in 4" :key="index" class="h-20 w-full" />
     </div>
+    <EmptyState v-else-if="error && !data" :icon="RefreshCw" title="Your tasks did not load" :description="error">
+      <Button variant="outline" @click="reload">Try again</Button>
+    </EmptyState>
     <EmptyState
       v-else-if="!visible.length"
       :icon="PartyPopper"

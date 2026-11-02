@@ -8,7 +8,8 @@ export interface SprintInput {
   endDate?: string | null
 }
 
-export type CarryOverTarget = 'backlog' | 'new_sprint' | 'next_sprint' | string
+/** Where unfinished work goes when a sprint completes: a named choice, or the id of another sprint. */
+export type CarryOverTarget = 'backlog' | 'new_sprint' | 'next_sprint' | (string & {})
 
 export const sprintsApi = {
   list: (projectId: string) => http.get<{ sprints: Sprint[] }>(`/projects/${projectId}/sprints`).then((r) => r.data.sprints),

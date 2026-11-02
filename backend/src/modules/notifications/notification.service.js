@@ -5,6 +5,7 @@ import { emitToUser } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { notificationEmail } from '../../shared/services/email-templates.js';
 import { projectHasFeature } from '../plans/plan.service.js';
+import { projectRoleOf } from '../projects/project-access.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 
 /** Which plan switch allows the email copy of a notification; everything else counts as a work notification. */
@@ -15,7 +16,12 @@ const EMAIL_FEATURE_BY_TYPE = { due_soon: 'emailReminders' };
  * for recipients who opted in. The actor never notifies themselves.
  */
 export async function notifyUsers({ userIds, actorId = null, type, title, body = null, link = null, issueId = null, projectId = null, email = true }) {
-  const recipients = [...new Set(userIds.filter(Boolean))].filter((userId) => userId !== actorId);
+  let recipients = [...new Set(userIds.filter(Boolean))].filter((userId) => userId !== actorId);
+  // About a project: only people who can still open it (removed or deactivated people stop hearing about its work).
+  if (projectId && recipients.length) {
+    const allowed = await Promise.all(recipients.map(async (userId) => Boolean(await projectRoleOf(projectId, userId))));
+    recipients = recipients.filter((_userId, index) => allowed[index]);
+  }
   if (!recipients.length) return [];
 
   const notifications = await Notification.bulkCreate(

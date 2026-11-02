@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { format, isToday, parseISO } from 'date-fns'
 import { CalendarClock, CalendarPlus, ChevronDown, Video } from 'lucide-vue-next'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { getSocket } from '@/lib/realtime'
+import { useSocketEvents } from '@/lib/socket-events'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type Meeting, meetingsApi } from '../meetings.api'
 import { type MeetingPreset, useMeetingActions } from '../useMeetingActions'
@@ -47,9 +47,8 @@ onMounted(() => {
   if (!enabled.value) return
   void loadPermission()
   void loadMeetings()
-  if (props.preset.context) getSocket()?.on('meeting:changed', onChanged)
 })
-onBeforeUnmount(() => getSocket()?.off('meeting:changed', onChanged))
+useSocketEvents({ 'meeting:changed': () => props.preset.context && onChanged() })
 </script>
 
 <template>

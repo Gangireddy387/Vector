@@ -1,6 +1,22 @@
-import { Issue, Label, Organization, Project, ProjectMember, Sprint, Status, Team, TeamMember, User } from '../../database/models.js';
+import { fn, col } from 'sequelize';
+import {
+  Issue,
+  IssueWatcher,
+  Label,
+  Organization,
+  OrganizationMember,
+  Project,
+  ProjectMember,
+  Sprint,
+  Status,
+  Team,
+  TeamMember,
+  User,
+} from '../../database/models.js';
+import { writeTransaction } from '../../database/connection.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { DomainEvents, eventBus } from '../../shared/events/event-bus.js';
+import { revokeRealtimeAccess } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { addedToProjectEmail, inviteEmail, inviteLinkFor } from '../../shared/services/email-templates.js';
 import { logActivity } from '../activity/activity.service.js';
@@ -17,19 +33,22 @@ import { DEFAULT_PROJECT_SETTINGS } from './project.model.js';
 
 const withDefaultSettings = (project) => ({ ...DEFAULT_PROJECT_SETTINGS, ...(project.settings ?? {}) });
 
+/** Issue counts per project and status, counted by the database (one row per status, not one per issue). */
 async function summarizeIssues(projectIds) {
-  const [issues, statuses] = await Promise.all([
-    Issue.findAll({ where: { projectId: projectIds }, attributes: ['projectId', 'statusId'], raw: true }),
+  const summary = new Map(projectIds.map((id) => [id, { total: 0, open: 0, done: 0 }]));
+  if (!projectIds.length) return summary;
+  const [counts, statuses] = await Promise.all([
+    Issue.findAll({ where: { projectId: projectIds }, attributes: ['projectId', 'statusId', [fn('COUNT', col('id')), 'count']], group: ['projectId', 'statusId'], raw: true }),
     Status.findAll({ where: { projectId: projectIds }, attributes: ['id', 'category'], raw: true }),
   ]);
   const categoryById = new Map(statuses.map((status) => [status.id, status.category]));
-  const summary = new Map(projectIds.map((id) => [id, { total: 0, open: 0, done: 0 }]));
-  issues.forEach((issue) => {
-    const entry = summary.get(issue.projectId);
-    entry.total += 1;
-    if (categoryById.get(issue.statusId) === 'done') entry.done += 1;
-    else entry.open += 1;
-  });
+  for (const row of counts) {
+    const entry = summary.get(row.projectId);
+    const count = Number(row.count);
+    entry.total += count;
+    if (categoryById.get(row.statusId) === 'done') entry.done += count;
+    else entry.open += count;
+  }
   return summary;
 }
 
@@ -200,9 +219,19 @@ async function assertIsMember(projectId, userId) {
   if (!exists) throw ApiError.badRequest('The selected user is not a member of this project');
 }
 
-/** Adding someone to a project also makes them a member of the project's organization (an invite for new emails). */
+/**
+ * Adds someone to a project. People already in the organization can be added by the project's admins; bringing in
+ * someone new to the organization (and inviting new emails) stays with the organization's admins.
+ */
 export async function addMember(projectId, inviter, { email, role }) {
   const project = await Project.findByPk(projectId);
+  const known = await User.findOne({ where: { email }, attributes: ['id'] });
+  const inOrganization = known && (await OrganizationMember.findOne({ where: { organizationId: project.organizationId, userId: known.id }, attributes: ['status'] }));
+  if (inOrganization?.status === 'disabled') throw ApiError.badRequest(`${email} is deactivated in this organization. An admin can reactivate them first.`);
+  if (!inOrganization) {
+    const inviterIsAdmin = await OrganizationMember.count({ where: { organizationId: project.organizationId, userId: inviter.id, role: 'admin', status: 'active' } });
+    if (!inviterIsAdmin) throw ApiError.forbidden(`${email} is not in this organization yet. Ask an organization admin to invite them first.`);
+  }
   const { user, inviteToken } = await ensureOrganizationMember(project.organizationId, email);
 
   const existing = await ProjectMember.findOne({ where: { projectId, userId: user.id } });
@@ -248,7 +277,13 @@ export async function updateMemberRole(projectId, userId, role) {
 
 export async function removeMember(projectId, userId, actor) {
   const membership = await ensureAnotherAdminRemains(projectId, userId);
-  await membership.destroy();
-  await Issue.update({ assigneeId: null }, { where: { projectId, assigneeId: userId } });
+  await writeTransaction(async (transaction) => {
+    await membership.destroy({ transaction });
+    await Issue.update({ assigneeId: null }, { where: { projectId, assigneeId: userId }, transaction });
+    // They stop following (and being notified about) the project's work.
+    const issueIds = (await Issue.findAll({ where: { projectId }, attributes: ['id'], raw: true, transaction })).map((issue) => issue.id);
+    if (issueIds.length) await IssueWatcher.destroy({ where: { userId, issueId: issueIds }, transaction });
+  });
+  revokeRealtimeAccess(userId, { projectIds: [projectId] });
   await logActivity({ projectId, actorId: actor.id, action: 'member_removed', meta: { userId } });
 }

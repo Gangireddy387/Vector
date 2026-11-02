@@ -28,8 +28,10 @@ interface Recognition {
 }
 type RecognitionConstructor = new () => Recognition
 
+/** Chrome and Safari still name it with a prefix. */
+type SpeechWindow = Window & { SpeechRecognition?: RecognitionConstructor; webkitSpeechRecognition?: RecognitionConstructor }
 const Recognizer: RecognitionConstructor | null =
-  typeof window === 'undefined' ? null : ((window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null)
+  typeof window === 'undefined' ? null : ((window as SpeechWindow).SpeechRecognition ?? (window as SpeechWindow).webkitSpeechRecognition ?? null)
 
 export const captionsSupported = Boolean(Recognizer)
 

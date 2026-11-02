@@ -1,7 +1,7 @@
 import { Organization, OrganizationMember } from '../../database/models.js';
 import { withPlan } from '../plans/plan.service.js';
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID_PATTERN } from '../../shared/utils/ids.js';
 
 /** Active organization memberships of a user, oldest first. */
 export const listActiveMemberships = (userId) =>

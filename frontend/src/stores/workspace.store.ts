@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { PERSONAL_THEME_STORAGE_KEY, THEME_STORAGE_KEY, toThemePreference, useTheme } from '@/composables/useTheme'
-import { getSocket } from '@/lib/realtime'
+import { bindSocketEvents } from '@/lib/socket-events'
 import { workspaceApi } from '@/modules/admin/admin.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import type { WorkspaceSettings } from '@/types/models'
@@ -74,10 +74,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   /** Admin changes reach every open browser of the organization's members instantly. */
   function bindRealtime() {
-    const socket = getSocket()
-    if (!socket || isBound) return
+    if (isBound) return
     isBound = true
-    socket.on('workspace:updated', (next: WorkspaceSettings & { id?: string }) => auth.patchOrganization(next))
+    bindSocketEvents({ 'workspace:updated': (next: WorkspaceSettings & { id?: string }) => auth.patchOrganization(next) })
   }
 
   return { settings, isAdmin, load, update, uploadLogo, removeLogo, bindRealtime }

@@ -1,11 +1,13 @@
 import { Op } from 'sequelize';
 import { config } from '../../config/index.js';
-import { Issue, Organization, OrganizationMember, Project, ProjectMember, User } from '../../database/models.js';
+import { Issue, IssueWatcher, Organization, OrganizationMember, Project, ProjectMember, sequelize, User } from '../../database/models.js';
+import { writeTransaction } from '../../database/connection.js';
 import { ApiError } from '../../shared/errors/api-error.js';
-import { emitToUser } from '../../shared/realtime/socket.js';
+import { emitToUser, revokeRealtimeAccess } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { addedToOrganizationEmail, inviteLinkFor, organizationInviteEmail, organizationReviewRequestEmail } from '../../shared/services/email-templates.js';
 import { createImageStore } from '../../shared/services/image-store.js';
+import { slugify } from '../../shared/utils/ids.js';
 import { removeFromStructure } from '../departments/department.service.js';
 import { assertWithinLimit, entitlementsFor, getDefaultPlan, usageFor } from '../plans/plan.service.js';
 import { createOneTimeToken } from '../auth/token.js';
@@ -23,15 +25,7 @@ const RESERVED_SLUGS = new Set([
 ]);
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
 
-export const slugify = (value) =>
-  String(value ?? '')
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40)
-    .replace(/-+$/g, '');
+export { slugify };
 
 export const toPublicOrganization = (organization) => ({
   id: organization.id,
@@ -210,22 +204,31 @@ export async function updateMember(organizationId, actor, userId, { workspaceRol
   if (status && membership.user.status === 'invited') throw ApiError.badRequest('Invited people become active when they accept');
   if (status === 'active' && membership.status === 'disabled') await assertWithinLimit(organizationId, 'members');
   await membership.update({ ...(workspaceRole ? { role: workspaceRole } : {}), ...(status ? { status } : {}) });
+  // A deactivated member keeps their project memberships (for when they come back) but loses access at once.
+  if (status === 'disabled') revokeRealtimeAccess(userId, { organizationId, projectIds: await projectIdsOf(organizationId) });
   return (await listMembers(organizationId)).find((member) => member.id === userId);
 }
+
+const projectIdsOf = async (organizationId) => (await Project.findAll({ where: { organizationId }, attributes: ['id'], raw: true })).map((project) => project.id);
 
 /** Removes someone from the organization and from every project in it; their work becomes unassigned. */
 export async function removeMember(organizationId, actor, userId) {
   if (userId === actor.id) throw ApiError.badRequest('You cannot remove yourself. Ask another admin.');
   const membership = await loadMembership(organizationId, userId);
   if (membership.role === 'admin') await assertAnotherAdmin(organizationId, userId);
-  const projectIds = (await Project.findAll({ where: { organizationId }, attributes: ['id'], raw: true })).map((project) => project.id);
-  if (projectIds.length) {
-    await ProjectMember.destroy({ where: { projectId: projectIds, userId } });
-    await Issue.update({ assigneeId: null }, { where: { projectId: projectIds, assigneeId: userId } });
-  }
+  const projectIds = await projectIdsOf(organizationId);
+  await writeTransaction(async (transaction) => {
+    if (projectIds.length) {
+      await ProjectMember.destroy({ where: { projectId: projectIds, userId }, transaction });
+      await Issue.update({ assigneeId: null }, { where: { projectId: projectIds, assigneeId: userId }, transaction });
+      // They no longer follow work they cannot see.
+      await IssueWatcher.destroy({ where: { userId, issueId: { [Op.in]: sequelize.literal(`(SELECT id FROM issues WHERE project_id IN (${projectIds.map((id) => sequelize.escape(id)).join(',')}))`) } }, transaction });
+    }
+    await membership.destroy({ transaction });
+    if (membership.user.lastOrganizationId === organizationId) await membership.user.update({ lastOrganizationId: null }, { transaction });
+  });
   await removeFromStructure(organizationId, userId);
-  await membership.destroy();
-  if (membership.user.lastOrganizationId === organizationId) await membership.user.update({ lastOrganizationId: null });
+  revokeRealtimeAccess(userId, { organizationId, projectIds });
 }
 
 /** Deletes the organization with all of its projects and work. People keep their accounts and other organizations. */

@@ -27,10 +27,11 @@ Everything works without keys: emails are printed to the backend console and the
 | --- | --- |
 | `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `SENDGRID_FROM_NAME` | Invitations, password resets, notifications, reminders, daily digest. The sender must be verified in SendGrid. |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | AI issue drafts, issue summaries, sub-task breakdowns. Default model `gpt-4o-mini`. |
-| `JWT_SECRET` | Required in production (long random string). |
+| `JWT_SECRET` | A random value of at least 32 characters (`node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`). Production refuses to start without one. |
 | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | PostgreSQL connection (the database is created automatically if missing). `DATABASE_URL` overrides these; removing `DB_NAME` falls back to SQLite. |
+| `REDIS_URL`, `LIVEKIT_*` | Optional: several backend servers / large video calls (see `.env.example`). |
 
-`GET /api/health` shows whether email and AI are enabled.
+`GET /api/health` answers `200` when the API runs and reaches its database (`503` otherwise), for monitoring.
 
 ## Features
 
@@ -62,7 +63,13 @@ Everything works without keys: emails are printed to the backend console and the
 **Device-specific experience** (not a shrunken desktop)
 - **Desktop (≥1024px):** collapsible sidebar, inline top-bar search, dense dashboard (stats, grouped work, sprint progress, activity, project health), multi-column drag & drop board, issue side panel with all fields visible.
 - **Mobile:** bottom tab bar with a central create button, "My tasks" view (Today / Upcoming / Anytime / Done) with one-tap completion and undo, one-status-at-a-time board with "Move to" buttons, full-screen issue page with Status / Mark done / Assign to me first, bottom-sheet forms, safe-area aware.
-- **PWA:** installable, offline-cached app shell, cached API reads, home-screen shortcuts (My tasks, Create issue, Inbox).
+- **PWA:** installable, offline-cached app shell, home-screen shortcuts (My tasks, Create issue, Inbox); new versions are offered with a "Reload" prompt. API answers are never cached (private data, no stale screens).
+- **Accessible:** skip link, keyboard shortcuts (including moving board cards with Alt + arrows), screen-reader labels and announcements, reduced motion when the system asks for it.
+
+**Communication**
+- Direct messages and team/department chats, project chat with an assistant
+- Teams-style presence (available, away, in a call, busy, do not disturb, offline with last seen), live everywhere
+- Video meetings: scheduling with calendar invites and reminders, guests with a waiting room, screen sharing, whiteboard, polls, breakout rooms, host controls, live captions and transcript, recording, AI summaries
 
 ## Project structure
 
@@ -75,9 +82,10 @@ backend/src
 ├── shared/            errors, middleware (auth, validation, errors), realtime, email, utils
 └── modules/<name>/    one folder per feature:
     <name>.model.js · <name>.routes.js · <name>.controller.js · <name>.service.js · <name>.validation.js
-    activity · ai · attachments · auth · automations · comments · dashboard · issues · labels
-    notifications · projects · recurring-tasks · reports · saved-filters · search · sprints
-    statuses · templates · users · worklogs
+    activity · ai · attachments · auth · automations · calendar · chat · comments · dashboard
+    departments · issues · labels · meetings · messages · notifications · organizations · plans
+    projects · push · recurring-tasks · reports · saved-filters · search · sprints · standups
+    statuses · super-admin · support · templates · users · worklogs
 
 frontend/src
 ├── components/ui/     shadcn-vue primitives (button, dialog, sheet, select, …)
@@ -102,6 +110,18 @@ frontend/src
 - **Automation engine** (`modules/automations/automation.engine.js`) evaluates conditions and runs actions with an increasing depth counter, so rules cannot loop forever.
 - **Ordering** uses a fractional `position` rank shared by board columns and the backlog, so a drag only updates one row.
 
+More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (how it fits together) and [docs/SECURITY.md](docs/SECURITY.md) (accounts, organization isolation, checklist for changes).
+
+## Checks
+
+```bash
+npm --prefix backend run lint && npm --prefix backend test      # lint, unit and security integration tests (throwaway database)
+npm --prefix frontend run lint && npm --prefix frontend test    # lint and unit tests
+npm --prefix frontend run build                                 # type-check and production build
+```
+
+They run on every push in CI (`.github/workflows/ci.yml`). With the dev server running, `npm --prefix backend run test:meetings` and `test:presence` check calls and presence end to end.
+
 ## Database
 
 PostgreSQL is configured in `backend/.env`:
@@ -122,7 +142,7 @@ npm --prefix backend run db:reset    # drop and recreate all tables (data loss)
 npm run db:seed                      # default plans and super admin; never deletes data
 ```
 
-For production schema changes, add Sequelize migrations and set `DB_AUTO_SYNC=false`.
+Schema changes are additive and applied at startup: new tables by `sync()`, new columns and indexes listed in `backend/src/database/upgrades.js` (idempotent, safe to run on every start).
 
 ## Production
 
@@ -137,5 +157,6 @@ Step-by-step server setup (Nginx, HTTPS, PostgreSQL, systemd and the coturn rela
 
 ### Before you deploy
 - **Legal pages** — `/privacy` and `/terms` are public and linked from sign-in, registration and invitations. Set `VITE_LEGAL_COMPANY_NAME`, `VITE_LEGAL_CONTACT_EMAIL`, `VITE_LEGAL_POSTAL_ADDRESS`, `VITE_LEGAL_JURISDICTION` and `VITE_LEGAL_EFFECTIVE_DATE` in `frontend/.env` (see `.env.example`) before building, and have the text (`frontend/src/modules/legal/pages`) reviewed for your jurisdiction.
-- **Secrets** — set a long random `JWT_SECRET`, real database credentials, and `SENDGRID_*` / `OPENAI_API_KEY` if you use email and AI.
+- **Secrets** — set a long random `JWT_SECRET` (the server will not start in production without one), real database credentials, and `SENDGRID_*` / `OPENAI_API_KEY` if you use email and AI.
+- **Security headers** — use the Nginx configuration in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) §8.1 (CSP, HSTS, no framing).
 - **HTTPS** — serve the app over HTTPS (required for installing the PWA and assumed by the privacy policy).

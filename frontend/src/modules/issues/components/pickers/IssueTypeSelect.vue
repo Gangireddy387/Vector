@@ -22,11 +22,11 @@ const options = computed<SelectFieldOption[]>(() =>
 
 <template>
   <SelectField
+    :id="id"
     :model-value="model"
     :options="options"
     :size="size"
     :disabled="disabled"
-    :id="id"
     aria-label="Task type"
     @update:model-value="(value) => value && (model = value as IssueType)"
   />

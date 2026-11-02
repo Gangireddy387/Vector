@@ -11,7 +11,28 @@ const props = withDefaults(defineProps<{ status: Status; projectId: string; spri
   editable: true,
 })
 const issues = defineModel<Issue[]>({ required: true })
-const emit = defineEmits<{ open: [issue: Issue]; dragStart: []; dragEnd: [event: SortableEvent] }>()
+const emit = defineEmits<{
+  open: [issue: Issue]
+  dragStart: []
+  dragEnd: [event: SortableEvent]
+  /** Keyboard alternative to dragging: to the previous/next column (-1/1) or up/down within this one. */
+  keyMove: [issue: Issue, move: { column?: -1 | 1; within?: -1 | 1 }]
+}>()
+
+/** Alt + arrow keys move a focused card: left/right between columns, up/down within the column. */
+function onCardKey(event: KeyboardEvent, issue: Issue) {
+  if (!props.editable || !event.altKey) return
+  const moves: Record<string, { column?: -1 | 1; within?: -1 | 1 }> = {
+    ArrowLeft: { column: -1 },
+    ArrowRight: { column: 1 },
+    ArrowUp: { within: -1 },
+    ArrowDown: { within: 1 },
+  }
+  const move = moves[event.key]
+  if (!move) return
+  event.preventDefault()
+  emit('keyMove', issue, move)
+}
 
 const points = computed(() => issues.value.reduce((total, issue) => total + (issue.storyPoints ?? 0), 0))
 const isOverLimit = computed(() => props.status.wipLimit !== null && issues.value.length > props.status.wipLimit)
@@ -59,7 +80,15 @@ const isOverLimit = computed(() => props.status.wipLimit !== null && issues.valu
       @start="emit('dragStart')"
       @end="(event: SortableEvent) => emit('dragEnd', event)"
     >
-      <IssueCard v-for="issue in issues" :key="issue.id" :issue="issue" :data-issue-id="issue.id" @open="emit('open', $event)" />
+      <IssueCard
+        v-for="issue in issues"
+        :key="issue.id"
+        :issue="issue"
+        :data-issue-id="issue.id"
+        :aria-keyshortcuts="editable ? 'Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown' : undefined"
+        @open="emit('open', $event)"
+        @keydown="onCardKey($event, issue)"
+      />
     </VueDraggable>
 
     <div v-if="editable" class="px-2 pb-2">

@@ -2,7 +2,8 @@ import type { Socket } from 'socket.io-client'
 import { computed, reactive, ref, shallowRef, triggerRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/lib/http'
-import { getSocket } from '@/lib/realtime'
+import { getSocket, onSocketChange } from '@/lib/realtime'
+import type { SocketHandlers } from '@/lib/socket-events'
 import type { UserSummary } from '@/types/models'
 import { type BlurredCamera, blurBackground, blurSupported } from './call/background-blur'
 import { captionsSupported, createCaptioner } from './call/captions'
@@ -70,7 +71,7 @@ export interface Caption {
   at: number
 }
 
-export interface ChatMessage {
+export interface CallChatMessage {
   id: string
   at: string
   author: CallUser
@@ -131,7 +132,7 @@ type JoinResult = {
   transcribing?: { by: string; since: string } | null
   boardOpen?: boolean
   peers?: PeerInfo[]
-  chat?: ChatMessage[]
+  chat?: CallChatMessage[]
   breakouts?: BreakoutState | null
   lobby?: LobbyGuest[]
   media?: MediaRoute
@@ -227,7 +228,7 @@ function createCall() {
   const speaking = ref<string[]>([])
   const activeSpeaker = ref<string | null>(null)
   const reactions = ref<FloatingReaction[]>([])
-  const chat = ref<ChatMessage[]>([])
+  const chat = ref<CallChatMessage[]>([])
   const unreadChat = ref(0)
   const chatVisible = ref(false)
   const lobby = ref<LobbyGuest[]>([])
@@ -268,7 +269,8 @@ function createCall() {
   /** Media that arrives before the person is listed waits here until their tile exists. */
   const streams = new Map<string, MediaStream>()
   let boundSocket: Socket | null = null
-  let socketWatch: ReturnType<typeof setInterval> | null = null
+  /** Stops following the app's connection (set while in a call). */
+  let socketWatch: (() => void) | null = null
   let rtcConfig: RTCConfiguration = { iceServers: FALLBACK_ICE }
   let fixedIce: RTCIceServer[] | null = null
   let blurred: BlurredCamera | null = null
@@ -446,7 +448,7 @@ function createCall() {
       touchLocal()
       return track
     } catch (error) {
-      throw new Error(deviceProblem(error, kind === 'audio' ? 'microphone' : 'camera'))
+      throw new Error(deviceProblem(error, kind === 'audio' ? 'microphone' : 'camera'), { cause: error })
     }
   }
 
@@ -821,7 +823,7 @@ function createCall() {
     setTimeout(() => (reactions.value = reactions.value.filter((item) => item.key !== key)), 4000)
   }
 
-  function addChat(message: ChatMessage) {
+  function addChat(message: CallChatMessage) {
     if (chat.value.some((item) => item.id === message.id)) return
     chat.value = [...chat.value, message]
     if (!chatVisible.value && message.author.id !== selfUser.value?.id) unreadChat.value += 1
@@ -868,7 +870,7 @@ function createCall() {
     if (socketId === selfId.value) hand.value = raised
     else updatePeer(socketId, { hand: raised })
   }
-  const onMoved = async (payload: { room: string | null; roomName: string | null; peers: PeerInfo[]; chat?: ChatMessage[]; media?: MediaRoute }) => {
+  const onMoved = async (payload: { room: string | null; roomName: string | null; peers: PeerInfo[]; chat?: CallChatMessage[]; media?: MediaRoute }) => {
     const changedRoom = payload.room !== room.value
     room.value = payload.room
     roomName.value = payload.roomName
@@ -1013,10 +1015,11 @@ function createCall() {
     connect: onSocketUp,
   } as const
 
+  const handlerList = Object.entries(HANDLERS) as Array<[string, SocketHandlers[string]]>
   function bind(socket: Socket | null) {
-    for (const [event, handler] of Object.entries(HANDLERS)) boundSocket?.off(event, handler as (...args: any[]) => void)
+    for (const [event, handler] of handlerList) boundSocket?.off(event, handler)
     boundSocket = socket
-    for (const [event, handler] of Object.entries(HANDLERS)) boundSocket?.on(event, handler as (...args: any[]) => void)
+    for (const [event, handler] of handlerList) boundSocket?.on(event, handler)
   }
 
   function enterRoom(socket: Socket) {
@@ -1113,16 +1116,15 @@ function createCall() {
     rtcConfig = { iceServers: fixedIce?.length ? fixedIce : await iceServers() }
     bind(socket)
     await enter(true)
-    socketWatch ??= setInterval(() => {
-      // The app may replace its connection (e.g. after signing in again); follow it so the call survives.
-      const current = getSocket()
+    // The app may replace its connection (e.g. after signing in again); follow it so the call survives.
+    socketWatch ??= onSocketChange((current) => {
       if (current && current !== boundSocket) void rejoin()
-    }, 3000)
+    })
     setMediaSession()
   }
 
   function stopWatching() {
-    if (socketWatch) clearInterval(socketWatch)
+    socketWatch?.()
     socketWatch = null
   }
 
@@ -1252,7 +1254,7 @@ function createCall() {
       shareMedia()
     } catch (error) {
       if (error instanceof DOMException && error.name === 'NotAllowedError') return
-      throw new Error('Could not share your screen.')
+      throw new Error('Could not share your screen.', { cause: error })
     }
   }
 
@@ -1328,7 +1330,7 @@ function createCall() {
       await emit('meeting:recording', { on: false })
       await meetingsApi.removeRecording(forMeeting, id).catch(() => undefined)
       if (error instanceof DOMException && error.name === 'NotAllowedError') return
-      throw new Error('Recording could not start: choose this tab when the browser asks what to record.')
+      throw new Error('Recording could not start: choose this tab when the browser asks what to record.', { cause: error })
     }
     recordingId = id
     recordingHere.value = true

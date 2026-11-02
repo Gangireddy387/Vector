@@ -1,4 +1,4 @@
-import { Op } from 'sequelize';
+import { literal, Op } from 'sequelize';
 import { Activity, Comment, Issue, Project, ProjectMember, Sprint, Status, User, WorkLog } from '../../database/models.js';
 import { currentOrganizationId, currentOrganizationRole } from '../../shared/context/request-context.js';
 import { ApiError } from '../../shared/errors/api-error.js';
@@ -6,7 +6,7 @@ import { addDays, startOfDay, toDateOnly, toList } from '../../shared/utils/quer
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { UUID_PATTERN } from '../../shared/utils/ids.js';
 const ISSUE_ATTRIBUTES = [
   'id', 'projectId', 'key', 'title', 'type', 'priority', 'statusId', 'assigneeId', 'reporterId',
   'parentId', 'sprintId', 'storyPoints', 'startDate', 'dueDate', 'createdAt', 'completedAt',
@@ -275,13 +275,13 @@ async function buildPerformance(viewer, filters) {
   ]);
   const issueById = new Map(issues.map((issue) => [issue.id, issue]));
   const issueIds = new Set(issueById.keys());
-  const [worklogs, comments, sprints] = await Promise.all([
-    WorkLog.findAll({ where: { loggedAt: { [Op.gte]: start, [Op.lt]: end } }, attributes: ['issueId', 'userId', 'minutes'] }),
-    Comment.findAll({ where: { createdAt: { [Op.gte]: start, [Op.lt]: end } }, attributes: ['issueId', 'authorId'] }),
+  // Only the reviewed projects' work: the database filters by their tasks, never reading other organizations' data.
+  const inProjects = { [Op.in]: literal(`(SELECT "id" FROM "issues" WHERE "project_id" IN (${projectIds.map((id) => Issue.sequelize.escape(id)).join(',') || 'NULL'}))`) };
+  const [projectLogs, projectComments, sprints] = await Promise.all([
+    issueIds.size ? WorkLog.findAll({ where: { issueId: inProjects, loggedAt: { [Op.gte]: start, [Op.lt]: end } }, attributes: ['issueId', 'userId', 'minutes'] }) : [],
+    issueIds.size ? Comment.findAll({ where: { issueId: inProjects, createdAt: { [Op.gte]: start, [Op.lt]: end } }, attributes: ['issueId', 'authorId'] }) : [],
     Sprint.findAll({ where: { projectId: projectIds }, attributes: ['id', 'name', 'state'] }),
   ]);
-  const projectLogs = worklogs.filter((log) => issueIds.has(log.issueId));
-  const projectComments = comments.filter((comment) => issueIds.has(comment.issueId));
 
   const statusById = new Map(statuses.map((status) => [status.id, status]));
   const categoryByName = new Map(statuses.map((status) => [`${status.projectId}:${status.name}`, status.category]));

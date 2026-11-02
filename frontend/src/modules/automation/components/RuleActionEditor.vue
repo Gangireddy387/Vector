@@ -17,7 +17,23 @@ const props = defineProps<{ project: ProjectDetail; index: number }>()
 const action = defineModel<AutomationAction>({ required: true })
 defineEmits<{ remove: [] }>()
 
-const params = computed(() => action.value.params as Record<string, any>)
+/** Every setting an action can have; each action type uses some of them (see `defaultParams`). */
+interface ActionParams {
+  statusId?: string
+  priority?: IssuePriority
+  strategy?: string
+  userId?: string | null
+  userIds?: string[]
+  labelIds?: string[]
+  body?: string
+  subject?: string
+  message?: string
+  recipients?: string[]
+  titles?: string[]
+  daysFromNow?: number | null
+  storyPoints?: number | null
+}
+const params = computed(() => action.value.params as ActionParams)
 const setParam = (key: string, value: unknown) => (action.value = { ...action.value, params: { ...action.value.params, [key]: value } })
 const setType = (type: AutomationActionType) => (action.value = { type, params: defaultParams(type) })
 
@@ -29,7 +45,7 @@ const toggleRecipient = (value: string) =>
   setParam('recipients', recipients.value.includes(value) ? recipients.value.filter((item) => item !== value) : [...recipients.value, value])
 
 const subtaskText = computed({
-  get: () => ((params.value.titles as string[] | undefined) ?? []).join('\n'),
+  get: () => (params.value.titles ?? []).join('\n'),
   set: (value: string) => setParam('titles', value.split('\n').map((line) => line.trim()).filter(Boolean)),
 })
 </script>

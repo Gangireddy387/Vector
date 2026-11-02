@@ -1,18 +1,33 @@
 import { ApiError } from '../../shared/errors/api-error.js';
-import { Department, Issue, OrganizationMember, Project, ProjectMember, Team } from '../../database/models.js';
+import { Department, Issue, Organization, OrganizationMember, Project, ProjectMember, Team } from '../../database/models.js';
 import { currentOrganizationId, currentOrganizationRole } from '../../shared/context/request-context.js';
+import { isUuid, UUID_PATTERN } from '../../shared/utils/ids.js';
 
 const ROLE_RANK = { viewer: 1, member: 2, admin: 3 };
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Organization admins oversee every project in their current organization as project admins, without joining it. */
 export const isOrganizationAdminRequest = () => currentOrganizationRole() === 'admin' && Boolean(currentOrganizationId());
 
-async function organizationAdminAccess(projectId, userId) {
-  if (!isOrganizationAdminRequest()) return null;
-  const project = await Project.findByPk(projectId, { attributes: ['organizationId'] });
-  if (!project || project.organizationId !== currentOrganizationId()) return null;
-  return { projectId, userId, role: 'admin', viaOrganization: true };
+/**
+ * The project and the person's place in its organization. Access to a project always requires being an active member
+ * of an approved organization that owns it: disabling or removing someone from the organization ends their access to
+ * every project in it at once, wherever they come from (another organization, a socket, a link).
+ */
+async function projectWithOrganizationRole(projectId, userId) {
+  if (!isUuid(projectId)) return { project: null, organizationRole: null };
+  const project = await Project.findByPk(projectId, {
+    attributes: ['id', 'organizationId'],
+    include: [{ model: Organization, as: 'organization', attributes: ['id', 'status'] }],
+  });
+  if (!project) return { project: null, organizationRole: null };
+  // Projects from before organizations existed belong to everyone who is a member of them.
+  if (!project.organizationId) return { project, organizationRole: 'member' };
+  if (project.organization?.status !== 'approved') return { project, organizationRole: null };
+  const membership = await OrganizationMember.findOne({
+    where: { organizationId: project.organizationId, userId, status: 'active' },
+    attributes: ['role'],
+  });
+  return { project, organizationRole: membership?.role ?? null };
 }
 
 /** Department heads can view every project owned by a team in their department. */
@@ -35,12 +50,18 @@ async function headedProjectIds(userId, organizationId) {
   return projects.map((project) => project.id);
 }
 
-export async function assertProjectRole(projectId, userId, minimumRole = 'viewer') {
-  const projectMembership = await ProjectMember.findOne({ where: { projectId, userId } });
+/** The person's role in a project, or null when they have no access (including when they left its organization). */
+export async function projectRoleOf(projectId, userId) {
+  const { project, organizationRole } = await projectWithOrganizationRole(projectId, userId);
+  if (!project || !organizationRole) return null;
   // An organization admin always acts as a project admin, even where they joined with a lower role.
-  const membership =
-    (projectMembership?.role === 'admin' ? projectMembership : ((await organizationAdminAccess(projectId, userId)) ?? projectMembership)) ??
-    (await departmentHeadAccess(projectId, userId));
+  if (organizationRole === 'admin') return { projectId, userId, role: 'admin', viaOrganization: true };
+  const projectMembership = await ProjectMember.findOne({ where: { projectId, userId } });
+  return projectMembership ?? (await departmentHeadAccess(projectId, userId));
+}
+
+export async function assertProjectRole(projectId, userId, minimumRole = 'viewer') {
+  const membership = await projectRoleOf(projectId, userId);
   if (!membership) throw ApiError.notFound('Project not found');
   if (ROLE_RANK[membership.role] < ROLE_RANK[minimumRole]) {
     throw ApiError.forbidden(`This action requires the ${minimumRole} role in this project`);
@@ -95,14 +116,8 @@ export async function getMemberProjectIds(userId) {
 /** Projects a department head can view without being a member, for the project list. */
 export const getHeadedProjectIds = (userId) => headedProjectIds(userId, currentOrganizationId());
 
-/** Whether a user may follow a project live: a member, or an admin of the project's organization. */
-export async function canWatchProject(projectId, userId) {
-  if (await ProjectMember.count({ where: { projectId, userId } })) return true;
-  const project = await Project.findByPk(projectId, { attributes: ['organizationId'] });
-  if (!project?.organizationId) return false;
-  if (await OrganizationMember.count({ where: { organizationId: project.organizationId, userId, role: 'admin', status: 'active' } })) return true;
-  return Boolean(await departmentHeadAccess(projectId, userId));
-}
+/** Whether a user may follow a project live: the same rule as opening it. */
+export const canWatchProject = async (projectId, userId) => Boolean(await projectRoleOf(projectId, userId));
 
 /** Route guard for routes that carry `:issueId`; exposes the issue as `req.issue`. */
 export const requireIssueRole = (minimumRole = 'viewer') => async (req, _res, next) => {

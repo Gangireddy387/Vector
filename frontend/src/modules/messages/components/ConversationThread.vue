@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { differenceInMinutes, format, isSameDay, isToday, isYesterday, parseISO } from 'date-fns'
 import { Ban, Check, CheckCheck, Copy, Lock, Pencil, SendHorizontal, Trash2, X } from 'lucide-vue-next'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
-import { getSocket } from '@/lib/realtime'
+import { useSocketEvents } from '@/lib/socket-events'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type ChatMessage, type ConversationSummary, messagesApi } from '../messages.api'
 import { useMessagesStore } from '../messages.store'
@@ -56,8 +56,11 @@ async function markRead() {
 
 async function load() {
   messages.value = null
+  const conversationId = props.conversation.id
   try {
-    const thread = await messagesApi.get(props.conversation.id)
+    const thread = await messagesApi.get(conversationId)
+    // Another chat was opened meanwhile: its own load fills the thread.
+    if (conversationId !== props.conversation.id) return
     messages.value = thread.messages
     otherLastReadAt.value = thread.conversation.otherLastReadAt ?? null
     await scrollToEnd()
@@ -94,19 +97,23 @@ function onHidden(event: { conversationId: string; messageId: string }) {
   if (editing.value?.id === event.messageId) cancelEdit()
 }
 
-const EVENTS = {
-  'conversation:message': onMessage,
-  'conversation:updated': onUpdated,
-  'conversation:read': onRead,
-  'conversation:cleared': onCleared,
-  'conversation:hidden': onHidden,
-} as const
-onMounted(() => {
-  for (const [event, handler] of Object.entries(EVENTS)) getSocket()?.on(event, handler as (...args: any[]) => void)
-})
-onBeforeUnmount(() => {
-  for (const [event, handler] of Object.entries(EVENTS)) getSocket()?.off(event, handler as (...args: any[]) => void)
-})
+let connectedBefore = false
+useSocketEvents(
+  {
+    'conversation:message': onMessage,
+    'conversation:updated': onUpdated,
+    'conversation:read': onRead,
+    'conversation:cleared': onCleared,
+    'conversation:hidden': onHidden,
+  },
+  {
+    // Messages sent while the connection was down are fetched again.
+    onConnect: () => {
+      if (connectedBefore) void load()
+      connectedBefore = true
+    },
+  },
+)
 watch(
   () => props.conversation.id,
   () => {

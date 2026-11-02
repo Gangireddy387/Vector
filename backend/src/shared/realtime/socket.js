@@ -2,7 +2,8 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import { Server } from 'socket.io';
 import { config } from '../../config/index.js';
 import { User } from '../../database/models.js';
-import { verifyAccessToken } from '../../modules/auth/token.js';
+import { isAccessToken, isRevoked, TOKEN_TYPES, verifyAccessToken } from '../../modules/auth/token.js';
+import { isUuid } from '../utils/ids.js';
 import { relayConfigured } from '../../modules/meetings/ice-servers.js';
 import { registerMeetingCollab } from '../../modules/meetings/meeting.collab.js';
 import { registerMeetingSignaling } from '../../modules/meetings/meeting.signaling.js';
@@ -23,6 +24,28 @@ async function superAdminUserId() {
   return superAdminId ?? null;
 }
 
+/**
+ * Every event handler of the socket is guarded: a handler that throws (or whose promise rejects) is logged and its
+ * acknowledgement answered, instead of crashing the server for everyone.
+ */
+function guardHandlers(socket) {
+  const on = socket.on.bind(socket);
+  socket.on = (event, handler) =>
+    on(event, (...args) => {
+      const fail = (error) => {
+        console.error(`[socket] "${event}" failed:`, error?.message ?? error);
+        const ack = args.at(-1);
+        if (typeof ack === 'function') ack({ ok: false, error: 'Something went wrong. Try again.' });
+      };
+      try {
+        const result = handler(...args);
+        if (result && typeof result.catch === 'function') result.catch(fail);
+      } catch (error) {
+        fail(error);
+      }
+    });
+}
+
 /** `redis`: the clients from `initSharedState()`; with them, messages reach people connected to any backend server. */
 export function initRealtime(httpServer, redis = null) {
   io = new Server(httpServer, {
@@ -36,19 +59,28 @@ export function initRealtime(httpServer, redis = null) {
     console.warn('[meetings] no TURN relay configured: video calls fail on networks that block direct connections (see TURN_* in .env.example)');
   }
 
+  /**
+   * Only sign-in tokens of active accounts (not revoked by a password change) and meeting guest passes connect;
+   * other tokens (recording links…) are refused.
+   */
   io.use((socket, next) => {
-    try {
+    void (async () => {
       const payload = verifyAccessToken(socket.handshake.auth?.token);
       // Guests (meeting guest link) only take part in the one call their pass is for.
-      if (payload.typ === 'guest') socket.data.guest = { id: `guest:${payload.gid}`, name: payload.name, meetingId: payload.mid };
-      else socket.data.userId = payload.sub;
+      if (payload.typ === TOKEN_TYPES.guest) {
+        socket.data.guest = { id: `guest:${payload.gid}`, name: payload.name, meetingId: payload.mid };
+        return next();
+      }
+      if (!isAccessToken(payload)) throw new Error('wrong token type');
+      const user = await User.findByPk(payload.sub, { attributes: ['id', 'status', 'tokenVersion'] });
+      if (!user || user.status !== 'active' || isRevoked(payload, user)) throw new Error('inactive');
+      socket.data.userId = user.id;
       next();
-    } catch {
-      next(new Error('unauthorized'));
-    }
+    })().catch(() => next(new Error('unauthorized')));
   });
 
   io.on('connection', (socket) => {
+    guardHandlers(socket);
     registerMeetingSignaling(io, socket);
     registerMeetingCollab(io, socket);
     if (socket.data.guest) return;
@@ -64,10 +96,10 @@ export function initRealtime(httpServer, redis = null) {
       .catch(() => undefined);
 
     socket.on('project:join', async (projectId) => {
-      if (await canWatchProject(projectId, socket.data.userId)) socket.join(`project:${projectId}`);
+      if (isUuid(projectId) && (await canWatchProject(projectId, socket.data.userId))) socket.join(`project:${projectId}`);
     });
 
-    socket.on('project:leave', (projectId) => socket.leave(`project:${projectId}`));
+    socket.on('project:leave', (projectId) => isUuid(projectId) && socket.leave(`project:${projectId}`));
 
     socket.on('disconnect', () => {
       const left = (connections.get(userId) ?? 1) - 1;
@@ -80,6 +112,20 @@ export function initRealtime(httpServer, redis = null) {
   return io;
 }
 
-export const emitToProject = (projectId, event, payload) => io?.to(`project:${projectId}`).emit(event, payload);
+/** Tells every connected browser to reconnect elsewhere and stops accepting sockets (graceful shutdown). */
+export const closeRealtime = () => new Promise((resolve) => (io ? io.close(() => resolve()) : resolve()));
+
+/**
+ * Someone lost access (removed from a project, or disabled or removed in an organization): every open tab of theirs
+ * stops receiving that project's and organization's live events right away, on any server.
+ */
+export function revokeRealtimeAccess(userId, { organizationId = null, projectIds = [] } = {}) {
+  if (!io) return;
+  const rooms = [...projectIds.map((projectId) => `project:${projectId}`), ...(organizationId ? [`org:${organizationId}`] : [])];
+  if (rooms.length) io.in(`user:${userId}`).socketsLeave(rooms);
+}
+
+/** Every project event says which project it is about, so a page showing one project ignores the others. */
+export const emitToProject = (projectId, event, payload) => io?.to(`project:${projectId}`).emit(event, { projectId, ...payload });
 export const emitToUser = (userId, event, payload) => io?.to(`user:${userId}`).emit(event, payload);
 export const emitToAll = (event, payload) => io?.emit(event, payload);

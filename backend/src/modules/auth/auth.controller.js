@@ -17,7 +17,5 @@ export const updateProfile = async (req, res) => {
   res.json({ user: { ...user, workspaceRole: req.organizationRole ?? 'member' } });
 };
 
-export const changePassword = async (req, res) => {
-  await authService.changePassword(req.user, req.body);
-  res.status(204).end();
-};
+/** Other sessions are signed out; this one continues with the returned token. */
+export const changePassword = async (req, res) => res.json(await authService.changePassword(req.user, req.body));

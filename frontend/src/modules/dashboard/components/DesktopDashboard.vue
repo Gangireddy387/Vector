@@ -18,7 +18,7 @@ import QuickCapture from './QuickCapture.vue'
 
 const auth = useAuthStore()
 const openIssue = useOpenIssue()
-const { data, isLoading } = useDashboardData()
+const { data, isLoading, error, reload } = useDashboardData()
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -40,6 +40,10 @@ const completion = (summary?: { total: number; done: number }) => (summary?.tota
     <div v-if="isLoading" class="grid grid-cols-5 gap-3">
       <Skeleton v-for="index in 5" :key="index" class="h-16" />
     </div>
+
+    <EmptyState v-else-if="error && !data" :icon="Inbox" title="Your dashboard did not load" :description="error">
+      <Button variant="outline" @click="reload">Try again</Button>
+    </EmptyState>
 
     <template v-else-if="data">
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">

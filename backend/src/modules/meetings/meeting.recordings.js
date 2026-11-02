@@ -1,12 +1,13 @@
 import fs from 'node:fs';
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import { config } from '../../config/index.js';
 import { Meeting, MeetingParticipant, MeetingRecording, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { emitToUser } from '../../shared/realtime/socket.js';
+import { isUuid } from '../../shared/utils/ids.js';
 import { deleteStoredFile, resolveStoragePath, storage, toStorageKey } from '../attachments/attachment.storage.js';
+import { signRecordingToken, TOKEN_TYPES, verifyAccessToken } from '../auth/token.js';
 
 /**
  * Call recordings. The person who records makes the file in their browser and uploads it here when they stop; everyone
@@ -14,7 +15,6 @@ import { deleteStoredFile, resolveStoragePath, storage, toStorageKey } from '../
  */
 
 const VIDEO_TYPES = /^video\/(webm|mp4|x-matroska)(;|$)/;
-const LINK_TTL = '6h';
 
 const upload = multer({
   storage,
@@ -55,35 +55,41 @@ async function announce(meeting) {
 
 export const meetingRecordingRoutes = Router();
 
-/** The finished file of a recording this person started (field `file`, plus `durationSeconds`). */
-meetingRecordingRoutes.post('/meetings/:meetingId/recordings/:recordingId', upload.single('file'), async (req, res) => {
+/**
+ * Before any byte is written: the recording must exist in a meeting this person is invited to, have been started by
+ * them, and still be waiting for its file. Only then does the upload reach the disk.
+ */
+async function assertMayUpload(req, _res, next) {
+  if (!isUuid(req.params.meetingId) || !isUuid(req.params.recordingId)) throw ApiError.notFound('Recording not found');
   const { meeting } = await invitedMeeting(req, req.params.meetingId);
   const recording = await MeetingRecording.findOne({ where: { id: req.params.recordingId, meetingId: meeting.id } });
-  const discard = () => req.file && fs.promises.unlink(req.file.path).catch(() => undefined);
-  if (!recording) {
-    await discard();
-    throw ApiError.notFound('Recording not found');
-  }
-  if (recording.createdById !== req.user.id) {
-    await discard();
-    throw ApiError.forbidden('Only the person who recorded can upload the recording');
-  }
-  if (recording.status === 'ready') {
-    await discard();
-    throw ApiError.badRequest('This recording was already saved');
-  }
+  if (!recording) throw ApiError.notFound('Recording not found');
+  if (recording.createdById !== req.user.id) throw ApiError.forbidden('Only the person who recorded can upload the recording');
+  if (recording.status === 'ready') throw ApiError.badRequest('This recording was already saved');
+  Object.assign(req, { meeting, recording });
+  next();
+}
+
+/** The finished file of a recording this person started (field `file`, plus `durationSeconds`). */
+meetingRecordingRoutes.post('/meetings/:meetingId/recordings/:recordingId', assertMayUpload, upload.single('file'), async (req, res) => {
+  const { meeting, recording } = req;
   if (!req.file) {
     await recording.update({ status: 'failed' });
     throw ApiError.badRequest(`Upload a video file of at most ${config.meetings.recordingMaxMb} MB`);
   }
   const duration = Number.parseInt(req.body?.durationSeconds, 10);
-  await recording.update({
-    status: 'ready',
-    storageKey: toStorageKey(req.file.path),
-    mimeType: req.file.mimetype.split(';')[0],
-    sizeBytes: req.file.size,
-    durationSeconds: Number.isFinite(duration) && duration >= 0 ? duration : null,
-  });
+  try {
+    await recording.update({
+      status: 'ready',
+      storageKey: toStorageKey(req.file.path),
+      mimeType: req.file.mimetype.split(';')[0],
+      sizeBytes: req.file.size,
+      durationSeconds: Number.isFinite(duration) && duration >= 0 ? duration : null,
+    });
+  } catch (error) {
+    await fs.promises.unlink(req.file.path).catch(() => undefined);
+    throw error;
+  }
   await announce(meeting);
   const loaded = await MeetingRecording.findByPk(recording.id, { include: [{ model: User, as: 'createdBy', attributes: ['id', 'name'] }] });
   res.status(201).json({ recording: recordingView(loaded, { id: req.user.id, isAdmin: req.organizationRole === 'admin' }, meeting) });
@@ -94,7 +100,7 @@ meetingRecordingRoutes.get('/meetings/:meetingId/recordings/:recordingId/link', 
   const { meeting } = await invitedMeeting(req, req.params.meetingId);
   const recording = await MeetingRecording.findOne({ where: { id: req.params.recordingId, meetingId: meeting.id, status: 'ready' } });
   if (!recording) throw ApiError.notFound('Recording not found');
-  const token = jwt.sign({ typ: 'recording', rid: recording.id }, config.jwt.secret, { expiresIn: LINK_TTL });
+  const token = signRecordingToken(recording.id);
   res.set('Cache-Control', 'no-store');
   res.json({ url: `/api/meeting-recordings/${recording.id}/file?token=${encodeURIComponent(token)}` });
 });
@@ -116,11 +122,11 @@ export const publicRecordingRoutes = Router();
 publicRecordingRoutes.get('/meeting-recordings/:recordingId/file', async (req, res) => {
   let payload;
   try {
-    payload = jwt.verify(String(req.query.token ?? ''), config.jwt.secret);
+    payload = verifyAccessToken(String(req.query.token ?? ''));
   } catch {
     throw ApiError.unauthorized('This recording link has expired. Open the meeting to get a new one.');
   }
-  if (payload.typ !== 'recording' || payload.rid !== req.params.recordingId) throw ApiError.unauthorized('This recording link is not valid');
+  if (payload.typ !== TOKEN_TYPES.recording || payload.rid !== req.params.recordingId) throw ApiError.unauthorized('This recording link is not valid');
   const recording = await MeetingRecording.findOne({ where: { id: req.params.recordingId, status: 'ready' } });
   if (!recording?.storageKey) throw ApiError.notFound('Recording not found');
   const extension = recording.mimeType === 'video/mp4' ? 'mp4' : 'webm';

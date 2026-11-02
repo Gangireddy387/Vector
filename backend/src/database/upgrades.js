@@ -1,5 +1,6 @@
 import { DataTypes, QueryTypes } from 'sequelize';
 import { config } from '../config/index.js';
+import { slugify as toSlug } from '../shared/utils/ids.js';
 import { sequelize } from './connection.js';
 
 /** Columns added after a table was first created; `sync()` without alter does not add them. */
@@ -34,6 +35,8 @@ const ADDED_COLUMNS = [
   { table: 'meetings', column: 'guest_token', definition: { type: DataTypes.STRING(64), allowNull: true } },
   { table: 'meetings', column: 'whiteboard', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'users', column: 'presence_status', definition: { type: DataTypes.STRING(10), allowNull: true } },
+  { table: 'users', column: 'digest_sent_on', definition: { type: DataTypes.STRING(10), allowNull: true } },
+  { table: 'users', column: 'token_version', definition: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 } },
   { table: 'meetings', column: 'reminded_at', definition: { type: DataTypes.DATE, allowNull: true } },
   { table: 'meetings', column: 'summary', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'conversation_messages', column: 'edited_at', definition: { type: DataTypes.DATE, allowNull: true } },
@@ -62,6 +65,32 @@ async function dropUniqueConstraint(table, column) {
   }
 }
 
+/**
+ * Indexes for the queries that run most (lists ordered by time, counts per project…) and the uniqueness of task
+ * numbers within a project. `IF NOT EXISTS` works on PostgreSQL and SQLite; existing duplicates are reported, not fatal.
+ */
+const INDEXES = [
+  { name: 'issues_project_number_unique', table: 'issues', columns: ['project_id', 'number'], unique: true },
+  { name: 'issues_project_position', table: 'issues', columns: ['project_id', 'position'] },
+  { name: 'activities_project_created', table: 'activities', columns: ['project_id', 'created_at'] },
+  { name: 'notifications_user_created', table: 'notifications', columns: ['user_id', 'created_at'] },
+  { name: 'work_logs_logged_at', table: 'work_logs', columns: ['logged_at'] },
+  { name: 'comments_created_at', table: 'comments', columns: ['created_at'] },
+  { name: 'issue_watchers_user', table: 'issue_watchers', columns: ['user_id'] },
+  { name: 'issue_labels_label', table: 'issue_labels', columns: ['label_id'] },
+  { name: 'conversation_messages_conversation_created', table: 'conversation_messages', columns: ['conversation_id', 'created_at'] },
+];
+
+export async function applyIndexUpgrades() {
+  for (const { name, table, columns, unique } of INDEXES) {
+    try {
+      await sequelize.query(`CREATE ${unique ? 'UNIQUE ' : ''}INDEX IF NOT EXISTS "${name}" ON "${table}" (${columns.map((column) => `"${column}"`).join(', ')})`);
+    } catch (error) {
+      console.warn(`[db] could not create index ${name}: ${error.message}`);
+    }
+  }
+}
+
 /** Idempotent, additive schema changes for existing databases. Runs before `sync()` so new indexes find their columns. */
 export async function applySchemaUpgrades() {
   const queryInterface = sequelize.getQueryInterface();
@@ -78,13 +107,7 @@ export async function applySchemaUpgrades() {
   }
 }
 
-const slugify = (value) =>
-  String(value)
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40) || 'workspace';
+const slugify = (value) => toSlug(value, 'workspace');
 
 /**
  * Moves data from the single-workspace era into organizations: one organization is created from the old

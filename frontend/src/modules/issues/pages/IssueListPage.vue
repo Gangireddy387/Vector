@@ -11,6 +11,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
 import { useProjectRealtime } from '@/composables/useProjectRealtime'
+import { getErrorMessage } from '@/lib/http'
+import { latestRequest } from '@/lib/latest'
 import { usersApi } from '@/modules/projects/projects.api'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import { sprintsApi } from '@/modules/sprints/sprints.api'
@@ -70,12 +72,24 @@ const activeFilterCount = computed(() => Object.values(filters.value).filter(Boo
 const members = computed<UserSummary[]>(() => project.value?.members ?? collaborators.value)
 const selection = useIssueSelection(() => fetchIssues())
 
+const latest = latestRequest()
+/** Why the list did not load (shown with a retry), or null. */
+const loadError = ref<string | null>(null)
+
 async function fetchIssues() {
+  const ticket = latest.start()
   const order = sort.value === 'dueDate' || sort.value === 'key' ? 'asc' : 'desc'
-  const result = await issuesApi.list({ ...filters.value, projectId: projectId.value, sort: sort.value, order, limit: limit.value })
-  issues.value = result.issues
-  total.value = result.total
-  isLoading.value = false
+  try {
+    const result = await issuesApi.list({ ...filters.value, projectId: projectId.value, sort: sort.value, order, limit: limit.value })
+    if (!latest.isCurrent(ticket)) return
+    issues.value = result.issues
+    total.value = result.total
+    loadError.value = null
+  } catch (error) {
+    if (latest.isCurrent(ticket)) loadError.value = getErrorMessage(error)
+  } finally {
+    if (latest.isCurrent(ticket)) isLoading.value = false
+  }
 }
 
 watch([filters, sort, projectId], () => {
@@ -131,6 +145,10 @@ const applySaved = (criteria: Record<string, string>) => (filters.value = readQu
     <div v-if="isLoading" class="space-y-2">
       <Skeleton v-for="index in 8" :key="index" class="h-11 w-full" />
     </div>
+
+    <EmptyState v-else-if="loadError && !issues.length" :icon="ListTodo" title="Tasks did not load" :description="loadError">
+      <Button variant="outline" @click="fetchIssues">Try again</Button>
+    </EmptyState>
 
     <EmptyState
       v-else-if="!issues.length"

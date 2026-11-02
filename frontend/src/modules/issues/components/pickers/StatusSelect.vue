@@ -24,11 +24,11 @@ const selected = computed(() => props.statuses.find((status) => status.id === mo
 
 <template>
   <SelectField
+    :id="id"
     :model-value="model"
     :options="options"
     :size="size"
     :disabled="disabled"
-    :id="id"
     :class="props.class"
     aria-label="Status"
     @update:model-value="(value) => value && (model = value)"

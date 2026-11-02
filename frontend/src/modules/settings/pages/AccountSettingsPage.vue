@@ -13,7 +13,6 @@ import { useDevice } from '@/composables/useDevice'
 import { usePwaInstall } from '@/composables/usePwaInstall'
 import { type ThemePreference, useTheme } from '@/composables/useTheme'
 import { getErrorMessage } from '@/lib/http'
-import { authApi } from '@/modules/auth/auth.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import PasswordInput from '@/modules/auth/components/PasswordInput.vue'
 import ProfilePhotoField from '../components/ProfilePhotoField.vue'
@@ -76,10 +75,10 @@ async function setPreference(key: 'emailNotifications' | 'dailyDigest', value: b
 async function changePassword() {
   isSavingPassword.value = true
   try {
-    await authApi.changePassword(passwords)
+    await auth.changePassword({ ...passwords })
     passwords.currentPassword = ''
     passwords.newPassword = ''
-    toast.success('Password changed')
+    toast.success('Password changed', { description: 'You were signed out on your other devices.' })
   } catch (error) {
     toast.error(getErrorMessage(error))
   } finally {

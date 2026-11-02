@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
-import { getSocket } from '@/lib/realtime'
+import { bindSocketEvents } from '@/lib/socket-events'
 import type { AppNotification } from '@/types/models'
 import { notificationsApi } from './notifications.api'
 
@@ -9,7 +9,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
   const items = ref<AppNotification[]>([])
   const unreadCount = ref(0)
   const isLoading = ref(false)
-  let isBound = false
+  let unbind: (() => void) | null = null
 
   async function fetchNotifications() {
     isLoading.value = true
@@ -45,33 +45,46 @@ export const useNotificationsStore = defineStore('notifications', () => {
     await notificationsApi.remove(notification.id)
   }
 
-  /** Subscribes to live notifications once per session and surfaces them as toasts. */
+  /**
+   * Subscribes to live notifications once per session and surfaces them as toasts. Follows the connection when it is
+   * replaced, and catches up after reconnecting (notifications sent while offline).
+   */
   function bindRealtime(onOpen: (notification: AppNotification) => void) {
-    const socket = getSocket()
-    if (!socket || isBound) return
-    isBound = true
-    socket.on('notification:created', (notification: AppNotification) => {
-      items.value.unshift(notification)
-      unreadCount.value += 1
-      toast(notification.title, {
-        description: notification.body ?? undefined,
-        action: notification.link ? { label: 'Open', onClick: () => onOpen(notification) } : undefined,
-      })
-    })
-    // Notifications cleared elsewhere (e.g. by opening the chat they point to) leave the unread badge right away.
-    socket.on('notifications:read', ({ ids, readAt }: { ids: string[]; readAt: string }) => {
-      const cleared = new Set(ids)
-      items.value.forEach((item) => {
-        if (cleared.has(item.id)) item.readAt ??= readAt
-      })
-      void refreshUnreadCount()
-    })
+    if (unbind) return
+    let connectedBefore = false
+    unbind = bindSocketEvents(
+      {
+        'notification:created': (notification: AppNotification) => {
+          items.value.unshift(notification)
+          unreadCount.value += 1
+          toast(notification.title, {
+            description: notification.body ?? undefined,
+            action: notification.link ? { label: 'Open', onClick: () => onOpen(notification) } : undefined,
+          })
+        },
+        // Notifications cleared elsewhere (e.g. by opening the chat they point to) leave the unread badge right away.
+        'notifications:read': ({ ids, readAt }: { ids: string[]; readAt: string }) => {
+          const cleared = new Set(ids)
+          items.value.forEach((item) => {
+            if (cleared.has(item.id)) item.readAt ??= readAt
+          })
+          void refreshUnreadCount()
+        },
+      },
+      {
+        onConnect: () => {
+          if (connectedBefore) void fetchNotifications().catch(() => undefined)
+          connectedBefore = true
+        },
+      },
+    )
   }
 
   function reset() {
     items.value = []
     unreadCount.value = 0
-    isBound = false
+    unbind?.()
+    unbind = null
   }
 
   return { items, unreadCount, isLoading, fetchNotifications, refreshUnreadCount, markRead, markAllRead, remove, bindRealtime, reset }

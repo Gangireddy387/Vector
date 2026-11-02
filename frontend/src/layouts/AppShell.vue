@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
 import DesktopShell from '@/components/layout/DesktopShell.vue'
 import KeyboardShortcutsDialog from '@/components/layout/KeyboardShortcutsDialog.vue'
 import MobileShell from '@/components/layout/MobileShell.vue'
@@ -39,11 +40,15 @@ function openNotification(notification: AppNotification) {
 }
 
 onMounted(async () => {
+  // Live updates first, so a failed load below never leaves the session without them.
   presence.start()
-  await Promise.all([projects.fetchProjects(), notifications.fetchNotifications(), messages.load().catch(() => undefined)])
   notifications.bindRealtime(openNotification)
   workspace.bindRealtime()
   messages.bindRealtime()
+  const results = await Promise.allSettled([projects.fetchProjects(), notifications.fetchNotifications(), messages.load()])
+  if (results.some((result) => result.status === 'rejected')) {
+    toast.error('Some of your workspace did not load', { description: 'Check your connection; it updates again once Vector is reachable.' })
+  }
 })
 
 // The super admin can revoke an organization while people are using it.

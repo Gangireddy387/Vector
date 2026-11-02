@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
-import { getSocket } from '@/lib/realtime'
+import { useSocketEvents } from '@/lib/socket-events'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import CallView from '../components/CallView.vue'
 import CallWhiteboard from '../components/CallWhiteboard.vue'
@@ -183,19 +183,21 @@ async function remove() {
   })
   if (!ok) return
   try {
-    bindSocket(false)
+    deleting = true
     await meetingsApi.remove(current.id)
     toast.success('Meeting deleted')
     await router.replace({ name: 'meetings' })
   } catch (error) {
-    bindSocket(true)
+    deleting = false
     toast.error(getErrorMessage(error))
   }
 }
 
-const SOCKET_EVENTS = {
+/** While this page deletes the meeting, its own "changed" event must not reload a meeting that is gone. */
+let deleting = false
+useSocketEvents({
   'meeting:changed': async ({ id }: { id: string }) => {
-    if (id === props.meetingId) await load()
+    if (id === props.meetingId && !deleting) await load()
   },
   'meeting:update': (update: MeetingUpdate) => {
     if (update.meetingId !== props.meetingId || updates.value.some((item) => item.id === update.id)) return
@@ -210,11 +212,7 @@ const SOCKET_EVENTS = {
   'meeting:recordings': async ({ meetingId }: { meetingId: string }) => {
     if (meetingId === props.meetingId) await load()
   },
-} as const
-
-function bindSocket(on: boolean) {
-  for (const [event, handler] of Object.entries(SOCKET_EVENTS)) getSocket()?.[on ? 'on' : 'off'](event, handler as (...args: any[]) => void)
-}
+})
 
 /** A ringing call or a notification opens this page with ?join=1: go straight into the call. */
 async function prepare() {
@@ -249,7 +247,6 @@ watch(
 )
 
 onMounted(async () => {
-  bindSocket(true)
   void meetingsApi
     .capabilities()
     .then((value) => (capabilities.value = value))
@@ -257,7 +254,6 @@ onMounted(async () => {
   await prepare()
 })
 onBeforeUnmount(() => {
-  bindSocket(false)
   if (!call.inCall.value && call.status.value !== 'waiting') {
     call.stopPreview()
     call.reset()

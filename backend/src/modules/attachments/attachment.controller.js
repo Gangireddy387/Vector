@@ -5,9 +5,12 @@ export const list = async (req, res) => res.json({ attachments: await attachment
 export const upload = async (req, res) =>
   res.status(201).json({ attachments: await attachmentService.saveAttachments(req.issue, req.user, req.files) });
 
+/** Types a browser could run as a page or script; they are always handed over as plain downloads. */
+const ACTIVE_TYPES = /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/xml|application\/xml|text\/javascript|application\/javascript)/i;
+
 export const download = async (req, res) => {
   const file = await attachmentService.getDownload(req.params.attachmentId, req.user.id);
-  res.type(file.mimeType);
+  res.type(ACTIVE_TYPES.test(file.mimeType ?? '') ? 'application/octet-stream' : file.mimeType || 'application/octet-stream');
   res.download(file.path, file.fileName);
 };
 

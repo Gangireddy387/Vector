@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import {
@@ -85,11 +86,24 @@ export const useAuthStore = defineStore('auth', () => {
     window.location.replace(`/login${query}`)
   }
 
-  /** Restores the session from a stored token on app start. */
+  /**
+   * Restores the session from a stored token on app start. Only a rejected token signs the person out; a server that is
+   * restarting or a flaky network is retried, and the stored sign-in is kept either way.
+   */
   async function restoreSession() {
     if (!token.value) return
+    let state: SessionState | null = null
+    for (const wait of [0, 1000, 2500, 5000]) {
+      if (wait) await new Promise((resolve) => setTimeout(resolve, wait))
+      try {
+        state = await authApi.me()
+        break
+      } catch (error) {
+        if (isAuthError(error)) return clearSession()
+      }
+    }
+    if (!state) return
     try {
-      const state = await authApi.me()
       // Sign-ins saved before the super admin had its own slot move there, freeing the normal slot for another account.
       if (state.user.isSuperAdmin && !isSuperAdminTab()) {
         localStorage.setItem(SUPER_ADMIN_TOKEN_KEY, token.value)
@@ -102,6 +116,8 @@ export const useAuthStore = defineStore('auth', () => {
       clearSession()
     }
   }
+
+  const isAuthError = (error: unknown) => isAxiosError(error) && error.response?.status === 401
 
   const refreshSession = async () => applyState(await authApi.me())
 
@@ -163,6 +179,14 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = withRole(await authApi.removeAvatar())
   }
 
+  /** Signs out every other browser; this one keeps working with the new token the server returns. */
+  async function changePassword(payload: { currentPassword: string; newPassword: string }) {
+    const { token: next } = await authApi.changePassword(payload)
+    token.value = next
+    localStorage.setItem(currentTokenKey(), next)
+    connectRealtime()
+  }
+
   return {
     token,
     user,
@@ -186,6 +210,7 @@ export const useAuthStore = defineStore('auth', () => {
     updateProfile,
     uploadAvatar,
     removeAvatar,
+    changePassword,
     logout,
   }
 })

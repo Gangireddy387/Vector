@@ -4,7 +4,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
-import { getSocket } from '@/lib/realtime'
+import { useSocketEvents } from '@/lib/socket-events'
 import type { UserSummary } from '@/types/models'
 import { usePushNotifications } from '../call/usePushNotifications'
 import { useMeetingCall } from '../useMeetingCall'
@@ -123,19 +123,12 @@ const onKey = (event: KeyboardEvent) => {
   if (ringing.value && event.key === 'Escape') dismiss()
 }
 
+useSocketEvents({ 'meeting:ringing': onRing, 'meeting:changed': onChanged, 'meeting:knock': onKnock })
 onMounted(() => {
-  const socket = getSocket()
-  socket?.on('meeting:ringing', onRing)
-  socket?.on('meeting:changed', onChanged)
-  socket?.on('meeting:knock', onKnock)
   window.addEventListener('keydown', onKey)
   void push.sync().catch(() => undefined)
 })
 onBeforeUnmount(() => {
-  const socket = getSocket()
-  socket?.off('meeting:ringing', onRing)
-  socket?.off('meeting:changed', onChanged)
-  socket?.off('meeting:knock', onKnock)
   window.removeEventListener('keydown', onKey)
   dismiss()
 })

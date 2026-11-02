@@ -83,16 +83,21 @@ async function groupConversations(viewer) {
     departments = departmentIds.size ? await Department.findAll({ where: { organizationId, id: [...departmentIds] } }) : [];
   }
 
+  // One query for the chats that exist; only missing ones are created (a team or department chat starts on first use).
+  const existing = teams.length || departments.length
+    ? await Conversation.findAll({ where: { [Op.or]: [{ teamId: teams.map((team) => team.id) }, { departmentId: departments.map((department) => department.id) }] } })
+    : [];
+  const byTeam = new Map(existing.filter((item) => item.teamId).map((item) => [item.teamId, item]));
+  const byDepartment = new Map(existing.filter((item) => item.departmentId).map((item) => [item.departmentId, item]));
+  const ensure = async (map, key, where, defaults) => map.get(key) ?? (await Conversation.findOrCreate({ where, defaults }))[0];
+
   const conversations = [];
   for (const team of teams) {
-    const [conversation] = await Conversation.findOrCreate({ where: { teamId: team.id }, defaults: { organizationId, kind: 'team', teamId: team.id } });
+    const conversation = await ensure(byTeam, team.id, { teamId: team.id }, { organizationId, kind: 'team', teamId: team.id });
     conversations.push({ conversation, team, department: departments.find((department) => department.id === team.departmentId) ?? null });
   }
   for (const department of departments) {
-    const [conversation] = await Conversation.findOrCreate({
-      where: { departmentId: department.id },
-      defaults: { organizationId, kind: 'department', departmentId: department.id },
-    });
+    const conversation = await ensure(byDepartment, department.id, { departmentId: department.id }, { organizationId, kind: 'department', departmentId: department.id });
     conversations.push({ conversation, department });
   }
   return conversations;
@@ -109,17 +114,41 @@ async function directConversations(viewer) {
 
 /** List entry: title, the other person (direct chats), last message and how many messages are unread. */
 /** Messages this person still sees: those after they last cleared the chat, minus those they deleted for themselves. */
-async function visibleTo(viewer, conversationId, membership) {
-  const hidden = (await ConversationHiddenMessage.findAll({ where: { conversationId, userId: viewer.id }, attributes: ['messageId'], raw: true })).map((row) => row.messageId);
+async function visibleTo(viewer, conversationId, membership, hiddenIds = null) {
+  const hidden =
+    hiddenIds ?? (await ConversationHiddenMessage.findAll({ where: { conversationId, userId: viewer.id }, attributes: ['messageId'], raw: true })).map((row) => row.messageId);
   return {
     ...(membership?.clearedAt ? { createdAt: { [Op.gt]: membership.clearedAt } } : {}),
     ...(hidden.length ? { id: { [Op.notIn]: hidden } } : {}),
   };
 }
 
-async function summarize(viewer, { conversation, team = null, department = null }, people = null) {
-  const membership = await ConversationMember.findOne({ where: { conversationId: conversation.id, userId: viewer.id } });
-  const visible = await visibleTo(viewer, conversation.id, membership);
+/**
+ * What the list needs about this person in many conversations at once (their membership, the messages they deleted
+ * for themselves, and the other person of direct chats): three queries in total instead of three per conversation.
+ */
+async function prefetchFor(viewer, conversationIds) {
+  if (!conversationIds.length) return { memberships: new Map(), hidden: new Map(), others: new Map() };
+  const [memberships, hiddenRows, others] = await Promise.all([
+    ConversationMember.findAll({ where: { conversationId: conversationIds, userId: viewer.id } }),
+    ConversationHiddenMessage.findAll({ where: { conversationId: conversationIds, userId: viewer.id }, attributes: ['conversationId', 'messageId'], raw: true }),
+    ConversationMember.findAll({
+      where: { conversationId: conversationIds, userId: { [Op.ne]: viewer.id } },
+      include: [{ model: User, as: 'user', attributes: [...USER_SUMMARY_ATTRIBUTES, 'lastSeenAt'] }],
+    }),
+  ]);
+  const hidden = new Map();
+  for (const row of hiddenRows) hidden.set(row.conversationId, [...(hidden.get(row.conversationId) ?? []), row.messageId]);
+  return {
+    memberships: new Map(memberships.map((membership) => [membership.conversationId, membership])),
+    hidden,
+    others: new Map(others.map((member) => [member.conversationId, member])),
+  };
+}
+
+async function summarize(viewer, { conversation, team = null, department = null }, people = null, prefetched = null) {
+  const membership = prefetched ? prefetched.memberships.get(conversation.id) : await ConversationMember.findOne({ where: { conversationId: conversation.id, userId: viewer.id } });
+  const visible = await visibleTo(viewer, conversation.id, membership, prefetched ? (prefetched.hidden.get(conversation.id) ?? []) : null);
   const lastMessage = await ConversationMessage.findOne({
     where: { conversationId: conversation.id, ...visible },
     include: authorInclude,
@@ -151,10 +180,12 @@ async function summarize(viewer, { conversation, team = null, department = null 
     updatedAt: lastMessage?.createdAt ?? conversation.createdAt,
   };
   if (conversation.kind === 'direct') {
-    const other = await ConversationMember.findOne({
-      where: { conversationId: conversation.id, userId: { [Op.ne]: viewer.id } },
-      include: [{ model: User, as: 'user', attributes: [...USER_SUMMARY_ATTRIBUTES, 'lastSeenAt'] }],
-    });
+    const other = prefetched
+      ? prefetched.others.get(conversation.id)
+      : await ConversationMember.findOne({
+          where: { conversationId: conversation.id, userId: { [Op.ne]: viewer.id } },
+          include: [{ model: User, as: 'user', attributes: [...USER_SUMMARY_ATTRIBUTES, 'lastSeenAt'] }],
+        });
     const person = other?.user?.toJSON() ?? null;
     return { ...base, title: person?.name ?? 'Someone', subtitle: person?.title ?? person?.email ?? '', person: person && { ...person, isOnline: isUserOnline(person.id) }, otherLastReadAt: other?.lastReadAt ?? null };
   }
@@ -173,7 +204,8 @@ export async function listConversations(viewer) {
     ...(hasFeature(viewer, 'teamChat') ? await groupConversations(viewer) : []),
     ...(hasFeature(viewer, 'directMessages') ? await directConversations(viewer) : []),
   ];
-  const summaries = await Promise.all(entries.map((entry) => summarize(viewer, entry)));
+  const prefetched = await prefetchFor(viewer, entries.map((entry) => entry.conversation.id));
+  const summaries = await Promise.all(entries.map((entry) => summarize(viewer, entry, null, prefetched)));
   return summaries.filter((summary) => summary.kind !== 'direct' || summary.person).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 }
 

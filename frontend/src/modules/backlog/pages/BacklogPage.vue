@@ -18,6 +18,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { useProjectRealtime } from '@/composables/useProjectRealtime'
 import { getErrorMessage } from '@/lib/http'
+import { latestRequest } from '@/lib/latest'
 import { rankBetween } from '@/lib/utils'
 import { issuesApi } from '@/modules/issues/api/issues.api'
 import BulkActionBar from '@/modules/issues/components/BulkActionBar.vue'
@@ -64,21 +65,28 @@ const moveTargets = computed(() => [
   { key: BACKLOG_KEY, label: 'Backlog' },
 ])
 
+const latest = latestRequest()
+/** Why the backlog did not load (shown with a retry), or null. */
+const loadError = ref<string | null>(null)
+
 async function load() {
   if (isDragging.value) return
-  const detail = await projects.fetchProject(projectId.value)
-  if (detail.type !== 'scrum') {
-    isLoading.value = false
-    return
+  const ticket = latest.start()
+  const id = projectId.value
+  try {
+    const detail = await projects.fetchProject(id)
+    if (detail.type !== 'scrum') return
+    const [sprintList, result] = await Promise.all([sprintsApi.list(id), issuesApi.list({ projectId: id, sort: 'position', order: 'asc', limit: 1000 })])
+    if (!latest.isCurrent(ticket)) return
+    sprints.value = sprintList
+    epics.value = result.issues.filter((issue) => issue.type === 'epic')
+    issues.value = result.issues.filter((issue) => issue.type !== 'epic' && issue.type !== 'subtask')
+    loadError.value = null
+  } catch (error) {
+    if (latest.isCurrent(ticket)) loadError.value = getErrorMessage(error)
+  } finally {
+    if (latest.isCurrent(ticket)) isLoading.value = false
   }
-  const [sprintList, result] = await Promise.all([
-    sprintsApi.list(projectId.value),
-    issuesApi.list({ projectId: projectId.value, sort: 'position', order: 'asc', limit: 1000 }),
-  ])
-  sprints.value = sprintList
-  epics.value = result.issues.filter((issue) => issue.type === 'epic')
-  issues.value = result.issues.filter((issue) => issue.type !== 'epic' && issue.type !== 'subtask')
-  isLoading.value = false
 }
 
 const selection = useIssueSelection(load)
@@ -158,6 +166,10 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
     <div v-if="isLoading" class="space-y-3">
       <Skeleton v-for="index in 3" :key="index" class="h-40 w-full" />
     </div>
+
+    <EmptyState v-else-if="loadError && !project" title="The backlog did not load" :description="loadError">
+      <Button variant="outline" @click="load">Try again</Button>
+    </EmptyState>
 
     <EmptyState
       v-else-if="project?.type !== 'scrum'"

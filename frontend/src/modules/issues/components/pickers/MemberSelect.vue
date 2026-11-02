@@ -25,12 +25,12 @@ const options = computed<SelectFieldOption[]>(() => [
 
 <template>
   <SelectField
+    :id="id"
     v-model="model"
     :options="options"
     :placeholder="noneLabel"
     :size="size"
     :disabled="disabled"
-    :id="id"
     :aria-label="ariaLabel"
     search-placeholder="Search people"
     :searchable="members.length > 5"

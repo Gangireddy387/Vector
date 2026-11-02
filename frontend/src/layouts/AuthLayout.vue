@@ -41,41 +41,19 @@ const PREVIEW_COLUMNS = [
 </script>
 
 <template>
-  <div class="grid min-h-dvh bg-background lg:h-dvh lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:overflow-hidden">
-    <!-- Form side (right on desktop) -->
-    <main class="relative flex flex-col overflow-x-hidden px-6 pt-safe pb-safe sm:px-12 lg:order-2 lg:overflow-y-auto">
-      <div
-        class="pointer-events-none absolute -top-40 -right-40 size-[32rem] opacity-60 blur-3xl"
-        style="background: radial-gradient(closest-side, color-mix(in oklch, var(--brand-from) 22%, transparent), transparent)"
-      />
-      <header class="relative flex h-14 shrink-0 items-center justify-between">
-        <AppLogo />
-        <span class="text-xs font-medium text-muted-foreground">{{ workspace.settings.slug ? workspace.settings.name : 'Work management for every team' }}</span>
-      </header>
-
-      <div class="relative flex flex-1 items-center justify-center py-6 short:py-2">
-        <div class="w-full max-w-[22rem]">
-          <RouterView />
-        </div>
-      </div>
-
-      <footer class="relative flex h-12 shrink-0 flex-wrap items-center justify-between gap-x-4 text-xs text-muted-foreground">
-        <span>© {{ year }} Vector</span>
-        <nav class="flex items-center gap-4" aria-label="Legal">
-          <RouterLink :to="{ name: 'privacy' }" class="hover:text-foreground">Privacy</RouterLink>
-          <RouterLink :to="{ name: 'terms' }" class="hover:text-foreground">Terms</RouterLink>
-        </nav>
-      </footer>
-    </main>
-
-    <!-- Product showcase (left on desktop) -->
-    <aside class="relative m-3 hidden overflow-hidden bg-brand lg:order-1 lg:flex lg:flex-col" aria-hidden="true">
+  <!--
+    Desktop: the brand gradient fills the whole screen, the product showcase sits on the left and the form floats on
+    top of it in a card on the right. Phones: just the form on the plain background.
+  -->
+  <div class="relative flex min-h-dvh flex-col overflow-x-hidden bg-background lg:h-dvh lg:overflow-hidden lg:bg-brand">
+    <!-- Full-screen backdrop (desktop) -->
+    <div class="pointer-events-none absolute inset-0 hidden lg:block" aria-hidden="true">
       <div
         class="absolute inset-0"
         style="
           background:
-            radial-gradient(38rem 30rem at 90% 0%, oklch(0.82 0.13 330 / 0.55), transparent 60%),
-            radial-gradient(34rem 28rem at 0% 100%, oklch(0.78 0.13 220 / 0.55), transparent 60%);
+            radial-gradient(48rem 36rem at 95% 0%, oklch(0.82 0.13 330 / 0.55), transparent 60%),
+            radial-gradient(44rem 34rem at 0% 100%, oklch(0.78 0.13 220 / 0.55), transparent 60%);
         "
       />
       <div
@@ -83,11 +61,26 @@ const PREVIEW_COLUMNS = [
         style="
           background-image: linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px);
           background-size: 44px 44px;
-          mask-image: radial-gradient(ellipse at 50% 40%, black 25%, transparent 75%);
+          mask-image: radial-gradient(ellipse at 35% 45%, black 25%, transparent 75%);
         "
       />
+    </div>
+    <!-- Soft glow behind the form (phones) -->
+    <div
+      class="pointer-events-none absolute -top-40 -right-40 size-[32rem] opacity-60 blur-3xl lg:hidden"
+      style="background: radial-gradient(closest-side, color-mix(in oklch, var(--brand-from) 22%, transparent), transparent)"
+      aria-hidden="true"
+    />
 
-      <div class="relative flex flex-1 flex-col justify-center gap-10 px-12 py-10 text-white short:gap-7 short:py-6 xl:px-16">
+    <header class="relative z-10 flex h-14 shrink-0 items-center justify-between px-6 pt-safe sm:px-12 lg:h-16 lg:text-white xl:px-16">
+      <AppLogo class="lg:hidden" />
+      <AppLogo inverted class="hidden lg:inline-flex" />
+      <span class="text-xs font-medium text-muted-foreground lg:text-white/80">{{ workspace.settings.slug ? workspace.settings.name : 'Work management for every team' }}</span>
+    </header>
+
+    <div class="relative z-10 flex min-h-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(24rem,30rem)] lg:gap-10 lg:pr-12 xl:gap-16 xl:pr-16">
+      <!-- Product showcase (desktop) -->
+      <aside class="relative hidden min-h-0 flex-col justify-center gap-10 px-12 py-6 text-white short:gap-7 short:py-4 lg:flex xl:px-16" aria-hidden="true">
         <div class="max-w-xl space-y-4 short:space-y-3">
           <span class="inline-flex items-center gap-2 border border-white/30 bg-white/10 px-3 py-1 text-xs font-medium backdrop-blur">
             <Sparkles class="size-3.5" /> AI drafts · Automation · Recurring work
@@ -151,7 +144,28 @@ const PREVIEW_COLUMNS = [
             <p class="text-xs leading-relaxed text-white/70">{{ item.text }}</p>
           </li>
         </ul>
-      </div>
-    </aside>
+      </aside>
+
+      <!-- The form: a floating card on desktop -->
+      <main class="flex w-full min-h-0 flex-col px-6 pb-safe sm:px-12 lg:overflow-y-auto lg:px-0 lg:py-6">
+        <div class="flex flex-1 items-center justify-center py-6 short:py-2 lg:py-0">
+          <div
+            class="w-full max-w-[22rem] lg:max-w-none lg:border lg:border-white/40 lg:bg-card/95 lg:p-9 lg:text-card-foreground lg:shadow-[0_30px_80px_-20px_rgb(30_10_80/0.55)] lg:backdrop-blur-xl short:lg:p-7"
+          >
+            <RouterView />
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <footer
+      class="relative z-10 flex h-12 shrink-0 flex-wrap items-center justify-between gap-x-4 px-6 text-xs text-muted-foreground sm:px-12 lg:text-white/70 xl:px-16"
+    >
+      <span>© {{ year }} Vector</span>
+      <nav class="flex items-center gap-4" aria-label="Legal">
+        <RouterLink :to="{ name: 'privacy' }" class="hover:text-foreground lg:hover:text-white">Privacy</RouterLink>
+        <RouterLink :to="{ name: 'terms' }" class="hover:text-foreground lg:hover:text-white">Terms</RouterLink>
+      </nav>
+    </footer>
   </div>
 </template>

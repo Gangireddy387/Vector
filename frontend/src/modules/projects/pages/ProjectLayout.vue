@@ -7,6 +7,7 @@ import { getProjectNavigation } from '@/components/layout/projectNavigation'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
+import { getErrorMessage, isNotFoundError } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import MeetButton from '@/modules/meetings/components/MeetButton.vue'
 import type { MeetingPreset } from '@/modules/meetings/useMeetingActions'
@@ -27,16 +28,26 @@ const meetPreset = computed<MeetingPreset | null>(() =>
 )
 const navigation = computed(() => (project.value ? getProjectNavigation(project.value, auth.hasFeature) : []))
 
+/** A failure other than "not found" (offline, server restarting) offers to try again instead. */
+const loadError = ref<string | null>(null)
+
+async function loadProject(projectId: string) {
+  notFound.value = false
+  loadError.value = null
+  try {
+    await projects.fetchProject(projectId, true)
+  } catch (error) {
+    if (projectId !== props.projectId) return
+    if (isNotFoundError(error)) notFound.value = true
+    else loadError.value = getErrorMessage(error)
+  }
+}
+
 watch(
   () => props.projectId,
-  async (projectId) => {
+  (projectId) => {
     projects.currentProjectId = projectId
-    notFound.value = false
-    try {
-      await projects.fetchProject(projectId, true)
-    } catch {
-      notFound.value = true
-    }
+    void loadProject(projectId)
   },
   { immediate: true },
 )
@@ -46,6 +57,10 @@ onBeforeUnmount(() => (projects.currentProjectId = null))
 <template>
   <EmptyState v-if="notFound" title="Project not found" description="It may have been deleted or you no longer have access." class="py-20">
     <Button as-child variant="outline"><RouterLink :to="{ name: 'projects' }">All projects</RouterLink></Button>
+  </EmptyState>
+
+  <EmptyState v-else-if="loadError && !project" title="The project did not load" :description="loadError" class="py-20">
+    <Button variant="outline" @click="loadProject(projectId)">Try again</Button>
   </EmptyState>
 
   <div v-else-if="!project" class="space-y-4 p-6">

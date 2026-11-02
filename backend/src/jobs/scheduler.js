@@ -36,11 +36,18 @@ function guard(job) {
   };
 }
 
+const tasks = [];
+
 export function startScheduler() {
   if (!config.jobs.enabled) {
     console.info('[jobs] background jobs disabled (JOBS_ENABLED=false)');
     return;
   }
-  JOBS.forEach((job) => cron.schedule(job.schedule, guard(job)));
+  JOBS.forEach((job) => tasks.push(cron.schedule(job.schedule, guard(job))));
   console.info(`[jobs] scheduled: ${JOBS.map((job) => job.name).join(', ')}`);
+}
+
+/** Stops scheduling new runs (a run in progress finishes). */
+export function stopScheduler() {
+  tasks.splice(0).forEach((task) => task.stop());
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { addDays, format, isValid, parseISO } from 'date-fns'
 import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, ClipboardCopy, ClipboardList, Users } from 'lucide-vue-next'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -12,7 +12,7 @@ import { useDevice } from '@/composables/useDevice'
 import { useProjectRealtime } from '@/composables/useProjectRealtime'
 import { formatDate, todayInput, toDateInput } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
-import { getSocket } from '@/lib/realtime'
+import { useSocketEvents } from '@/lib/socket-events'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import StandupEditor from '../components/StandupEditor.vue'
@@ -65,9 +65,9 @@ watch([projectId, date], () => {
 }, { immediate: true })
 
 useProjectRealtime(projectId, load)
-const onStandupChanged = (payload: { date: string }) => payload.date === date.value && void load()
-onMounted(() => getSocket()?.on('standup:changed', onStandupChanged))
-onBeforeUnmount(() => getSocket()?.off('standup:changed', onStandupChanged))
+const onStandupChanged = (payload: { date: string; projectId?: string }) =>
+  payload.date === date.value && (!payload.projectId || payload.projectId === projectId.value) && void load()
+useSocketEvents({ 'standup:changed': onStandupChanged })
 
 const me = computed(() => day.value?.members.find((member) => member.user.id === auth.user?.id) ?? null)
 const showEditor = computed(() => canPost.value && (editing.value || !me.value?.update))

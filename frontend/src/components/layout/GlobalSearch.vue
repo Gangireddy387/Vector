@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import { useTheme } from '@/composables/useTheme'
+import { latestRequest } from '@/lib/latest'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import { type SearchResults, searchApi } from '@/modules/search/search.api'
@@ -120,19 +121,27 @@ const groups = computed(() => {
   return [...map.entries()]
 })
 
+const latestSearch = latestRequest()
 watchDebounced(
   query,
   async (value) => {
     const term = value.trim()
     if (!term) {
+      latestSearch.start()
       results.value = null
+      isSearching.value = false
       return
     }
+    const ticket = latestSearch.start()
     isSearching.value = true
     try {
-      results.value = await searchApi.search(term, 8)
+      const found = await searchApi.search(term, 8)
+      // A slower answer for an older search never replaces the results of what is typed now.
+      if (latestSearch.isCurrent(ticket)) results.value = found
+    } catch {
+      if (latestSearch.isCurrent(ticket)) results.value = null
     } finally {
-      isSearching.value = false
+      if (latestSearch.isCurrent(ticket)) isSearching.value = false
     }
   },
   { debounce: 200 },

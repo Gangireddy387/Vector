@@ -2,13 +2,13 @@
 import { useIntervalFn } from '@vueuse/core'
 import { differenceInMinutes, format, isSameDay, isToday, isYesterday, parseISO } from 'date-fns'
 import { Ban, Check, CheckCheck, ChevronDown, Lock, SendHorizontal, Timer, Trash2 } from 'lucide-vue-next'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
+import { computed, nextTick, onMounted, ref, useTemplateRef } from 'vue'
 import { toast } from 'vue-sonner'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
-import { getSocket } from '@/lib/realtime'
+import { useSocketEvents } from '@/lib/socket-events'
 import type { DisappearHours, SupportMessage, SupportThread } from '../support.api'
 
 /**
@@ -53,19 +53,19 @@ function autosize() {
   element.style.height = `${element.scrollHeight}px`
 }
 
-async function markRead() {
+async function markThreadRead() {
   await props.markRead().catch(() => undefined)
   emit('read')
 }
 
-async function load() {
+async function loadThread() {
   try {
     const thread = await props.load()
     messages.value = thread.messages
     disappearHours.value = thread.disappearHours
     await scrollToEnd()
     // Organization admins also have Inbox notifications for these messages, so opening the chat always clears them.
-    if (thread.unread || props.side === 'organization') await markRead()
+    if (thread.unread || props.side === 'organization') await markThreadRead()
   } catch (error) {
     messages.value = []
     toast.error(getErrorMessage(error))
@@ -77,7 +77,7 @@ function onIncoming(message: SupportMessage) {
   if (messages.value.some((item) => item.id === message.id)) return
   messages.value = [...messages.value, message]
   void scrollToEnd(true)
-  if (!isMine(message)) void markRead()
+  if (!isMine(message)) void markThreadRead()
 }
 
 /** The other side opened the conversation: this side's messages show as read. */
@@ -103,15 +103,11 @@ useIntervalFn(() => {
   messages.value = messages.value.filter((message) => !message.expiresAt || parseISO(message.expiresAt).getTime() > now)
 }, 30_000)
 
-const SOCKET_EVENTS = { 'support:message': onIncoming, 'support:read': onRead, 'support:updated': onUpdated, 'support:settings': onSettings } as const
+useSocketEvents({ 'support:message': onIncoming, 'support:read': onRead, 'support:updated': onUpdated, 'support:settings': onSettings })
 
 onMounted(() => {
-  void load()
-  for (const [event, handler] of Object.entries(SOCKET_EVENTS)) getSocket()?.on(event, handler as (...args: any[]) => void)
+  void loadThread()
   input.value?.focus()
-})
-onBeforeUnmount(() => {
-  for (const [event, handler] of Object.entries(SOCKET_EVENTS)) getSocket()?.off(event, handler as (...args: any[]) => void)
 })
 
 async function deleteMessage(message: SupportMessage) {
