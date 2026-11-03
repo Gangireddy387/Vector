@@ -15,7 +15,7 @@ const notExpired = () => ({ [Op.or]: [{ expiresAt: null }, { expiresAt: { [Op.gt
 const unreadWhere = (organizationId, fromPortal) => ({ organizationId, fromPortal, kind: 'message', deletedAt: null, readAt: null, ...notExpired() });
 
 async function loadOrganization(organizationId) {
-  const organization = await Organization.findByPk(organizationId, { attributes: ['id', 'name', 'slug', 'supportDisappearHours'] });
+  const organization = await Organization.findByPk(organizationId, { attributes: ['id', 'name', 'slug', 'supportDisappearHours', 'supportClearedAt'] });
   if (!organization) throw ApiError.notFound('Organization not found');
   return organization;
 }
@@ -33,14 +33,31 @@ async function broadcast(organizationId, event, payload) {
   return adminIds;
 }
 
-const withAuthor = async (id) => (await SupportMessage.findByPk(id, { include })).toJSON();
+/** What clients see: who deleted a message for themselves stays on the server. */
+const present = (message) => {
+  const { hiddenFor: _hiddenFor, ...rest } = message.toJSON();
+  return rest;
+};
+const withAuthor = async (id) => present(await SupportMessage.findByPk(id, { include }));
 
-/** The conversation, oldest first, its disappearing-message timer, and how many messages from the other side are unread. */
-export async function getThread(organizationId, side) {
+/**
+ * The conversation as `viewerId` sees it, oldest first: without what they cleared or deleted for themselves. Also the
+ * disappearing-message timer and how many messages from the other side are unread.
+ */
+export async function getThread(organizationId, side, viewerId) {
   const organization = await loadOrganization(organizationId);
-  const messages = await SupportMessage.findAll({ where: { organizationId, ...notExpired() }, include, order: [['createdAt', 'DESC']], limit: THREAD_LIMIT });
+  const clearedAt = organization.supportClearedAt?.[viewerId];
+  const where = { organizationId, ...notExpired(), ...(clearedAt && { createdAt: { [Op.gt]: new Date(clearedAt) } }) };
+  const messages = await SupportMessage.findAll({ where, include, order: [['createdAt', 'DESC']], limit: THREAD_LIMIT });
   const unread = await SupportMessage.count({ where: unreadWhere(organizationId, side === 'organization') });
-  return { messages: messages.reverse(), unread, disappearHours: organization.supportDisappearHours ?? null };
+  return {
+    messages: messages
+      .reverse()
+      .filter((message) => !(message.hiddenFor ?? []).includes(viewerId))
+      .map(present),
+    unread,
+    disappearHours: organization.supportDisappearHours ?? null,
+  };
 }
 
 /** Sends a message and delivers it live to both sides; organization admins also get an Inbox notification. */
@@ -72,15 +89,51 @@ export async function sendMessage(organizationId, author, side, body) {
   return { message, organization: { id: organization.id, name: organization.name } };
 }
 
+/** One of the author's own messages, still in the conversation. */
+async function ownMessage(organizationId, author, side, messageId, action) {
+  const message = await SupportMessage.findOne({ where: { id: messageId, organizationId, kind: 'message', ...notExpired() } });
+  if (!message) throw ApiError.notFound('Message not found');
+  if (message.authorId !== author.id || message.fromPortal !== (side === 'portal')) throw ApiError.forbidden(`You can only ${action} your own messages`);
+  return message;
+}
+
+/** Changes the text of one of the author's messages; both sides see it update, marked "Edited". */
+export async function editMessage(organizationId, author, side, messageId, body) {
+  const message = await ownMessage(organizationId, author, side, messageId, 'edit');
+  if (message.deletedAt) throw ApiError.badRequest('A deleted message can’t be edited');
+  if (message.body !== body) await message.update({ body, editedAt: new Date() });
+  const updated = await withAuthor(message.id);
+  await broadcast(organizationId, 'support:updated', updated);
+  return updated;
+}
+
 /** "Delete for everyone": only the author can, and the bubble stays as "This message was deleted". */
 export async function deleteMessage(organizationId, author, side, messageId) {
-  const message = await SupportMessage.findOne({ where: { id: messageId, organizationId, kind: 'message' } });
-  if (!message) throw ApiError.notFound('Message not found');
-  if (message.authorId !== author.id || message.fromPortal !== (side === 'portal')) throw ApiError.forbidden('You can only delete your own messages');
+  const message = await ownMessage(organizationId, author, side, messageId, 'delete');
   if (!message.deletedAt) await message.update({ body: '', deletedAt: new Date() });
   const updated = await withAuthor(message.id);
   await broadcast(organizationId, 'support:updated', updated);
   return updated;
+}
+
+/** "Delete for me": any message leaves this person's view of the conversation; everyone else still sees it. */
+export async function hideMessage(organizationId, user, messageId) {
+  const message = await SupportMessage.findOne({ where: { id: messageId, organizationId } });
+  if (!message) throw ApiError.notFound('Message not found');
+  const hiddenFor = message.hiddenFor ?? [];
+  if (!hiddenFor.includes(user.id)) await message.update({ hiddenFor: [...hiddenFor, user.id] });
+  // Their other open tabs drop it too.
+  emitToUser(user.id, 'support:hidden', { organizationId, messageId });
+}
+
+/** "Clear chat": empties the conversation for this person only; they see messages sent from now on. */
+export async function clearThread(organizationId, user, side) {
+  const organization = await loadOrganization(organizationId);
+  const clearedAt = new Date();
+  await organization.update({ supportClearedAt: { ...(organization.supportClearedAt ?? {}), [user.id]: clearedAt.toISOString() } });
+  await markRead(organizationId, side, side === 'organization' ? user : null);
+  emitToUser(user.id, 'support:cleared', { organizationId, clearedAt });
+  return getThread(organizationId, side, user.id);
 }
 
 const timerLabel = (hours) => (hours === 24 ? '24 hours' : `${hours / 24} days`);
@@ -89,7 +142,7 @@ const timerLabel = (hours) => (hours === 24 ? '24 hours' : `${hours / 24} days`)
 export async function setDisappearing(organizationId, author, side, hours) {
   const organization = await loadOrganization(organizationId);
   if (hours !== null && !DISAPPEAR_OPTIONS.includes(hours)) throw ApiError.badRequest('Choose 24 hours, 7 days or off');
-  if ((organization.supportDisappearHours ?? null) === hours) return getThread(organizationId, side);
+  if ((organization.supportDisappearHours ?? null) === hours) return getThread(organizationId, side, author.id);
 
   await organization.update({ supportDisappearHours: hours });
   const who = author.name;
@@ -99,7 +152,7 @@ export async function setDisappearing(organizationId, author, side, hours) {
   const notice = await SupportMessage.create({ organizationId, authorId: author.id, fromPortal: side === 'portal', kind: 'system', body, readAt: new Date() });
   await broadcast(organizationId, 'support:message', await withAuthor(notice.id));
   await broadcast(organizationId, 'support:settings', { organizationId, disappearHours: hours });
-  return getThread(organizationId, side);
+  return getThread(organizationId, side, author.id);
 }
 
 /**

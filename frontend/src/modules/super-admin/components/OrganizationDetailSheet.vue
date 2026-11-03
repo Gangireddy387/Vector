@@ -10,6 +10,8 @@ import {
   Clock,
   Copy,
   Crown,
+  EllipsisVertical,
+  Eraser,
   FolderKanban,
   Gem,
   LayoutDashboard,
@@ -26,12 +28,13 @@ import {
   UsersRound,
   X,
 } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Progress } from '@/components/ui/progress'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -44,7 +47,7 @@ import { cityOf, localTime } from '@/lib/timezone'
 import { organizationAddress, organizationUrl } from '@/modules/auth/organization-slug'
 import { profileCoverStyle } from '@/modules/admin/profile-cover'
 import SupportChatThread from '@/modules/support/components/SupportChatThread.vue'
-import { type DisappearHours, portalSupportApi } from '@/modules/support/support.api'
+import { portalSupportApi } from '@/modules/support/support.api'
 import { useSocketEvents } from '@/lib/socket-events'
 import { type OrganizationDetail, type OrganizationPerson, type ReviewedOrganization, superAdminApi } from '../super-admin.api'
 
@@ -69,12 +72,8 @@ const chatPresence = computed(() => {
   return lastSeen ? `${who} · last seen ${timeAgo(lastSeen)}` : `${who} · not signed in yet`
 })
 
-const chatOrganizationId = () => detail.value!.organization.id
-const loadChat = () => portalSupportApi.thread(chatOrganizationId())
-const sendChat = (body: string) => portalSupportApi.send(chatOrganizationId(), body)
-const markChatRead = () => portalSupportApi.markRead(chatOrganizationId())
-const removeChatMessage = (messageId: string) => portalSupportApi.remove(chatOrganizationId(), messageId)
-const setChatDisappearing = (hours: DisappearHours) => portalSupportApi.setDisappearing(chatOrganizationId(), hours)
+const chatApi = computed(() => (detail.value ? portalSupportApi.chat(detail.value.organization.id) : null))
+const chat = useTemplateRef<InstanceType<typeof SupportChatThread>>('chat')
 const { copy } = useClipboard()
 
 const isOpen = computed({
@@ -197,17 +196,22 @@ async function copyEmail(email: string) {
               {{ chatPresence }}
             </SheetDescription>
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="ghost" size="icon-sm" aria-label="Chat options"><EllipsisVertical /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="w-44">
+              <DropdownMenuItem variant="destructive" @select="chat?.clearChat()"><Eraser /> Clear chat</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="ghost" size="icon-sm" aria-label="Close" @click="isOpen = false"><X /></Button>
         </header>
         <SupportChatThread
+          ref="chat"
           class="min-h-0 flex-1"
           side="portal"
           :organization-id="detail.organization.id"
-          :load="loadChat"
-          :send="sendChat"
-          :mark-read="markChatRead"
-          :remove="removeChatMessage"
-          :set-disappearing="setChatDisappearing"
+          :api="chatApi!"
           placeholder="Type a message"
           :notice="`Messages are shared with every admin of ${detail.organization.name}. They read and reply in Organization settings → Vector support.`"
           @read="emit('read', detail!.organization.id)"

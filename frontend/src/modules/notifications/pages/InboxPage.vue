@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { format, isThisWeek, isToday, isYesterday, parseISO } from 'date-fns'
-import { ArrowUpRight, BellOff, BellRing, Check, CheckCheck, Inbox, MessageCircle, Search, Trash2 } from 'lucide-vue-next'
-import { computed, onMounted, ref } from 'vue'
+import { ArrowUpRight, BellOff, BellRing, Check, CheckCheck, Eraser, Inbox, MessageCircle, Search, Trash2 } from 'lucide-vue-next'
+import { computed, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -25,6 +25,7 @@ const auth = useAuthStore()
 const router = useRouter()
 const { isDesktop } = useDevice()
 const filter = ref<InboxFilter>('all')
+const supportChat = useTemplateRef<InstanceType<typeof SupportChatThread>>('supportChat')
 const search = ref('')
 const selectedKey = ref<string | null>(null)
 
@@ -251,18 +252,16 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
             <span class="block text-sm font-semibold">Vector team</span>
             <span class="block truncate text-xs text-muted-foreground">Your organization’s conversation with the portal team. Reply right here.</span>
           </span>
+          <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="supportChat?.clearChat()"><Eraser /> Clear chat</Button>
           <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="removeEntry(selected)"><Trash2 /> Dismiss</Button>
         </div>
         <SupportChatThread
+          ref="supportChat"
           :key="auth.organization!.id"
           class="min-h-0 flex-1"
           side="organization"
           :organization-id="auth.organization!.id"
-          :load="organizationSupportApi.thread"
-          :send="organizationSupportApi.send"
-          :mark-read="organizationSupportApi.markRead"
-          :remove="organizationSupportApi.remove"
-          :set-disappearing="organizationSupportApi.setDisappearing"
+          :api="organizationSupportApi"
           notice="Messages here are only between your organization’s admins and the Vector team."
         />
       </article>

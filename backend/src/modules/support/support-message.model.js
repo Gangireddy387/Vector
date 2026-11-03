@@ -22,6 +22,10 @@ SupportMessage.init(
     deletedAt: { type: DataTypes.DATE, allowNull: true },
     /** Disappearing messages are removed after this moment. */
     expiresAt: { type: DataTypes.DATE, allowNull: true },
+    /** When its author last changed the text. */
+    editedAt: { type: DataTypes.DATE, allowNull: true },
+    /** People who deleted it for themselves only; everyone else still sees it. */
+    hiddenFor: { type: DataTypes.JSON, allowNull: true },
   },
   {
     sequelize,

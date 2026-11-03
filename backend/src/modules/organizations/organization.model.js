@@ -29,6 +29,8 @@ Organization.init(
     featureOverrides: { type: DataTypes.JSON, allowNull: true },
     /** Support chat with the super admin: new messages disappear after this many hours (null = kept). */
     supportDisappearHours: { type: DataTypes.INTEGER, allowNull: true },
+    /** Support chat: when each person cleared it for themselves, `{ [userId]: ISO date }`; they only see newer messages. */
+    supportClearedAt: { type: DataTypes.JSON, allowNull: true },
     createdById: { type: DataTypes.UUID, allowNull: true },
     updatedById: { type: DataTypes.UUID, allowNull: true },
   },

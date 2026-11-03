@@ -14,7 +14,7 @@ import {
   rejectOrganization,
   removeOrganization,
 } from './super-admin.service.js';
-import { deleteMessage, getThread, markRead, sendMessage, setDisappearing, unreadByOrganization } from '../support/support.service.js';
+import { clearThread, deleteMessage, editMessage, getThread, hideMessage, markRead, sendMessage, setDisappearing, unreadByOrganization } from '../support/support.service.js';
 
 const rejectSchema = z.object({ reason: z.string().trim().max(500).optional() });
 const setPlanSchema = z.object({ planId: z.string().uuid('Choose a plan') });
@@ -71,7 +71,7 @@ const messageSchema = z.object({ body: z.string().trim().min(1, 'Write a message
 const disappearingSchema = z.object({ hours: z.union([z.literal(24), z.literal(168), z.null()]) });
 superAdminRoutes.get('/super-admin/support/unread', async (_req, res) => res.json({ unread: await unreadByOrganization() }));
 superAdminRoutes.get('/super-admin/organizations/:organizationId/support', async (req, res) =>
-  res.json(await getThread(req.params.organizationId, 'portal')),
+  res.json(await getThread(req.params.organizationId, 'portal', req.user.id)),
 );
 superAdminRoutes.post('/super-admin/organizations/:organizationId/support', validate({ body: messageSchema }), async (req, res) =>
   res.status(201).json(await sendMessage(req.params.organizationId, req.user, 'portal', req.body.body)),
@@ -79,8 +79,18 @@ superAdminRoutes.post('/super-admin/organizations/:organizationId/support', vali
 superAdminRoutes.post('/super-admin/organizations/:organizationId/support/read', async (req, res) =>
   res.json({ updated: await markRead(req.params.organizationId, 'portal') }),
 );
+superAdminRoutes.patch('/super-admin/organizations/:organizationId/support/messages/:messageId', validate({ body: messageSchema }), async (req, res) =>
+  res.json({ message: await editMessage(req.params.organizationId, req.user, 'portal', req.params.messageId, req.body.body) }),
+);
 superAdminRoutes.delete('/super-admin/organizations/:organizationId/support/messages/:messageId', async (req, res) =>
   res.json({ message: await deleteMessage(req.params.organizationId, req.user, 'portal', req.params.messageId) }),
+);
+superAdminRoutes.post('/super-admin/organizations/:organizationId/support/messages/:messageId/hide', async (req, res) => {
+  await hideMessage(req.params.organizationId, req.user, req.params.messageId);
+  res.status(204).end();
+});
+superAdminRoutes.post('/super-admin/organizations/:organizationId/support/clear', async (req, res) =>
+  res.json(await clearThread(req.params.organizationId, req.user, 'portal')),
 );
 superAdminRoutes.put('/super-admin/organizations/:organizationId/support/disappearing', validate({ body: disappearingSchema }), async (req, res) =>
   res.json(await setDisappearing(req.params.organizationId, req.user, 'portal', req.body.hours)),

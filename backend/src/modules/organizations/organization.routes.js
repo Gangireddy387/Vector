@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
-import { deleteMessage, getThread, markRead, sendMessage, setDisappearing } from '../support/support.service.js';
+import { clearThread, deleteMessage, editMessage, getThread, hideMessage, markRead, sendMessage, setDisappearing } from '../support/support.service.js';
 import { requireOrganization, requireOrganizationAdmin, requireOrganizationCreator } from '../../shared/middleware/authenticate.js';
 import { validate } from '../../shared/middleware/validate.js';
 import * as controller from './organization.controller.js';
@@ -34,15 +34,27 @@ organizationAdminRoutes.get('/workspace/members', requireOrganizationAdmin, cont
 organizationAdminRoutes.post('/workspace/invitations', requireOrganizationAdmin, validate({ body: inviteMemberSchema }), controller.invite);
 /** Support chat with the portal's super admin; one conversation per organization, shared by its admins. */
 const supportMessageSchema = z.object({ body: z.string().trim().min(1, 'Write a message').max(4000) });
-organizationAdminRoutes.get('/workspace/support', requireOrganizationAdmin, async (req, res) => res.json(await getThread(req.organization.id, 'organization')));
+organizationAdminRoutes.get('/workspace/support', requireOrganizationAdmin, async (req, res) =>
+  res.json(await getThread(req.organization.id, 'organization', req.user.id)),
+);
 organizationAdminRoutes.post('/workspace/support', requireOrganizationAdmin, validate({ body: supportMessageSchema }), async (req, res) =>
   res.status(201).json(await sendMessage(req.organization.id, req.user, 'organization', req.body.body)),
 );
 organizationAdminRoutes.post('/workspace/support/read', requireOrganizationAdmin, async (req, res) =>
   res.json({ updated: await markRead(req.organization.id, 'organization', req.user) }),
 );
+organizationAdminRoutes.patch('/workspace/support/messages/:messageId', requireOrganizationAdmin, validate({ body: supportMessageSchema }), async (req, res) =>
+  res.json({ message: await editMessage(req.organization.id, req.user, 'organization', req.params.messageId, req.body.body) }),
+);
 organizationAdminRoutes.delete('/workspace/support/messages/:messageId', requireOrganizationAdmin, async (req, res) =>
   res.json({ message: await deleteMessage(req.organization.id, req.user, 'organization', req.params.messageId) }),
+);
+organizationAdminRoutes.post('/workspace/support/messages/:messageId/hide', requireOrganizationAdmin, async (req, res) => {
+  await hideMessage(req.organization.id, req.user, req.params.messageId);
+  res.status(204).end();
+});
+organizationAdminRoutes.post('/workspace/support/clear', requireOrganizationAdmin, async (req, res) =>
+  res.json(await clearThread(req.organization.id, req.user, 'organization')),
 );
 organizationAdminRoutes.put(
   '/workspace/support/disappearing',
