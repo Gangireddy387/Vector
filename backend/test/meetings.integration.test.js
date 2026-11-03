@@ -120,7 +120,19 @@ describe('meeting settings', () => {
     const capabilities = await asAlice('GET', '/meetings/capabilities');
     assert.equal(capabilities.status, 200);
     assert.equal(capabilities.body.dialIn, false);
+    assert.equal(capabilities.body.ai, false, 'no OpenAI key on this server');
     assert.equal(typeof capabilities.body.fileMaxMb, 'number');
+  });
+
+  it('drafts a basic agenda and finds free times without the AI assistant', async () => {
+    const agenda = await asAlice('POST', '/meetings/agenda-draft', { title: 'Weekly sync', durationMinutes: 30 });
+    assert.equal(agenda.status, 200, JSON.stringify(agenda.body));
+    assert.equal(agenda.body.source, 'basic');
+    assert.match(agenda.body.agenda, /Decisions and next steps/);
+    const times = await asAlice('POST', '/meetings/suggest-times', { participantIds: [bob.user.id], durationMinutes: 30 });
+    assert.equal(times.status, 200, JSON.stringify(times.body));
+    assert.ok(times.body.suggestions.length > 0);
+    for (const slot of times.body.suggestions) assert.equal(new Date(slot.endsAt) - new Date(slot.startsAt), 30 * 60_000);
   });
 
   it('lists calendars that can be connected, and refuses one the server has not set up', async () => {
@@ -169,6 +181,17 @@ describe('a call', () => {
     const joined = await ask(bobSocket, 'meeting:join', { meetingId: meeting.id, media: { audio: false, video: false } });
     assert.equal(joined.ok, true, joined.error);
     assert.equal(joined.canManage, false);
+  });
+
+  it('keeps captions in the browsers and the assistant off without the AI assistant', async () => {
+    const told = next(bobSocket, 'meeting:transcribing', (payload) => payload.transcribing);
+    assert.equal((await ask(aliceSocket, 'meeting:transcribe', { on: true })).ok, true);
+    assert.equal((await told).transcribing.mode, 'browser');
+    assert.equal((await ask(bobSocket, 'meeting:ai:ask', {})).ok, false);
+    assert.equal((await ask(bobSocket, 'meeting:audio', { audio: Buffer.alloc(4000, 1), mimeType: 'audio/webm', durationMs: 2000 })).ok, false);
+    const caption = next(aliceSocket, 'meeting:caption', (item) => item.final);
+    bobSocket.emit('meeting:caption', { id: 'line-1', text: 'We agreed to ship the pricing page on Friday', final: true });
+    assert.equal((await caption).speaker.id, bob.user.id);
   });
 
   it('lets only the people running the call change the lobby', async () => {
@@ -289,6 +312,21 @@ describe('a call', () => {
     assert.equal(details.body.chat.at(-1).attachment.fileName, 'notes.txt');
     assert.ok(Array.isArray(details.body.attendance));
     assert.equal((await asBob('GET', `/meetings/${meeting.id}`)).body.attendance, null);
+  });
+
+  it('makes what was said searchable once the meeting ends (by words without the AI assistant)', async () => {
+    assert.equal((await asAlice('POST', `/meetings/${meeting.id}/end`)).status, 200);
+    let found = null;
+    for (let attempt = 0; attempt < 20 && !found?.results.length; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      found = (await asBob('GET', '/meetings/search?q=pricing page')).body;
+    }
+    assert.equal(found.mode, 'words');
+    const hit = found.results.find((result) => result.kind === 'transcript');
+    assert.ok(hit, JSON.stringify(found));
+    assert.equal(hit.meeting.id, meeting.id);
+    assert.match(hit.text, /pricing page/);
+    assert.equal((await asBob('GET', '/meetings/search?q=x')).status, 400, 'at least 2 characters');
   });
 });
 

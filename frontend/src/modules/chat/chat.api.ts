@@ -48,6 +48,8 @@ export type AssistantMeta = { replyTo?: string; requestedBy?: { id: string; name
   | { type: 'issue_status'; issues: AssistantIssueCard[] }
   | { type: 'issue_list'; title: string; issues: AssistantIssueCard[]; total: number }
   | { type: 'answer'; issues: AssistantIssueCard[] }
+  /** The recap of a meeting about this project, posted when it ended (the text carries everything). */
+  | { type: 'meeting_recap'; meetingId: string }
   | {
       type: 'blockers'
       reported: Array<{ user: UserSummary; text: string }>

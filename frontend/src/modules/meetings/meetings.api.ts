@@ -65,11 +65,40 @@ export interface Meeting {
 
 export type CalendarProvider = 'google' | 'microsoft'
 
+export interface MeetingActionItem {
+  text: string
+  owner: string | null
+  /** The invited person the owner's name matched. */
+  ownerId?: string | null
+  due?: string | null
+  priority?: 'lowest' | 'low' | 'medium' | 'high' | 'highest' | null
+  /** The task it became. */
+  issue?: { id: string; key: string; projectId: string } | null
+}
+
 export interface MeetingSummary {
   text: string
   decisions: string[]
-  actionItems: Array<{ text: string; owner: string | null }>
+  actionItems: MeetingActionItem[]
+  /** Topics of the call and when each started. */
+  chapters?: Array<{ at: string; title: string }>
   generatedAt: string
+}
+
+export interface MeetingSearchResult {
+  meeting: { id: string; title: string; startsAt: string; status: MeetingStatus }
+  kind: 'transcript' | 'summary' | 'chat' | 'notes' | 'agenda'
+  text: string
+  at: string | null
+  score: number
+}
+
+export interface TimeSuggestion {
+  startsAt: string
+  endsAt: string
+  everyoneWorking: boolean
+  /** People for whom it is outside working hours. */
+  outside: string[]
 }
 
 /** A message from the call's chat, kept with the meeting (`roomName`: the breakout room it was sent in). */
@@ -100,6 +129,8 @@ export interface MeetingQuestion {
   voters: string[]
   votes: number
   answeredAt: string | null
+  /** The host's written answer. */
+  answer: string | null
   createdAt: string
 }
 
@@ -146,6 +177,8 @@ export interface MeetingCapabilities {
   fileMaxMb: number
   /** People can join calls by phone. */
   dialIn: boolean
+  /** The AI assistant: notes from speech, translated captions, catch-up, agendas, meaning-based search. */
+  ai: boolean
 }
 
 export interface MeetingDetails {
@@ -303,6 +336,19 @@ export const meetingsApi = {
       .then((r) => r.data.file)
   },
   fileLink: (meetingId: string, fileId: string) => http.get<{ url: string }>(`/meetings/${meetingId}/files/${fileId}/link`).then((r) => r.data.url),
+  /** What was said and written in meetings; `mode` 'meaning' when the AI assistant searched by meaning. */
+  search: (q: string) => http.get<{ mode: 'meaning' | 'words'; results: MeetingSearchResult[] }>('/meetings/search', { params: { q } }).then((r) => r.data),
+  draftAgenda: (input: { title?: string; durationMinutes?: number; contextType?: MeetingContext['type'] | null; contextId?: string | null; meetingId?: string | null; seriesId?: string | null }) =>
+    http.post<{ agenda: string; source: 'ai' | 'basic' }>('/meetings/agenda-draft', input, { timeout: 60_000 }).then((r) => r.data),
+  suggestTimes: (input: { participantIds: string[]; durationMinutes: number; from?: string; days?: number }) =>
+    http.post<{ people: number; checkedCalendars: number; suggestions: TimeSuggestion[] }>('/meetings/suggest-times', input, { timeout: 30_000 }).then((r) => r.data),
+  createTasks: (
+    meetingId: string,
+    input: { projectId: string; items: Array<{ index: number; title: string; assigneeId: string | null; dueDate: string | null; priority: MeetingActionItem['priority'] }> },
+  ) =>
+    http
+      .post<{ summary: MeetingSummary; created: Array<{ index: number; key: string; id: string }>; unassigned: string[] }>(`/meetings/${meetingId}/action-items/tasks`, input)
+      .then((r) => r.data),
 }
 
 /** Your Google or Microsoft calendar, connected to Vector so meetings appear there and replies come back. */

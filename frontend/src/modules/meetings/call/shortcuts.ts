@@ -12,6 +12,7 @@ export type CallShortcutAction =
   | 'chat'
   | 'people'
   | 'qa'
+  | 'assistant'
   | 'whiteboard'
   | 'leave'
   | 'talk'
@@ -49,6 +50,7 @@ export const CALL_SHORTCUTS: CallShortcut[] = [
   shortcut('chat', 'Open the chat', 'KeyC', { alt: true }),
   shortcut('people', 'Open people', 'KeyP', { alt: true }),
   shortcut('qa', 'Open Q&A', 'KeyQ', { alt: true }),
+  shortcut('assistant', 'Ask the AI assistant', 'KeyA', { alt: true }),
   shortcut('whiteboard', 'Open or close the whiteboard', 'KeyW', { alt: true }),
   shortcut('leave', 'Leave the call', 'KeyH', { shift: true }),
 ]

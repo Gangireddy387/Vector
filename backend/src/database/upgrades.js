@@ -44,6 +44,9 @@ const ADDED_COLUMNS = [
   { table: 'meetings', column: 'sip_rule_id', definition: { type: DataTypes.STRING(80), allowNull: true } },
   { table: 'meeting_participants', column: 'response', definition: { type: DataTypes.STRING(12), allowNull: true } },
   { table: 'meeting_chat_messages', column: 'attachment', definition: { type: DataTypes.JSON, allowNull: true } },
+  { table: 'meetings', column: 'followup_at', definition: { type: DataTypes.DATE, allowNull: true } },
+  { table: 'meetings', column: 'recap_sent_at', definition: { type: DataTypes.DATE, allowNull: true } },
+  { table: 'meeting_questions', column: 'answer', definition: { type: DataTypes.TEXT, allowNull: true } },
   { table: 'conversation_messages', column: 'edited_at', definition: { type: DataTypes.DATE, allowNull: true } },
   { table: 'conversation_members', column: 'cleared_at', definition: { type: DataTypes.DATE, allowNull: true } },
 ];

@@ -120,6 +120,15 @@ const google = {
       attendees: (body.attendees ?? []).filter((person) => !person.organizer).map((person) => ({ email: person.email, response: GOOGLE_RESPONSES[person.responseStatus] ?? null })),
     };
   },
+  /** When the person is busy between `from` and `to`: [{ start, end }]. */
+  async busy(token, from, to) {
+    const body = await call('https://www.googleapis.com/calendar/v3/freeBusy', {
+      method: 'POST',
+      token,
+      json: { timeMin: from.toISOString(), timeMax: to.toISOString(), items: [{ id: 'primary' }] },
+    });
+    return (body.calendars?.primary?.busy ?? []).map((slot) => ({ start: new Date(slot.start), end: new Date(slot.end) }));
+  },
 };
 
 // --- Microsoft ------------------------------------------------------------------------------------------------------
@@ -201,6 +210,13 @@ const microsoft = {
       cancelled: Boolean(body.isCancelled),
       attendees: (body.attendees ?? []).map((person) => ({ email: person.emailAddress?.address, response: MICROSOFT_RESPONSES[person.status?.response] ?? null })),
     };
+  },
+  async busy(token, from, to) {
+    const query = new URLSearchParams({ startDateTime: from.toISOString(), endDateTime: to.toISOString(), $select: 'start,end,showAs,isCancelled', $top: '250' });
+    const body = await call(`${GRAPH}/me/calendarView?${query}`, { token, headers: { Prefer: 'outlook.timezone="UTC"' } });
+    return (body.value ?? [])
+      .filter((event) => !event.isCancelled && event.showAs !== 'free')
+      .map((event) => ({ start: fromGraphTime(event.start), end: fromGraphTime(event.end) }));
   },
 };
 

@@ -143,6 +143,29 @@ async function hostConnection(hostId) {
   return connections.find((connection) => PROVIDERS[connection.provider]?.configured()) ?? null;
 }
 
+/**
+ * When these people are busy in their connected calendars between `from` and `to`: Map userId → [{ start, end }].
+ * People without a connection (or whose calendar did not answer) are left out.
+ */
+export async function externalBusyTimes(userIds, from, to) {
+  const busy = new Map();
+  if (!userIds.length || !calendarSyncAvailable()) return busy;
+  const connections = await CalendarConnection.findAll({ where: { userId: userIds, brokenAt: null } });
+  await Promise.all(
+    connections.map(async (connection) => {
+      const provider = PROVIDERS[connection.provider];
+      if (!provider?.configured()) return;
+      try {
+        const slots = await withAccess(connection, (token) => provider.busy(token, from, to));
+        busy.set(connection.userId, [...(busy.get(connection.userId) ?? []), ...slots]);
+      } catch (error) {
+        log('could not read free and busy times', { userId: connection.userId, error: error.message });
+      }
+    }),
+  );
+  return busy;
+}
+
 /** True when the host's calendar sends this meeting's invitations (so the app does not email them as well). */
 export async function calendarSendsInvites(meeting) {
   return Boolean(await hostConnection(meeting.hostId));

@@ -58,6 +58,19 @@ socket. Each file owns one part of a call:
 | `meeting.media.js`, `meeting.phone.js` | LiveKit (optional): media passes, host enforcement; phone dial-in with a PIN per meeting, webhook attendance |
 | `modules/calendar-sync/` | Google / Microsoft calendar sync: OAuth, encrypted tokens, push on change, a 5-minute job pulls moves and RSVPs |
 
+**Meeting AI** runs only with `OPENAI_API_KEY` and the plan's "AI assistant" feature (`meeting.ai-access.js`):
+
+| File | Part |
+|---|---|
+| `meeting.ai.js` | AI notes (browsers send short speech recordings; the server transcribes), translated captions, "catch me up" / ask, Q&A similar-question detection, merging and answer drafts |
+| `meeting.summary.js` | Summary, decisions, action items (owner matched to an invited person, due date, priority) and chapters |
+| `meeting.followup.js` | After a meeting (claimed once; a job retries): summary → search index → recap (inbox, email, project chat) |
+| `meeting.search.js` | Search pieces of transcripts, chat, summaries, notes and agendas; embeddings with AI, words without |
+| `meeting.planning.js` | Agenda drafts from the linked project and the previous meeting; free times for everyone invited |
+
+In the browser: `call/transcriber.ts` (speech pieces for AI notes), `call/noise.ts` (RNNoise noise suppression),
+`call/backgrounds.ts` (virtual backgrounds; the person is cut out by `background-blur.ts`).
+
 On the client, `useMeetingCall.ts` is the one call of the tab; `call/` holds the transports (direct, LiveKit),
 keyboard shortcuts and tiles; `components/Call*.vue` are the panels.
 

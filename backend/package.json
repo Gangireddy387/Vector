@@ -23,8 +23,8 @@
     "test:presence": "node scripts/presence-live-test.js",
     "test:meetings:unit": "node --test test/meetings.unit.test.js",
     "lint": "eslint src scripts test",
-    "test:integration": "node --test --test-concurrency=1 test/security.integration.test.js test/meetings.integration.test.js",
-    "test": "node --test --test-concurrency=1 test/meetings.unit.test.js test/security.integration.test.js test/meetings.integration.test.js"
+    "test:integration": "node --test --test-concurrency=1 test/security.integration.test.js test/meetings.integration.test.js test/meetings-ai.integration.test.js",
+    "test": "node --test --test-concurrency=1 test/meetings.unit.test.js test/security.integration.test.js test/meetings.integration.test.js test/meetings-ai.integration.test.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",

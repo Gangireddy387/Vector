@@ -41,6 +41,7 @@ Tested by `backend/test/security.integration.test.js` against a real server (`np
 - **Calendar sync:** OAuth `state` is a signed, 10-minute token for one person and provider (`typ: 'oauth'`); the callback refuses anything else. Access and refresh tokens are stored encrypted (AES-256-GCM, `CALENDAR_TOKEN_KEY` or a key derived from `JWT_SECRET`) and never sent to browsers; a refused refresh marks the connection for reconnecting.
 - **LiveKit webhook** (phone attendance) is only accepted with LiveKit's signature over the exact body (`WebhookReceiver`); phone callers can only be muted or removed by the host or a co-host of that call.
 - **Attendance reports** (names, emails, times) are only for the host and organization admins.
+- **Meeting AI:** speech is only sent while the host has AI notes on, and everyone in the call sees an "AI notes" badge. Audio pieces are checked (type and size, rate-limited per connection) and are not stored; only the resulting text is kept as the transcript. Answers from the in-call assistant go to the asker only. Meeting search only covers meetings the person may open (admins: their organization's). Transcripts can be deleted after `MEETING_TRANSCRIPT_DAYS`. Noise suppression and background effects run in the browser; no audio or video leaves for them.
 
 ## Live connections (Socket.IO)
 

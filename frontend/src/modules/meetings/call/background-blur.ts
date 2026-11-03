@@ -51,11 +51,22 @@ export interface BlurredCamera {
   stop: () => void
 }
 
+/** What goes behind the person: their own background blurred, or a picture. */
+export type BackgroundEffect = { kind: 'blur' } | { kind: 'image'; image: CanvasImageSource & { width: number; height: number } }
+
+/** Draws `image` to fill the frame, cut to fit (like CSS `object-fit: cover`). */
+function drawCover(context: CanvasRenderingContext2D, image: CanvasImageSource & { width: number; height: number }, width: number, height: number) {
+  const scale = Math.max(width / image.width, height / image.height)
+  const drawWidth = image.width * scale
+  const drawHeight = image.height * scale
+  context.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight)
+}
+
 /**
- * Returns a copy of the camera with the background blurred: each frame, the model finds the person, the frame is
- * drawn blurred and the person is drawn sharp on top. Everything happens in this browser.
+ * Returns a copy of the camera with the background blurred (or replaced by a picture): each frame, the model finds
+ * the person, the background is drawn and the person is drawn sharp on top. Everything happens in this browser.
  */
-export async function blurBackground(camera: MediaStreamTrack): Promise<BlurredCamera> {
+export async function blurBackground(camera: MediaStreamTrack, effect: BackgroundEffect = { kind: 'blur' }): Promise<BlurredCamera> {
   const model = await loadSegmenter()
   const settings = camera.getSettings()
   const width = settings.width ?? 1280
@@ -104,8 +115,11 @@ export async function blurBackground(camera: MediaStreamTrack): Promise<BlurredC
       context.globalCompositeOperation = 'source-in'
       context.drawImage(video, 0, 0, width, height)
       context.globalCompositeOperation = 'destination-over'
-      context.filter = `blur(${BLUR_PX}px)`
-      context.drawImage(video, 0, 0, width, height)
+      if (effect.kind === 'image') drawCover(context, effect.image, width, height)
+      else {
+        context.filter = `blur(${BLUR_PX}px)`
+        context.drawImage(video, 0, 0, width, height)
+      }
       context.restore()
     } finally {
       result.close()

@@ -40,8 +40,15 @@ Meeting.init(
     whiteboard: { type: DataTypes.JSON, allowNull: true },
     /** When invited people were reminded that it starts soon. */
     remindedAt: { type: DataTypes.DATE, allowNull: true },
-    /** Written from the transcript, chat and notes: `{ text, decisions: [], actionItems: [{ text, owner }], generatedAt }`. */
+    /**
+     * Written from the transcript, chat and notes: `{ text, decisions: [], actionItems: [{ text, owner, ownerId, due,
+     * priority, issue }], chapters: [{ at, title }], generatedAt }`.
+     */
     summary: { type: DataTypes.JSON, allowNull: true },
+    /** The after-meeting work (summary, chapters, search index, recap) was claimed by a server. */
+    followupAt: { type: DataTypes.DATE, allowNull: true },
+    /** When everyone invited got the recap. */
+    recapSentAt: { type: DataTypes.DATE, allowNull: true },
     /** Who waits in the lobby (see MEETING_LOBBY_MODES). */
     lobby: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'guests' },
     /** Phone dial-in: the PIN callers enter, and the media server's routing rule for it. */
@@ -203,8 +210,37 @@ MeetingQuestion.init(
     /** Ids of the people (or guests) who upvoted. */
     voters: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
     answeredAt: { type: DataTypes.DATE, allowNull: true },
+    /** The host's written answer, shown to everyone. */
+    answer: { type: DataTypes.TEXT, allowNull: true },
   },
   { sequelize, modelName: 'MeetingQuestion', tableName: 'meeting_questions', indexes: [{ fields: ['meeting_id', 'created_at'] }] },
+);
+
+export const SEARCH_CHUNK_KINDS = ['transcript', 'summary', 'chat', 'notes', 'agenda'];
+
+/**
+ * A piece of what a meeting left behind (a stretch of the transcript, the summary, chat…), for searching across
+ * meetings. `embedding`: its meaning as numbers (with the AI assistant); without it, search matches words.
+ */
+export class MeetingSearchChunk extends Model {}
+
+MeetingSearchChunk.init(
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    organizationId: { type: DataTypes.UUID, allowNull: false },
+    meetingId: { type: DataTypes.UUID, allowNull: false },
+    kind: { type: DataTypes.STRING(12), allowNull: false },
+    text: { type: DataTypes.TEXT, allowNull: false },
+    /** When it was said (transcript and chat), to jump to that moment. */
+    at: { type: DataTypes.DATE, allowNull: true },
+    embedding: { type: DataTypes.JSON, allowNull: true },
+  },
+  {
+    sequelize,
+    modelName: 'MeetingSearchChunk',
+    tableName: 'meeting_search_chunks',
+    indexes: [{ fields: ['organization_id'] }, { fields: ['meeting_id'] }],
+  },
 );
 
 export const RECORDING_STATUSES = ['recording', 'ready', 'failed'];

@@ -1,10 +1,11 @@
 import { Op } from 'sequelize';
-import { Meeting, MeetingChatMessage, MeetingFile, MeetingParticipant, MeetingRecording, MeetingTranscriptLine, Organization, OrganizationMember, User } from '../../database/models.js';
+import { Meeting, MeetingChatMessage, MeetingFile, MeetingParticipant, MeetingRecording, Organization, OrganizationMember, User } from '../../database/models.js';
 import { presenceInCall } from '../../shared/realtime/presence.js';
 import { shared } from '../../shared/realtime/shared-state.js';
 import { entitlementsFor, withPlan } from '../plans/plan.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { isUuid } from '../../shared/utils/ids.js';
+import { meetingAiAllowed } from './meeting.ai-access.js';
 import { closeOpenAttendance, closeStaleAttendance, recordArrival, recordDeparture } from './meeting.attendance.js';
 import { fileLink, fileView, ownFile } from './meeting.files.js';
 import { callCapacity, mediaFor, sfuApplyPermissions, sfuEnabled, sfuMuteMicrophone, sfuRemove, sfuStopScreen } from './meeting.media.js';
@@ -28,7 +29,6 @@ export const REACTIONS = ['👍', '👏', '😂', '🎉', '❤️', '😮', '�
 const MAX_BREAKOUT_ROOMS = 6;
 const CHAT_HISTORY = 200;
 const CHAT_BURST = { messages: 10, perMs: 10_000 };
-const CAPTION_BURST = { messages: 30, perMs: 10_000 };
 const CALL_TTL_SECONDS = 24 * 60 * 60;
 /** Starting a call this long before its time rings nobody; people are reminded when the time comes. */
 const RING_EARLY_MS = 15 * 60_000;
@@ -103,8 +103,8 @@ const emptyListeners = new Set();
 export const onCallEmptied = (listener) => emptyListeners.add(listener);
 const callEmptied = (meetingId) => emptyListeners.forEach((listener) => listener(meetingId));
 
-const meetingChannel = (meetingId) => `meeting:${meetingId}`;
-const roomChannel = (meetingId, room) => `call:${meetingId}:${room ?? 'main'}`;
+export const meetingChannel = (meetingId) => `meeting:${meetingId}`;
+export const roomChannel = (meetingId, room) => `call:${meetingId}:${room ?? 'main'}`;
 const admitChannel = (meetingId) => `admit:${meetingId}`;
 const allChannels = (meetingId, call) => [
   meetingChannel(meetingId),
@@ -577,6 +577,7 @@ export function registerMeetingSignaling(io, socket) {
         media: await mediaFor(meetingId, null, self, call.permissions),
         capacity: callCapacity(),
         lobbyMode: meeting.lobby,
+        ai: await meetingAiAllowed(meeting.organizationId),
       });
       if (call.breakouts) announceBreakouts(io, meetingId, call);
       void announce(io, meetingId);
@@ -1002,29 +1003,24 @@ export function registerMeetingSignaling(io, socket) {
   });
 
   /** Turns live captions on for everyone: each browser that can transcribes its own microphone. */
+  /**
+   * Captions and the transcript on or off. With the AI assistant, speech is turned into text on the server (`mode`
+   * 'ai', every browser and phone callers); otherwise each browser captions its own speaker ('browser').
+   */
   socket.on('meeting:transcribe', async ({ on } = {}, ack) => {
     const meetingId = socket.data.meetingId;
     if (!meetingId) return fail(ack, 'You are not in the call');
+    const meeting = await Meeting.findByPk(meetingId, { attributes: ['organizationId'] });
+    const mode = (await meetingAiAllowed(meeting?.organizationId)) ? 'ai' : 'browser';
     const result = await mutate(meetingId, (call) => {
       const actor = call.peers[socket.id];
       if (!actor?.canManage) return { error: 'Only the host or a co-host can turn captions on' };
-      call.transcribing = on ? { by: actor.user.name, since: new Date().toISOString() } : null;
+      call.transcribing = on ? { by: actor.user.name, since: new Date().toISOString(), mode } : null;
       return { transcribing: call.transcribing, by: actor.user.name };
     });
     if (result.error) return fail(ack, result.error);
     io.to(meetingChannel(meetingId)).emit('meeting:transcribing', result);
     ack?.({ ok: true });
-  });
-
-  /** A piece of what someone said: shown as captions in their room; finished sentences go into the transcript. */
-  socket.on('meeting:caption', async ({ id, text, final } = {}) => {
-    const value = typeof text === 'string' ? text.trim().slice(0, 500) : '';
-    if (!value || typeof id !== 'string' || id.length > 40 || !allow(socket, 'captionTimes', CAPTION_BURST)) return;
-    const here = await currentCall(socket);
-    if (!here?.call.transcribing) return;
-    const speaker = { id: here.peer.user.id, name: here.peer.user.name, guest: here.peer.guest };
-    io.to(roomChannel(here.meetingId, here.peer.room)).emit('meeting:caption', { id, socketId: socket.id, speaker, text: value, final: Boolean(final) });
-    if (final) await MeetingTranscriptLine.create({ meetingId: here.meetingId, speaker, text: value, spokenAt: new Date() }).catch(() => undefined);
   });
 
   socket.on('meeting:leave', () => void leave(io, socket));

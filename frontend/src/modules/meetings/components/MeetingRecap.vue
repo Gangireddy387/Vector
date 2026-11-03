@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { format, parseISO } from 'date-fns'
-import { Captions, CircleCheck, ClipboardCheck, Download, FileText, Film, ListTodo, MessageCircle, Phone, Play, Sparkles, Trash2 } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { Captions, CircleCheck, ClipboardCheck, Download, FileText, Film, ListOrdered, MessageCircle, Phone, Play, Sparkles, Trash2 } from 'lucide-vue-next'
+import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ import {
   type TranscriptLine,
   meetingsApi,
 } from '../meetings.api'
+import ActionItemsTasks from './ActionItemsTasks.vue'
 import ChatAttachment from './ChatAttachment.vue'
 
 /**
@@ -32,8 +33,10 @@ const props = withDefaults(
     recordings: MeetingRecording[]
     canSummarize: boolean
     attendance?: AttendanceEntry[] | null
+    /** A moment to show (from search): the transcript or chat scrolls to it and it is highlighted. */
+    focus?: { at: string; in: 'transcript' | 'chat' } | null
   }>(),
-  { attendance: null },
+  { attendance: null, focus: null },
 )
 const emit = defineEmits<{ summary: [summary: MeetingSummary]; changed: [] }>()
 const confirm = useConfirm()
@@ -81,14 +84,65 @@ async function summarize() {
   }
 }
 
-const playing = ref<{ id: string; url: string } | null>(null)
-async function play(recording: MeetingRecording) {
+const playing = ref<{ id: string; url: string; startAt?: number } | null>(null)
+const player = useTemplateRef<HTMLVideoElement[]>('player')
+async function play(recording: MeetingRecording, startAt?: number) {
   try {
-    playing.value = { id: recording.id, url: assetUrl(await meetingsApi.recordingLink(props.meeting.id, recording.id))! }
+    if (playing.value?.id === recording.id) return seek(startAt ?? 0)
+    playing.value = { id: recording.id, url: assetUrl(await meetingsApi.recordingLink(props.meeting.id, recording.id))!, startAt }
   } catch (error) {
     toast.error(getErrorMessage(error))
   }
 }
+function seek(seconds: number) {
+  const video = player.value?.[0]
+  if (!video) return
+  video.currentTime = Math.max(0, seconds)
+  void video.play().catch(() => undefined)
+}
+const onLoaded = () => playing.value?.startAt && seek(playing.value.startAt)
+
+/** Chapters of the call that fall within a recording, with where they start in it (seconds). */
+const chapters = computed(() => props.meeting.summary?.chapters ?? [])
+function chaptersOf(recording: MeetingRecording) {
+  const start = parseISO(recording.startedAt).getTime()
+  const length = recording.durationSeconds ?? Number.POSITIVE_INFINITY
+  return chapters.value
+    .map((chapter) => ({ ...chapter, offset: Math.round((parseISO(chapter.at).getTime() - start) / 1000) }))
+    .filter((chapter) => chapter.offset >= -30 && chapter.offset < length)
+    .map((chapter) => ({ ...chapter, offset: Math.max(0, chapter.offset) }))
+}
+const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+
+/** The recording that was running at `at`, and the second in it. */
+function recordingAt(at: string) {
+  const time = parseISO(at).getTime()
+  for (const recording of props.recordings) {
+    if (recording.status !== 'ready') continue
+    const offset = Math.round((time - parseISO(recording.startedAt).getTime()) / 1000)
+    if (offset >= 0 && offset <= (recording.durationSeconds ?? 0)) return { recording, offset }
+  }
+  return null
+}
+
+// Search opens the meeting at a moment: show it in the transcript (or chat) and offer to play from there.
+const focusedId = ref<string | null>(null)
+const focusMoment = computed(() => (props.focus ? recordingAt(props.focus.at) : null))
+watch(
+  () => props.focus,
+  async (focus) => {
+    if (!focus) return
+    const lines = focus.in === 'chat' ? props.chat : props.transcript
+    if (!lines.length) return
+    section.value = focus.in
+    const time = parseISO(focus.at).getTime()
+    const nearest = [...lines].sort((a, b) => Math.abs(parseISO(a.at).getTime() - time) - Math.abs(parseISO(b.at).getTime() - time))[0]
+    focusedId.value = nearest?.id ?? null
+    await nextTick()
+    document.getElementById(`recap-${focusedId.value}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  },
+  { immediate: true },
+)
 async function download(recording: MeetingRecording) {
   try {
     const url = assetUrl(await meetingsApi.recordingLink(props.meeting.id, recording.id))!
@@ -148,14 +202,24 @@ function downloadTranscript() {
             <li v-for="(decision, index) in meeting.summary.decisions" :key="index">{{ decision }}</li>
           </ul>
         </div>
-        <div v-if="meeting.summary.actionItems.length" class="space-y-1.5">
-          <h3 class="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase"><ListTodo class="size-3.5" /> Action items</h3>
-          <ul class="space-y-1 text-sm">
-            <li v-for="(item, index) in meeting.summary.actionItems" :key="index" class="flex gap-2">
-              <span class="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
-              <span class="min-w-0 flex-1">{{ item.text }}<span v-if="item.owner" class="text-muted-foreground"> · {{ item.owner }}</span></span>
+        <ActionItemsTasks v-if="meeting.summary.actionItems.length && meeting.status !== 'cancelled'" :meeting="meeting" :summary="meeting.summary" @summary="(value) => emit('summary', value)" />
+        <div v-if="chapters.length" class="space-y-1.5">
+          <h3 class="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase"><ListOrdered class="size-3.5" /> Chapters</h3>
+          <ol class="space-y-1 text-sm">
+            <li v-for="chapter in chapters" :key="chapter.at" class="flex gap-2">
+              <span class="w-11 shrink-0 font-mono text-[11px] leading-5 text-muted-foreground tabular-nums">{{ format(parseISO(chapter.at), 'HH:mm') }}</span>
+              <button
+                v-if="recordingAt(chapter.at)"
+                type="button"
+                class="min-w-0 flex-1 text-left hover:text-primary hover:underline"
+                :title="'Play the recording from here'"
+                @click="(section = 'recordings'), play(recordingAt(chapter.at)!.recording, recordingAt(chapter.at)!.offset)"
+              >
+                {{ chapter.title }}
+              </button>
+              <span v-else class="min-w-0 flex-1">{{ chapter.title }}</span>
             </li>
-          </ul>
+          </ol>
         </div>
         <p class="text-[11px] text-muted-foreground">Written by the AI assistant {{ format(parseISO(meeting.summary.generatedAt), 'd MMM, HH:mm') }}. Check it before acting on it.</p>
       </template>
@@ -183,13 +247,32 @@ function downloadTranscript() {
           </template>
           <Button v-if="recording.canDelete" variant="ghost" size="icon-sm" class="text-destructive" aria-label="Delete recording" title="Delete" @click="removeRecording(recording)"><Trash2 /></Button>
         </div>
-        <video v-if="playing?.id === recording.id" :src="playing.url" controls autoplay class="aspect-video w-full rounded-md bg-black" />
+        <template v-if="playing?.id === recording.id">
+          <video ref="player" :src="playing.url" controls autoplay class="aspect-video w-full rounded-md bg-black" @loadedmetadata="onLoaded" />
+          <ol v-if="chaptersOf(recording).length" class="flex flex-wrap gap-1.5" aria-label="Chapters">
+            <li v-for="chapter in chaptersOf(recording)" :key="chapter.at">
+              <button type="button" class="rounded-full border border-border/70 px-2.5 py-1 text-xs transition-colors hover:bg-muted" @click="seek(chapter.offset)">
+                <span class="font-mono text-muted-foreground tabular-nums">{{ clock(chapter.offset) }}</span> {{ chapter.title }}
+              </button>
+            </li>
+          </ol>
+        </template>
       </li>
     </ul>
 
     <div v-else-if="section === 'transcript'" class="flex max-h-[420px] flex-col">
+      <div v-if="focus && focusMoment" class="flex items-center gap-2 border-b border-border/70 bg-primary/5 px-4 py-2 text-xs">
+        <span class="min-w-0 flex-1">This moment is in a recording.</span>
+        <Button variant="outline" size="sm" class="h-7" @click="(section = 'recordings'), play(focusMoment.recording, Math.max(0, focusMoment.offset - 3))"><Play /> Play from here</Button>
+      </div>
       <ol class="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
-        <li v-for="line in transcript" :key="line.id" class="text-sm">
+        <li
+          v-for="line in transcript"
+          :id="`recap-${line.id}`"
+          :key="line.id"
+          class="rounded text-sm transition-colors"
+          :class="focusedId === line.id && 'bg-amber-400/20 ring-4 ring-amber-400/20'"
+        >
           <span class="mr-1.5 font-mono text-[11px] text-muted-foreground tabular-nums">{{ format(parseISO(line.at), 'HH:mm') }}</span>
           <span class="font-semibold">{{ line.speaker.name }}:</span> {{ line.text }}
         </li>
@@ -200,7 +283,13 @@ function downloadTranscript() {
     </div>
 
     <ol v-else-if="section === 'chat'" class="max-h-[420px] space-y-3 overflow-y-auto p-4">
-      <li v-for="message in chat" :key="message.id" class="flex gap-2.5">
+      <li
+        v-for="message in chat"
+        :id="`recap-${message.id}`"
+        :key="message.id"
+        class="flex gap-2.5 rounded transition-colors"
+        :class="focusedId === message.id && 'bg-amber-400/20 ring-4 ring-amber-400/20'"
+      >
         <UserAvatar :user="message.author" size="md" class="mt-0.5" />
         <div class="min-w-0 flex-1">
           <div class="flex items-baseline gap-2">

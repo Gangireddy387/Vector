@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { differenceInSeconds, parseISO } from 'date-fns'
-import { CloudUpload, DoorOpen, LoaderCircle, Lock, Plus, Timer, Undo2, UsersRound } from 'lucide-vue-next'
+import { CloudUpload, DoorOpen, LoaderCircle, Lock, Plus, Sparkles, Timer, Undo2, UsersRound } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useDevice } from '@/composables/useDevice'
@@ -82,6 +82,14 @@ const backToMain = () => call.moveToRoom(null, null).catch((error: Error) => toa
         >
           <span class="size-2 animate-pulse rounded-full bg-red-500" /> REC
         </span>
+        <span
+          v-if="call.transcribing.value?.mode === 'ai'"
+          class="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-[11px] font-semibold text-violet-200"
+          :title="`${call.transcribing.value.by} turned on AI notes: what is said becomes captions and the meeting's transcript`"
+          role="status"
+        >
+          <Sparkles class="size-3" /> AI notes
+        </span>
         <span v-if="call.uploadProgress.value !== null" class="inline-flex shrink-0 items-center gap-1 text-[11px] text-white/70" role="status">
           <CloudUpload class="size-3.5" /> Saving recording {{ call.uploadProgress.value }}%
         </span>
@@ -129,7 +137,7 @@ const backToMain = () => call.moveToRoom(null, null).catch((error: Error) => toa
           class="max-w-full rounded-lg bg-black/75 px-3 py-1.5 text-center text-sm leading-snug text-white shadow-lg backdrop-blur"
           :class="!caption.final && 'text-white/85'"
         >
-          <span class="font-semibold text-sky-200">{{ speakerName(caption) }}:</span> {{ caption.text }}
+          <span class="font-semibold text-sky-200">{{ speakerName(caption) }}:</span> {{ caption.translated ?? caption.text }}
         </p>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto px-4 pb-2">

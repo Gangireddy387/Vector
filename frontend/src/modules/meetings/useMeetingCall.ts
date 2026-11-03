@@ -6,7 +6,10 @@ import { getSocket, onSocketChange } from '@/lib/realtime'
 import type { SocketHandlers } from '@/lib/socket-events'
 import type { UserSummary } from '@/types/models'
 import { type BlurredCamera, blurBackground, blurSupported } from './call/background-blur'
+import { type BackgroundChoice, effectFor, saveChoice, savedChoice } from './call/backgrounds'
 import { captionsSupported, createCaptioner } from './call/captions'
+import { type CleanMicrophone, noiseSupported, suppressNoise } from './call/noise'
+import { type SpeechPiece, type SpeechRecorder, aiNotesSupported, recordSpeech } from './call/transcriber'
 import { type DeviceKind, type DeviceLists, canChooseSpeaker, listDevices, saveDevice, savedDevice, withDevice } from './call/devices'
 import { type CallRecorder, recordingSupported, startRecorder } from './call/recorder'
 import { type CallShortcutAction, callShortcutFor, isTalkKey } from './call/shortcuts'
@@ -14,8 +17,23 @@ import { type CallQuality, createSfuTransport } from './call/sfu'
 import { type StatsSample, measure as measureConnection, worstQuality } from './call/stats'
 import { type MeetingFile, type MeetingLobby, type MeetingPoll, type MeetingQuestion, type WhiteboardStroke, meetingsApi } from './meetings.api'
 
-export type { CallQuality }
-export { canChooseSpeaker, captionsSupported, recordingSupported }
+export type { BackgroundChoice, CallQuality }
+export { aiNotesSupported, canChooseSpeaker, captionsSupported, noiseSupported, recordingSupported }
+
+/** How captions are made: by the server's AI from short recordings, or by each browser's own speech recognition. */
+export type Transcribing = { by: string; since: string; mode?: 'ai' | 'browser' }
+
+/** One question to the in-call assistant (or a "catch me up") and its answer. */
+export interface AssistantTurn {
+  id: number
+  question: string | null
+  answer: string | null
+  error: string | null
+  at: number
+}
+
+const NOISE_KEY = 'vector.meetings.noise'
+const CAPTION_LANGUAGE_KEY = 'vector.meetings.caption-language'
 
 export interface MediaState {
   audio: boolean
@@ -68,6 +86,8 @@ export interface Caption {
   socketId: string
   speaker: { id: string; name: string; guest: boolean }
   text: string
+  /** In the language this person reads captions in (when they chose one). */
+  translated?: string
   final: boolean
   at: number
 }
@@ -143,7 +163,9 @@ type JoinResult = {
   permissions?: CallPermissions
   spotlight?: string | null
   recording?: { by: string; since: string } | null
-  transcribing?: { by: string; since: string } | null
+  transcribing?: Transcribing | null
+  /** The AI assistant is available in this call. */
+  ai?: boolean
   boardOpen?: boolean
   peers?: PeerInfo[]
   chat?: CallChatMessage[]
@@ -157,7 +179,20 @@ type JoinResult = {
 }
 /** How this browser sends and receives video: directly with each person, or through the media server. */
 type MediaRoute = { mode: 'direct' } | { mode: 'sfu'; url: string; token: string }
-type Ack = { ok: boolean; error?: string; poll?: MeetingPoll; recordingId?: string; muted?: number; url?: string; questions?: MeetingQuestion[] }
+type Ack = {
+  ok: boolean
+  error?: string
+  poll?: MeetingPoll
+  recordingId?: string
+  muted?: number
+  url?: string
+  questions?: MeetingQuestion[]
+  question?: MeetingQuestion
+  similar?: MeetingQuestion
+  merged?: number
+  draft?: string
+  answer?: string
+}
 
 export type CallStatus = 'idle' | 'preview' | 'joining' | 'waiting' | 'joined' | 'reconnecting' | 'left'
 
@@ -165,7 +200,6 @@ const AUDIO: MediaTrackConstraints = { echoCancellation: true, noiseSuppression:
 const VIDEO: MediaTrackConstraints = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } }
 const FALLBACK_ICE: RTCIceServer[] = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }]
 export const REACTIONS = ['👍', '👏', '😂', '🎉', '❤️', '😮', '🙏', '🤔']
-const BLUR_KEY = 'vector.meetings.blur'
 const CAPTIONS_KEY = 'vector.meetings.captions'
 const SPEAKING_LEVEL = 0.035
 const STATS_EVERY_MS = 3000
@@ -234,8 +268,19 @@ function createCall() {
   const localRevision = ref(0)
   const screenStream = shallowRef<MediaStream | null>(null)
   const blurStream = shallowRef<MediaStream | null>(null)
-  const blurOn = ref(blurSupported && localStorage.getItem(BLUR_KEY) === '1')
+  /** What is behind this person on camera: nothing, blur, a built-in scene or their own picture. */
+  const background = ref<BackgroundChoice>(blurSupported ? savedChoice() : { kind: 'none' })
+  const blurOn = computed(() => background.value.kind !== 'none')
   const blurBusy = ref(false)
+  /** AI noise suppression on this person's microphone. */
+  const noiseOn = ref(noiseSupported && localStorage.getItem(NOISE_KEY) !== '0')
+  const noiseBusy = ref(false)
+  /** The AI assistant is available in this call (server key and the organization's plan). */
+  const aiAvailable = ref(false)
+  /** The language this person reads captions in (null: as spoken). */
+  const captionLanguage = ref<string | null>(localStorage.getItem(CAPTION_LANGUAGE_KEY) || null)
+  const assistantTurns = ref<AssistantTurn[]>([])
+  const assistantBusy = ref(false)
   const media = reactive<MediaState>({ audio: false, video: false, screen: false })
   const peers = ref<CallPeer[]>([])
   const status = ref<CallStatus>('idle')
@@ -275,7 +320,7 @@ function createCall() {
   /** This browser is the one recording, and how far the upload got afterwards. */
   const recordingHere = ref(false)
   const uploadProgress = ref<number | null>(null)
-  const transcribing = ref<{ by: string; since: string } | null>(null)
+  const transcribing = ref<Transcribing | null>(null)
   const captions = ref<Caption[]>([])
   const showCaptions = ref(localStorage.getItem(CAPTIONS_KEY) !== '0')
   const quality = ref<CallQuality | null>(null)
@@ -308,7 +353,13 @@ function createCall() {
   let recorder: CallRecorder | null = null
   let recordingId: string | null = null
 
+  let denoised: CleanMicrophone | null = null
+  /** Bumped when the microphone others hear changes (noise suppression on or off, another device). */
+  const audioRevision = ref(0)
+
   const audioTrack = () => localStream.value?.getAudioTracks()[0] ?? null
+  /** What others hear: the microphone with background noise removed, when that is on. */
+  const outgoingAudio = () => (denoised && audioTrack() ? denoised.track : audioTrack())
   const cameraTrack = () => localStream.value?.getVideoTracks()[0] ?? null
   const outgoingVideo = () => screenStream.value?.getVideoTracks()[0] ?? blurred?.track ?? cameraTrack()
   const touchLocal = () => {
@@ -316,7 +367,7 @@ function createCall() {
     triggerRef(localStream)
   }
 
-  // --- Camera, microphone, blur ---------------------------------------------------------------------------------
+  // --- Camera, microphone, background effects, noise suppression -----------------------------------------------------
 
   function stopBlur() {
     blurred?.stop()
@@ -324,23 +375,50 @@ function createCall() {
     blurStream.value = null
   }
 
-  /** Puts the blurred copy of the camera in place (or removes it), following the person's choice. */
+  /** Puts the camera with the chosen background in place (or the plain camera), following the person's choice. */
   async function applyBlur() {
     stopBlur()
     const camera = cameraTrack()
-    if (!blurOn.value || !camera) return touchLocal()
+    if (background.value.kind === 'none' || !camera) return touchLocal()
     blurBusy.value = true
     try {
-      blurred = await blurBackground(camera)
-      blurStream.value = new MediaStream([blurred.track])
+      const effect = await effectFor(background.value)
+      if (effect) {
+        blurred = await blurBackground(camera, effect)
+        blurStream.value = new MediaStream([blurred.track])
+      }
     } catch {
-      blurOn.value = false
-      localStorage.removeItem(BLUR_KEY)
-      throw new Error('Background blur could not start on this device.')
+      background.value = { kind: 'none' }
+      saveChoice(background.value)
+      throw new Error('Background effects could not start on this device.')
     } finally {
       blurBusy.value = false
       touchLocal()
     }
+  }
+
+  function stopNoise() {
+    denoised?.stop()
+    denoised = null
+  }
+
+  /** Puts the noise-free copy of the microphone in place (or the plain microphone), following the person's choice. */
+  async function applyNoise() {
+    stopNoise()
+    const microphone = audioTrack()
+    if (noiseOn.value && microphone && noiseSupported) {
+      noiseBusy.value = true
+      try {
+        denoised = await suppressNoise(microphone)
+      } catch {
+        noiseOn.value = false
+        localStorage.setItem(NOISE_KEY, '0')
+        deviceNote.value = 'Noise suppression could not start on this device; your microphone is used as it is.'
+      } finally {
+        noiseBusy.value = false
+      }
+    }
+    audioRevision.value += 1
   }
 
   const audioConstraints = () => withDevice(AUDIO, chosenDevices.audioinput)
@@ -389,6 +467,7 @@ function createCall() {
       old.stop()
       stream.addTrack(next)
       touchLocal()
+      await applyNoise()
     }
     if (kind === 'videoinput' && cameraTrack()) {
       const old = cameraTrack()!
@@ -451,13 +530,14 @@ function createCall() {
     media.video = Boolean(cameraTrack())
     if (status.value === 'idle' || status.value === 'left') status.value = 'preview'
     void refreshDevices()
-    await applyBlur().catch((error: Error) => (deviceNote.value = error.message))
+    await Promise.all([applyBlur().catch((error: Error) => (deviceNote.value = error.message)), applyNoise()])
   }
 
   /** Releases the camera and microphone of a preview nobody joined from. */
   function stopPreview() {
     if (inCall.value || status.value === 'joining' || status.value === 'waiting') return
     stopBlur()
+    stopNoise()
     localStream.value?.getTracks().forEach((track) => track.stop())
     localStream.value = null
     media.audio = false
@@ -473,6 +553,7 @@ function createCall() {
       if (!localStream.value) localStream.value = new MediaStream()
       localStream.value.addTrack(track)
       touchLocal()
+      if (kind === 'audio') await applyNoise()
       return track
     } catch (error) {
       throw new Error(deviceProblem(error, kind === 'audio' ? 'microphone' : 'camera'), { cause: error })
@@ -518,7 +599,7 @@ function createCall() {
     if (route.mode === 'sfu') {
       if (!sfu.connected()) return
       try {
-        await sfu.sendAudio(audioTrack(), media.audio)
+        await sfu.sendAudio(outgoingAudio(), media.audio)
         await sfu.sendVideo(media.screen || media.video ? outgoingVideo() : null, media.screen)
       } catch {
         // Not allowed right now (the host limited sharing or unmuting); the server's state already says so.
@@ -527,7 +608,7 @@ function createCall() {
     }
     for (const connection of connections.values()) {
       if (!connection.started) continue
-      await attach(connection, 'audio', audioTrack())
+      await attach(connection, 'audio', outgoingAudio())
       await attach(connection, 'video', outgoingVideo())
     }
     void tuneSenders()
@@ -623,7 +704,7 @@ function createCall() {
     clearTimeout(connection.startTimer)
     // Without it nothing is negotiated while nobody has a camera or microphone, and the tile waits forever.
     connection.pc.createDataChannel('vector', { negotiated: true, id: 0 })
-    void attach(connection, 'audio', audioTrack())
+    void attach(connection, 'audio', outgoingAudio())
     void attach(connection, 'video', outgoingVideo())
   }
 
@@ -852,16 +933,17 @@ function createCall() {
 
   // --- Server events ------------------------------------------------------------------------------------------------
 
-  function emit<T = Ack>(event: string, payload: unknown = {}) {
+  /** `timeoutMs`: longer for answers the AI writes. */
+  function emit<T = Ack>(event: string, payload: unknown = {}, timeoutMs = 10_000) {
     return new Promise<T>((resolve) => {
       if (!boundSocket?.connected) return resolve({ ok: false, error: 'Not connected. Check your connection.' } as T)
-      boundSocket.timeout(10_000).emit(event, payload, (error: Error | null, response: T) =>
+      boundSocket.timeout(timeoutMs).emit(event, payload, (error: Error | null, response: T) =>
         resolve(error ? ({ ok: false, error: 'No answer from Vector. Check your connection.' } as T) : response),
       )
     })
   }
-  async function act(event: string, payload: unknown = {}) {
-    const result = await emit(event, payload)
+  async function act(event: string, payload: unknown = {}, timeoutMs?: number) {
+    const result = await emit(event, payload, timeoutMs)
     if (!result.ok) throw new Error(result.error ?? 'That did not work. Try again.')
     return result
   }
@@ -995,18 +1077,29 @@ function createCall() {
     recording.value = next
     if (started && !recordingHere.value) toast(`${next.by} started recording the call`, { description: 'Everyone in the call can watch the recording afterwards.' })
   }
-  const onTranscribing = ({ transcribing: next, by }: { transcribing: { by: string; since: string } | null; by: string }) => {
+  const onTranscribing = ({ transcribing: next, by }: { transcribing: Transcribing | null; by: string }) => {
     const changed = Boolean(transcribing.value) !== Boolean(next)
     transcribing.value = next
     if (!next) captions.value = []
-    if (changed && by !== selfUser.value?.name) toast(next ? `${by} turned on live captions` : `${by} turned off live captions`)
+    if (!changed || by === selfUser.value?.name) return
+    if (!next) toast(`${by} turned off live captions`)
+    else if (next.mode === 'ai') toast(`${by} turned on AI notes`, { description: 'What is said is turned into captions and notes for the meeting, and the assistant can follow along.' })
+    else toast(`${by} turned on live captions`)
   }
+  /** Translations that arrived before (or after) the caption they belong to. */
+  const translations = new Map<string, string>()
   const onCaption = (caption: Omit<Caption, 'at'>) => {
-    const entry = { ...caption, at: Date.now() }
+    const entry = { ...caption, translated: translations.get(caption.id), at: Date.now() }
     const known = captions.value.findIndex((item) => item.id === caption.id)
     const list = known >= 0 ? captions.value.map((item, index) => (index === known ? entry : item)) : [...captions.value, entry]
     captions.value = list.filter((item) => !item.final || Date.now() - item.at < CAPTION_LINGER_MS).slice(-4)
     if (caption.final) setTimeout(() => (captions.value = captions.value.filter((item) => item.id !== caption.id || !item.final)), CAPTION_LINGER_MS)
+  }
+  const onCaptionTranslation = ({ id, language, text }: { id: string; language: string; text: string }) => {
+    if (language !== captionLanguage.value) return
+    translations.set(id, text)
+    if (translations.size > 200) translations.delete(translations.keys().next().value!)
+    captions.value = captions.value.map((item) => (item.id === id ? { ...item, translated: text, at: Date.now() } : item))
   }
   const onRemoved = ({ meetingId: id }: { meetingId: string }) => {
     if (id !== meetingId.value) return
@@ -1076,6 +1169,7 @@ function createCall() {
     'meeting:recording': onRecording,
     'meeting:transcribing': onTranscribing,
     'meeting:caption': onCaption,
+    'meeting:caption-translation': onCaptionTranslation,
     'meeting:lobby-mode': onLobbyMode,
     'meeting:breakouts:ended': onBreakoutsEnded,
     'meeting:qa': upsertQuestion,
@@ -1149,6 +1243,8 @@ function createCall() {
     breakouts.value = result.breakouts ?? null
     lobby.value = result.lobby ?? []
     lobbyMode.value = result.lobbyMode ?? 'guests'
+    aiAvailable.value = Boolean(result.ai)
+    if (captionLanguage.value && aiAvailable.value) boundSocket?.emit('meeting:caption-language', { language: captionLanguage.value })
     // The host may not allow unmuting right now: join muted.
     if (media.audio && !canManage.value && !permissions.value.unmute) forceMute(null)
     await useRoute(result.media)
@@ -1218,8 +1314,10 @@ function createCall() {
     stopMeters()
     stopStats()
     captioner.stop()
+    stopSpeechRecorders()
     releaseScreen()
     stopBlur()
+    stopNoise()
     screenStream.value?.getTracks().forEach((track) => track.stop())
     localStream.value?.getTracks().forEach((track) => track.stop())
     screenStream.value = null
@@ -1244,6 +1342,9 @@ function createCall() {
     recording.value = null
     transcribing.value = null
     captions.value = []
+    translations.clear()
+    assistantTurns.value = []
+    aiAvailable.value = false
     polls.value = []
     boardOpen.value = false
     boardStrokes.clear()
@@ -1301,12 +1402,22 @@ function createCall() {
     shareMedia()
   }
 
-  async function toggleBlur() {
-    if (!blurSupported) throw new Error('This browser cannot blur the background.')
-    blurOn.value = !blurOn.value
-    if (blurOn.value) localStorage.setItem(BLUR_KEY, '1')
-    else localStorage.removeItem(BLUR_KEY)
+  /** Changes what is behind this person on camera (kept for their next calls on this device). */
+  async function setBackground(choice: BackgroundChoice) {
+    if (choice.kind !== 'none' && !blurSupported) throw new Error('This browser cannot change the background.')
+    background.value = choice
+    saveChoice(choice)
     await applyBlur()
+    await refreshOutgoing()
+  }
+  /** Blur on, or the background back to normal. */
+  const toggleBlur = () => setBackground(background.value.kind === 'none' ? { kind: 'blur' } : { kind: 'none' })
+
+  async function toggleNoise() {
+    if (!noiseSupported) throw new Error('This browser cannot remove background noise.')
+    noiseOn.value = !noiseOn.value
+    localStorage.setItem(NOISE_KEY, noiseOn.value ? '1' : '0')
+    await applyNoise()
     await refreshOutgoing()
   }
 
@@ -1387,12 +1498,28 @@ function createCall() {
 
   // --- Q&A ----------------------------------------------------------------------------------------------------------
 
-  async function askQuestion(text: string) {
-    const result = (await act('meeting:qa:ask', { text })) as Ack & { question?: MeetingQuestion }
+  /**
+   * Posts a question. With the AI assistant, when one like it is already open, nothing is posted and that one is
+   * returned (`similar`): the person can upvote it instead, or ask again with `force`.
+   */
+  async function askQuestion(text: string, force = false): Promise<{ similar: MeetingQuestion | null }> {
+    const result = await act('meeting:qa:ask', { text, force }, 20_000)
     if (result.question) upsertQuestion(result.question)
+    return { similar: result.similar ?? null }
   }
   const upvoteQuestion = (questionId: string) => act('meeting:qa:upvote', { questionId })
-  const answerQuestion = (questionId: string, answered = true) => act('meeting:qa:answer', { questionId, answered })
+  /** Marks a question answered (or open again); `answer` is shown to everyone under it. */
+  const answerQuestion = (questionId: string, answered = true, answer?: string) => act('meeting:qa:answer', { questionId, answered, ...(answer !== undefined ? { answer } : {}) })
+  /** The host merges open questions that ask the same thing; returns how many were folded in. */
+  async function mergeQuestions() {
+    const result = await act('meeting:qa:merge', {}, 60_000)
+    return result.merged ?? 0
+  }
+  /** An answer drafted by the AI assistant, for the host to edit and publish. */
+  async function draftAnswer(questionId: string) {
+    const result = await act('meeting:qa:draft', { questionId }, 60_000)
+    return result.draft ?? ''
+  }
   const removeQuestion = (questionId: string) => act('meeting:qa:remove', { questionId })
 
   // --- Phone callers ------------------------------------------------------------------------------------------------
@@ -1428,12 +1555,83 @@ function createCall() {
     (part) => boundSocket?.emit('meeting:caption', part),
     (reason) => (deviceNote.value = reason),
   )
-  // Each browser captions its own speaker, only while captions are on and its microphone is.
+  // Without the AI assistant, each browser captions its own speaker while captions and its microphone are on.
   watch(
-    () => Boolean(inCall.value && transcribing.value && media.audio),
+    () => Boolean(inCall.value && transcribing.value && transcribing.value.mode !== 'ai' && media.audio),
     (on) => (on && captionsSupported ? captioner.start() : captioner.stop()),
   )
   const setTranscribing = (on: boolean) => act('meeting:transcribe', { on })
+
+  // --- AI notes: short recordings of speech, turned into text by the server ---------------------------------------
+
+  const speechRecorders = new Map<string, SpeechRecorder>()
+  function stopSpeechRecorders() {
+    for (const speech of speechRecorders.values()) speech.stop()
+    speechRecorders.clear()
+  }
+  async function sendSpeech(piece: SpeechPiece, phone?: { identity: string; name: string }) {
+    if (!boundSocket?.connected || piece.audio.size < 1500) return
+    const audio = await piece.audio.arrayBuffer()
+    boundSocket.emit('meeting:audio', { audio, mimeType: piece.mimeType, durationMs: piece.durationMs, ...(phone ? { phone } : {}) })
+  }
+  /** One person running the call records phone callers (the one first in order, so it is done once). */
+  const recordsPhones = computed(
+    () => canManage.value && !isGuest.value && !peers.value.some((peer) => roleRank(peer.role) > 0 && !peer.guest && peer.socketId < (selfId.value ?? '')),
+  )
+  watch(
+    () => {
+      const on = inCall.value && transcribing.value?.mode === 'ai' && aiNotesSupported
+      // The revisions make the key change when the microphone (or its noise-free copy) is replaced.
+      const own = on && media.audio ? `self:${audioRevision.value}.${localRevision.value}:${outgoingAudio()?.id ?? ''}` : ''
+      const phones = on && recordsPhones.value ? phoneCallers.value.map((caller) => `${caller.identity}:${caller.stream?.getAudioTracks()[0]?.id ?? ''}`) : []
+      return [own, ...phones].filter((key) => key && !key.endsWith(':')).join('|')
+    },
+    (wanted) => {
+      const keys = new Set(wanted ? wanted.split('|') : [])
+      for (const [key, speech] of speechRecorders) {
+        if (keys.has(key)) continue
+        speech.stop()
+        speechRecorders.delete(key)
+      }
+      for (const key of keys) {
+        if (speechRecorders.has(key)) continue
+        if (key.startsWith('self:')) {
+          const track = outgoingAudio()
+          if (track) speechRecorders.set(key, recordSpeech(track, (piece) => void sendSpeech(piece)))
+          continue
+        }
+        const identity = key.slice(0, key.lastIndexOf(':'))
+        const caller = phoneCallers.value.find((item) => item.identity === identity)
+        const track = caller?.stream?.getAudioTracks()[0]
+        if (caller && track) speechRecorders.set(key, recordSpeech(track, (piece) => void sendSpeech(piece, { identity, name: caller.name })))
+      }
+    },
+  )
+
+  /** The language this person reads captions in (null: as spoken); translation needs the AI assistant. */
+  async function setCaptionLanguage(language: string | null) {
+    captionLanguage.value = language
+    if (language) localStorage.setItem(CAPTION_LANGUAGE_KEY, language)
+    else localStorage.removeItem(CAPTION_LANGUAGE_KEY)
+    translations.clear()
+    captions.value = captions.value.map((item) => ({ ...item, translated: undefined }))
+    if (inCall.value) await act('meeting:caption-language', { language })
+  }
+
+  // --- The in-call assistant --------------------------------------------------------------------------------------
+
+  let turnKey = 0
+  /** "Catch me up" (no question) or a question about the meeting so far; only this person sees the answer. */
+  async function askAssistant(question: string | null = null) {
+    const turn: AssistantTurn = { id: (turnKey += 1), question, answer: null, error: null, at: Date.now() }
+    assistantTurns.value = [...assistantTurns.value, turn]
+    assistantBusy.value = true
+    const result = await emit('meeting:ai:ask', { question }, 60_000)
+    assistantBusy.value = false
+    assistantTurns.value = assistantTurns.value.map((item) =>
+      item.id === turn.id ? { ...item, answer: result.ok ? (result.answer ?? '') : null, error: result.ok ? null : (result.error ?? 'The assistant could not answer.') } : item,
+    )
+  }
   function toggleCaptionsView() {
     showCaptions.value = !showCaptions.value
     localStorage.setItem(CAPTIONS_KEY, showCaptions.value ? '1' : '0')
@@ -1441,9 +1639,9 @@ function createCall() {
 
   // --- Recording ----------------------------------------------------------------------------------------------------
 
-  const voices = () => [audioTrack(), ...peers.value.map((peer) => peer.stream?.getAudioTracks()[0] ?? null)].filter((track): track is MediaStreamTrack => Boolean(track))
+  const voices = () => [outgoingAudio(), ...peers.value.map((peer) => peer.stream?.getAudioTracks()[0] ?? null)].filter((track): track is MediaStreamTrack => Boolean(track))
   watch(
-    () => [peers.value.map((peer) => `${peer.socketId}:${peer.revision}`).join(), localRevision.value, media.audio] as const,
+    () => [peers.value.map((peer) => `${peer.socketId}:${peer.revision}`).join(), localRevision.value, audioRevision.value, media.audio] as const,
     () => recorder?.setAudio(voices()),
   )
 
@@ -1565,6 +1763,7 @@ function createCall() {
       chat: () => requestPanel('chat'),
       people: () => requestPanel('people'),
       qa: () => requestPanel('qa'),
+      assistant: () => (aiAvailable.value ? requestPanel('assistant') : undefined),
       whiteboard: () => (isGuest.value ? undefined : setBoardOpen(!boardOpen.value)),
       leave,
       talk: () => undefined,
@@ -1661,6 +1860,19 @@ function createCall() {
     boardStrokes,
     blurOn,
     blurBusy,
+    background,
+    setBackground,
+    noiseOn,
+    noiseBusy,
+    toggleNoise,
+    aiAvailable,
+    captionLanguage,
+    setCaptionLanguage,
+    assistantTurns,
+    assistantBusy,
+    askAssistant,
+    mergeQuestions,
+    draftAnswer,
     permissions,
     spotlight,
     recording,

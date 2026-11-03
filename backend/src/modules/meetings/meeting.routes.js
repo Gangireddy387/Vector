@@ -10,8 +10,11 @@ import { MEETING_CONTEXTS, MEETING_LOBBY_MODES, MEETING_RECURRENCES } from './me
 import { phoneEnabled } from './meeting.phone.js';
 import { calendarFile } from './meeting.notify.js';
 import { meetingRecordingRoutes } from './meeting.recordings.js';
+import { ISSUE_PRIORITIES } from '../issues/issue.model.js';
+import { meetingAiAllowed } from './meeting.ai-access.js';
+import { draftAgenda, suggestTimes } from './meeting.planning.js';
+import { searchMeetings } from './meeting.search.js';
 import * as service from './meeting.service.js';
-import { canSummarize } from './meeting.summary.js';
 
 const fields = {
   title: z.string().trim().min(2, 'Give the meeting a title of at least 2 characters').max(160),
@@ -34,6 +37,39 @@ const updateSchema = z
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one change');
 const updatePostSchema = z.object({ body: z.string().trim().min(1, 'Write your update').max(4000) });
+const searchSchema = z.object({ q: z.string().trim().min(2, 'Type at least 2 characters').max(300) });
+const agendaSchema = z.object({
+  title: z.string().trim().max(160).optional(),
+  durationMinutes: z.number().int().min(15).max(480).optional(),
+  ...context,
+  meetingId: z.string().uuid().nullable().optional(),
+  seriesId: z.string().uuid().nullable().optional(),
+});
+const suggestSchema = z.object({
+  participantIds: z.array(z.string().uuid()).max(100),
+  durationMinutes: z.number().int().min(15).max(480),
+  from: z.coerce.date().optional(),
+  days: z.number().int().min(1).max(14).optional(),
+});
+const tasksSchema = z.object({
+  projectId: z.string().uuid('Choose a project'),
+  items: z
+    .array(
+      z.object({
+        index: z.number().int().min(0).max(100),
+        title: z.string().trim().min(1, 'Give each task a title').max(255),
+        assigneeId: z.string().uuid().nullable().optional(),
+        dueDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable()
+          .optional(),
+        priority: z.enum(ISSUE_PRIORITIES).nullable().optional(),
+      }),
+    )
+    .min(1, 'Choose at least one action item')
+    .max(40),
+});
 
 /** Video meetings: scheduling, joining details, shared updates and notes (the call itself runs over the socket). */
 const router = Router();
@@ -47,17 +83,29 @@ router.get(base, validate({ query: listSchema }), async (req, res) => {
 });
 router.get(`${base}/permissions`, async (req, res) => res.json({ canSchedule: await service.canSchedule(viewer(req)) }));
 /** What this server's calls can do, so the app shows only what works. */
-router.get(`${base}/capabilities`, (_req, res) =>
+router.get(`${base}/capabilities`, async (req, res) => {
+  const ai = await meetingAiAllowed(req.organization.id);
   res.json({
     media: sfuEnabled() ? 'sfu' : 'direct',
     capacity: callCapacity(),
-    summaries: canSummarize(),
+    summaries: ai,
+    /** The AI assistant: notes from speech, translated captions, catch-up, agendas, meaning-based search. */
+    ai,
     reminderMinutes: config.meetings.reminderMinutes,
     recordingMaxMb: config.meetings.recordingMaxMb,
     fileMaxMb: config.uploads.maxFileSizeMb,
     dialIn: phoneEnabled(),
-  }),
-);
+  });
+});
+/** What was said and written in meetings this person may open, best match first. */
+router.get(`${base}/search`, validate({ query: searchSchema }), async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(await searchMeetings(viewer(req), req.filters.q));
+});
+/** An agenda drafted from the linked project's work and the previous meeting's open action items. */
+router.post(`${base}/agenda-draft`, validate({ body: agendaSchema }), async (req, res) => res.json(await draftAgenda(viewer(req), req.body)));
+/** Times when everyone invited is free, inside their working hours. */
+router.post(`${base}/suggest-times`, validate({ body: suggestSchema }), async (req, res) => res.json(await suggestTimes(viewer(req), req.body)));
 router.get(`${base}/ice-servers`, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json(await iceServersFor(req.user.id));
@@ -98,6 +146,10 @@ router.get(`${base}/:meetingId/attendance`, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json({ attendance: await service.meetingAttendance(viewer(req), req.params.meetingId) });
 });
+/** Turns the summary's action items into tasks in a project. */
+router.post(`${base}/:meetingId/action-items/tasks`, validate({ body: tasksSchema }), async (req, res) =>
+  res.status(201).json(await service.createActionItemTasks(viewer(req), req.params.meetingId, req.body)),
+);
 router.use(meetingRecordingRoutes);
 router.use(meetingFileRoutes);
 

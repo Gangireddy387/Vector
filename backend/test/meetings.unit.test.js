@@ -7,6 +7,7 @@ import { PROVIDERS } from '../src/modules/calendar-sync/providers.js';
 import { cleanBoardItem } from '../src/modules/meetings/meeting.collab.js';
 import { meetingIcs } from '../src/modules/meetings/meeting.ics.js';
 import { dialInFor, isPhoneIdentity, phoneCallerName } from '../src/modules/meetings/meeting.phone.js';
+import { matchOwner } from '../src/modules/meetings/meeting.summary.js';
 import { callCapacity, mediaFor, publishSources, sfuEnabled } from '../src/modules/meetings/meeting.media.js';
 import { remindedAtFor, whenFor } from '../src/modules/meetings/meeting.notify.js';
 import { nextStart } from '../src/modules/meetings/meeting.recurrence.js';
@@ -300,6 +301,23 @@ describe('calendar sync', () => {
 
   it('is off until an OAuth app is configured', () => {
     assert.equal(PROVIDERS.google.configured(), Boolean(config.calendar.google.clientId && config.calendar.google.clientSecret));
+  });
+});
+
+describe('meeting summaries', () => {
+  const people = [
+    { id: 'a', name: 'Priya Sharma' },
+    { id: 'b', name: 'Rahul Verma' },
+    { id: 'c', name: 'Rahul Gupta' },
+  ];
+
+  it('matches action item owners to invited people by full or unique first name', () => {
+    assert.equal(matchOwner('priya sharma', people), 'a');
+    assert.equal(matchOwner('Priya', people), 'a');
+    assert.equal(matchOwner('Rahul', people), null, 'two people are called Rahul');
+    assert.equal(matchOwner('Rahul Gupta', people), 'c');
+    assert.equal(matchOwner(null, people), null);
+    assert.equal(matchOwner('Someone else', people), null);
   });
 });
 

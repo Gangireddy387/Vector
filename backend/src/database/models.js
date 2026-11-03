@@ -38,6 +38,7 @@ import {
   MeetingParticipant,
   MeetingPoll,
   MeetingQuestion,
+  MeetingSearchChunk,
   MeetingRecording,
   MeetingTranscriptLine,
   MeetingUpdate,
@@ -200,6 +201,7 @@ MeetingRecording.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', o
 Meeting.hasMany(MeetingAttendance, { as: 'attendance', foreignKey: 'meetingId', ...cascade });
 Meeting.hasMany(MeetingFile, { as: 'files', foreignKey: 'meetingId', ...cascade });
 Meeting.hasMany(MeetingQuestion, { as: 'questions', foreignKey: 'meetingId', ...cascade });
+Meeting.hasMany(MeetingSearchChunk, { as: 'searchChunks', foreignKey: 'meetingId', ...cascade });
 Meeting.hasOne(MeetingCalendarLink, { as: 'calendarLink', foreignKey: 'meetingId', ...cascade });
 MeetingCalendarLink.belongsTo(Meeting, { as: 'meeting', foreignKey: 'meetingId' });
 User.hasMany(CalendarConnection, { as: 'calendarConnections', foreignKey: 'userId', ...cascade });
@@ -258,6 +260,7 @@ export {
   MeetingAttendance,
   MeetingFile,
   MeetingQuestion,
+  MeetingSearchChunk,
   CalendarConnection,
   MeetingCalendarLink,
   PushSubscription,

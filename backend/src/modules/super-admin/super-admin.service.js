@@ -9,6 +9,7 @@ import { organizationApprovedEmail, organizationRejectedEmail } from '../../shar
 import { broadcastOrganization, purgeOrganization, toPublicOrganization } from '../organizations/organization.service.js';
 import { entitlementsFor, featureSettingsFor, setOrganizationFeatures, setOrganizationPlan, withPlan } from '../plans/plan.service.js';
 import { isUuid } from '../../shared/utils/ids.js';
+import { forgetMeetingAiAccess } from '../meetings/meeting.ai-access.js';
 import { pickAvatarColor } from '../users/user.service.js';
 
 export const isSuperAdmin = (user) => Boolean(config.superAdmin.email) && user?.email?.toLowerCase() === config.superAdmin.email;
@@ -127,12 +128,14 @@ async function review(organizationId, actor, status, reason = null) {
 
 /** Moves an organization to another plan; its people see the new features and limits right away. */
 export async function changeOrganizationPlan(organizationId, planId) {
+  forgetMeetingAiAccess(organizationId);
   await broadcastOrganization(await setOrganizationPlan(organizationId, planId));
   return (await listOrganizations()).find((item) => item.id === organizationId);
 }
 
 /** Turns features on or off for one organization, whatever its plan says; its people see the change right away. */
 export async function changeOrganizationFeatures(organizationId, changes) {
+  forgetMeetingAiAccess(organizationId);
   const organization = await setOrganizationFeatures(organizationId, changes);
   await broadcastOrganization(organization);
   return { organization: (await listOrganizations()).find((item) => item.id === organizationId), features: featureSettingsFor(organization) };

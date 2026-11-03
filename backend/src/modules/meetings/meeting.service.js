@@ -19,7 +19,10 @@ import {
 import { ApiError } from '../../shared/errors/api-error.js';
 import { emitToUser, isUserOnline } from '../../shared/realtime/socket.js';
 import { localDateTime } from '../../shared/utils/timezone.js';
+import { appUrl } from '../../shared/services/email-templates.js';
 import { deleteStoredFile } from '../attachments/attachment.storage.js';
+import { createIssue } from '../issues/issue.service.js';
+import { assertProjectRole, projectRoleOf } from '../projects/project-access.js';
 import { calendarSendsInvites, pullCalendarChanges, pushMeetingLater } from '../calendar-sync/calendar-sync.service.js';
 import { notifyUsers } from '../notifications/notification.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
@@ -31,8 +34,12 @@ import { dialInFor, ensureDialIn, releaseDialIn } from './meeting.phone.js';
 import { meetingQuestions } from './meeting.qa.js';
 import { nextStart } from './meeting.recurrence.js';
 import { recordingView } from './meeting.recordings.js';
+import { meetingUrl } from './meeting.ring.js';
 import { callPresence, closeCall, dismissLobby } from './meeting.signaling.js';
-import { canSummarize, summarizeInBackground, summarizeMeeting } from './meeting.summary.js';
+import { meetingAiAllowed } from './meeting.ai-access.js';
+import { followupInBackground, sendRecap } from './meeting.followup.js';
+import { indexInBackground } from './meeting.search.js';
+import { summarizeMeeting } from './meeting.summary.js';
 
 /*
  * Every function takes the `viewer`: { id, name, organization, isAdmin }. Organization admins, department heads and
@@ -409,7 +416,7 @@ export async function endMeeting(viewer, meetingId) {
   await closeCall(meeting.id, 'ended');
   await releaseDialIn(meeting);
   notifyChanged(meeting);
-  summarizeInBackground(meeting.id);
+  followupInBackground(meeting.id);
   return summarize(await reload(meeting), viewer);
 }
 
@@ -452,10 +459,60 @@ export const meetingRecord = (viewer, meetingId) => loadMeeting(viewer, meetingI
 export async function writeSummary(viewer, meetingId) {
   const meeting = await loadMeeting(viewer, meetingId);
   assertManage(viewer, meeting);
-  if (!canSummarize()) throw ApiError.badRequest('Summaries need the AI assistant. Set OPENAI_API_KEY on the server to turn it on.');
+  if (!(await meetingAiAllowed(viewer.organization.id))) {
+    throw ApiError.badRequest('Summaries need the AI assistant: an OpenAI key on the server and the AI assistant in your plan.');
+  }
   const summary = await summarizeMeeting(meeting.id);
   if (!summary) throw ApiError.badRequest('There is nothing to summarize yet: turn on captions, chat, or share updates and notes first.');
+  indexInBackground(meeting.id);
+  if (meeting.status === 'ended') void sendRecap(meeting.id).catch(() => undefined);
   return summary;
+}
+
+/**
+ * Turns action items from the summary into tasks in a project (anyone invited who may create tasks there). `items`:
+ * [{ index, title, assigneeId, dueDate, priority }]; each action item becomes one task, once.
+ */
+export async function createActionItemTasks(viewer, meetingId, { projectId, items }) {
+  const meeting = await loadMeeting(viewer, meetingId);
+  const actionItems = meeting.summary?.actionItems ?? [];
+  if (!actionItems.length) throw ApiError.badRequest('This meeting has no action items yet');
+  await assertProjectRole(projectId, viewer.id, 'member');
+  const actor = await User.findByPk(viewer.id);
+  const link = appUrl(await meetingUrl(meeting));
+  const day = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(meeting.startedAt ?? meeting.startsAt));
+  const created = [];
+  const skipped = [];
+  for (const item of items) {
+    const target = actionItems[item.index];
+    if (!target || target.issue) continue;
+    let assigneeId = item.assigneeId ?? null;
+    if (assigneeId && !(await projectRoleOf(projectId, assigneeId))) {
+      skipped.push(item.title);
+      assigneeId = null;
+    }
+    const issue = await createIssue(
+      {
+        projectId,
+        title: item.title.trim().slice(0, 255) || target.text,
+        description: `From the meeting “${meeting.title}” on ${day}.\n\n[Open the meeting](${link})`,
+        assigneeId,
+        dueDate: item.dueDate ?? null,
+        priority: item.priority ?? 'medium',
+      },
+      actor,
+      { source: 'meeting' },
+    );
+    target.issue = { id: issue.id, key: issue.key, projectId };
+    created.push({ index: item.index, key: issue.key, id: issue.id });
+  }
+  if (created.length) {
+    meeting.summary = { ...meeting.summary, actionItems };
+    meeting.changed('summary', true);
+    await meeting.save();
+    notifyChanged(meeting);
+  }
+  return { summary: meeting.summary, created, unassigned: skipped };
 }
 
 export async function postUpdate(viewer, meetingId, body) {

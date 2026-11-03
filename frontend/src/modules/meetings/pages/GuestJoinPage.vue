@@ -12,6 +12,7 @@ import { useDevice } from '@/composables/useDevice'
 import { assetUrl, getErrorMessage } from '@/lib/http'
 import { connectGuestRealtime, connectRealtime, disconnectRealtime } from '@/lib/realtime'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import BackgroundPicker from '../components/BackgroundPicker.vue'
 import CallView from '../components/CallView.vue'
 import GuestPanel from '../components/GuestPanel.vue'
 import DeviceSettings from '../components/DeviceSettings.vue'
@@ -28,6 +29,7 @@ const props = defineProps<{ token: string }>()
 const NAME_KEY = 'vector.guestName'
 const auth = useAuthStore()
 const call = useMeetingCall()
+const backgroundsOpen = ref(false)
 const { isDesktop } = useDevice()
 
 const info = ref<GuestLinkInfo | null>(null)
@@ -206,15 +208,16 @@ const startsLabel = computed(() => (info.value ? format(parseISO(info.value.meet
                   type="button"
                   class="flex size-11 items-center justify-center rounded-full text-white backdrop-blur transition-colors disabled:opacity-40"
                   :class="call.blurOn.value ? 'bg-sky-500 hover:bg-sky-500/90' : 'bg-white/15 hover:bg-white/25'"
-                  :disabled="call.blurBusy.value || !call.media.video"
-                  :aria-label="call.blurOn.value ? 'Turn off background blur' : 'Blur my background'"
-                  @click="run(call.toggleBlur)"
+                  :disabled="call.blurBusy.value"
+                  aria-label="Background effects"
+                  @click="backgroundsOpen = true"
                 >
                   <Sparkles class="size-5" />
                 </button>
                 <DeviceSettings button-class="flex size-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25" />
               </div>
             </div>
+            <BackgroundPicker v-model:open="backgroundsOpen" />
             <p v-if="call.deviceNote.value" class="border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 dark:text-warning">{{ call.deviceNote.value }}</p>
           </div>
 

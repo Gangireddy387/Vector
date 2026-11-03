@@ -2,10 +2,12 @@
 import {
   Captions,
   CaptionsOff,
+  Check,
   Circle,
   DoorOpen,
   Ellipsis,
   Hand,
+  Languages,
   Lock,
   LockOpen,
   Mic,
@@ -22,8 +24,9 @@ import {
   SquareX,
   Video,
   VideoOff,
+  Wallpaper,
 } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import {
   DropdownMenu,
@@ -36,10 +39,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useConfirm } from '@/composables/useConfirm'
+import { CAPTION_LANGUAGES, languageLabel } from '../call/languages'
 import { CALL_SHORTCUTS, type CallShortcutAction } from '../call/shortcuts'
 import { useCallTiles } from '../call/tiles'
 import { usePictureInPicture } from '../call/usePictureInPicture'
-import { type CallPermissions, REACTIONS, blurSupported, canShareScreen, captionsSupported, recordingSupported, useMeetingCall } from '../useMeetingCall'
+import { type CallPermissions, REACTIONS, blurSupported, canShareScreen, captionsSupported, noiseSupported, recordingSupported, useMeetingCall } from '../useMeetingCall'
+import BackgroundPicker from './BackgroundPicker.vue'
 import DeviceSettings from './DeviceSettings.vue'
 
 /** The buttons under the call: devices, presenting, hand and reactions, whiteboard, rooms, and leaving. */
@@ -49,6 +54,7 @@ const emit = defineEmits<{ panel: []; leave: []; end: []; breakouts: [] }>()
 const call = useMeetingCall()
 const pip = usePictureInPicture()
 const { featured } = useCallTiles()
+const backgroundsOpen = ref(false)
 
 async function run(action: () => unknown) {
   try {
@@ -92,7 +98,7 @@ async function toggleRecording() {
 async function toggleTranscription() {
   const on = !call.transcribing.value
   await call.setTranscribing(on)
-  if (on && !captionsSupported) toast('Captions are on', { description: 'This browser cannot caption your own speech; use Chrome or Edge for that.' })
+  if (on && !call.aiAvailable.value && !captionsSupported) toast('Captions are on', { description: 'This browser cannot caption your own speech; use Chrome or Edge for that.' })
 }
 
 /** "Mute (Ctrl+D)": the keyboard shortcut in the button's tooltip. */
@@ -193,15 +199,44 @@ const badge = computed(() => (call.unreadChat.value > 9 ? '9+' : String(call.unr
       <Captions v-if="call.showCaptions.value" class="size-5" />
       <CaptionsOff v-else class="size-5" />
     </button>
+    <Popover v-if="call.transcribing.value && call.aiAvailable.value">
+      <PopoverTrigger as-child>
+        <button
+          type="button"
+          :class="[round, call.captionLanguage.value ? 'bg-sky-500 hover:bg-sky-500/90' : idle]"
+          aria-label="Caption language"
+          :title="call.captionLanguage.value ? `Captions in ${languageLabel(call.captionLanguage.value)}` : 'Translate captions'"
+        >
+          <Languages class="size-5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" class="w-64 p-1">
+        <p class="px-2 py-1.5 text-xs font-medium text-muted-foreground">Show captions in</p>
+        <div class="max-h-72 overflow-y-auto">
+          <button
+            v-for="language in [{ code: null, label: 'As spoken' }, ...CAPTION_LANGUAGES]"
+            :key="language.code ?? 'original'"
+            type="button"
+            class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+            @click="run(() => call.setCaptionLanguage(language.code))"
+          >
+            {{ language.label }}
+            <Check v-if="call.captionLanguage.value === language.code" class="size-4 text-primary" />
+          </button>
+        </div>
+        <p class="px-2 py-1.5 text-[11px] text-muted-foreground">Translated by the AI assistant, only for you.</p>
+      </PopoverContent>
+    </Popover>
     <DeviceSettings :button-class="[round, idle].join(' ')" />
     <DropdownMenu>
       <DropdownMenuTrigger as-child>
         <button type="button" :class="[round, idle]" aria-label="More options" title="More"><Ellipsis class="size-5" /></button>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="center" class="max-h-[70vh] w-64 overflow-y-auto">
-        <DropdownMenuItem v-if="blurSupported" :disabled="call.blurBusy.value || !call.media.video" @select="run(call.toggleBlur)">
-          <Sparkles /> {{ call.blurOn.value ? 'Turn off background blur' : 'Blur my background' }}
-        </DropdownMenuItem>
+        <DropdownMenuItem v-if="blurSupported" :disabled="call.blurBusy.value" @select="backgroundsOpen = true"><Wallpaper /> Background effects…</DropdownMenuItem>
+        <DropdownMenuCheckboxItem v-if="noiseSupported" :model-value="call.noiseOn.value" :disabled="call.noiseBusy.value" @select.prevent @update:model-value="run(call.toggleNoise)">
+          Remove background noise
+        </DropdownMenuCheckboxItem>
         <DropdownMenuItem v-if="pip.supported" @select="run(() => pip.open(featured.id))"><PictureInPicture2 /> Pop out the call</DropdownMenuItem>
         <template v-if="isManager">
           <DropdownMenuSeparator />
@@ -210,7 +245,8 @@ const badge = computed(() => (call.unreadChat.value > 9 ? '9+' : String(call.unr
             {{ call.recordingHere.value ? 'Stop recording' : call.recording.value ? `${call.recording.value.by} is recording` : 'Record the call' }}
           </DropdownMenuItem>
           <DropdownMenuItem @select="run(toggleTranscription)">
-            <Captions /> {{ call.transcribing.value ? 'Turn off live captions' : 'Turn on live captions' }}
+            <template v-if="call.aiAvailable.value"><Sparkles /> {{ call.transcribing.value ? 'Turn off AI notes and captions' : 'Turn on AI notes and captions' }}</template>
+            <template v-else><Captions /> {{ call.transcribing.value ? 'Turn off live captions' : 'Turn on live captions' }}</template>
           </DropdownMenuItem>
           <DropdownMenuItem @select="run(muteEveryone)"><MicOff /> Mute everyone</DropdownMenuItem>
           <DropdownMenuItem @select="run(toggleLock)">
@@ -264,5 +300,6 @@ const badge = computed(() => (call.unreadChat.value > 9 ? '9+' : String(call.unr
     >
       <SquareX class="size-4" /> End for everyone
     </button>
+    <BackgroundPicker v-model:open="backgroundsOpen" />
   </footer>
 </template>

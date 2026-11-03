@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
-import { BarChart3, CircleHelp, ClipboardList, Crown, MessageCircle, MessageSquareText, NotebookPen, Send, Trash2, UsersRound } from 'lucide-vue-next'
+import { BarChart3, CircleHelp, ClipboardList, Crown, MessageCircle, MessageSquareText, NotebookPen, Send, Sparkles, Trash2, UsersRound } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -13,13 +13,14 @@ import { timeAgo } from '@/lib/format'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type Meeting, type MeetingPoll, type MeetingQuestion, type MeetingResponse, type MeetingUpdate, meetingsApi } from '../meetings.api'
 import { useMeetingCall } from '../useMeetingCall'
+import CallAssistant from './CallAssistant.vue'
 import CallChat from './CallChat.vue'
 import CallPeople from './CallPeople.vue'
 import CallPolls from './CallPolls.vue'
 import CallQa from './CallQa.vue'
 import GuestLinkCard from './GuestLinkCard.vue'
 
-export type MeetingPanelTab = 'chat' | 'people' | 'qa' | 'polls' | 'updates' | 'notes'
+export type MeetingPanelTab = 'chat' | 'people' | 'assistant' | 'qa' | 'polls' | 'updates' | 'notes'
 
 /**
  * Beside the call (`live`): chat, people, Q&A, polls, updates and notes. Before and after it: updates, people, notes,
@@ -110,6 +111,7 @@ const tabs = computed(() => {
     { value: 'people', label: 'People', icon: UsersRound, count: props.live ? call.peers.value.length + 1 : people.value.length, alert: props.live && call.lobby.value.length > 0 },
     { value: 'updates', label: 'Updates', icon: MessageSquareText, count: props.updates.length || undefined },
   )
+  if (props.live && call.aiAvailable.value) list.push({ value: 'assistant', label: 'AI', icon: Sparkles })
   const openQuestions = call.questions.value.filter((question) => !question.answeredAt).length
   if (props.live || props.questions.length) list.push({ value: 'qa', label: 'Q&A', icon: CircleHelp, count: props.live ? openQuestions || undefined : props.questions.length })
   if (props.live || props.polls.length) list.push({ value: 'polls', label: 'Polls', icon: BarChart3, count: props.live ? call.polls.value.length || undefined : props.polls.length })
@@ -179,6 +181,8 @@ const RESPONSE_LOOK: Record<MeetingResponse, { label: string; tone: string }> = 
     </div>
 
     <CallChat v-if="tab === 'chat' && live" :file-max-mb="fileMaxMb" />
+
+    <CallAssistant v-else-if="tab === 'assistant' && live" />
 
     <CallQa v-else-if="tab === 'qa'" :questions="live ? null : questions" />
 

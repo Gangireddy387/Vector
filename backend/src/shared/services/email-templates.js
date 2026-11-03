@@ -321,6 +321,39 @@ export const meetingEmail = ({ kind, title, when, duration, hostName, organizati
   };
 };
 
+/**
+ * After a meeting: what was discussed and decided, the reader's own action items first, and a link to the
+ * recording, transcript and chat.
+ */
+export const meetingRecapEmail = ({ title, when, organization, summary, mine = [], others = [], recordings = 0, link }) => {
+  const list = (items) =>
+    `<ul style="margin:6px 0 0;padding-left:20px">${items
+      .map((item) => `<li style="margin:2px 0">${escapeHtml(item.text)}${item.owner ? ` <span style="color:#71717a">&middot; ${escapeHtml(item.owner)}</span>` : ''}${item.due ? ` <span style="color:#71717a">&middot; due ${escapeHtml(item.due)}</span>` : ''}</li>`)
+      .join('')}</ul>`;
+  const section = (heading, body) => `<p style="margin:18px 0 0;font-weight:600;color:#18181b">${escapeHtml(heading)}</p>${body}`;
+  const intro = [
+    summary?.text ? `<p style="margin:0;white-space:pre-wrap">${escapeHtml(summary.text)}</p>` : `<p style="margin:0">The notes from the meeting are ready.</p>`,
+    summary?.decisions?.length ? section('Decisions', list(summary.decisions.map((text) => ({ text })))) : '',
+    mine.length ? section('Your action items', list(mine)) : '',
+    others.length ? section('Other action items', list(others)) : '',
+  ].join('');
+  return {
+    subject: `Recap: ${title} · ${when}`,
+    html: renderLayout({
+      preheader: summary?.text?.slice(0, 120) ?? `Notes from ${title}`,
+      brand: organization ? { name: organization.name, slug: organization.slug, logoUrl: organization.logoUrl } : null,
+      eyebrow: 'Meeting recap',
+      heading: title,
+      intro,
+      details: [{ label: 'When', value: escapeHtml(when) }, ...(recordings ? [{ label: 'Recording', value: `${recordings} ${recordings === 1 ? 'recording' : 'recordings'} to watch` }] : [])],
+      actionLabel: 'Open the meeting',
+      actionUrl: link,
+      note: summary ? 'Written by the AI assistant from what was said and shared in the meeting. Check it before acting on it.' : null,
+      footer: 'You received this recap because you were invited to this meeting. Manage email notifications in Settings → Notifications.',
+    }),
+  };
+};
+
 export const dailyDigestEmail = ({ name, sections }) => ({
   subject: 'Your Vector daily digest',
   html: renderLayout({

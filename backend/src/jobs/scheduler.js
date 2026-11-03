@@ -3,7 +3,9 @@ import { config } from '../config/index.js';
 import { sendDueReminders } from '../modules/issues/due-reminder.job.js';
 import { sendDailyDigests } from '../modules/notifications/daily-digest.job.js';
 import { runDueRecurringTasks } from '../modules/recurring-tasks/recurring-task.service.js';
+import { runPendingFollowups } from '../modules/meetings/meeting.followup.js';
 import { sendMeetingReminders } from '../modules/meetings/meeting.notify.js';
+import { purgeOldTranscripts } from '../modules/meetings/meeting.search.js';
 import { continueMeetingSeries, syncFromCalendars } from '../modules/meetings/meeting.service.js';
 import { settleIdleMeetings } from '../modules/meetings/meeting.signaling.js';
 import { purgeExpiredMessages } from '../modules/support/support.service.js';
@@ -19,6 +21,9 @@ const JOBS = [
   { name: 'meeting-reminders', schedule: '* * * * *', run: sendMeetingReminders },
   // Moves, cancellations and RSVPs from hosts' connected Google / Microsoft calendars.
   { name: 'calendar-sync', schedule: '*/5 * * * *', run: async () => (await syncFromCalendars()).changed },
+  // Summaries, chapters, search index and recaps for meetings that ended.
+  { name: 'meeting-followups', schedule: '*/2 * * * *', run: runPendingFollowups },
+  { name: 'transcript-retention', schedule: '30 3 * * *', run: () => purgeOldTranscripts(config.meetings.transcriptDays) },
 ];
 
 /** Wraps a job so overlapping executions are skipped and failures are logged. */

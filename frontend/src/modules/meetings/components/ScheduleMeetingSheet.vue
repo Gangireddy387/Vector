@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { addMinutes, format, parseISO } from 'date-fns'
-import { Check, DoorOpen, Link2, PencilLine, Search, UsersRound, Video, X } from 'lucide-vue-next'
+import { CalendarSearch, Check, DoorOpen, Link2, PencilLine, Search, Sparkles, UsersRound, Video, X } from 'lucide-vue-next'
 import { computed, reactive, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
@@ -12,13 +12,14 @@ import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { structureApi } from '@/modules/departments/departments.api'
 import { usersApi } from '@/modules/projects/projects.api'
 import type { Team, UserSummary } from '@/types/models'
 import { recurrenceLabel } from '../meeting-format'
-import { type Meeting, type MeetingContext, type MeetingLobby, type MeetingRecurrence, meetingsApi } from '../meetings.api'
+import { type Meeting, type MeetingContext, type MeetingLobby, type MeetingRecurrence, type TimeSuggestion, meetingsApi } from '../meetings.api'
 import type { MeetingPreset } from '../useMeetingActions'
 
 /** `null` closes the sheet, `{}` schedules a new meeting (`preset` fills in who and what it is for), `{ meeting }` edits one. */
@@ -26,6 +27,7 @@ const target = defineModel<{ meeting?: Meeting; preset?: MeetingPreset } | null>
 const emit = defineEmits<{ saved: [meeting: Meeting] }>()
 
 const auth = useAuthStore()
+const confirm = useConfirm()
 const isSaving = ref(false)
 const showErrors = ref(false)
 const people = ref<UserSummary[]>([])
@@ -141,6 +143,59 @@ function addTeam(team: Team) {
   toast.success(`Added ${team.name}`, { description: `${ids.length} ${ids.length === 1 ? 'person' : 'people'} invited` })
 }
 
+// --- Finding a time ---------------------------------------------------------------------------------------------
+
+const suggestions = ref<TimeSuggestion[] | null>(null)
+const checkedCalendars = ref(0)
+const isFinding = ref(false)
+async function findTimes() {
+  if (!form.participantIds.length) return toast.error('Invite people first', { description: 'Times are found for everyone invited and you.' })
+  isFinding.value = true
+  try {
+    const result = await meetingsApi.suggestTimes({ participantIds: form.participantIds, durationMinutes: form.duration, days: 7 })
+    suggestions.value = result.suggestions
+    checkedCalendars.value = result.checkedCalendars
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isFinding.value = false
+  }
+}
+function pickTime(slot: TimeSuggestion) {
+  const start = parseISO(slot.startsAt)
+  form.date = format(start, 'yyyy-MM-dd')
+  form.time = format(start, 'HH:mm')
+}
+watch(
+  () => [form.participantIds.join(), form.duration],
+  () => (suggestions.value = null),
+)
+
+// --- Drafting the agenda ----------------------------------------------------------------------------------------
+
+const isDrafting = ref(false)
+const agendaHint = ref<string | null>(null)
+async function draftAgenda() {
+  if (form.agenda.trim() && !(await confirm({ title: 'Replace the agenda?', description: 'The drafted agenda replaces what is written now.', confirmLabel: 'Replace' }))) return
+  isDrafting.value = true
+  try {
+    const result = await meetingsApi.draftAgenda({
+      title: form.title.trim() || undefined,
+      durationMinutes: form.duration,
+      contextType: context.value?.type ?? null,
+      contextId: context.value?.id ?? null,
+      meetingId: editing.value?.id ?? null,
+      seriesId: editing.value?.seriesId ?? null,
+    })
+    form.agenda = result.agenda
+    agendaHint.value = result.source === 'ai' ? 'Drafted by the AI assistant from the work this meeting is about. Edit it as you like.' : 'Put together from the work this meeting is about. Edit it as you like.'
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isDrafting.value = false
+  }
+}
+
 async function save() {
   showErrors.value = true
   const problem = Object.values(errors.value).find(Boolean)
@@ -216,6 +271,33 @@ async function save() {
           </FormField>
         </div>
 
+        <div class="space-y-2">
+          <Button type="button" variant="outline" size="sm" :loading="isFinding" @click="findTimes"><CalendarSearch /> Find a time that suits everyone</Button>
+          <div v-if="suggestions" class="space-y-1.5">
+            <p class="text-xs text-muted-foreground">
+              <template v-if="suggestions.length">
+                Everyone is free at these times<template v-if="checkedCalendars"> (including {{ checkedCalendars }} connected {{ checkedCalendars === 1 ? 'calendar' : 'calendars' }})</template>:
+              </template>
+              <template v-else>No time in the next week works for everyone. Try a shorter meeting or fewer people.</template>
+            </p>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="slot in suggestions"
+                :key="slot.startsAt"
+                type="button"
+                class="rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors hover:border-primary hover:bg-primary/5"
+                :class="startsAt?.toISOString() === slot.startsAt ? 'border-primary bg-primary/10' : 'border-border/70'"
+                :title="slot.everyoneWorking ? 'Inside everyone’s working hours' : `Outside working hours for ${slot.outside.join(', ')}`"
+                @click="pickTime(slot)"
+              >
+                <span class="block font-medium">{{ format(parseISO(slot.startsAt), 'EEE d MMM') }}</span>
+                <span class="text-muted-foreground">{{ format(parseISO(slot.startsAt), 'HH:mm') }}–{{ format(parseISO(slot.endsAt), 'HH:mm') }}</span>
+                <span v-if="!slot.everyoneWorking" class="ml-1 text-amber-600">· late/early for some</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <FormField
           label="Repeat"
           for="meeting-repeat"
@@ -249,8 +331,11 @@ async function save() {
           <Switch v-model="form.lobbyEveryone" aria-label="Everyone waits in the lobby" />
         </label>
 
-        <FormField label="Agenda" for="meeting-agenda" optional>
-          <Textarea id="meeting-agenda" v-model="form.agenda" rows="3" placeholder="What you will talk about, and what people should prepare" maxlength="4000" />
+        <FormField label="Agenda" for="meeting-agenda" optional :hint="agendaHint ?? undefined">
+          <Textarea id="meeting-agenda" v-model="form.agenda" :rows="form.agenda.split('\n').length > 3 ? 8 : 3" placeholder="What you will talk about, and what people should prepare" maxlength="4000" />
+          <Button type="button" variant="ghost" size="sm" class="mt-1.5 h-7 text-xs" :loading="isDrafting" @click="draftAgenda">
+            <Sparkles /> {{ form.agenda.trim() ? 'Draft it again' : 'Draft the agenda' }}
+          </Button>
         </FormField>
 
         <div class="grid gap-2">

@@ -16,6 +16,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
 import { useSocketEvents } from '@/lib/socket-events'
+import MeetingSearch from '../components/MeetingSearch.vue'
 import PushPrompt from '../components/PushPrompt.vue'
 import ScheduleMeetingSheet from '../components/ScheduleMeetingSheet.vue'
 import { BADGE_CLASSES, dayLabel, durationLabel, isJoinable, meetingBadge, recurrenceLabel, timeRange } from '../meeting-format'
@@ -31,6 +32,9 @@ const meetings = ref<Meeting[]>([])
 const isLoading = ref(true)
 const canSchedule = ref(false)
 const sheetTarget = ref<{ meeting?: Meeting } | null>(null)
+/** While searching, the results replace the list. */
+const searchQuery = ref('')
+const searching = computed(() => searchQuery.value.trim().length >= 2)
 
 async function load() {
   try {
@@ -154,8 +158,11 @@ onMounted(async () => {
       </p>
     </div>
 
+    <MeetingSearch v-model="searchQuery" />
+
     <PushPrompt />
 
+    <template v-if="!searching">
     <div v-if="isLoading" class="space-y-3">
       <Skeleton v-for="index in 3" :key="index" class="h-28 w-full" />
     </div>
@@ -259,6 +266,7 @@ onMounted(async () => {
       >
         <Button v-if="canSchedule && scope === 'upcoming'" variant="brand" class="mt-4" @click="sheetTarget = {}"><Plus /> Schedule meeting</Button>
       </EmptyState>
+    </template>
     </template>
 
     <ScheduleMeetingSheet v-model:target="sheetTarget" @saved="onSaved" />

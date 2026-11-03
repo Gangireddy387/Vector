@@ -4,6 +4,7 @@ import { isAxiosError } from 'axios'
 import { differenceInMinutes, format, parseISO } from 'date-fns'
 import {
   ArrowLeft,
+  AudioLines,
   CalendarDays,
   CalendarPlus,
   Clock3,
@@ -53,7 +54,8 @@ import {
   type WhiteboardStroke,
   meetingsApi,
 } from '../meetings.api'
-import { blurSupported, useMeetingCall } from '../useMeetingCall'
+import { blurSupported, noiseSupported, useMeetingCall } from '../useMeetingCall'
+import BackgroundPicker from '../components/BackgroundPicker.vue'
 
 const props = defineProps<{ meetingId: string }>()
 
@@ -78,6 +80,7 @@ const capabilities = ref<MeetingCapabilities | null>(null)
 const isLoading = ref(true)
 const isJoining = ref(false)
 const panelOpen = ref(isDesktop.value)
+const backgroundsOpen = ref(false)
 const panelTab = ref<MeetingPanelTab>('updates')
 
 async function load() {
@@ -136,6 +139,13 @@ watch(
     panelOpen.value = true
   },
 )
+
+/** Search opens a meeting at the moment something was said (?at=…&in=transcript|chat). */
+const searchFocus = computed(() => {
+  const at = typeof route.query.at === 'string' ? route.query.at : null
+  if (!at || Number.isNaN(Date.parse(at))) return null
+  return { at, in: route.query.in === 'chat' ? ('chat' as const) : ('transcript' as const) }
+})
 
 const PROVIDER_LABELS = { google: 'Google Calendar', microsoft: 'Outlook' } as const
 async function copyDialIn() {
@@ -403,16 +413,29 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
                   type="button"
                   class="flex size-11 items-center justify-center rounded-full text-white backdrop-blur transition-colors disabled:opacity-40"
                   :class="call.blurOn.value ? 'bg-sky-500 hover:bg-sky-500/90' : 'bg-white/15 hover:bg-white/25'"
-                  :disabled="call.blurBusy.value || !call.media.video"
-                  :aria-label="call.blurOn.value ? 'Turn off background blur' : 'Blur my background'"
-                  :title="call.blurOn.value ? 'Background blur is on' : 'Blur my background'"
-                  @click="run(call.toggleBlur)"
+                  :disabled="call.blurBusy.value"
+                  aria-label="Background effects"
+                  :title="call.blurOn.value ? 'Background effect is on' : 'Background effects'"
+                  @click="backgroundsOpen = true"
                 >
                   <Sparkles class="size-5" :class="call.blurBusy.value && 'animate-pulse'" />
+                </button>
+                <button
+                  v-if="noiseSupported"
+                  type="button"
+                  class="flex size-11 items-center justify-center rounded-full text-white backdrop-blur transition-colors disabled:opacity-40"
+                  :class="call.noiseOn.value ? 'bg-sky-500 hover:bg-sky-500/90' : 'bg-white/15 hover:bg-white/25'"
+                  :disabled="call.noiseBusy.value"
+                  :aria-label="call.noiseOn.value ? 'Stop removing background noise' : 'Remove background noise'"
+                  :title="call.noiseOn.value ? 'Background noise is removed' : 'Remove background noise'"
+                  @click="run(call.toggleNoise)"
+                >
+                  <AudioLines class="size-5" />
                 </button>
                 <DeviceSettings :button-class="previewButton" />
               </div>
             </div>
+            <BackgroundPicker v-model:open="backgroundsOpen" />
             <p v-if="call.deviceNote.value" class="border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 dark:text-warning">{{ call.deviceNote.value }}</p>
 
             <div v-if="isWaiting" class="flex flex-wrap items-center gap-3 border border-sky-500/40 bg-sky-500/5 p-4 shadow-soft" role="status">
@@ -467,6 +490,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
             :transcript="transcript"
             :recordings="recordings"
             :attendance="attendance"
+            :focus="searchFocus"
             :can-summarize="Boolean(capabilities?.summaries)"
             @summary="onSummary"
             @changed="load"

@@ -52,6 +52,10 @@ export const config = {
     apiKey: process.env.OPENAI_API_KEY || '',
     model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
     baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+    /** Speech to text for meeting notes (any browser, phone callers, Indian languages). */
+    transcribeModel: process.env.OPENAI_TRANSCRIBE_MODEL || 'gpt-4o-mini-transcribe',
+    /** Meaning-based search across meetings. */
+    embeddingModel: process.env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small',
   },
   uploads: {
     dir: path.resolve(process.env.UPLOAD_DIR ?? 'uploads'),
@@ -77,6 +81,8 @@ export const config = {
     /** Minutes before the start when invited people get a reminder. */
     reminderMinutes: toInt(process.env.MEETING_REMINDER_MINUTES, 10),
     recordingMaxMb: toInt(process.env.MEETING_RECORDING_MAX_MB, 1024),
+    /** Transcripts (and their search index) are deleted after this many days; 0 keeps them. */
+    transcriptDays: toInt(process.env.MEETING_TRANSCRIPT_DAYS, 0),
   },
   /**
    * LiveKit media server (self-hosted or LiveKit Cloud). When set, calls send video through it instead of between
