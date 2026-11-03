@@ -25,7 +25,7 @@ import { DEFAULT_LABELS } from '../labels/label.model.js';
 import { grantTeamAccess } from '../departments/department.service.js';
 import { ensureOrganizationMember } from '../organizations/organization.service.js';
 import { assertWithinLimit, entitlementsFor, withPlan } from '../plans/plan.service.js';
-import { getHeadedProjectIds, isOrganizationAdminRequest } from './project-access.js';
+import { getHeadedProjectIds, isOrganizationAdminRequest, sprintManagerRule } from './project-access.js';
 import { DEFAULT_STATUSES } from '../statuses/status.model.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
@@ -57,7 +57,7 @@ async function owningTeams(teamIds) {
   const ids = [...new Set(teamIds.filter(Boolean))];
   if (!ids.length) return new Map();
   const [teams, members] = await Promise.all([
-    Team.findAll({ where: { id: ids }, attributes: ['id', 'name'], raw: true }),
+    Team.findAll({ where: { id: ids }, attributes: ['id', 'name', 'leadId'], raw: true }),
     TeamMember.findAll({ where: { teamId: ids }, attributes: ['teamId', 'userId'], raw: true }),
   ]);
   return new Map(teams.map((team) => [team.id, { ...team, memberIds: new Set(members.filter((row) => row.teamId === team.id).map((row) => row.userId)) }]));
@@ -184,10 +184,12 @@ export async function getProject(projectId, userId) {
   const isOrganizationAdmin = isOrganizationAdminRequest() && json.organizationId === currentOrganizationId();
   const team = json.teamId ? (await owningTeams([json.teamId])).get(json.teamId) : null;
   const headRole = !isOrganizationAdmin && !myMembership && (await getHeadedProjectIds(userId)).includes(json.id) ? 'viewer' : null;
+  const myRole = isOrganizationAdmin ? 'admin' : (myMembership?.role ?? headRole);
   return {
     ...json,
     settings: withDefaultSettings(json),
-    myRole: isOrganizationAdmin ? 'admin' : (myMembership?.role ?? headRole),
+    myRole,
+    canManageSprints: sprintManagerRule({ role: myRole, userId, projectLeadId: json.leadId, teamLeadId: team?.leadId }),
     isMember: Boolean(myMembership),
     team: team ? { id: team.id, name: team.name } : null,
     members: json.memberships.map((membership) => ({ ...membership.user, role: membership.role, memberId: membership.id })),

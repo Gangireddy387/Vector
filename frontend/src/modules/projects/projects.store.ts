@@ -65,6 +65,8 @@ export const useProjectsStore = defineStore('projects', () => {
     return role === 'admin' || role === 'member'
   }
   const isAdmin = (projectId?: string | null) => (projectId ? details.value[projectId]?.myRole === 'admin' : false)
+  /** Planning, starting and completing sprints: not every member, only the people who run the project. */
+  const canManageSprints = (projectId?: string | null) => (projectId ? Boolean(details.value[projectId]?.canManageSprints) : false)
 
   return {
     projects,
@@ -80,5 +82,6 @@ export const useProjectsStore = defineStore('projects', () => {
     deleteProject,
     canEdit,
     isAdmin,
+    canManageSprints,
   }
 })

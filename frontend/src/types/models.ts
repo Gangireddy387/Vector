@@ -196,6 +196,8 @@ export interface Project extends ProjectReference {
   settings: ProjectSettings
   archivedAt: string | null
   myRole: ProjectRole | null
+  /** May plan, start and complete sprints: project admins, the project lead and the owning team's lead. */
+  canManageSprints?: boolean
   /** False when an organization admin sees the project without having joined it. */
   isMember?: boolean
   /** The team that owns the project, if any. */

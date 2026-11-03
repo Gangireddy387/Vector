@@ -30,6 +30,7 @@ const projectId = computed(() => route.params.projectId as string)
 const { project, issues, sprints, activeSprint, isScrum, isLoading, isDragging, loadError, hiddenCount, reload } = useBoardData(projectId)
 
 const canEdit = computed(() => projects.canEdit(projectId.value))
+const canManageSprints = computed(() => projects.canManageSprints(projectId.value))
 const filters = ref<BoardFilterState>({ search: '', assigneeIds: [] })
 const columns = ref<Record<string, Issue[]>>({})
 const isCompleteOpen = ref(false)
@@ -170,7 +171,7 @@ function moveOnMobile(issue: Issue, status: Status) {
             <span v-if="activeSprint.goal" class="truncate text-xs text-muted-foreground">{{ activeSprint.goal }}</span>
           </p>
           <div class="hidden xl:block"><SprintProgress :sprint="activeSprint" :stats="sprintStats" inline /></div>
-          <Button v-if="canEdit" variant="outline" size="sm" @click="isCompleteOpen = true">Complete sprint</Button>
+          <Button v-if="canManageSprints" variant="outline" size="sm" @click="isCompleteOpen = true">Complete sprint</Button>
         </div>
         <div class="border-b px-5 py-2">
           <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" />

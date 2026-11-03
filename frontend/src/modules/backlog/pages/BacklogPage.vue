@@ -43,6 +43,8 @@ const { isDesktop } = useDevice()
 const projectId = computed(() => route.params.projectId as string)
 const project = computed(() => projects.details[projectId.value])
 const canEdit = computed(() => projects.canEdit(projectId.value))
+const canManageSprints = computed(() => projects.canManageSprints(projectId.value))
+const isProjectAdmin = computed(() => projects.isAdmin(projectId.value))
 
 const issues = ref<Issue[]>([])
 const epics = ref<Issue[]>([])
@@ -195,7 +197,7 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
         </div>
         <div class="ml-auto flex items-center gap-3">
           <label class="flex items-center gap-2 text-sm text-muted-foreground"><Switch v-model="showDone" /> Show done</label>
-          <Button v-if="canEdit" size="sm" variant="outline" @click="openSprintForm()"><Plus /> Create sprint</Button>
+          <Button v-if="canManageSprints" size="sm" variant="outline" @click="openSprintForm()"><Plus /> Create sprint</Button>
         </div>
       </div>
 
@@ -216,7 +218,7 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
         @drag-end="onDragEnd"
         @move-to="moveTo"
       >
-        <template v-if="canEdit" #actions>
+        <template v-if="canManageSprints" #actions>
           <Button v-if="sprint.state === 'planned' && !hasActiveSprint" size="xs" @click="startingSprint = sprint">Start sprint</Button>
           <Button v-if="sprint.state === 'active'" size="xs" variant="outline" @click="completingSprint = sprint">Complete sprint</Button>
           <DropdownMenu>
@@ -225,7 +227,7 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem @select="openSprintForm(sprint)">Edit sprint</DropdownMenuItem>
-              <DropdownMenuItem v-if="sprint.state !== 'active'" variant="destructive" @select="deleteSprint(sprint)">Delete sprint</DropdownMenuItem>
+              <DropdownMenuItem v-if="sprint.state !== 'active' && isProjectAdmin" variant="destructive" @select="deleteSprint(sprint)">Delete sprint</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </template>

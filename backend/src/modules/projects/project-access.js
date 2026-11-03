@@ -130,3 +130,20 @@ export const requireProjectRole = (minimumRole = 'viewer') => async (req, _res, 
   req.membership = await assertProjectRole(req.params.projectId, req.user.id, minimumRole);
   next();
 };
+
+/**
+ * Running sprints (planning, starting, completing them) belongs to the people who run the project: its admins
+ * (organization admins included), its lead and the lead of the team that owns it. Everyone else works inside sprints.
+ */
+export const sprintManagerRule = ({ role, userId, projectLeadId, teamLeadId }) =>
+  role === 'admin' || (role === 'member' && Boolean(userId) && (projectLeadId === userId || teamLeadId === userId));
+
+/** Route guard for planning, starting and completing a project's sprints. */
+export const requireSprintManager = async (req, _res, next) => {
+  const membership = await assertProjectRole(req.params.projectId, req.user.id, 'member');
+  const project = await Project.findByPk(req.params.projectId, { attributes: ['leadId'], include: [{ model: Team, as: 'team', attributes: ['leadId'] }] });
+  const allowed = sprintManagerRule({ role: membership.role, userId: req.user.id, projectLeadId: project?.leadId, teamLeadId: project?.team?.leadId });
+  if (!allowed) throw ApiError.forbidden('Only the project’s admins, its lead and its team lead can manage sprints');
+  req.membership = membership;
+  next();
+};
