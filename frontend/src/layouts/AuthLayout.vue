@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { useMediaQuery } from '@vueuse/core'
-import { Bot, CalendarSync, Sparkles, Zap } from 'lucide-vue-next'
+import { useMediaQuery, useResizeObserver } from '@vueuse/core'
+import { Bot, CalendarSync, Check, MessageCircle, Sparkles, ThumbsUp, Zap } from 'lucide-vue-next'
+import { onMounted, ref, type Component } from 'vue'
 import AppLogo from '@/components/layout/AppLogo.vue'
+import FeaturePreview from '@/components/layout/FeaturePreview.vue'
 import FeatureRadar from '@/components/layout/FeatureRadar.vue'
+import ShowcaseChip from '@/components/layout/ShowcaseChip.vue'
+import { TEAM, type Teammate } from '@/components/layout/team'
 import ThemeSwitch from '@/components/layout/ThemeSwitch.vue'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 
@@ -20,6 +24,159 @@ const HIGHLIGHTS = [
   { icon: CalendarSync, title: 'Recurring work', text: 'Routine tasks appear on schedule.', tone: 'from-cyan-300 to-sky-500', x: 0.43, y: 0.3 },
   { icon: Bot, title: 'AI assistant', text: 'Draft tasks and break work down.', tone: 'from-fuchsia-300 to-violet-500', x: -0.4, y: 0.36 },
 ]
+
+type PreviewKind = 'board' | 'reports' | 'calendar' | 'chat' | 'meeting'
+
+/*
+ * Teammates in the empty space beside the radar, each with what they are up to. When a feature card has to move in
+ * closer to the radar, the teammate linked to it (`card`) rides on the card's corner instead of standing beside it.
+ */
+const NEARBY: { who: Teammate; x: number; y: number; icon: Component; badge: string; card?: PreviewKind }[] = [
+  { who: TEAM.james, x: -0.72, y: -0.34, icon: MessageCircle, badge: 'bg-sky-500', card: 'board' },
+  { who: TEAM.liam, x: -0.82, y: 0.3, icon: ThumbsUp, badge: 'bg-amber-500', card: 'calendar' },
+  { who: TEAM.maria, x: -0.56, y: 0.47, icon: Check, badge: 'bg-emerald-500' },
+  { who: TEAM.arjun, x: 0.74, y: -0.28, icon: Check, badge: 'bg-emerald-500', card: 'reports' },
+  { who: TEAM.sofia, x: 0.68, y: 0.1, icon: MessageCircle, badge: 'bg-sky-500', card: 'chat' },
+  { who: TEAM.david, x: 0.84, y: 0.4, icon: ThumbsUp, badge: 'bg-amber-500', card: 'meeting' },
+]
+const COMMUNITY = [TEAM.david, TEAM.sofia, TEAM.kenji, TEAM.maria, TEAM.arjun]
+const AVATAR_RADIUS = 30
+
+/*
+ * Previews of the main features around the radar. Each card goes to the free spot nearest its preferred one (`spot`),
+ * on the same side of the radar: on the page, clear of the radar, the headline, the pills, the teammates and the cards
+ * placed before it. It tries full size first, then smaller. `height` is the card's height at full size.
+ */
+const PREVIEWS: { kind: PreviewKind; height: number; spot: [number, number] }[] = [
+  { kind: 'board', height: 132, spot: [-1, -0.36] },
+  { kind: 'reports', height: 116, spot: [1, -0.36] },
+  { kind: 'chat', height: 118, spot: [1.04, 0.05] },
+  { kind: 'calendar', height: 126, spot: [-1.02, 0.34] },
+  { kind: 'meeting', height: 134, spot: [1.06, 0.4] },
+]
+const PREVIEW_WIDTH = 176
+const ZOOMS = [1, 0.85, 0.72, 0.6]
+const GAP = 8
+const STEP = 12
+
+interface Placement {
+  kind: PreviewKind
+  x: number
+  y: number
+  zoom: number
+  /* The linked teammate rides on the card instead of standing beside it. */
+  rider?: Teammate
+}
+interface Box {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+const overlaps = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+const around = (x: number, y: number, halfWidth: number, halfHeight: number): Box => ({
+  left: x - halfWidth,
+  top: y - halfHeight,
+  right: x + halfWidth,
+  bottom: y + halfHeight,
+})
+
+const stageEl = ref<HTMLElement>()
+const radarEl = ref<HTMLElement>()
+const placements = ref<Placement[]>([])
+/* Teammates not standing beside the radar: riding on their card, or out of room. */
+const offStage = ref(new Set<string>())
+
+function arrange() {
+  const stage = stageEl.value
+  const radar = radarEl.value
+  if (!stage || !radar?.offsetWidth) {
+    placements.value = []
+    return
+  }
+  const bounds = stage.getBoundingClientRect()
+  const circle = radar.getBoundingClientRect()
+  const size = circle.width
+  const centre = { x: circle.left + size / 2, y: circle.top + circle.height / 2 }
+  const point = (x: number, y: number) => ({ x: centre.x + x * size, y: centre.y + y * size })
+  const clearOfRadar = (box: Box) => {
+    const nearestX = Math.max(box.left, Math.min(centre.x, box.right))
+    const nearestY = Math.max(box.top, Math.min(centre.y, box.bottom))
+    return Math.hypot(nearestX - centre.x, nearestY - centre.y) >= size / 2 - 4
+  }
+  const avatarBox = (near: (typeof NEARBY)[number]) => {
+    const at = point(near.x, near.y)
+    return around(at.x, at.y, AVATAR_RADIUS, AVATAR_RADIUS)
+  }
+
+  const blocked: Box[] = [...stage.querySelectorAll<HTMLElement>('[data-obstacle]')].map((element) => element.getBoundingClientRect())
+  const unlinked = NEARBY.filter((near) => !near.card).map(avatarBox)
+  const placed: Box[] = []
+  const result: Placement[] = []
+  for (const preview of PREVIEWS) {
+    const linked = NEARBY.find((near) => near.card === preview.kind)
+    const want = point(...preview.spot)
+    const left = preview.spot[0] < 0
+    const obstacles = [...blocked, ...placed, ...unlinked]
+    let best: { x: number; y: number; zoom: number; box: Box } | undefined
+    /* Its own side of the radar first; the other side only when its own has no room left. */
+    search: for (const eitherSide of [false, true]) {
+      for (const zoom of ZOOMS) {
+        const halfWidth = (PREVIEW_WIDTH * zoom) / 2 + GAP
+        const halfHeight = (preview.height * zoom) / 2 + GAP
+        let nearest = Infinity
+        for (let y = bounds.top + halfHeight - GAP; y <= bounds.bottom - halfHeight + GAP; y += STEP) {
+          for (let x = bounds.left + halfWidth; x <= bounds.right - halfWidth; x += STEP) {
+            if (!eitherSide && left !== x < centre.x) continue
+            const distance = Math.hypot(x - want.x, y - want.y)
+            if (distance >= nearest) continue
+            const box = around(x, y, halfWidth, halfHeight)
+            if (!clearOfRadar(box) || obstacles.some((other) => overlaps(box, other))) continue
+            nearest = distance
+            best = { x, y, zoom, box }
+          }
+        }
+        if (best) break search
+      }
+    }
+    if (!best) continue
+    placed.push(best.box)
+    result.push({
+      kind: preview.kind,
+      x: (best.x - centre.x) / size,
+      y: (best.y - centre.y) / size,
+      zoom: best.zoom,
+      rider: linked && overlaps(best.box, avatarBox(linked)) ? linked.who : undefined,
+    })
+  }
+
+  const away = new Set<string>()
+  for (const near of NEARBY) {
+    const rider = result.find((placement) => placement.rider === near.who)
+    const box = avatarBox(near)
+    const crowded = !clearOfRadar(box) || [...blocked, ...placed].some((other) => overlaps(box, other))
+    if (rider || !crowded) {
+      if (rider) away.add(near.who.name)
+      continue
+    }
+    const card = near.card && result.find((placement) => placement.kind === near.card && !placement.rider)
+    if (card) card.rider = near.who
+    away.add(near.who.name)
+  }
+  placements.value = result
+  offStage.value = away
+}
+
+useResizeObserver([stageEl, radarEl], () => arrange())
+onMounted(() => {
+  arrange()
+  void document.fonts?.ready.then(arrange)
+})
+
+/* Tablets and phones show every feature card in a strip that scrolls by on its own. */
+const STRIP = PREVIEWS.map((preview) => ({ kind: preview.kind, person: NEARBY.find((near) => near.card === preview.kind)?.who }))
+
+const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x})`, top: `calc(50% + var(--radar) * ${y})` })
 </script>
 
 <template>
@@ -72,12 +229,15 @@ const HIGHLIGHTS = [
       Desktop: the headline on the left, the radar with the form and the highlight pills around it in the middle of the
       page (the right column is the same width as the left one, so the radar stays centred).
     -->
-    <div class="auth-stage relative z-10 flex min-h-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_var(--radar)_minmax(0,1fr)] lg:gap-4 lg:px-6 xl:px-10">
+    <div
+      ref="stageEl"
+      class="auth-stage relative z-10 flex min-h-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_var(--radar)_minmax(0,1fr)] lg:gap-4 lg:px-6 xl:px-10"
+    >
       <aside
         class="relative hidden min-h-0 flex-col justify-center gap-10 py-6 text-white short:gap-6 lg:col-start-1 lg:row-start-1 lg:flex"
         aria-hidden="true"
       >
-        <div class="space-y-5 short:space-y-3">
+        <div class="space-y-5 short:space-y-3" data-obstacle>
           <span
             class="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 py-1 pr-3.5 pl-1.5 text-xs font-medium whitespace-nowrap shadow-lg shadow-black/10 backdrop-blur-md"
           >
@@ -93,6 +253,23 @@ const HIGHLIGHTS = [
           </h2>
           <p class="max-w-sm text-sm text-white/80 xl:text-base">Plan, track and automate your team’s work so the boring parts happen on their own.</p>
         </div>
+
+        <div class="hidden items-center gap-3 xl:flex" data-obstacle>
+          <span class="flex shrink-0 -space-x-2.5">
+            <img
+              v-for="who in COMMUNITY"
+              :key="who.name"
+              :src="who.src"
+              alt=""
+              class="size-10 rounded-full bg-linear-to-br shadow-md ring-2 ring-white/80 short:size-8"
+              :class="who.tone"
+            />
+          </span>
+          <span class="text-xs leading-snug text-white/80">
+            <span class="block font-semibold text-white">Built for teams</span>
+            Product, design, ops
+          </span>
+        </div>
       </aside>
 
       <!-- Smaller screens: the radar around the round form, fitted to the screen (see the styles). -->
@@ -105,19 +282,20 @@ const HIGHLIGHTS = [
         Everything Vector does, on a radar around the form (desktop). It shares the form's grid cell, so it stays
         centred on the form at every size.
       -->
-      <div class="pointer-events-none absolute inset-0 hidden items-center justify-center lg:col-[2/3] lg:row-[1/2] lg:flex" aria-hidden="true">
+      <div ref="radarEl" class="pointer-events-none absolute inset-0 hidden items-center justify-center lg:col-[2/3] lg:row-[1/2] lg:flex" aria-hidden="true">
         <div class="radar-halo absolute size-[calc(var(--radar)*1.15)] shrink-0 rounded-full blur-3xl" />
         <FeatureRadar variant="frame" class="relative w-[var(--radar)] shrink-0" />
         <ul class="absolute size-[var(--radar)] text-white">
           <li
             v-for="(item, index) in HIGHLIGHTS"
             :key="item.title"
-            class="absolute -translate-y-1/2"
+            class="absolute w-max -translate-y-1/2"
             :class="item.x < 0 && '-translate-x-full'"
-            :style="{ left: `calc(50% + var(--radar) * ${item.x})`, top: `calc(50% + var(--radar) * ${item.y})` }"
+            :style="place(item.x, item.y)"
+            data-obstacle
           >
             <span
-              class="highlight-pill flex items-center gap-3 rounded-full border border-white/20 bg-white/10 py-1.5 pr-5 pl-1.5 whitespace-nowrap shadow-xl shadow-black/15 backdrop-blur-md"
+              class="float-pill flex items-center gap-3 rounded-full border border-white/20 bg-white/10 py-1.5 pr-5 pl-1.5 whitespace-nowrap shadow-xl shadow-black/15 backdrop-blur-md"
               :style="{ animationDelay: `${0.4 + index * 0.2}s, ${index * -1.6}s` }"
             >
               <span
@@ -133,6 +311,43 @@ const HIGHLIGHTS = [
             </span>
           </li>
         </ul>
+        <div class="absolute size-[var(--radar)] text-white">
+          <div class="absolute w-max -translate-x-full -translate-y-1/2" :style="place(-0.3, -0.42)" data-obstacle>
+            <ShowcaseChip kind="online" class="float-pill" :style="{ animationDelay: '1s, -0.8s' }" />
+          </div>
+          <div class="absolute w-max -translate-y-1/2" :style="place(0.52, -0.12)" data-obstacle>
+            <ShowcaseChip kind="activity" class="float-pill" :style="{ animationDelay: '1.2s, -3.2s' }" />
+          </div>
+          <div class="absolute w-max -translate-y-1/2" :style="place(0.36, 0.47)" data-obstacle>
+            <ShowcaseChip kind="standup" class="float-pill" :style="{ animationDelay: '1.4s, -2.4s' }" />
+          </div>
+
+          <span
+            v-for="(near, index) in NEARBY.filter((near) => !offStage.has(near.who.name))"
+            :key="near.who.name"
+            class="absolute -translate-1/2"
+            :style="place(near.x, near.y)"
+          >
+            <span
+              class="avatar-blip float-pill relative block size-12 rounded-full shadow-xl shadow-black/20 short:size-10"
+              :style="{ animationDelay: `${1.4 + index * 0.15}s, ${index * -0.9}s` }"
+            >
+              <img :src="near.who.src" alt="" class="size-full rounded-full bg-linear-to-br ring-2 ring-white/80" :class="near.who.tone" />
+              <span class="absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full text-white ring-2 ring-white" :class="near.badge">
+                <component :is="near.icon" class="size-3" />
+              </span>
+            </span>
+          </span>
+
+          <span v-for="(preview, index) in placements" :key="preview.kind" class="absolute -translate-1/2" :style="place(preview.x, preview.y)">
+            <FeaturePreview
+              :kind="preview.kind"
+              :person="preview.rider"
+              class="float-pill"
+              :style="{ scale: preview.zoom, animationDelay: `${1.6 + index * 0.15}s, ${index * -1.1}s` }"
+            />
+          </span>
+        </div>
       </div>
 
       <!-- The form, in the middle of the radar -->
@@ -153,6 +368,70 @@ const HIGHLIGHTS = [
       </main>
     </div>
 
+    <!-- Tablets and phones: the headline, the team and the feature cards, in a panel under the form. -->
+    <section
+      class="auth-showcase relative z-10 mx-4 mt-2 mb-2 space-y-5 overflow-hidden rounded-[1.5rem] bg-brand px-5 py-6 text-white shadow-xl shadow-black/15 sm:mx-12 sm:px-8 lg:hidden"
+      aria-hidden="true"
+    >
+      <div class="space-y-3">
+        <span class="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 py-1 pr-3.5 pl-1.5 text-xs font-medium backdrop-blur-md">
+          <span class="flex size-5 items-center justify-center rounded-full bg-linear-to-br from-fuchsia-300 to-violet-500">
+            <Sparkles class="size-3 text-white" />
+          </span>
+          AI · Automation · Recurring work
+        </span>
+        <h2 class="text-2xl leading-tight font-semibold tracking-tight sm:text-3xl">
+          Less busywork.<br />
+          <span class="bg-linear-to-r from-cyan-200 to-fuchsia-200 bg-clip-text text-transparent">More shipped work.</span>
+        </h2>
+        <p class="max-w-md text-sm text-white/80">Plan, track and automate your team’s work so the boring parts happen on their own.</p>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <span
+          v-for="item in HIGHLIGHTS"
+          :key="item.title"
+          class="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 py-1 pr-3.5 pl-1 text-xs font-semibold backdrop-blur-md"
+        >
+          <span class="flex size-7 items-center justify-center rounded-full bg-linear-to-br" :class="item.tone">
+            <component :is="item.icon" class="size-3.5" />
+          </span>
+          {{ item.title }}
+        </span>
+      </div>
+
+      <div class="flex flex-wrap gap-2.5">
+        <ShowcaseChip kind="online" />
+        <ShowcaseChip kind="activity" />
+        <ShowcaseChip kind="standup" />
+      </div>
+
+      <div class="showcase-strip -mx-5 overflow-hidden pt-4 pb-1 sm:-mx-8">
+        <div class="showcase-track flex w-max">
+          <div v-for="(card, index) in [...STRIP, ...STRIP]" :key="index" class="pl-5">
+            <FeaturePreview :kind="card.kind" :person="card.person" />
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <span class="flex shrink-0 -space-x-2.5">
+          <img
+            v-for="who in [...COMMUNITY, TEAM.james, TEAM.liam]"
+            :key="who.name"
+            :src="who.src"
+            alt=""
+            class="size-9 rounded-full bg-linear-to-br shadow-md ring-2 ring-white/80"
+            :class="who.tone"
+          />
+        </span>
+        <span class="text-xs leading-snug text-white/80">
+          <span class="block font-semibold text-white">Built for teams</span>
+          Product, design, ops
+        </span>
+      </div>
+    </section>
+
     <footer
       class="relative z-10 flex h-12 shrink-0 flex-wrap items-center justify-between gap-x-4 px-6 text-xs text-muted-foreground sm:px-12 lg:text-white/70 xl:px-16"
     >
@@ -169,8 +448,24 @@ const HIGHLIGHTS = [
   }
 }
 
+.dark .auth-showcase {
+  background-image: linear-gradient(135deg, #15123a 0%, #1e1a52 55%, #34155a 100%);
+}
+/* The feature cards scroll by in a loop: the list is there twice, so moving it by half its width starts over. */
+.showcase-strip {
+  mask-image: linear-gradient(to right, transparent, black 1.5rem, black calc(100% - 1.5rem), transparent);
+}
+.showcase-track {
+  animation: strip-scroll 36s linear infinite;
+}
+@keyframes strip-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 /* The highlight pills fade in one after another, then drift up and down, each at its own point in the cycle. */
-.highlight-pill {
+.float-pill {
   animation:
     pill-in 0.6s ease-out both,
     pill-float 5s ease-in-out infinite;
@@ -178,6 +473,27 @@ const HIGHLIGHTS = [
 .live-dot {
   box-shadow: 0 0 0 0 rgb(110 231 183 / 0.7);
   animation: live-pulse 2s ease-out infinite;
+}
+/* Teammates beside the radar send out a ring now and then, like radar contacts. */
+.avatar-blip::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 2px solid rgb(255 255 255 / 0.6);
+  animation: blip-ring 2.8s ease-out infinite;
+  animation-delay: inherit;
+}
+@keyframes blip-ring {
+  from {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  70%,
+  to {
+    transform: scale(1.9);
+    opacity: 0;
+  }
 }
 @keyframes pill-in {
   from {
@@ -366,9 +682,14 @@ const HIGHLIGHTS = [
   .auth-card,
   .auth-card::after,
   .auth-card-sheen::before,
-  .highlight-pill,
-  .live-dot {
+  .float-pill,
+  .live-dot,
+  .avatar-blip::after,
+  .showcase-track {
     animation: none;
+  }
+  .showcase-strip {
+    overflow-x: auto;
   }
 }
 </style>
