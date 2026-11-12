@@ -13,6 +13,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
 import { useSocketEvents } from '@/lib/socket-events'
+import { playSound } from '@/lib/sounds'
 import type { DisappearHours, SupportChatApi, SupportMessage } from '../support.api'
 
 /**
@@ -84,7 +85,10 @@ function onIncoming(message: SupportMessage) {
   if (messages.value.some((item) => item.id === message.id)) return
   messages.value = [...messages.value, message]
   void scrollToEnd(true)
-  if (!isMine(message)) void markThreadRead()
+  if (!isMine(message)) {
+    playSound('message', { id: message.id, quiet: true })
+    void markThreadRead()
+  }
 }
 
 /** The other side opened the conversation: this side's messages show as read. */

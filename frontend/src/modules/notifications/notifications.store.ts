@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { bindSocketEvents } from '@/lib/socket-events'
+import { playSound } from '@/lib/sounds'
 import type { AppNotification } from '@/types/models'
 import { notificationsApi } from './notifications.api'
 
@@ -57,6 +58,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         'notification:created': (notification: AppNotification) => {
           items.value.unshift(notification)
           unreadCount.value += 1
+          playSound('notification', { id: notification.id })
           toast(notification.title, {
             description: notification.body ?? undefined,
             action: notification.link ? { label: 'Open', onClick: () => onOpen(notification) } : undefined,

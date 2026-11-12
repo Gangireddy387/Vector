@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { bindSocketEvents } from '@/lib/socket-events'
+import { playSound } from '@/lib/sounds'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type ChatMessage, type ConversationSummary, messagesApi } from './messages.api'
 
@@ -26,9 +27,11 @@ export const useMessagesStore = defineStore('messages', () => {
   }
 
   function onMessage(message: ChatMessage) {
+    const isMine = message.authorId === auth.user?.id
+    // Someone else's message: a ding, softer when that conversation is already on screen.
+    if (!isMine) playSound('message', { id: message.id, quiet: openId.value === message.conversationId && document.hasFocus() })
     const conversation = conversations.value?.find((item) => item.id === message.conversationId)
     if (!conversation) return void load()
-    const isMine = message.authorId === auth.user?.id
     upsert({
       ...conversation,
       lastMessage: { id: message.id, body: message.body, deleted: false, createdAt: message.createdAt, author: message.author },

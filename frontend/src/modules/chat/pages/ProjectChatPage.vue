@@ -12,6 +12,7 @@ import { useDevice } from '@/composables/useDevice'
 import { useProjectRealtime } from '@/composables/useProjectRealtime'
 import { getErrorMessage } from '@/lib/http'
 import { useSocketEvents } from '@/lib/socket-events'
+import { playSound } from '@/lib/sounds'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { usersApi } from '@/modules/projects/projects.api'
 import { useProjectsStore } from '@/modules/projects/projects.store'
@@ -143,7 +144,9 @@ const useCommand = (command: AssistantCommand) => composer.value?.setText(comman
 useProjectRealtime(projectId, () => {})
 const onIncoming = async (message: ChatMessage) => {
   const stick = nearBottom()
+  const isNew = !messages.value.some((item) => item.id === message.id)
   upsert(message)
+  if (isNew && message.kind === 'user' && message.authorId !== auth.user?.id) playSound('message', { id: message.id, quiet: true })
   if (stick) await scrollToBottom(true)
 }
 const onDeleted = ({ id }: { id: string; projectId?: string }) => (messages.value = messages.value.filter((item) => item.id !== id))

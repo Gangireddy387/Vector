@@ -8,6 +8,7 @@ import MobileShell from '@/components/layout/MobileShell.vue'
 import { useDevice } from '@/composables/useDevice'
 import { useHotkeys } from '@/composables/useHotkeys'
 import { useTimezoneSync } from '@/composables/useTimezoneSync'
+import { setSoundGate } from '@/lib/sounds'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import IssueCreateSheet from '@/modules/issues/components/IssueCreateSheet.vue'
 import IssueDetailSheet from '@/modules/issues/components/IssueDetailSheet.vue'
@@ -38,6 +39,9 @@ function openNotification(notification: AppNotification) {
   void notifications.markRead(notification)
   if (notification.link) void router.push(notification.link)
 }
+
+// "Do not disturb" silences message and notification sounds.
+setSoundGate(() => presence.chosen !== 'dnd')
 
 onMounted(async () => {
   // Live updates first, so a failed load below never leaves the session without them.
