@@ -54,6 +54,8 @@ Meeting.init(
     /** Phone dial-in: the PIN callers enter, and the media server's routing rule for it. */
     dialInPin: { type: DataTypes.STRING(12), allowNull: true },
     sipRuleId: { type: DataTypes.STRING(80), allowNull: true },
+    /** `meeting` (the organization's own) or `support`: a call between the Vector team and the organization's admins. */
+    kind: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'meeting' },
   },
   {
     sequelize,

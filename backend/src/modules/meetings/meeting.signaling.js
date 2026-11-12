@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+import { config } from '../../config/index.js';
 import { Meeting, MeetingChatMessage, MeetingFile, MeetingParticipant, MeetingRecording, Organization, OrganizationMember, User } from '../../database/models.js';
 import { presenceInCall } from '../../shared/realtime/presence.js';
 import { shared } from '../../shared/realtime/shared-state.js';
@@ -263,10 +264,27 @@ async function assertPlan(meeting) {
   if (!organization || !entitlementsFor(organization).features.meetings) throw new Error('This organization’s plan does not include meetings');
 }
 
+const isPortalUser = (user) => Boolean(config.superAdmin.email) && user?.email?.toLowerCase() === config.superAdmin.email;
+
+/**
+ * A support call (the Vector team with an organization's admins): the super admin joins without belonging to the
+ * organization, and it does not depend on the organization's plan. Both sides run the call.
+ */
+async function supportJoin(meeting, userId) {
+  const user = await User.findByPk(userId, { attributes: USER_SUMMARY_ATTRIBUTES });
+  if (!user) throw new Error('Account not found');
+  if (!isPortalUser(user)) {
+    const admin = await OrganizationMember.count({ where: { organizationId: meeting.organizationId, userId, role: 'admin', status: 'active' } });
+    if (!admin) throw new Error('Only the organization’s admins and the Vector team can join this call');
+  }
+  return { meeting, user: user.toJSON(), role: meeting.hostId === userId ? 'host' : 'admin' };
+}
+
 /** Host, invited people and the organization's admins may join while the meeting is not over and the plan allows it. */
 async function memberJoin(meetingId, userId) {
   const meeting = await Meeting.findByPk(meetingId);
   assertOpen(meeting);
+  if (meeting.kind === 'support') return supportJoin(meeting, userId);
   const membership = await OrganizationMember.findOne({ where: { organizationId: meeting.organizationId, userId, status: 'active' } });
   if (!membership) throw new Error('You are not a member of this organization');
   await assertPlan(meeting);
@@ -581,7 +599,8 @@ export function registerMeetingSignaling(io, socket) {
       });
       if (call.breakouts) announceBreakouts(io, meetingId, call);
       void announce(io, meetingId);
-      if (started && ringsNow(meeting)) {
+      // Support calls ring when they are started (each side gets its own link), not on the first join.
+      if (started && ringsNow(meeting) && meeting.kind !== 'support') {
         const present = (await callPresence([meetingId])).get(meetingId).inCall;
         void ringInvitees(io, meeting, user, present).catch((error) => console.warn('[meetings] ringing failed:', error.message));
       }

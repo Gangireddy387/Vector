@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useClipboard, useIntervalFn } from '@vueuse/core'
 import { differenceInMinutes, format, isSameDay, isToday, isYesterday, parseISO } from 'date-fns'
-import { Ban, Check, CheckCheck, Copy, Lock, Pencil, SendHorizontal, Timer, Trash2, X } from 'lucide-vue-next'
+import { Ban, Check, CheckCheck, Copy, Download, LoaderCircle, Lock, Pencil, Play, SendHorizontal, Timer, Trash2, Video, X } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, ref, useTemplateRef } from 'vue'
+import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -11,10 +12,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
-import { getErrorMessage } from '@/lib/http'
+import { assetUrl, getErrorMessage } from '@/lib/http'
 import { useSocketEvents } from '@/lib/socket-events'
 import { playSound } from '@/lib/sounds'
-import type { DisappearHours, SupportChatApi, SupportMessage } from '../support.api'
+import { type DisappearHours, type SupportCall, type SupportChatApi, type SupportMessage, supportCallApi } from '../support.api'
 
 /**
  * A WhatsApp-style conversation between the super admin ("portal") and one organization's admins.
@@ -66,11 +67,71 @@ async function markThreadRead() {
   emit('read')
 }
 
+// --- Video call with the other side ----------------------------------------------
+const router = useRouter()
+const call = ref<SupportCall | null>(null)
+const isStartingCall = ref(false)
+
+const openCall = (target: SupportCall) => void router.push(`${target.url}?join=1`)
+
+async function startCall() {
+  isStartingCall.value = true
+  try {
+    const started = await props.api.startCall()
+    call.value = started
+    openCall(started)
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isStartingCall.value = false
+  }
+}
+
+function onCall(event: { organizationId: string; call: SupportCall | null }) {
+  if (event.organizationId === props.organizationId) call.value = event.call
+}
+
+// --- Call recordings saved in the chat ---------------------------------------------
+const playing = ref<{ message: SupportMessage; url: string } | null>(null)
+const loadingRecordingId = ref<string | null>(null)
+
+/** Recording links expire after a few hours, so a fresh one is asked for each time. */
+const recordingUrl = async (message: SupportMessage) => assetUrl(await supportCallApi.recordingLink(message.recording!))!
+
+async function playRecording(message: SupportMessage) {
+  loadingRecordingId.value = message.id
+  try {
+    playing.value = { message, url: await recordingUrl(message) }
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    loadingRecordingId.value = null
+  }
+}
+
+async function downloadRecording(message: SupportMessage) {
+  try {
+    const link = document.createElement('a')
+    link.href = `${await recordingUrl(message)}&download=1`
+    link.click()
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  }
+}
+
+const clock = (seconds: number | null) => {
+  if (seconds === null || !Number.isFinite(seconds)) return ''
+  const minutes = Math.floor(seconds / 60)
+  return `${minutes}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
+}
+const fileSize = (bytes: number | null) => (bytes ? (bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)} GB` : `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`) : '')
+
 async function loadThread() {
   try {
     const thread = await props.api.thread()
     messages.value = thread.messages
     disappearHours.value = thread.disappearHours
+    call.value = thread.call
     await scrollToEnd()
     // Organization admins also have Inbox notifications for these messages, so opening the chat always clears them.
     if (thread.unread || props.side === 'organization') await markThreadRead()
@@ -135,6 +196,7 @@ useSocketEvents({
   'support:read': onRead,
   'support:updated': onUpdated,
   'support:settings': onSettings,
+  'support:call': onCall,
   'support:hidden': onHidden,
   'support:cleared': onCleared,
 })
@@ -208,6 +270,7 @@ function actionsFor(message: SupportMessage) {
   }
   const remove = { label: 'Delete', icon: Trash2, danger: true, run: run(() => (deleting.value = message)) }
   if (message.deletedAt) return [remove]
+  if (message.kind === 'recording') return [{ label: 'Download', icon: Download, danger: false, run: run(() => downloadRecording(message)) }, remove]
   return [
     { label: 'Copy', icon: Copy, danger: false, run: run(() => copyMessage(message)) },
     ...(isMine(message) ? [{ label: 'Edit', icon: Pencil, danger: false, run: run(() => startEdit(message)) }] : []),
@@ -324,6 +387,20 @@ const senderName = (message: SupportMessage) => (message.fromPortal ? `${message
 
 <template>
   <div class="flex min-h-0 flex-col">
+    <!-- A video call with the other side is going: one tap joins it -->
+    <div v-if="call" class="flex shrink-0 items-center gap-3 bg-[#00a884] px-4 py-2 text-white" role="status">
+      <span class="relative flex size-2.5">
+        <span class="absolute inline-flex size-full animate-ping rounded-full bg-white/70" />
+        <span class="relative inline-flex size-2.5 rounded-full bg-white" />
+      </span>
+      <span class="min-w-0 flex-1 truncate text-sm font-medium">
+        Video call {{ call.status === 'live' ? 'in progress' : 'started' }} · {{ side === 'portal' ? 'with the organization’s admins' : 'with the Vector team' }}
+      </span>
+      <button type="button" class="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm font-semibold text-[#008069] hover:bg-white/90" @click="openCall(call)">
+        <Video class="size-4" /> Join
+      </button>
+    </div>
+
     <!-- Conversation, on a soft patterned wallpaper -->
     <div ref="scroller" class="chat-wallpaper min-h-0 flex-1 overflow-y-auto px-[6%] py-4 scrollbar-thin">
       <div class="mx-auto mb-3 flex max-w-sm items-start gap-2 rounded-lg bg-[#ffeecd] px-3 py-2 text-center text-[11.5px] leading-snug text-[#54656f] shadow-sm dark:bg-[#182229] dark:text-[#ffd279]">
@@ -348,7 +425,7 @@ const senderName = (message: SupportMessage) => (message.fromPortal ? `${message
         <!-- System notice, e.g. disappearing messages turned on -->
         <div v-if="message.kind === 'system'" class="my-2 flex justify-center">
           <span class="flex max-w-md items-start gap-1.5 rounded-lg bg-[#ffeecd] px-3 py-1.5 text-center text-[11.5px] leading-snug text-[#54656f] shadow-sm dark:bg-[#182229] dark:text-[#ffd279]">
-            <Timer class="mt-px size-3.5 shrink-0" /> {{ message.body }}
+            <component :is="/video call/i.test(message.body) ? Video : Timer" class="mt-px size-3.5 shrink-0" /> {{ message.body }}
           </span>
         </div>
 
@@ -383,6 +460,26 @@ const senderName = (message: SupportMessage) => (message.fromPortal ? `${message
             <p v-if="message.deletedAt" class="flex items-center gap-1.5 pr-12 text-[13.5px] text-[#667781] italic dark:text-[#8696a0]">
               <Ban class="size-3.5 shrink-0" /> {{ isMine(message) ? 'You deleted this message' : 'This message was deleted' }}
             </p>
+            <!-- A saved recording of a support call: play it here, or download it from the actions -->
+            <div v-else-if="message.kind === 'recording' && message.recording" class="w-64 max-w-full pb-4">
+              <button
+                type="button"
+                class="group/video relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-md bg-[#0d1017] text-white"
+                :aria-label="`Play call recording, ${clock(message.recording.durationSeconds)}`"
+                @click.stop="playRecording(message)"
+              >
+                <Video class="absolute top-2 left-2 size-4 text-white/60" />
+                <span class="flex size-12 items-center justify-center rounded-full bg-white/20 backdrop-blur transition-colors group-hover/video:bg-white/30">
+                  <LoaderCircle v-if="loadingRecordingId === message.id" class="size-6 animate-spin" />
+                  <Play v-else class="size-6 translate-x-0.5" fill="currentColor" />
+                </span>
+                <span v-if="message.recording.durationSeconds" class="absolute right-2 bottom-1.5 text-[11px] font-medium tabular-nums">{{ clock(message.recording.durationSeconds) }}</span>
+              </button>
+              <p class="mt-1.5 flex items-center gap-1.5 text-[13px] font-medium"><Video class="size-3.5" /> Call recording</p>
+              <p class="text-[11.5px] text-[#667781] dark:text-[#8696a0]">
+                {{ format(parseISO(message.recording.startedAt), 'd MMM yyyy, HH:mm') }}<template v-if="message.recording.sizeBytes"> · {{ fileSize(message.recording.sizeBytes) }}</template>
+              </p>
+            </div>
             <p v-else class="whitespace-pre-wrap break-words">
               {{ message.body }}<span class="inline-block" :style="metaSpace(message)" />
             </p>
@@ -447,6 +544,16 @@ const senderName = (message: SupportMessage) => (message.fromPortal ? `${message
 
     <!-- Composer -->
     <form class="flex shrink-0 items-end gap-2 bg-[#f0f2f5] px-3 py-2.5 dark:bg-[#202c33]" @submit.prevent="submit">
+      <button
+        type="button"
+        class="flex size-10 shrink-0 items-center justify-center rounded-full text-[#54656f] transition-colors hover:bg-black/5 disabled:opacity-50 dark:text-[#8696a0] dark:hover:bg-white/10"
+        :title="call ? 'Join the video call' : side === 'portal' ? 'Video call the organization’s admins' : 'Video call the Vector team'"
+        :aria-label="call ? 'Join the video call' : 'Start a video call'"
+        :disabled="isStartingCall"
+        @click="call ? openCall(call) : startCall()"
+      >
+        <Video class="size-5" />
+      </button>
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
           <button
@@ -511,6 +618,22 @@ const senderName = (message: SupportMessage) => (message.fromPortal ? `${message
           <Button v-if="canDeleteForEveryone" variant="destructive" :disabled="isDeleting" @click="deleteForEveryone"><Trash2 /> Delete for everyone</Button>
           <Button :variant="canDeleteForEveryone ? 'outline' : 'destructive'" :disabled="isDeleting" @click="deleteForMe"><Trash2 /> Delete for me</Button>
           <Button variant="ghost" :disabled="isDeleting" @click="deleting = null">Cancel</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Watching a call recording -->
+    <Dialog :open="Boolean(playing)" @update:open="(open) => !open && (playing = null)">
+      <DialogContent class="gap-3 sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Call recording</DialogTitle>
+          <DialogDescription v-if="playing?.message.recording">
+            {{ format(parseISO(playing.message.recording.startedAt), 'EEEE d MMMM yyyy, HH:mm') }} · recorded by {{ senderName(playing.message) }}
+          </DialogDescription>
+        </DialogHeader>
+        <video v-if="playing" :src="playing.url" controls autoplay playsinline class="aspect-video w-full rounded-md bg-black" />
+        <div class="flex justify-end">
+          <Button v-if="playing" variant="outline" @click="downloadRecording(playing.message)"><Download /> Download</Button>
         </div>
       </DialogContent>
     </Dialog>

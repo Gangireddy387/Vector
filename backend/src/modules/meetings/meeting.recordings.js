@@ -16,7 +16,7 @@ import { signRecordingToken, TOKEN_TYPES, verifyAccessToken } from '../auth/toke
 
 const VIDEO_TYPES = /^video\/(webm|mp4|x-matroska)(;|$)/;
 
-const upload = multer({
+export const recordingUpload = multer({
   storage,
   limits: { fileSize: config.meetings.recordingMaxMb * 1024 * 1024, files: 1 },
   fileFilter: (_req, file, callback) => callback(null, VIDEO_TYPES.test(file.mimetype)),
@@ -71,7 +71,7 @@ async function assertMayUpload(req, _res, next) {
 }
 
 /** The finished file of a recording this person started (field `file`, plus `durationSeconds`). */
-meetingRecordingRoutes.post('/meetings/:meetingId/recordings/:recordingId', assertMayUpload, upload.single('file'), async (req, res) => {
+meetingRecordingRoutes.post('/meetings/:meetingId/recordings/:recordingId', assertMayUpload, recordingUpload.single('file'), async (req, res) => {
   const { meeting, recording } = req;
   if (!req.file) {
     await recording.update({ status: 'failed' });

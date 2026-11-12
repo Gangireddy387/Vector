@@ -39,6 +39,7 @@ const KINDS: Record<string, KindStyle> = {
   member_added: { label: 'Access', icon: UserPlus, tone: 'bg-teal-500/15 text-teal-600 dark:text-teal-400' },
   chat_task: { label: 'Chat', icon: MessagesSquare, tone: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400' },
   support_message: { label: 'Vector team', icon: MessageCircle, tone: 'bg-[#00a884]/15 text-[#00a884]' },
+  support_call: { label: 'Vector team call', icon: Video, tone: 'bg-[#00a884]/15 text-[#00a884]' },
   meeting_invite: { label: 'Meeting', icon: Video, tone: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },
   meeting_cancelled: { label: 'Meeting cancelled', icon: VideoOff, tone: 'bg-slate-500/15 text-slate-600 dark:text-slate-300' },
   meeting_reminder: { label: 'Meeting soon', icon: AlarmClock, tone: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },

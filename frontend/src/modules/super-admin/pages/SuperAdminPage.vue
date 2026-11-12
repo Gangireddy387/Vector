@@ -37,6 +37,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useDevice } from '@/composables/useDevice'
 import { useTheme } from '@/composables/useTheme'
 import { useSocketEvents } from '@/lib/socket-events'
+import IncomingCall from '@/modules/meetings/components/IncomingCall.vue'
 import { portalSupportApi, type SupportMessage } from '@/modules/support/support.api'
 import { formatDate, timeAgo } from '@/lib/format'
 import { assetUrl, getErrorMessage } from '@/lib/http'
@@ -241,6 +242,8 @@ function signOut() {
 <template>
   <!-- Same frame as the app: navigation on the left, the selected section on the right. -->
   <div class="flex h-dvh overflow-hidden bg-app">
+    <!-- Organization admins can call the Vector team: their call rings here. -->
+    <IncomingCall />
     <aside
       v-if="isDesktop"
       class="flex w-64 shrink-0 flex-col border-r border-sidebar-border/70 bg-sidebar/75 text-sidebar-foreground backdrop-blur-xl"

@@ -19,6 +19,7 @@ import { globalReportRoutes, reportRoutes } from '@/modules/reports/reports.rout
 import { searchRoutes } from '@/modules/search/search.routes'
 import { settingsRoutes } from '@/modules/settings/settings.routes'
 import { superAdminRoutes } from '@/modules/super-admin/super-admin.routes'
+import { supportCallRoutes } from '@/modules/support/support.routes'
 import { featureLabel, type PlanFeatureKey } from '@/lib/plan-features'
 import { organizationsApi } from '@/modules/auth/auth.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -131,6 +132,7 @@ const routes: RouteRecordRaw[] = [
   ...legalRoutes,
   ...meetingGuestRoutes,
   ...superAdminRoutes,
+  ...supportCallRoutes,
   legacyOrganizationLinkRoute,
   organizationLinkRoute,
   { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/layouts/NotFoundPage.vue') },

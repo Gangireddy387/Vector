@@ -52,6 +52,8 @@ const ADDED_COLUMNS = [
   { table: 'meeting_questions', column: 'answer', definition: { type: DataTypes.TEXT, allowNull: true } },
   { table: 'conversation_messages', column: 'edited_at', definition: { type: DataTypes.DATE, allowNull: true } },
   { table: 'conversation_members', column: 'cleared_at', definition: { type: DataTypes.DATE, allowNull: true } },
+  { table: 'meetings', column: 'kind', definition: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'meeting' } },
+  { table: 'support_messages', column: 'recording', definition: { type: DataTypes.JSON, allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

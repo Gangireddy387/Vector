@@ -14,8 +14,10 @@ SupportMessage.init(
     authorId: { type: DataTypes.UUID, allowNull: true },
     /** Written by the super admin (true) or by one of the organization's admins (false). */
     fromPortal: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
-    /** `message` from a person, or a `system` notice such as "turned on disappearing messages". */
+    /** `message` from a person, a `recording` of a support call, or a `system` notice such as "turned on disappearing messages". */
     kind: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'message' },
+    /** For `recording` messages: `{ id, meetingId, durationSeconds, sizeBytes, mimeType, startedAt }` of the saved call recording. */
+    recording: { type: DataTypes.JSON, allowNull: true },
     body: { type: DataTypes.TEXT, allowNull: false },
     readAt: { type: DataTypes.DATE, allowNull: true },
     /** Deleted for everyone by its author; the body is cleared and the bubble says so. */

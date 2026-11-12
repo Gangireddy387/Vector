@@ -9,4 +9,12 @@ export const superAdminRoutes: RouteRecordRaw[] = [
     component: () => import('./pages/SuperAdminPage.vue'),
     meta: { requiresAuth: true, allowWithoutOrganization: true, requiresSuperAdmin: true, title: 'Super admin' },
   },
+  /** A video call with an organization's admins (under /super-admin so it uses the super admin's sign-in). */
+  {
+    path: '/super-admin/call/:meetingId',
+    name: 'super-admin-call',
+    component: () => import('@/modules/support/pages/SupportCallPage.vue'),
+    props: true,
+    meta: { requiresAuth: true, allowWithoutOrganization: true, requiresSuperAdmin: true, title: 'Support call' },
+  },
 ]

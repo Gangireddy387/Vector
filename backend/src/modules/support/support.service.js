@@ -1,6 +1,7 @@
 import { Op } from 'sequelize';
 import { config } from '../../config/index.js';
-import { Notification, Organization, OrganizationMember, SupportMessage, User } from '../../database/models.js';
+import { Meeting, MeetingRecording, Notification, Organization, OrganizationMember, SupportMessage, User } from '../../database/models.js';
+import { deleteStoredFile } from '../attachments/attachment.storage.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { emitToUser } from '../../shared/realtime/socket.js';
 import { notifyUsers } from '../notifications/notification.service.js';
@@ -11,8 +12,10 @@ const THREAD_LIMIT = 300;
 export const DISAPPEAR_OPTIONS = [24, 168];
 const include = [{ model: User, as: 'author', attributes: USER_SUMMARY_ATTRIBUTES }];
 const notExpired = () => ({ [Op.or]: [{ expiresAt: null }, { expiresAt: { [Op.gt]: new Date() } }] });
+/** Messages and call recordings from people (not system notices). */
+const PERSONAL_KINDS = ['message', 'recording'];
 /** Unread counts only consider real, visible messages from the other side. */
-const unreadWhere = (organizationId, fromPortal) => ({ organizationId, fromPortal, kind: 'message', deletedAt: null, readAt: null, ...notExpired() });
+const unreadWhere = (organizationId, fromPortal) => ({ organizationId, fromPortal, kind: PERSONAL_KINDS, deletedAt: null, readAt: null, ...notExpired() });
 
 async function loadOrganization(organizationId) {
   const organization = await Organization.findByPk(organizationId, { attributes: ['id', 'name', 'slug', 'supportDisappearHours', 'supportClearedAt'] });
@@ -20,14 +23,14 @@ async function loadOrganization(organizationId) {
   return organization;
 }
 
-const superAdminIds = async () =>
+export const superAdminIds = async () =>
   config.superAdmin.email ? (await User.findAll({ where: { email: config.superAdmin.email }, attributes: ['id'], raw: true })).map((user) => user.id) : [];
 
-const organizationAdminIds = async (organizationId) =>
+export const organizationAdminIds = async (organizationId) =>
   (await OrganizationMember.findAll({ where: { organizationId, role: 'admin', status: 'active' }, attributes: ['userId'], raw: true })).map((row) => row.userId);
 
 /** Everyone in the conversation: the super admin and the organization's admins. */
-async function broadcast(organizationId, event, payload) {
+export async function broadcast(organizationId, event, payload) {
   const [portalIds, adminIds] = await Promise.all([superAdminIds(), organizationAdminIds(organizationId)]);
   for (const userId of new Set([...portalIds, ...adminIds])) emitToUser(userId, event, payload);
   return adminIds;
@@ -38,11 +41,31 @@ const present = (message) => {
   const { hiddenFor: _hiddenFor, ...rest } = message.toJSON();
   return rest;
 };
-const withAuthor = async (id) => present(await SupportMessage.findByPk(id, { include }));
+export const withAuthor = async (id) => present(await SupportMessage.findByPk(id, { include }));
+
+/** Where each side opens a support call: the super admin in their own tab, organization admins in the app. */
+export const supportCallPath = (meetingId, side) => (side === 'portal' ? `/super-admin/call/${meetingId}` : `/support-call/${meetingId}`);
+
+const callEndsAt = (meeting) => new Date(new Date(meeting.startsAt).getTime() + meeting.durationMinutes * 60_000);
+
+/** The support call with this organization that is still going (started, not ended, its time not over). */
+export async function findActiveSupportCall(organizationId) {
+  const meetings = await Meeting.findAll({
+    where: { organizationId, kind: 'support', status: ['scheduled', 'live'] },
+    order: [['createdAt', 'DESC']],
+    limit: 3,
+  });
+  return meetings.find((meeting) => callEndsAt(meeting) > new Date()) ?? null;
+}
+
+export const describeSupportCall = (meeting, side) =>
+  meeting
+    ? { id: meeting.id, title: meeting.title, status: meeting.status, startsAt: meeting.startsAt, endsAt: callEndsAt(meeting), url: supportCallPath(meeting.id, side) }
+    : null;
 
 /**
  * The conversation as `viewerId` sees it, oldest first: without what they cleared or deleted for themselves. Also the
- * disappearing-message timer and how many messages from the other side are unread.
+ * disappearing-message timer, how many messages from the other side are unread, and a video call in progress.
  */
 export async function getThread(organizationId, side, viewerId) {
   const organization = await loadOrganization(organizationId);
@@ -57,6 +80,7 @@ export async function getThread(organizationId, side, viewerId) {
       .map(present),
     unread,
     disappearHours: organization.supportDisappearHours ?? null,
+    call: describeSupportCall(await findActiveSupportCall(organizationId), side),
   };
 }
 
@@ -91,7 +115,7 @@ export async function sendMessage(organizationId, author, side, body) {
 
 /** One of the author's own messages, still in the conversation. */
 async function ownMessage(organizationId, author, side, messageId, action) {
-  const message = await SupportMessage.findOne({ where: { id: messageId, organizationId, kind: 'message', ...notExpired() } });
+  const message = await SupportMessage.findOne({ where: { id: messageId, organizationId, kind: PERSONAL_KINDS, ...notExpired() } });
   if (!message) throw ApiError.notFound('Message not found');
   if (message.authorId !== author.id || message.fromPortal !== (side === 'portal')) throw ApiError.forbidden(`You can only ${action} your own messages`);
   return message;
@@ -100,6 +124,7 @@ async function ownMessage(organizationId, author, side, messageId, action) {
 /** Changes the text of one of the author's messages; both sides see it update, marked "Edited". */
 export async function editMessage(organizationId, author, side, messageId, body) {
   const message = await ownMessage(organizationId, author, side, messageId, 'edit');
+  if (message.kind === 'recording') throw ApiError.badRequest('A call recording can’t be edited');
   if (message.deletedAt) throw ApiError.badRequest('A deleted message can’t be edited');
   if (message.body !== body) await message.update({ body, editedAt: new Date() });
   const updated = await withAuthor(message.id);
@@ -107,10 +132,14 @@ export async function editMessage(organizationId, author, side, messageId, body)
   return updated;
 }
 
-/** "Delete for everyone": only the author can, and the bubble stays as "This message was deleted". */
+/**
+ * "Delete for everyone": only the author can, and the bubble stays as "This message was deleted". Deleting a call
+ * recording also removes its video file.
+ */
 export async function deleteMessage(organizationId, author, side, messageId) {
   const message = await ownMessage(organizationId, author, side, messageId, 'delete');
-  if (!message.deletedAt) await message.update({ body: '', deletedAt: new Date() });
+  if (message.recording?.id) await removeRecordingFile(message.recording.id);
+  if (!message.deletedAt) await message.update({ body: '', recording: null, deletedAt: new Date() });
   const updated = await withAuthor(message.id);
   await broadcast(organizationId, 'support:updated', updated);
   return updated;
@@ -171,7 +200,7 @@ export async function markRead(organizationId, side, reader = null) {
 }
 
 /** Opens this organization's conversation, switching to the organization first when needed. */
-const supportLink = (organization) => `/${organization.slug}/admin/workspace?tab=support`;
+export const supportLink = (organization) => `/${organization.slug}/admin/workspace?tab=support`;
 /** Notifications sent before links named their organization. */
 const LEGACY_SUPPORT_LINK = '/admin/workspace?tab=support';
 
@@ -183,10 +212,17 @@ async function clearSupportNotifications(organization, userId, readAt) {
   emitToUser(userId, 'notifications:read', { ids, readAt });
 }
 
+async function removeRecordingFile(recordingId) {
+  const recording = await MeetingRecording.findByPk(recordingId);
+  if (!recording) return;
+  await recording.destroy();
+  if (recording.storageKey) await deleteStoredFile(recording.storageKey);
+}
+
 /** For the super admin: unread messages per organization. */
 export async function unreadByOrganization() {
   const rows = await SupportMessage.findAll({
-    where: { fromPortal: false, kind: 'message', deletedAt: null, readAt: null, ...notExpired() },
+    where: { fromPortal: false, kind: PERSONAL_KINDS, deletedAt: null, readAt: null, ...notExpired() },
     attributes: ['organizationId', [SupportMessage.sequelize.fn('COUNT', SupportMessage.sequelize.col('id')), 'count']],
     group: ['organizationId'],
     raw: true,

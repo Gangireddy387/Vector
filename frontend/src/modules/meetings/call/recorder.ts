@@ -1,3 +1,5 @@
+import fixWebmDuration from 'fix-webm-duration'
+
 /**
  * Records the call in this browser: the call's tab (everyone's video, the shared screen or whiteboard, as this person
  * sees it) together with everyone's voice mixed into one track. The browser asks which tab to record and offers this
@@ -74,13 +76,17 @@ export async function startRecorder(onEnded: () => void): Promise<CallRecorder> 
 
   function stop() {
     stopping ??= new Promise<FinishedRecording>((resolve) => {
-      recorder.onstop = () => {
+      recorder.onstop = async () => {
         display.getTracks().forEach((track) => track.stop())
         sources.forEach((source) => source.disconnect())
         silence.stop()
         void context.close().catch(() => undefined)
         const type = (recorder.mimeType || mimeType || 'video/webm').split(';')[0]!
-        resolve({ blob: new Blob(chunks, { type }), mimeType: type, durationSeconds: Math.round((Date.now() - startedAt) / 1000) })
+        const durationMs = Date.now() - startedAt
+        let blob = new Blob(chunks, { type })
+        // Browsers write WebM recordings without their length, so players show no timeline and cannot seek: add it.
+        if (type === 'video/webm') blob = await fixWebmDuration(blob, durationMs, { logger: false }).catch(() => blob)
+        resolve({ blob, mimeType: type, durationSeconds: Math.round(durationMs / 1000) })
       }
       if (recorder.state === 'inactive') recorder.onstop?.(new Event('stop'))
       else recorder.stop()

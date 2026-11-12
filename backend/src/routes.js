@@ -36,6 +36,7 @@ import worklogRoutes from './modules/worklogs/worklog.routes.js';
 import { publicWorkspaceRoutes } from './modules/workspace/workspace.routes.js';
 import { organizationAdminRoutes, organizationRoutes, publicOrganizationRoutes } from './modules/organizations/organization.routes.js';
 import superAdminRoutes from './modules/super-admin/super-admin.routes.js';
+import supportCallRoutes from './modules/support/support-call.routes.js';
 
 export function createApiRouter() {
   const router = Router();
@@ -57,6 +58,7 @@ export function createApiRouter() {
   router.use(organizationRoutes);
   router.use(organizationAdminRoutes);
   router.use(superAdminRoutes);
+  router.use(supportCallRoutes);
 
   // Everything below works inside the signed-in person's current organization.
   router.use(requireOrganization);

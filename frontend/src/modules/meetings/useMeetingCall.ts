@@ -15,6 +15,7 @@ import { type CallRecorder, recordingSupported, startRecorder } from './call/rec
 import { type CallShortcutAction, callShortcutFor, isTalkKey } from './call/shortcuts'
 import { type CallQuality, createSfuTransport } from './call/sfu'
 import { type StatsSample, measure as measureConnection, worstQuality } from './call/stats'
+import { supportCallApi } from '@/modules/support/support.api'
 import { type MeetingFile, type MeetingLobby, type MeetingPoll, type MeetingQuestion, type WhiteboardStroke, meetingsApi } from './meetings.api'
 
 export type { BackgroundChoice, CallQuality }
@@ -258,6 +259,8 @@ function createCall() {
   const meetingId = ref<string | null>(null)
   const title = ref('')
   const isGuest = ref(false)
+  /** A call between the Vector team and an organization's admins: recordings go to their support chat. */
+  const isSupport = ref(false)
   /** This person as others in the call see them. */
   const selfUser = ref<CallUser | null>(null)
   const canManage = ref(false)
@@ -1274,7 +1277,7 @@ function createCall() {
    * Joins the call: everyone already in it is connected to, and they connect back. Guests (`options.guest`) wait in
    * the lobby until someone lets them in; their network servers come with their guest pass.
    */
-  async function join(id: string, options: { user: CallUser | null; title?: string; guest?: boolean; iceServers?: RTCIceServer[] }) {
+  async function join(id: string, options: { user: CallUser | null; title?: string; guest?: boolean; support?: boolean; iceServers?: RTCIceServer[] }) {
     const socket = getSocket()
     if (!socket?.connected) throw new Error('Not connected to Vector. Check your internet connection and try again.')
     if (inCall.value && meetingId.value !== id) leave()
@@ -1282,6 +1285,7 @@ function createCall() {
     meetingId.value = id
     title.value = options.title ?? ''
     isGuest.value = Boolean(options.guest)
+    isSupport.value = Boolean(options.support)
     fixedIce = options.iceServers ?? null
     selfUser.value = options.user
     callError.value = null
@@ -1359,6 +1363,7 @@ function createCall() {
     meetingId.value = null
     title.value = ''
     isGuest.value = false
+    isSupport.value = false
     canManage.value = false
     role.value = null
     if (status.value === 'left') status.value = 'idle'
@@ -1655,7 +1660,7 @@ function createCall() {
       recorder = await startRecorder(() => void stopRecording())
     } catch (error) {
       await emit('meeting:recording', { on: false })
-      await meetingsApi.removeRecording(forMeeting, id).catch(() => undefined)
+      await (isSupport.value ? supportCallApi.removeRecording(forMeeting, id) : meetingsApi.removeRecording(forMeeting, id)).catch(() => undefined)
       if (error instanceof DOMException && error.name === 'NotAllowedError') return
       throw new Error('Recording could not start: choose this tab when the browser asks what to record.', { cause: error })
     }
@@ -1675,9 +1680,15 @@ function createCall() {
     void emit('meeting:recording', { on: false })
     const finished = await current.stop()
     uploadProgress.value = 0
+    const onProgress = (percent: number) => (uploadProgress.value = percent)
     try {
-      await meetingsApi.uploadRecording(forMeeting, id, finished.blob, finished.durationSeconds, (percent) => (uploadProgress.value = percent))
-      toast.success('Recording saved', { description: 'Everyone invited can watch it from the meeting page.' })
+      if (isSupport.value) {
+        await supportCallApi.uploadRecording(forMeeting, id, finished.blob, finished.durationSeconds, onProgress)
+        toast.success('Recording saved', { description: 'It is in the support chat, where both sides can watch or download it later.' })
+      } else {
+        await meetingsApi.uploadRecording(forMeeting, id, finished.blob, finished.durationSeconds, onProgress)
+        toast.success('Recording saved', { description: 'Everyone invited can watch it from the meeting page.' })
+      }
     } catch (error) {
       toast.error(`The recording could not be saved: ${getErrorMessage(error)}`)
     } finally {
