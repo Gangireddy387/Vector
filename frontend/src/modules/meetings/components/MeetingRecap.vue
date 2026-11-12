@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { useConfirm } from '@/composables/useConfirm'
 import { assetUrl, getErrorMessage } from '@/lib/http'
 import { attendanceCsv, attendanceDuration } from '../attendance'
+import { revealDuration } from '../call/playback'
 import { durationLabel } from '../meeting-format'
 import {
   type AttendanceEntry,
@@ -100,7 +101,11 @@ function seek(seconds: number) {
   video.currentTime = Math.max(0, seconds)
   void video.play().catch(() => undefined)
 }
-const onLoaded = () => playing.value?.startAt && seek(playing.value.startAt)
+async function onLoaded() {
+  const video = player.value?.[0]
+  if (video) await revealDuration(video)
+  if (playing.value?.startAt) seek(playing.value.startAt)
+}
 
 /** Chapters of the call that fall within a recording, with where they start in it (seconds). */
 const chapters = computed(() => props.meeting.summary?.chapters ?? [])
@@ -248,7 +253,7 @@ function downloadTranscript() {
           <Button v-if="recording.canDelete" variant="ghost" size="icon-sm" class="text-destructive" aria-label="Delete recording" title="Delete" @click="removeRecording(recording)"><Trash2 /></Button>
         </div>
         <template v-if="playing?.id === recording.id">
-          <video ref="player" :src="playing.url" controls autoplay class="aspect-video w-full rounded-md bg-black" @loadedmetadata="onLoaded" />
+          <video ref="player" :src="playing.url" controls autoplay playsinline class="max-h-[62dvh] w-full rounded-md bg-black object-contain" @loadedmetadata="onLoaded" />
           <ol v-if="chaptersOf(recording).length" class="flex flex-wrap gap-1.5" aria-label="Chapters">
             <li v-for="chapter in chaptersOf(recording)" :key="chapter.at">
               <button type="button" class="rounded-full border border-border/70 px-2.5 py-1 text-xs transition-colors hover:bg-muted" @click="seek(chapter.offset)">

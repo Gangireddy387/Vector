@@ -15,6 +15,7 @@ import { useDevice } from '@/composables/useDevice'
 import { assetUrl, getErrorMessage } from '@/lib/http'
 import { useSocketEvents } from '@/lib/socket-events'
 import { playSound } from '@/lib/sounds'
+import { revealDuration } from '@/modules/meetings/call/playback'
 import { type DisappearHours, type SupportCall, type SupportChatApi, type SupportMessage, supportCallApi } from '../support.api'
 
 /**
@@ -631,8 +632,17 @@ const senderName = (message: SupportMessage) => (message.fromPortal ? `${message
             {{ format(parseISO(playing.message.recording.startedAt), 'EEEE d MMMM yyyy, HH:mm') }} · recorded by {{ senderName(playing.message) }}
           </DialogDescription>
         </DialogHeader>
-        <video v-if="playing" :src="playing.url" controls autoplay playsinline class="aspect-video w-full rounded-md bg-black" />
-        <div class="flex justify-end">
+        <video
+          v-if="playing"
+          :src="playing.url"
+          controls
+          autoplay
+          playsinline
+          class="max-h-[62dvh] w-full rounded-md bg-black object-contain"
+          @loadedmetadata="(event: Event) => revealDuration(event.target as HTMLVideoElement)"
+        />
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-xs text-muted-foreground">Downloads are WebM videos: they open in Chrome, Edge, Firefox or VLC.</p>
           <Button v-if="playing" variant="outline" @click="downloadRecording(playing.message)"><Download /> Download</Button>
         </div>
       </DialogContent>
