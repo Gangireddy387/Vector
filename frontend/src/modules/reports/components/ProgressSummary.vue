@@ -108,7 +108,7 @@ const verdict = computed(() => {
 
     <!-- Forecast -->
     <div class="space-y-2 border-l-0 lg:border-l lg:pl-5">
-      <p class="flex items-center gap-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase"><CalendarClock class="size-3.5" /> Forecast</p>
+      <p class="flex items-center gap-2 text-xs font-medium text-muted-foreground"><CalendarClock class="size-3.5" /> Forecast</p>
       <span class="inline-flex items-center gap-1.5 border px-2 py-1 text-sm font-semibold" :class="verdict.tone">
         <component :is="verdict.icon" class="size-4" /> {{ verdict.label }}
         <template v-if="progress.forecast.estimatedDate && progress.forecast.state !== 'complete'"> · {{ formatDate(progress.forecast.estimatedDate, 'd MMM yyyy') }}</template>

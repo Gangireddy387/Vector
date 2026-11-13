@@ -267,7 +267,7 @@ function signOut() {
       </div>
 
       <nav class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2 scrollbar-thin">
-        <p class="mt-2 mb-1 px-2 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">Portal</p>
+        <p class="mt-2 mb-1 px-2 text-xs font-medium text-muted-foreground">Portal</p>
         <button
           v-for="item in SECTIONS"
           :key="item.value"
@@ -287,7 +287,7 @@ function signOut() {
           </span>
         </button>
 
-        <p class="mt-5 mb-1 flex items-center justify-between px-2 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+        <p class="mt-5 mb-1 flex items-center justify-between px-2 text-xs font-medium text-muted-foreground">
           Organizations <span class="tabular-nums">{{ organizations?.length ?? 0 }}</span>
         </p>
         <div v-if="(organizations?.length ?? 0) > 8" class="relative mb-1">
@@ -381,7 +381,7 @@ function signOut() {
     <main class="relative min-h-0 w-full flex-1 space-y-6 overflow-y-auto p-5 scrollbar-thin">
       <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div class="max-w-2xl space-y-3">
-          <span class="inline-flex items-center gap-2 text-brand text-xs font-semibold tracking-[0.14em] uppercase">
+          <span class="inline-flex items-center gap-2 text-brand text-xs font-medium">
             <ShieldCheck class="size-3.5" /> Super admin
           </span>
           <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">{{ HEADINGS[section].title }}</h1>
@@ -430,7 +430,7 @@ function signOut() {
 
       <section class="space-y-3">
         <div class="flex items-center justify-between gap-3">
-          <h2 class="text-sm font-semibold tracking-wide text-muted-foreground uppercase">
+          <h2 class="text-sm font-medium text-muted-foreground">
             {{ FILTERS.find((item) => item.value === filter)?.label }}
           </h2>
           <span class="text-xs text-muted-foreground tabular-nums">{{ visible.length }} shown</span>
@@ -455,7 +455,7 @@ function signOut() {
         <div v-else class="overflow-hidden border border-border/80 bg-card shadow-soft">
           <!-- Column headings (wide screens); each row lines up under them. -->
           <div
-            class="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_7.5rem_10rem_6.5rem_7rem_auto] items-center gap-4 border-b border-border/70 bg-muted/40 px-4 py-2.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase xl:grid"
+            class="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_7.5rem_10rem_6.5rem_7rem_auto] items-center gap-4 border-b border-border/70 bg-muted/40 px-4 py-2.5 text-xs font-medium text-muted-foreground xl:grid"
           >
             <span>Organization</span>
             <span>Admin</span>

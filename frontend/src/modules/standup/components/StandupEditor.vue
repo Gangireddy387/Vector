@@ -101,7 +101,7 @@ const FIELDS = computed(() => [
 
     <div class="grid gap-4 p-4 lg:grid-cols-3">
       <label v-for="field in FIELDS" :key="field.key" class="space-y-1.5">
-        <span class="text-xs font-semibold tracking-wide uppercase" :class="field.tone || 'text-muted-foreground'">{{ field.label }}</span>
+        <span class="text-xs font-medium" :class="field.tone || 'text-muted-foreground'">{{ field.label }}</span>
         <Textarea v-model="form[field.key]" rows="5" :placeholder="field.placeholder" class="text-sm" />
       </label>
     </div>

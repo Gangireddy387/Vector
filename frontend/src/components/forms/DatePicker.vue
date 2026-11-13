@@ -134,7 +134,7 @@ const PRESETS = [
           </button>
         </div>
 
-        <div class="grid grid-cols-7 text-center text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+        <div class="grid grid-cols-7 text-center text-xs font-medium text-muted-foreground">
           <span v-for="weekday in WEEKDAYS" :key="weekday" class="py-1.5">{{ weekday }}</span>
         </div>
         <div ref="grid" class="grid grid-cols-7 gap-px" role="grid" @keydown="onGridKeydown">

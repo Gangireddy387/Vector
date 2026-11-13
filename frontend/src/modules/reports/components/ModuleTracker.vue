@@ -145,7 +145,7 @@ const width = (part: number, whole: number) => `${whole ? (part / whole) * 100 :
 
           <div v-if="expanded.has(module.id)" class="grid gap-4 border-t bg-muted/25 px-4 py-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:pl-11">
             <div>
-              <h3 class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Who worked on it</h3>
+              <h3 class="mb-2 text-xs font-medium text-muted-foreground">Who worked on it</h3>
               <ContributorList :contributors="module.contributors" />
             </div>
             <dl class="grid grid-cols-2 content-start gap-x-4 gap-y-2 text-sm">

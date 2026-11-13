@@ -151,7 +151,7 @@ watch(query, () => (highlighted.value = 0))
         </div>
         <ul ref="listbox" role="listbox" tabindex="-1" class="max-h-72 overflow-y-auto py-1 outline-none" @keydown="onKeydown">
           <template v-for="(option, index) in filtered" :key="`${option.value}-${index}`">
-            <li v-if="showGroupHeader(index)" role="presentation" class="px-3 pt-2.5 pb-1 text-[10.5px] font-semibold tracking-wider text-muted-foreground uppercase">
+            <li v-if="showGroupHeader(index)" role="presentation" class="px-3 pt-2.5 pb-1 text-xs font-medium text-muted-foreground">
               {{ option.group }}
             </li>
             <li

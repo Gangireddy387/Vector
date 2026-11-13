@@ -24,7 +24,7 @@ const tasksOn = (day: Date) => props.tasksByDay.get(toDateInput(day)) ?? []
   <div class="divide-y divide-border/60">
     <div v-for="day in days" :key="day.toISOString()" class="flex gap-3 px-3 py-3" :class="toDateInput(day) === selected && 'bg-primary/5'">
       <button type="button" class="flex w-11 shrink-0 flex-col items-center pt-0.5" @click="emit('openDay', toDateInput(day))">
-        <span class="text-[11px] font-semibold tracking-wider uppercase" :class="toDateInput(day) === now.date ? 'text-brand' : 'text-muted-foreground'">
+        <span class="text-xs font-medium" :class="toDateInput(day) === now.date ? 'text-brand' : 'text-muted-foreground'">
           {{ format(day, 'EEE') }}
         </span>
         <span

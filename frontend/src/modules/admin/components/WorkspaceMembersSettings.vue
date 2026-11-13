@@ -178,8 +178,8 @@ async function sendInvite() {
               v-for="option in FILTERS"
               :key="option.value"
               type="button"
-              class="inline-flex items-center gap-1.5 border px-3 py-1.5 text-xs font-medium transition-colors"
-              :class="filter === option.value ? 'border-primary bg-primary/10 text-primary' : 'border-border/80 text-muted-foreground hover:border-primary/30 hover:text-foreground'"
+              class="inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors"
+              :class="filter === option.value ? 'bg-accent text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'"
               :aria-pressed="filter === option.value"
               @click="filter = option.value"
             >
@@ -187,13 +187,13 @@ async function sendInvite() {
               <span class="tabular-nums opacity-70">{{ option.count }}</span>
             </button>
           </div>
-          <div class="ml-auto flex border border-border/80 bg-muted/40 p-0.5" role="group" aria-label="Layout">
+          <div class="ml-auto flex h-8 items-center rounded-md bg-muted p-0.5" role="group" aria-label="Layout">
             <button
               v-for="option in [{ value: 'cards', icon: LayoutGrid, label: 'Cards' }, { value: 'list', icon: List, label: 'List' }] as const"
               :key="option.value"
               type="button"
-              class="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium transition-all"
-              :class="layout === option.value ? 'bg-card text-foreground shadow-sm ring-1 ring-border/70' : 'text-muted-foreground hover:text-foreground'"
+              class="flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors"
+              :class="layout === option.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
               :aria-pressed="layout === option.value"
               @click="layout = option.value"
             >
@@ -221,7 +221,7 @@ async function sendInvite() {
               <DropdownMenuTrigger as-child>
                 <button
                   type="button"
-                  class="absolute top-2 right-2 flex size-8 items-center justify-center bg-black/20 text-white backdrop-blur-sm transition-colors hover:bg-black/35"
+                  class="absolute top-2 right-2 flex size-7 items-center justify-center rounded-md bg-black/20 text-white backdrop-blur-sm transition-colors hover:bg-black/35"
                   :aria-label="`Actions for ${member.name}`"
                 >
                   <Ellipsis class="size-4" />
@@ -271,21 +271,22 @@ async function sendInvite() {
               </span>
             </RouterLink>
 
-            <div class="flex gap-2 border-t border-border/70 p-3">
+            <div class="flex items-center gap-1.5 border-t border-border p-2.5">
+              <Button variant="outline" size="sm" class="min-w-0 flex-1" as-child>
+                <RouterLink :to="{ name: 'member-profile', params: { userId: member.id } }"><UserRound /> Profile</RouterLink>
+              </Button>
               <Button
                 v-if="canMessage(member.id) && member.status === 'active'"
-                variant="brand"
-                size="sm"
-                class="flex-1"
+                variant="outline"
+                size="icon-sm"
+                :title="`Message ${member.name}`"
+                :aria-label="`Message ${member.name}`"
                 :loading="openingId === member.id"
                 @click="messagePerson(member.id)"
               >
-                <MessageCircle /> Message
+                <MessageCircle />
               </Button>
               <MeetButton v-if="member.status === 'active'" compact :preset="{ title: `Call with ${member.name}`, people: [member] }" />
-              <Button variant="outline" size="sm" class="flex-1" as-child>
-                <RouterLink :to="{ name: 'member-profile', params: { userId: member.id } }">View profile</RouterLink>
-              </Button>
             </div>
           </article>
         </div>

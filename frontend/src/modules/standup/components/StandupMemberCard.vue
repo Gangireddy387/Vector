@@ -42,11 +42,11 @@ const hasSignals = computed(() => Boolean(props.member.signals.completed.length 
     <div class="flex-1 space-y-3 px-4 pb-3">
       <template v-if="update">
         <div v-for="section in sections" :key="section.label">
-          <p class="mb-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{{ section.label }}</p>
+          <p class="mb-1 text-xs font-medium text-muted-foreground">{{ section.label }}</p>
           <RichText :source="section.text" :issue-keys="issueKeys" compact />
         </div>
         <div v-if="update.blockers" class="border border-destructive/30 bg-destructive/8 px-3 py-2">
-          <p class="mb-1 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-destructive uppercase"><CircleAlert class="size-3.5" /> Blocker</p>
+          <p class="mb-1 flex items-center gap-1.5 text-xs font-medium text-destructive"><CircleAlert class="size-3.5" /> Blocker</p>
           <RichText :source="update.blockers" :issue-keys="issueKeys" compact />
         </div>
       </template>

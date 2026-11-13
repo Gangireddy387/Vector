@@ -79,7 +79,7 @@ async function save() {
         </div>
 
         <section class="space-y-2">
-          <h3 class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">When</h3>
+          <h3 class="text-xs font-medium text-muted-foreground">When</h3>
           <SelectField
             :model-value="form.trigger"
             :options="triggerOptions"
@@ -90,7 +90,7 @@ async function save() {
 
         <section class="space-y-2">
           <div class="flex items-center justify-between">
-            <h3 class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">If <span class="normal-case">(all must match)</span></h3>
+            <h3 class="text-xs font-medium text-muted-foreground">If <span class="normal-case">(all must match)</span></h3>
             <Button type="button" variant="ghost" size="xs" @click="addCondition"><Plus /> Condition</Button>
           </div>
           <p v-if="!form.conditions.length" class="text-sm text-muted-foreground">No conditions — the rule runs for every task.</p>
@@ -105,7 +105,7 @@ async function save() {
 
         <section class="space-y-2">
           <div class="flex items-center justify-between">
-            <h3 class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Then</h3>
+            <h3 class="text-xs font-medium text-muted-foreground">Then</h3>
             <Button type="button" variant="ghost" size="xs" @click="addAction"><Plus /> Action</Button>
           </div>
           <p v-if="!form.actions.length" class="text-sm text-muted-foreground">Add what should happen.</p>

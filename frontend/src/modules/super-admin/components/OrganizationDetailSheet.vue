@@ -410,7 +410,7 @@ async function copyEmail(email: string) {
               </Button>
             </div>
             <div v-for="group in featureGroups" :key="group.value" class="space-y-1.5">
-              <p class="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{{ group.label }}</p>
+              <p class="text-xs font-medium text-muted-foreground">{{ group.label }}</p>
               <ul class="divide-y divide-border/60 border border-border/70">
                 <li v-for="feature in group.items" :key="feature.key">
                   <label class="flex cursor-pointer items-center gap-3 px-3 py-2.5" :class="feature.isCustom && 'bg-brand/5'">

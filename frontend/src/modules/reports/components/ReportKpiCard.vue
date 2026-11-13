@@ -35,16 +35,16 @@ const changeTone = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-3 border border-border/70 bg-card p-4 shadow-soft">
+  <div class="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-soft">
     <div class="flex items-center justify-between gap-2">
       <span class="text-xs font-medium text-muted-foreground">{{ label }}</span>
-      <span :class="cn('flex size-8 shrink-0 items-center justify-center', TONES[tone])"><component :is="icon" class="size-4" /></span>
+      <span :class="cn('flex size-7 shrink-0 items-center justify-center rounded-md', TONES[tone])"><component :is="icon" class="size-3.5" /></span>
     </div>
     <div class="flex items-end gap-2">
       <span class="text-2xl leading-none font-semibold tracking-tight tabular-nums">{{ value }}</span>
       <span
         v-if="change !== null"
-        :class="cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums', changeTone)"
+        :class="cn('inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums', changeTone)"
         :title="'Compared with the previous period'"
       >
         <ArrowUpRight v-if="change > 0" class="size-3" />

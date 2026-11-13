@@ -155,7 +155,7 @@ const completionTone = (value: number) => (value >= 85 ? 'text-success' : value 
 
             <div v-if="expanded.has(sprint.id)" class="grid gap-4 border-t bg-muted/25 px-4 py-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:pl-11">
               <div>
-                <h3 class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Who delivered</h3>
+                <h3 class="mb-2 text-xs font-medium text-muted-foreground">Who delivered</h3>
                 <ContributorList :contributors="sprint.contributors" />
                 <p v-if="sprint.state === 'completed' && sprint.carriedOver" class="mt-3 text-xs text-muted-foreground">
                   Unfinished tasks moved to another sprint when this one closed, so only delivered work is listed per person.

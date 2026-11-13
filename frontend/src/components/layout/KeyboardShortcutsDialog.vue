@@ -127,7 +127,7 @@ const visibleGroups = computed(() => {
       <div class="max-h-[min(60vh,32rem)] overflow-y-auto px-6 py-5 scrollbar-thin">
         <div v-if="visibleGroups.length" class="grid gap-x-8 gap-y-6 sm:grid-cols-2">
           <section v-for="group in visibleGroups" :key="group.title" class="space-y-2">
-            <h3 class="flex items-center gap-2 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+            <h3 class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <component :is="group.icon" class="size-3.5 text-primary" /> {{ group.title }}
             </h3>
             <ul class="divide-y divide-border/60 border border-border/60 bg-card">

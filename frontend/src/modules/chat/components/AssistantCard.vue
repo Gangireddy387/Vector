@@ -40,7 +40,7 @@ async function saveDraft() {
   <div v-if="meta.type === 'standup_draft'" class="space-y-3 border bg-card p-3">
     <div v-for="section in (['yesterday', 'today', 'blockers'] as const)" :key="section">
       <template v-if="meta.draft[section]">
-        <p class="mb-1 text-[11px] font-semibold tracking-wide uppercase" :class="section === 'blockers' ? 'text-destructive' : 'text-muted-foreground'">
+        <p class="mb-1 text-xs font-medium" :class="section === 'blockers' ? 'text-destructive' : 'text-muted-foreground'">
           {{ section === 'yesterday' ? 'Since last standup' : section === 'today' ? 'Today' : 'Blockers' }}
         </p>
         <RichText :source="meta.draft[section]" :issue-keys="issueKeys" compact />
@@ -82,7 +82,7 @@ async function saveDraft() {
   <!-- Blockers -->
   <div v-else-if="meta.type === 'blockers' && (meta.reported.length || meta.blocked.length || meta.overdue.length)" class="space-y-3 border bg-card p-3 text-sm">
     <div v-if="meta.reported.length">
-      <p class="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-destructive uppercase"><CircleAlert class="size-3.5" /> Reported in standup</p>
+      <p class="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-destructive"><CircleAlert class="size-3.5" /> Reported in standup</p>
       <ul class="space-y-2">
         <li v-for="row in meta.reported" :key="row.user.id" class="flex gap-2">
           <UserAvatar :user="row.user" size="xs" class="mt-0.5" />
@@ -94,7 +94,7 @@ async function saveDraft() {
       </ul>
     </div>
     <div v-if="meta.blocked.length">
-      <p class="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase"><Link2 class="size-3.5" /> Waiting on other tasks</p>
+      <p class="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Link2 class="size-3.5" /> Waiting on other tasks</p>
       <ul class="space-y-1">
         <li v-for="row in meta.blocked" :key="`${row.blocked.key}-${row.by.key}`" class="text-xs">
           <RouterLink :to="{ name: 'issue', params: { issueKey: row.blocked.key } }" class="font-mono font-semibold text-primary hover:underline">{{ row.blocked.key }}</RouterLink>
@@ -105,7 +105,7 @@ async function saveDraft() {
       </ul>
     </div>
     <div v-if="meta.overdue.length">
-      <p class="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase"><AlarmClock class="size-3.5" /> Overdue</p>
+      <p class="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><AlarmClock class="size-3.5" /> Overdue</p>
       <ul class="space-y-1">
         <li v-for="issue in meta.overdue" :key="issue.id" class="flex items-center gap-2 text-xs">
           <RouterLink :to="{ name: 'issue', params: { issueKey: issue.key } }" class="font-mono font-semibold text-primary hover:underline">{{ issue.key }}</RouterLink>

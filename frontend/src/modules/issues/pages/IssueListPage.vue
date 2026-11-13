@@ -121,7 +121,7 @@ const applySaved = (criteria: Record<string, string>) => (filters.value = readQu
 
 <template>
   <div class="space-y-4" :class="isDesktop ? (projectId ? 'px-5 py-4' : 'p-5') : 'p-3'">
-    <PageHeader v-if="isDesktop && !projectId" title="All tasks" description="Everything across your projects, filtered your way." />
+    <PageHeader v-if="isDesktop && !projectId" title="Tasks" description="Everything across your projects, filtered your way." />
 
     <!-- Desktop toolbar -->
     <div v-if="isDesktop" class="flex flex-wrap items-start justify-between gap-3">

@@ -54,7 +54,7 @@ const openOrganization = (organizationId: string) => organizationId !== auth.org
     </nav>
 
     <section class="space-y-2">
-      <h2 class="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Organizations</h2>
+      <h2 class="px-1 text-xs font-medium text-muted-foreground">Organizations</h2>
       <nav class="overflow-hidden border border-border/70 bg-card shadow-soft" aria-label="Organizations">
         <button
           v-for="organization in auth.organizations"
@@ -82,7 +82,7 @@ const openOrganization = (organizationId: string) => organizationId !== auth.org
     </section>
 
     <section class="space-y-2">
-      <h2 class="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Projects</h2>
+      <h2 class="px-1 text-xs font-medium text-muted-foreground">Projects</h2>
       <nav class="overflow-hidden border border-border/70 bg-card shadow-soft" aria-label="Projects">
         <RouterLink
           v-for="project in projects.joinedProjects"

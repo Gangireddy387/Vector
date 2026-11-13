@@ -44,7 +44,7 @@ const isToday = (day: Date) => toDateInput(day) === props.now.date
 
 <template>
   <div class="flex flex-col">
-    <div class="grid shrink-0 grid-cols-7 border-b border-border/70 bg-muted/30 text-center text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+    <div class="grid shrink-0 grid-cols-7 border-b border-border/70 bg-muted/30 text-center text-xs font-medium text-muted-foreground">
       <span v-for="weekday in WEEKDAYS" :key="weekday" class="py-2">{{ weekday }}</span>
     </div>
     <div ref="grid" class="grid min-h-0 flex-1 grid-cols-7 grid-rows-6">
@@ -68,8 +68,8 @@ const isToday = (day: Date) => toDateInput(day) === props.now.date
         <div class="flex items-center justify-between">
           <button
             type="button"
-            class="flex size-6 items-center justify-center text-xs font-medium tabular-nums transition-colors hover:bg-accent"
-            :class="isToday(day) ? 'bg-brand font-semibold text-white hover:bg-brand' : isPast(day) ? 'text-muted-foreground/70' : ''"
+            class="flex size-6 items-center justify-center rounded-full text-xs font-medium tabular-nums transition-colors hover:bg-accent"
+            :class="isToday(day) ? 'bg-primary font-semibold text-primary-foreground hover:bg-primary' : isPast(day) ? 'text-muted-foreground/70' : ''"
             :title="`Open ${format(day, 'EEEE d MMMM')}`"
             @click.stop="emit('openDay', toDateInput(day))"
           >

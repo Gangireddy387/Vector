@@ -371,7 +371,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
       class="border border-dashed bg-card/60 py-12"
     />
     <section v-for="section in sections" :key="section.label" class="space-y-1.5">
-      <h2 class="px-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{{ section.label }}</h2>
+      <h2 class="px-1 text-xs font-medium text-muted-foreground">{{ section.label }}</h2>
       <ul class="divide-y divide-border/60 overflow-hidden border border-border/80 bg-card">
         <li v-for="entry in section.entries" :key="entry.key">
           <NotificationItem

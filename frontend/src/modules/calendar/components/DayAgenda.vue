@@ -32,7 +32,7 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
     <header class="shrink-0 space-y-3 border-b border-border/70 p-4">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <p class="text-xs font-semibold tracking-wider uppercase" :class="isToday(day) ? 'text-brand' : 'text-muted-foreground'">
+          <p class="text-xs font-medium" :class="isToday(day) ? 'text-brand' : 'text-muted-foreground'">
             {{ isToday(day) ? 'Today' : format(day, 'EEEE') }}
           </p>
           <h2 class="truncate text-lg font-semibold tracking-tight">{{ format(day, 'EEEE, d MMMM') }}</h2>
@@ -103,7 +103,7 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
       </div>
 
       <div v-if="tasks.length" class="px-4 py-3">
-        <p class="mb-2 flex items-center gap-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+        <p class="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
           <ListTodo class="size-3.5" /> Your tasks due
         </p>
         <ul class="space-y-1">

@@ -43,7 +43,7 @@ const days = (value: number | null) => (value === null ? '—' : value < 1 ? '< 
           >
             <div class="flex items-center gap-2">
               <span class="size-2.5 shrink-0 rounded-full" :style="{ backgroundColor: stage.color }" />
-              <span class="truncate text-xs font-semibold tracking-wide uppercase">{{ stage.name }}</span>
+              <span class="truncate text-xs font-medium">{{ stage.name }}</span>
               <span v-if="stage.id === bottleneckId" class="ml-auto bg-warning/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-warning">Bottleneck</span>
             </div>
             <p class="text-2xl leading-none font-semibold tabular-nums">

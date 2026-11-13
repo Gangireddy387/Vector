@@ -48,7 +48,7 @@ watchDebounced(
       />
 
       <section v-if="results.issues.length" class="space-y-2">
-        <h2 class="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Tasks</h2>
+        <h2 class="px-1 text-xs font-medium text-muted-foreground">Tasks</h2>
         <ul class="divide-y overflow-hidden border bg-card">
           <li v-for="issue in results.issues" :key="issue.id">
             <RouterLink :to="{ name: 'issue', params: { issueKey: issue.key } }" class="flex items-center gap-3 px-4 py-3 active:bg-muted">
@@ -64,7 +64,7 @@ watchDebounced(
       </section>
 
       <section v-if="results.projects.length" class="space-y-2">
-        <h2 class="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Projects</h2>
+        <h2 class="px-1 text-xs font-medium text-muted-foreground">Projects</h2>
         <ul class="divide-y overflow-hidden border bg-card">
           <li v-for="project in results.projects" :key="project.id">
             <RouterLink :to="{ name: 'project-board', params: { projectId: project.id } }" class="flex items-center gap-3 px-4 py-3 active:bg-muted">
@@ -77,7 +77,7 @@ watchDebounced(
       </section>
 
       <section v-if="results.people.length" class="space-y-2">
-        <h2 class="px-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">People</h2>
+        <h2 class="px-1 text-xs font-medium text-muted-foreground">People</h2>
         <ul class="divide-y overflow-hidden border bg-card">
           <li v-for="person in results.people" :key="person.id">
             <RouterLink :to="{ name: 'issues', query: { assigneeId: person.id } }" class="flex items-center gap-3 px-4 py-3 active:bg-muted">

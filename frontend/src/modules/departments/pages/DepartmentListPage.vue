@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import StatCard from '@/components/common/StatCard.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import UserAvatarStack from '@/components/common/UserAvatarStack.vue'
 import { Button } from '@/components/ui/button'
@@ -30,10 +31,16 @@ const visible = computed(() => {
 })
 
 const STATS = computed(() => [
-  { label: 'Departments', value: structure.totals.departments, icon: Building2 },
-  { label: 'Teams', value: structure.totals.teams, icon: UsersRound },
-  { label: 'People in teams', value: structure.totals.placed, icon: Users },
-  { label: 'Not in a team yet', value: structure.totals.unplaced, icon: UserRoundX },
+  { label: 'Departments', value: structure.totals.departments, icon: Building2, tone: 'default' as const, hint: 'Across the organization' },
+  { label: 'Teams', value: structure.totals.teams, icon: UsersRound, tone: 'info' as const, hint: 'Inside departments' },
+  { label: 'People in teams', value: structure.totals.placed, icon: Users, tone: 'success' as const, hint: 'Placed in a team' },
+  {
+    label: 'Not in a team yet',
+    value: structure.totals.unplaced,
+    icon: UserRoundX,
+    tone: structure.totals.unplaced ? ('warning' as const) : ('default' as const),
+    hint: structure.totals.unplaced ? 'Add them to a team' : 'Everyone is placed',
+  },
 ])
 </script>
 
@@ -47,22 +54,21 @@ const STATS = computed(() => [
           : 'The departments and teams you belong to.'
       "
     >
-      <template #eyebrow>
-        <span class="text-brand text-xs font-semibold tracking-wider uppercase">Organization</span>
-      </template>
       <template v-if="isAdmin" #actions>
         <Button variant="brand" as-child><RouterLink :to="{ name: 'department-create' }"><Plus /> New department</RouterLink></Button>
       </template>
     </PageHeader>
 
-    <div v-if="isAdmin" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <div v-for="stat in STATS" :key="stat.label" class="flex items-center gap-3 border border-border/70 bg-card p-4 shadow-soft">
-        <span class="flex size-10 items-center justify-center bg-primary/10 text-primary"><component :is="stat.icon" class="size-5" /></span>
-        <span>
-          <span class="block text-2xl leading-none font-semibold tracking-tight tabular-nums">{{ structure.departments ? stat.value : '–' }}</span>
-          <span class="mt-1 block text-xs text-muted-foreground">{{ stat.label }}</span>
-        </span>
-      </div>
+    <div v-if="isAdmin" class="grid grid-cols-2 divide-x divide-border overflow-hidden rounded-xl border border-border bg-card shadow-soft lg:grid-cols-4">
+      <StatCard
+        v-for="stat in STATS"
+        :key="stat.label"
+        :label="stat.label"
+        :value="structure.departments ? stat.value : '–'"
+        :icon="stat.icon"
+        :tone="stat.tone"
+        :hint="stat.hint"
+      />
     </div>
 
     <div v-if="structure.departments?.length" class="relative max-w-sm">
@@ -95,10 +101,10 @@ const STATS = computed(() => [
         v-for="department in visible"
         :key="department.id"
         :to="{ name: 'department', params: { departmentId: department.id } }"
-        class="group flex flex-col border border-border/80 bg-card shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none"
+        class="group flex flex-col rounded-xl border border-border bg-card shadow-soft transition-[border-color,box-shadow] hover:border-input hover:shadow-elevated focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none"
       >
         <div class="flex items-start gap-3 p-5">
-          <span class="flex size-12 shrink-0 items-center justify-center bg-brand text-white shadow-glow"><Building2 class="size-5" /></span>
+          <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary"><Building2 class="size-5" /></span>
           <div class="min-w-0 flex-1">
             <h2 class="truncate text-base font-semibold tracking-tight">{{ department.name }}</h2>
             <p class="line-clamp-2 min-h-10 text-sm text-muted-foreground">{{ department.description || 'No description yet.' }}</p>
@@ -106,7 +112,7 @@ const STATS = computed(() => [
           <ArrowRight class="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
         </div>
 
-        <div class="mx-5 flex items-center gap-2.5 border border-border/60 bg-muted/30 px-3 py-2.5">
+        <div class="mx-5 flex items-center gap-2.5 rounded-lg bg-muted/60 px-3 py-2.5">
           <Crown class="size-4 shrink-0 text-amber-500" />
           <template v-if="department.head">
             <UserAvatar :user="department.head" size="sm" />

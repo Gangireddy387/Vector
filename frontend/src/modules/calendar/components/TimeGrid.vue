@@ -114,7 +114,7 @@ watch(() => props.days[0]?.getTime(), scrollToStart)
         :title="`Open ${format(column.day, 'EEEE d MMMM')}`"
         @click="emit('openDay', column.date)"
       >
-        <span class="text-[11px] font-semibold tracking-wider uppercase" :class="column.isToday ? 'text-brand' : 'text-muted-foreground'">{{ format(column.day, 'EEE') }}</span>
+        <span class="text-xs font-medium" :class="column.isToday ? 'text-brand' : 'text-muted-foreground'">{{ format(column.day, 'EEE') }}</span>
         <span
           class="flex size-8 items-center justify-center text-base font-semibold tabular-nums"
           :class="column.isToday ? 'bg-brand text-white' : column.isPast ? 'text-muted-foreground' : ''"
@@ -125,7 +125,7 @@ watch(() => props.days[0]?.getTime(), scrollToStart)
     </div>
 
     <div class="grid max-h-28 shrink-0 overflow-y-auto border-b border-border/70 bg-muted/20 scrollbar-thin" :style="gridColumns">
-      <span class="px-2 py-2 text-right text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">All day</span>
+      <span class="px-2 py-2 text-right text-xs font-medium text-muted-foreground">All day</span>
       <div v-for="column in columns" :key="column.date" class="min-h-10 space-y-0.5 border-l border-border/60 p-1">
         <button
           v-for="event in column.allDay"

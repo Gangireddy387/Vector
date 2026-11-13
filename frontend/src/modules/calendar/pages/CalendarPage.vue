@@ -19,6 +19,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import PageHeader from '@/components/common/PageHeader.vue'
+import StatCard from '@/components/common/StatCard.vue'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
@@ -244,53 +245,31 @@ useHotkeys({
   <!-- On wide screens the page fits the window: the calendar takes the remaining height instead of the page scrolling. -->
   <div class="w-full space-y-5 xl:flex xl:h-full xl:flex-col xl:space-y-4" :class="isDesktop ? 'p-5' : 'p-3'">
     <PageHeader title="Calendar" description="Plan each day, tick off what you finished and see how your time was spent. Only you see your events.">
-      <template #eyebrow>
-        <span class="text-brand text-xs font-semibold tracking-wider uppercase">Your schedule</span>
-      </template>
       <template #actions>
         <Button variant="brand" title="New event (N)" @click="createForSelected"><Plus /> New event</Button>
       </template>
     </PageHeader>
 
-    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <div class="flex items-center gap-3 border border-border/70 bg-card p-4 shadow-soft">
-        <span class="flex size-10 items-center justify-center bg-primary/10 text-primary"><CalendarDays class="size-5" /></span>
-        <span class="min-w-0">
-          <span class="block text-2xl leading-none font-semibold tracking-tight tabular-nums">{{ stats.planned }}</span>
-          <span class="mt-1 block truncate text-xs text-muted-foreground">Events · {{ periodLabel }}</span>
-        </span>
-      </div>
-      <div class="flex flex-col justify-center gap-2 border border-border/70 bg-card p-4 shadow-soft">
-        <div class="flex items-center gap-3">
-          <span class="flex size-10 items-center justify-center bg-success/15 text-success"><CalendarCheck2 class="size-5" /></span>
-          <span class="min-w-0">
-            <span class="block text-2xl leading-none font-semibold tracking-tight tabular-nums">{{ stats.percent }}%</span>
-            <span class="mt-1 block truncate text-xs text-muted-foreground">{{ stats.done }} of {{ stats.planned }} done</span>
-          </span>
-        </div>
-        <Progress :model-value="stats.percent" class="h-1.5" indicator-class="bg-success" />
-      </div>
-      <div class="flex items-center gap-3 border border-border/70 bg-card p-4 shadow-soft">
-        <span class="flex size-10 items-center justify-center bg-amber-500/15 text-amber-600"><Clock3 class="size-5" /></span>
-        <span class="min-w-0">
-          <span class="block text-2xl leading-none font-semibold tracking-tight tabular-nums">{{ formatHours(stats.minutes) }}</span>
-          <span class="mt-1 block truncate text-xs text-muted-foreground">Time scheduled · {{ periodLabel }}</span>
-        </span>
-      </div>
-      <div class="flex items-center gap-3 border border-border/70 bg-card p-4 shadow-soft">
-        <span class="flex size-10 items-center justify-center bg-violet-500/15 text-violet-600"><ListTodo class="size-5" /></span>
-        <span class="min-w-0">
-          <span class="block text-2xl leading-none font-semibold tracking-tight tabular-nums">{{ showTasks ? stats.tasks : '–' }}</span>
-          <span class="mt-1 block truncate text-xs text-muted-foreground">{{ showTasks ? `Your tasks due · ${stats.tasksDone} done` : 'Tasks are hidden' }}</span>
-        </span>
-      </div>
+    <div class="grid grid-cols-2 divide-x divide-border overflow-hidden rounded-xl border border-border bg-card shadow-soft lg:grid-cols-4 max-lg:[&>*:nth-child(3)]:border-l-0 max-lg:[&>*:nth-child(n+3)]:border-t">
+      <StatCard label="Events" :value="stats.planned" :icon="CalendarDays" :hint="periodLabel" />
+      <StatCard label="Completed" :value="`${stats.percent}%`" :icon="CalendarCheck2" tone="success" :hint="`${stats.done} of ${stats.planned} done`">
+        <Progress :model-value="stats.percent" class="mt-2 h-1" indicator-class="bg-success" />
+      </StatCard>
+      <StatCard label="Time scheduled" :value="formatHours(stats.minutes)" :icon="Clock3" tone="warning" :hint="periodLabel" />
+      <StatCard
+        label="Your tasks due"
+        :value="showTasks ? stats.tasks : '–'"
+        :icon="ListTodo"
+        tone="info"
+        :hint="showTasks ? `${stats.tasksDone} done` : 'Tasks are hidden'"
+      />
     </div>
 
     <div class="grid gap-5 xl:min-h-[30rem] xl:flex-1 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-4">
-      <section class="relative flex min-w-0 flex-col overflow-hidden border border-border/80 bg-card shadow-soft xl:min-h-0">
+      <section class="relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft xl:min-h-0">
         <div v-if="isLoading" class="absolute inset-x-0 top-0 z-30 h-0.5 animate-pulse bg-brand" aria-hidden="true" />
 
-        <div class="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/70 px-3 py-2.5">
+        <div class="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
           <Button variant="outline" size="sm" title="Today (T)" @click="goToday">Today</Button>
           <div class="flex">
             <Button variant="ghost" size="icon-sm" :aria-label="`Previous ${stepLabel}`" :title="`Previous ${stepLabel} (←)`" @click="shift(-1)"><ChevronLeft /></Button>
@@ -299,14 +278,14 @@ useHotkeys({
           <h2 class="mr-auto min-w-0 truncate text-base font-semibold tracking-tight" aria-live="polite">{{ heading }}</h2>
 
           <label class="flex items-center gap-2 text-xs text-muted-foreground"><Switch v-model="showTasks" aria-label="Show my tasks due" /> My tasks</label>
-          <div class="flex w-full border border-border/80 bg-muted/40 p-0.5 sm:w-auto" role="tablist" aria-label="Calendar view">
+          <div class="flex h-8 w-full items-center rounded-md bg-muted p-0.5 sm:w-auto" role="tablist" aria-label="Calendar view">
             <button
               v-for="option in VIEWS"
               :key="option.value"
               type="button"
               role="tab"
-              class="flex flex-1 items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all sm:flex-none"
-              :class="view === option.value ? 'bg-card text-foreground shadow-sm ring-1 ring-border/70' : 'text-muted-foreground hover:text-foreground'"
+              class="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-[5px] px-3 text-xs font-medium transition-colors sm:flex-none"
+              :class="view === option.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
               :aria-selected="view === option.value"
               :title="`${option.label} view (${option.key})`"
               @click="setView(option.value)"

@@ -91,7 +91,7 @@ function signOut() {
   <Button class="mt-5 w-full" size="lg" variant="outline" :loading="isChecking" @click="checkAgain()"><RefreshCw /> Check again</Button>
 
   <div v-if="otherOrganizations.length" class="mt-6 space-y-2">
-    <p class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Your other organizations</p>
+    <p class="text-xs font-medium text-muted-foreground">Your other organizations</p>
     <button
       v-for="item in otherOrganizations"
       :key="item.id"

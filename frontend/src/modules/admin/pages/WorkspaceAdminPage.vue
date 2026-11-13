@@ -30,11 +30,7 @@ const activeSection = computed({
 
 <template>
   <div class="w-full space-y-4" :class="isDesktop ? 'p-5' : 'p-3'">
-    <PageHeader v-if="isDesktop" :title="workspace.settings.name" description="Name, address, people and plan of your organization.">
-      <template #eyebrow>
-        <span class="text-brand text-xs font-semibold tracking-wider uppercase">Organization settings</span>
-      </template>
-    </PageHeader>
+    <PageHeader v-if="isDesktop" title="Organization settings" :description="`Name, address, people, plan and support for ${workspace.settings.name}.`" />
 
     <SettingsLayout v-model="activeSection" :sections="SECTIONS" aria-label="Organization settings">
       <template #general><WorkspaceGeneralSettings /></template>

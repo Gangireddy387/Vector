@@ -130,27 +130,24 @@ onMounted(async () => {
 <template>
   <div class="w-full space-y-5" :class="isDesktop ? 'p-5' : 'p-3'">
     <PageHeader title="Meetings" description="Video calls right in the browser: join with a click, talk face to face and share your updates with the team.">
-      <template #eyebrow>
-        <span class="text-brand text-xs font-semibold tracking-wider uppercase">Meet & share updates</span>
-      </template>
       <template #actions>
         <Button v-if="canSchedule" variant="brand" @click="sheetTarget = {}"><Plus /> Schedule meeting</Button>
       </template>
     </PageHeader>
 
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <div class="inline-flex border border-border/80 bg-muted/40 p-0.5" role="tablist">
+      <div class="inline-flex h-8 items-center rounded-md bg-muted p-0.5" role="tablist">
         <button
           v-for="tab in [{ value: 'upcoming', label: 'Upcoming', icon: CalendarClock }, { value: 'past', label: 'Past', icon: History }] as const"
           :key="tab.value"
           type="button"
           role="tab"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors"
-          :class="scope === tab.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+          class="inline-flex h-7 items-center gap-1.5 rounded-[5px] px-3 text-xs font-medium transition-colors"
+          :class="scope === tab.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
           :aria-selected="scope === tab.value"
           @click="scope = tab.value"
         >
-          <component :is="tab.icon" class="size-4" /> {{ tab.label }}
+          <component :is="tab.icon" class="size-3.5" /> {{ tab.label }}
         </button>
       </div>
       <p v-if="!canSchedule" class="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -169,14 +166,14 @@ onMounted(async () => {
 
     <template v-else>
       <section v-if="scope === 'upcoming' && live.length" class="space-y-2">
-        <h2 class="flex items-center gap-2 text-xs font-semibold tracking-wider text-red-600 uppercase dark:text-red-400">
+        <h2 class="flex items-center gap-2 text-xs font-medium text-red-600 dark:text-red-400">
           <span class="relative flex size-2"><span class="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75" /><span class="relative inline-flex size-2 rounded-full bg-red-500" /></span>
           Live now
         </h2>
         <article
           v-for="meeting in live"
           :key="meeting.id"
-          class="flex flex-col gap-4 border border-red-500/30 bg-gradient-to-r from-red-500/[0.07] to-transparent p-4 shadow-soft sm:flex-row sm:items-center"
+          class="flex flex-col gap-4 rounded-xl border border-red-500/30 bg-gradient-to-r from-red-500/[0.07] to-transparent p-4 shadow-soft sm:flex-row sm:items-center"
         >
           <span class="flex size-12 shrink-0 items-center justify-center bg-red-500 text-white shadow-lg shadow-red-500/30"><Radio class="size-6" /></span>
           <div class="min-w-0 flex-1">
@@ -191,16 +188,16 @@ onMounted(async () => {
       </section>
 
       <section v-for="group in groups" :key="group.key" class="space-y-2">
-        <h2 class="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{{ group.label }}</h2>
+        <h2 class="text-xs font-medium text-muted-foreground">{{ group.label }}</h2>
         <article
           v-for="meeting in group.items"
           :key="meeting.id"
-          class="group flex cursor-pointer gap-4 border border-border/70 bg-card p-4 shadow-soft transition-colors hover:border-primary/40"
+          class="group flex cursor-pointer gap-4 rounded-xl border border-border bg-card p-4 shadow-soft transition-colors hover:border-input"
           :class="meeting.status === 'cancelled' && 'opacity-70'"
           @click="open(meeting)"
         >
-          <div class="flex w-14 shrink-0 flex-col items-center justify-center border border-border/70 bg-muted/40 py-1.5">
-            <span class="text-[10px] font-semibold tracking-wider text-brand uppercase">{{ format(parseISO(meeting.startsAt), 'MMM') }}</span>
+          <div class="flex w-14 shrink-0 flex-col items-center justify-center rounded-lg border border-border bg-muted/50 py-1.5">
+            <span class="text-xs font-medium text-brand">{{ format(parseISO(meeting.startsAt), 'MMM') }}</span>
             <span class="text-xl leading-tight font-semibold tabular-nums">{{ format(parseISO(meeting.startsAt), 'd') }}</span>
             <span class="text-[10px] text-muted-foreground">{{ format(parseISO(meeting.startsAt), 'EEE') }}</span>
           </div>
@@ -262,7 +259,7 @@ onMounted(async () => {
               : 'When someone invites you to a meeting, it shows up here and in your calendar.'
             : 'Meetings that ended, with their updates and notes, are kept here.'
         "
-        class="border border-dashed border-border/80 py-14"
+        class="rounded-xl border border-dashed border-border py-14"
       >
         <Button v-if="canSchedule && scope === 'upcoming'" variant="brand" class="mt-4" @click="sheetTarget = {}"><Plus /> Schedule meeting</Button>
       </EmptyState>

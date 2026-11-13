@@ -17,7 +17,7 @@ const maxOpen = computed(() => Math.max(1, ...props.rows.map((row) => row.open))
     <CardContent class="overflow-x-auto px-0">
       <table v-if="rows.length" class="w-full min-w-[34rem] text-sm">
         <thead>
-          <tr class="border-y bg-muted/40 text-left text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          <tr class="border-y bg-muted/40 text-left text-xs font-medium text-muted-foreground">
             <th class="px-4 py-2 font-semibold">Person</th>
             <th class="w-1/3 px-3 py-2 font-semibold">Open tasks</th>
             <th class="px-3 py-2 text-right font-semibold">Points</th>

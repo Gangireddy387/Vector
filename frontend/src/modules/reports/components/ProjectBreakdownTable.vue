@@ -17,7 +17,7 @@ const emit = defineEmits<{ select: [projectId: string] }>()
     <CardContent class="overflow-x-auto px-0">
       <table class="w-full min-w-[40rem] text-sm">
         <thead>
-          <tr class="border-y bg-muted/40 text-left text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          <tr class="border-y bg-muted/40 text-left text-xs font-medium text-muted-foreground">
             <th class="px-4 py-2 font-semibold">Project</th>
             <th class="px-3 py-2 text-right font-semibold">Open</th>
             <th class="px-3 py-2 text-right font-semibold">Completed ({{ days }}d)</th>

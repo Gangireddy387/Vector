@@ -75,7 +75,7 @@ const limitLabel = (value: number | null, noun: string) => (value === null ? `Un
 
         <ul class="flex-1 space-y-2 p-5 text-sm">
           <template v-for="group in PLAN_FEATURE_GROUPS" :key="group.value">
-          <li class="pt-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase first:pt-0">{{ group.label }}</li>
+          <li class="pt-1 text-xs font-medium text-muted-foreground first:pt-0">{{ group.label }}</li>
           <li
             v-for="feature in PLAN_FEATURES.filter((item) => item.group === group.value)"
             :key="feature.key"

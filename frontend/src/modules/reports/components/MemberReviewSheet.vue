@@ -132,21 +132,21 @@ const projectBars = computed(() =>
         </dl>
 
         <section v-if="review.buckets.length > 1">
-          <h3 class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Completed per {{ review.buckets[0]?.unit }}</h3>
+          <h3 class="mb-2 text-xs font-medium text-muted-foreground">Completed per {{ review.buckets[0]?.unit }}</h3>
           <ColumnChart :labels="trendLabels" :series="[{ name: 'Completed', color: 'var(--primary)', values: member.trend }]" :height="150" />
         </section>
 
         <div class="grid gap-5 sm:grid-cols-2">
           <section>
-            <h3 class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">By module</h3>
+            <h3 class="mb-2 text-xs font-medium text-muted-foreground">By module</h3>
             <HorizontalBarList :items="moduleBars" empty-text="Nothing completed" />
           </section>
           <section>
-            <h3 class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">By sprint</h3>
+            <h3 class="mb-2 text-xs font-medium text-muted-foreground">By sprint</h3>
             <HorizontalBarList :items="sprintBars" empty-text="Nothing completed" />
           </section>
           <section v-if="projectBars.length > 1" class="sm:col-span-2">
-            <h3 class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">By project</h3>
+            <h3 class="mb-2 text-xs font-medium text-muted-foreground">By project</h3>
             <HorizontalBarList :items="projectBars" />
           </section>
         </div>

@@ -227,7 +227,7 @@ const discussedTasks = computed(() => {
           <template v-for="row in rows" :key="row.message.id">
             <div v-if="row.day" class="relative my-3 flex items-center px-4" role="separator">
               <span class="h-px flex-1 bg-border" />
-              <span class="mx-3 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{{ row.day }}</span>
+              <span class="mx-3 text-xs font-medium text-muted-foreground">{{ row.day }}</span>
               <span class="h-px flex-1 bg-border" />
             </div>
             <ChatMessageItem
@@ -252,7 +252,7 @@ const discussedTasks = computed(() => {
 
     <aside v-if="isDesktop && !embedded" class="hidden w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l bg-muted/20 p-4 xl:flex">
       <section>
-        <h2 class="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Daily standup</h2>
+        <h2 class="mb-2 text-xs font-medium text-muted-foreground">Daily standup</h2>
         <RouterLink
           :to="{ name: 'project-standup', params: { projectId } }"
           class="flex items-center gap-3 border bg-card p-3 text-sm shadow-soft transition-colors hover:border-primary/40"
@@ -267,7 +267,7 @@ const discussedTasks = computed(() => {
       </section>
 
       <section>
-        <h2 class="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Tasks in this conversation</h2>
+        <h2 class="mb-2 text-xs font-medium text-muted-foreground">Tasks in this conversation</h2>
         <ul v-if="discussedTasks.length" class="space-y-1">
           <li v-for="entry in discussedTasks" :key="entry.issue.id">
             <RouterLink :to="{ name: 'issue', params: { issueKey: entry.issue.key } }" class="flex items-center gap-2 px-2 py-1.5 text-sm transition-colors hover:bg-accent/60">
@@ -282,7 +282,7 @@ const discussedTasks = computed(() => {
       </section>
 
       <section>
-        <h2 class="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Ask the assistant</h2>
+        <h2 class="mb-2 text-xs font-medium text-muted-foreground">Ask the assistant</h2>
         <ul class="space-y-1">
           <li v-for="command in commands" :key="command.name">
             <button type="button" class="w-full px-2 py-1.5 text-left transition-colors hover:bg-accent/60" @click="useCommand(command)">

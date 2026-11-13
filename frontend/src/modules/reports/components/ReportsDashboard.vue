@@ -247,7 +247,7 @@ const focusProject = (projectId: string) => (filters.value = { ...filters.value,
 
       <!-- Sprint reports for a single scrum project -->
       <template v-if="singleProject?.type === 'scrum'">
-        <h2 class="pt-2 text-sm font-semibold tracking-wide text-muted-foreground uppercase">Sprints · {{ singleProject.name }}</h2>
+        <h2 class="pt-2 text-sm font-medium text-muted-foreground">Sprints · {{ singleProject.name }}</h2>
         <SprintReports :project-id="singleProject.id" />
       </template>
     </div>

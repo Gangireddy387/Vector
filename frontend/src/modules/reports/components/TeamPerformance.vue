@@ -251,7 +251,7 @@ function exportCsv() {
       </div>
 
       <section v-if="report.highlights.length" aria-label="Highlights">
-        <h2 class="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">Standouts this period</h2>
+        <h2 class="mb-2 text-xs font-medium text-muted-foreground">Standouts this period</h2>
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
           <button
             v-for="highlight in report.highlights"
@@ -264,7 +264,7 @@ function exportCsv() {
               <component :is="HIGHLIGHT_ICONS[highlight.kind]" class="size-4.5" />
             </span>
             <span class="min-w-0">
-              <span class="block text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{{ highlight.title }}</span>
+              <span class="block text-xs font-medium text-muted-foreground">{{ highlight.title }}</span>
               <span class="flex items-center gap-1.5 text-sm font-medium">
                 <UserAvatar :user="memberById.get(highlight.userId)?.user" size="xs" />
                 <span class="truncate">{{ memberById.get(highlight.userId)?.user.name }}</span>
@@ -293,7 +293,7 @@ function exportCsv() {
         <div class="overflow-x-auto">
           <table class="w-full min-w-[60rem] text-sm">
             <thead>
-              <tr class="border-b bg-muted/40 text-left text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+              <tr class="border-b bg-muted/40 text-left text-xs font-medium text-muted-foreground">
                 <th class="w-12 px-4 py-2 font-semibold">#</th>
                 <th class="px-3 py-2 font-semibold">Person</th>
                 <th v-for="column in COLUMNS" :key="column.key" class="px-3 py-2 font-semibold" :class="column.align === 'right' && 'text-right'" :aria-sort="sortKey === column.key ? (sortAscending ? 'ascending' : 'descending') : 'none'">

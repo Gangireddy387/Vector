@@ -202,14 +202,14 @@ function downloadTranscript() {
       <template v-if="meeting.summary">
         <p class="text-sm leading-relaxed whitespace-pre-wrap">{{ meeting.summary.text }}</p>
         <div v-if="meeting.summary.decisions.length" class="space-y-1.5">
-          <h3 class="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase"><CircleCheck class="size-3.5" /> Decisions</h3>
+          <h3 class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><CircleCheck class="size-3.5" /> Decisions</h3>
           <ul class="list-disc space-y-1 pl-5 text-sm">
             <li v-for="(decision, index) in meeting.summary.decisions" :key="index">{{ decision }}</li>
           </ul>
         </div>
         <ActionItemsTasks v-if="meeting.summary.actionItems.length && meeting.status !== 'cancelled'" :meeting="meeting" :summary="meeting.summary" @summary="(value) => emit('summary', value)" />
         <div v-if="chapters.length" class="space-y-1.5">
-          <h3 class="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase"><ListOrdered class="size-3.5" /> Chapters</h3>
+          <h3 class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><ListOrdered class="size-3.5" /> Chapters</h3>
           <ol class="space-y-1 text-sm">
             <li v-for="chapter in chapters" :key="chapter.at" class="flex gap-2">
               <span class="w-11 shrink-0 font-mono text-[11px] leading-5 text-muted-foreground tabular-nums">{{ format(parseISO(chapter.at), 'HH:mm') }}</span>

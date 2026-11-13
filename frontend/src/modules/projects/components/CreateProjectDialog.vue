@@ -84,7 +84,7 @@ async function create() {
               <Input
                 id="project-key"
                 v-model="form.key"
-                class="font-mono tracking-wider uppercase"
+                class="font-mono"
                 placeholder="MA"
                 maxlength="10"
                 required

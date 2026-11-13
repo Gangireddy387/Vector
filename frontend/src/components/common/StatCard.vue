@@ -31,5 +31,6 @@ const ICON_TONES = {
     </p>
     <p class="mt-1.5 text-2xl leading-none font-semibold tracking-tight tabular-nums" :class="tone === 'danger' && 'text-destructive'">{{ value }}</p>
     <p v-if="hint" class="mt-1 truncate text-[11px] text-muted-foreground">{{ hint }}</p>
+    <slot />
   </div>
 </template>

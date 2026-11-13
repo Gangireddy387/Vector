@@ -243,7 +243,7 @@ function clearQuery() {
             {{ isSearching ? 'Searching…' : 'No results. Try a task key like VEC-12.' }}
           </p>
           <section v-for="[group, groupItems] in groups" :key="group" class="mb-1.5 last:mb-0">
-            <h3 class="px-2 py-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{{ group }}</h3>
+            <h3 class="px-2 py-1.5 text-xs font-medium text-muted-foreground">{{ group }}</h3>
             <button
               v-for="item in groupItems"
               :key="item.id"

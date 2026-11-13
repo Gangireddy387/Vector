@@ -80,7 +80,7 @@ async function create() {
 
 <template>
   <div class="space-y-2">
-    <h3 class="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase"><ListTodo class="size-3.5" /> Action items</h3>
+    <h3 class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><ListTodo class="size-3.5" /> Action items</h3>
     <ul class="space-y-1 text-sm">
       <li v-for="item in done" :key="item.issue.id" class="flex items-center gap-2">
         <CircleCheck class="size-4 shrink-0 text-emerald-600" />
