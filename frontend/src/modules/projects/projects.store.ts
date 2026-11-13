@@ -47,6 +47,12 @@ export const useProjectsStore = defineStore('projects', () => {
     return project
   }
 
+  async function createSampleProject() {
+    const project = storeDetail(await projectsApi.createSample())
+    await fetchProjects(true)
+    return project
+  }
+
   async function updateProject(projectId: string, changes: ProjectChanges) {
     return storeDetail(await projectsApi.update(projectId, changes))
   }
@@ -78,6 +84,7 @@ export const useProjectsStore = defineStore('projects', () => {
     fetchProjects,
     fetchProject,
     createProject,
+    createSampleProject,
     updateProject,
     deleteProject,
     canEdit,

@@ -37,6 +37,7 @@ import { useDashboardData } from '../composables/useDashboardData'
 import { useTodayAgenda } from '../composables/useTodayAgenda'
 import { groupMyWork } from '../my-work'
 import QuickCapture from './QuickCapture.vue'
+import SetupChecklist from './SetupChecklist.vue'
 
 const auth = useAuthStore()
 const ui = useUiStore()
@@ -131,6 +132,8 @@ const daysLeft = (endDate: string | null) => {
         <Button size="sm" @click="newTask"><Plus /> New task</Button>
       </div>
     </header>
+
+    <SetupChecklist v-if="data" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
 
     <QuickCapture />
 

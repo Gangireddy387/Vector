@@ -131,6 +131,11 @@ const slugify = (value) => toSlug(value, 'workspace');
 export async function applyDataUpgrades() {
   const { Organization, OrganizationMember, Project, ProjectMember, User, WorkspaceSetting } = await import('./models.js');
 
+  // Sample projects made before they were marked as such get the mark, so they can be deleted in one click too.
+  for (const sample of await Project.findAll({ where: { name: 'Sample: Website launch' } })) {
+    if (sample.key.startsWith('DEMO') && !sample.settings?.isSample) await sample.update({ settings: { ...sample.settings, isSample: true } });
+  }
+
   const orphanProjects = await Project.count({ where: { organizationId: null } });
   let defaultOrganization = null;
   if (orphanProjects || !(await Organization.count())) {

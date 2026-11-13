@@ -14,6 +14,8 @@ const router = Router();
 
 router.get('/projects', validate({ query: listProjectsQuery }), controller.list);
 router.post('/projects', validate({ body: createProjectSchema }), controller.create);
+/** A ready-made project with a running sprint and example work, for exploring Vector. */
+router.post('/projects/sample', controller.createSample);
 router.get('/projects/:projectId', requireProjectRole(), controller.show);
 router.patch('/projects/:projectId', requireProjectRole('admin'), validate({ body: updateProjectSchema }), controller.update);
 router.delete('/projects/:projectId', requireProjectRole('admin'), controller.remove);

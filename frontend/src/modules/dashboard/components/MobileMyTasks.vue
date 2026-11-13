@@ -11,7 +11,9 @@ import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import type { Issue } from '@/types/models'
 import { useDashboardData } from '../composables/useDashboardData'
 import { bucketOf } from '../my-work'
+import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import QuickCapture from './QuickCapture.vue'
+import SetupChecklist from './SetupChecklist.vue'
 
 type Segment = 'today' | 'upcoming' | 'anytime' | 'done'
 
@@ -19,6 +21,7 @@ const auth = useAuthStore()
 const actions = useIssueActions()
 const openIssue = useOpenIssue()
 const { data, isLoading, error, reload } = useDashboardData()
+const isCreateProjectOpen = ref(false)
 const segment = ref<Segment>('today')
 
 const SEGMENTS: Array<{ value: Segment; label: string }> = [
@@ -64,6 +67,9 @@ async function complete(issue: Issue) {
       </div>
       <Button variant="ghost" size="icon" aria-label="Refresh" @click="reload"><RefreshCw /></Button>
     </div>
+
+    <SetupChecklist v-if="data" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
+    <CreateProjectDialog v-model:open="isCreateProjectOpen" />
 
     <QuickCapture stacked />
 

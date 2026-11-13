@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { Plus } from 'lucide-vue-next'
+import { Plus, Sparkles, Trash2 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
+import { useConfirm } from '@/composables/useConfirm'
 import EmptyState from '@/components/common/EmptyState.vue'
 import UserAvatarStack from '@/components/common/UserAvatarStack.vue'
 import { getProjectNavigation } from '@/components/layout/projectNavigation'
@@ -52,6 +55,29 @@ watch(
   { immediate: true },
 )
 onBeforeUnmount(() => (projects.currentProjectId = null))
+
+const router = useRouter()
+const confirm = useConfirm()
+const isDeletingSample = ref(false)
+async function deleteSample() {
+  const ok = await confirm({
+    title: 'Delete the sample project?',
+    description: 'All of its tasks, sprints, comments, chat and history are removed for everyone. This cannot be undone.',
+    confirmLabel: 'Delete sample project',
+    destructive: true,
+  })
+  if (!ok) return
+  isDeletingSample.value = true
+  try {
+    await projects.deleteProject(props.projectId)
+    toast.success('Sample project deleted')
+    await router.replace({ name: 'home' })
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isDeletingSample.value = false
+  }
+}
 </script>
 
 <template>
@@ -126,6 +152,18 @@ onBeforeUnmount(() => (projects.currentProjectId = null))
         </a>
       </RouterLink>
     </nav>
+
+    <!-- The sample project says what it is and can be removed, with everything in it, in one click -->
+    <div v-if="project.settings?.isSample" class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-primary/[0.05] px-4 py-2 text-[13px]">
+      <Sparkles class="size-4 shrink-0 text-primary" />
+      <span class="min-w-0 flex-1">
+        <span class="font-medium">This is a sample project.</span>
+        <span class="ml-1 text-muted-foreground">Explore freely; deleting it removes all its tasks, sprints, chat and history.</span>
+      </span>
+      <Button v-if="project.myRole === 'admin'" variant="outline" size="sm" class="text-destructive hover:text-destructive" :loading="isDeletingSample" @click="deleteSample">
+        <Trash2 /> Delete sample project
+      </Button>
+    </div>
 
     <div class="min-h-0 flex-1" :class="isDesktop && 'overflow-y-auto'">
       <RouterView />

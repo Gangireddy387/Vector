@@ -1,7 +1,9 @@
+import { createSampleProject } from './project.sample.js';
 import * as projectService from './project.service.js';
 
 export const list = async (req, res) => res.json({ projects: await projectService.listProjects(req.user.id, req.filters) });
 export const create = async (req, res) => res.status(201).json({ project: await projectService.createProject(req.user, req.body) });
+export const createSample = async (req, res) => res.status(201).json({ project: await createSampleProject(req.user) });
 export const show = async (req, res) => res.json({ project: await projectService.getProject(req.params.projectId, req.user.id) });
 
 export const update = async (req, res) =>

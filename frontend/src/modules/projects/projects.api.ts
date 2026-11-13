@@ -44,6 +44,8 @@ export const projectsApi = {
     http.get<{ projects: Project[] }>('/projects', { params: { includeArchived } }).then((r) => r.data.projects),
   get: (projectId: string) => http.get<{ project: ProjectDetail }>(`/projects/${projectId}`).then((r) => r.data.project),
   create: (input: ProjectInput) => http.post<{ project: ProjectDetail }>('/projects', input).then((r) => r.data.project),
+  /** A ready-made project with a running sprint and example work, for exploring Vector. */
+  createSample: () => http.post<{ project: ProjectDetail }>('/projects/sample').then((r) => r.data.project),
   update: (projectId: string, changes: ProjectChanges) =>
     http.patch<{ project: ProjectDetail }>(`/projects/${projectId}`, changes).then((r) => r.data.project),
   remove: (projectId: string) => http.delete(`/projects/${projectId}`),

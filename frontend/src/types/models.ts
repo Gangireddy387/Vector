@@ -188,6 +188,8 @@ export interface ProjectSettings {
   carryOverIncomplete: boolean
   sprintLengthDays: number
   dueReminderHours: number
+  /** The ready-made sample project (offered to new organizations); it can be deleted in one click. */
+  isSample?: boolean
 }
 
 export interface ProjectMember extends UserSummary {
