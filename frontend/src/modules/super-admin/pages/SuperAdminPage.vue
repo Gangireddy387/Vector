@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useDevice } from '@/composables/useDevice'
+import { useSoundPreferences } from '@/composables/useSoundPreferences'
 import { useTheme } from '@/composables/useTheme'
 import { applyBrand } from '@/lib/brand-theme'
 import { useSocketEvents } from '@/lib/socket-events'
@@ -137,6 +138,7 @@ async function load() {
     isLoading.value = false
   }
 }
+useSoundPreferences()
 onMounted(() => {
   applyBrand(null, { remember: false })
   load()

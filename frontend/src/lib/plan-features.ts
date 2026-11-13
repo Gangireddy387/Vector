@@ -7,6 +7,7 @@ import {
   MailCheck,
   MessageCircle,
   MessagesSquare,
+  Music,
   Newspaper,
   Paperclip,
   Repeat,
@@ -31,6 +32,7 @@ export type PlanFeatureKey =
   | 'meetings'
   | 'attachments'
   | 'timeTracking'
+  | 'customSounds'
   | 'emailInvitations'
   | 'emailNotifications'
   | 'emailReminders'
@@ -69,6 +71,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
   { key: 'meetings', label: 'Meetings & video calls', description: 'Schedule meetings, video call in the browser and share updates', icon: Video, group: 'app' },
   { key: 'attachments', label: 'File attachments', description: 'Upload files to tasks', icon: Paperclip, group: 'app' },
   { key: 'timeTracking', label: 'Time tracking', description: 'Log work time on tasks', icon: Clock, group: 'app' },
+  {
+    key: 'customSounds',
+    label: 'Custom ringtones & sounds',
+    description: 'Everyone picks their own call ringtone, message and notification sounds',
+    icon: Music,
+    group: 'app',
+  },
   {
     key: 'emailInvitations',
     label: 'Invitation emails',

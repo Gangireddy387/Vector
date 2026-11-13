@@ -94,8 +94,8 @@ export async function getDefaultPlan() {
 const CHAT_FEATURE_KEYS = ['directMessages', 'teamChat', 'meetings'];
 
 /**
- * Plans saved before newer switches existed: they keep sending emails, and get direct and team chat and meetings
- * when they already include project chat, until the super admin changes them.
+ * Plans saved before newer switches existed: they keep sending emails, get direct and team chat and meetings when
+ * they already include project chat, and custom sounds when they include calls or chat, until the super admin changes them.
  */
 async function backfillEmailFeatures() {
   for (const plan of await Plan.findAll()) {
@@ -103,6 +103,7 @@ async function backfillEmailFeatures() {
     const additions = {
       ...Object.fromEntries(EMAIL_FEATURE_KEYS.filter((key) => features[key] === undefined).map((key) => [key, true])),
       ...Object.fromEntries(CHAT_FEATURE_KEYS.filter((key) => features[key] === undefined).map((key) => [key, Boolean(features.chat)])),
+      ...(features.customSounds === undefined ? { customSounds: Boolean(features.meetings ?? features.chat) } : {}),
     };
     if (Object.keys(additions).length) await plan.update({ features: { ...features, ...additions } });
   }

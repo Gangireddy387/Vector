@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Download, Monitor, Moon, Sun, Volume2 } from 'lucide-vue-next'
+import { Download, Monitor, Moon, Sun } from 'lucide-vue-next'
 import { reactive, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
@@ -13,11 +13,11 @@ import { useDevice } from '@/composables/useDevice'
 import { usePwaInstall } from '@/composables/usePwaInstall'
 import { type ThemePreference, useTheme } from '@/composables/useTheme'
 import { getErrorMessage } from '@/lib/http'
-import { previewSound, soundsEnabled } from '@/lib/sounds'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import PasswordInput from '@/modules/auth/components/PasswordInput.vue'
 import CalendarConnectionsCard from '../components/CalendarConnectionsCard.vue'
 import ProfilePhotoField from '../components/ProfilePhotoField.vue'
+import SoundSettingsCard from '../components/SoundSettingsCard.vue'
 import SkillsInput from '../components/SkillsInput.vue'
 import TimezoneField from '../components/TimezoneField.vue'
 
@@ -160,7 +160,7 @@ async function changePassword() {
         <Card>
           <CardHeader>
             <CardTitle>Notifications</CardTitle>
-            <CardDescription>In-app notifications are always on. Choose what reaches your inbox and whether they make a sound.</CardDescription>
+            <CardDescription>In-app notifications are always on. Choose what also reaches your email.</CardDescription>
           </CardHeader>
           <CardContent class="space-y-4">
             <label class="flex items-start justify-between gap-4">
@@ -177,21 +177,10 @@ async function changePassword() {
               </span>
               <Switch :model-value="auth.user?.preferences.dailyDigest ?? false" @update:model-value="(value: boolean) => setPreference('dailyDigest', value)" />
             </label>
-            <div class="space-y-2">
-              <label class="flex items-start justify-between gap-4">
-                <span>
-                  <span class="block text-sm font-medium">Sounds</span>
-                  <span class="block text-xs text-muted-foreground">A short sound for new messages and notifications. Quiet while you are on “Do not disturb”. Saved on this device.</span>
-                </span>
-                <Switch v-model="soundsEnabled" />
-              </label>
-              <div class="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" @click="previewSound('message')"><Volume2 /> Message sound</Button>
-                <Button variant="outline" size="sm" @click="previewSound('notification')"><Volume2 /> Notification sound</Button>
-              </div>
-            </div>
           </CardContent>
         </Card>
+
+        <SoundSettingsCard />
 
         <CalendarConnectionsCard />
 

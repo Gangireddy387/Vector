@@ -180,6 +180,14 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = withRole(await authApi.removeAvatar())
   }
 
+  async function uploadRingtone(file: File) {
+    user.value = withRole(await authApi.uploadRingtone(file))
+  }
+
+  async function removeRingtone() {
+    user.value = withRole(await authApi.removeRingtone())
+  }
+
   /** Signs out every other browser; this one keeps working with the new token the server returns. */
   async function changePassword(payload: { currentPassword: string; newPassword: string }) {
     const { token: next } = await authApi.changePassword(payload)
@@ -211,6 +219,8 @@ export const useAuthStore = defineStore('auth', () => {
     updateProfile,
     uploadAvatar,
     removeAvatar,
+    uploadRingtone,
+    removeRingtone,
     changePassword,
     logout,
   }

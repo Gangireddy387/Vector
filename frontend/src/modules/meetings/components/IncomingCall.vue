@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useSocketEvents } from '@/lib/socket-events'
+import { startRingtone } from '@/lib/sounds'
 import type { UserSummary } from '@/types/models'
 import { usePushNotifications } from '../call/usePushNotifications'
 import { useMeetingCall } from '../useMeetingCall'
@@ -17,75 +18,25 @@ interface Ring {
 
 /**
  * Rings when someone starts a call you are invited to: a card in the middle of the screen with Join and Decline and
- * a ringtone, for 30 seconds. Hosts are also told here when a guest waits to be let in.
+ * the person's ringtone (chosen in Settings), for 30 seconds. Hosts are also told here when a guest waits to be let in.
  */
 const RING_MS = 30_000
-const RING_EVERY_MS = 2600
-/** A rising marimba-like phrase (E5 G5 B5 E6, then B5 E6): clear across a room without being harsh. */
-const MELODY: Array<[offset: number, frequency: number]> = [
-  [0, 659.25],
-  [0.16, 783.99],
-  [0.32, 987.77],
-  [0.48, 1318.51],
-  [0.86, 987.77],
-  [1.02, 1318.51],
-]
-/** Overtones that give each note its bell-like colour: [frequency ratio, loudness]. */
-const PARTIALS: Array<[ratio: number, level: number]> = [
-  [1, 0.55],
-  [2, 0.2],
-  [3, 0.07],
-]
 
 const router = useRouter()
 const call = useMeetingCall()
 const push = usePushNotifications()
 const ringing = ref<Ring | null>(null)
 let timeout: ReturnType<typeof setTimeout> | null = null
-let tone: { context: AudioContext; timer: ReturnType<typeof setInterval> } | null = null
+let stopRingtone: (() => void) | null = null
 
 function startTone() {
   stopTone()
-  try {
-    const context = new AudioContext()
-    // The compressor keeps overlapping notes loud but free of clipping.
-    const compressor = context.createDynamicsCompressor()
-    const volume = context.createGain()
-    volume.gain.value = 0.9
-    compressor.connect(volume).connect(context.destination)
-
-    const note = (at: number, frequency: number) => {
-      for (const [ratio, level] of PARTIALS) {
-        const oscillator = context.createOscillator()
-        const gain = context.createGain()
-        const length = 1.1 / ratio
-        oscillator.frequency.value = frequency * ratio
-        gain.gain.setValueAtTime(0.0001, at)
-        gain.gain.exponentialRampToValueAtTime(level, at + 0.012)
-        gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
-        oscillator.connect(gain).connect(compressor)
-        oscillator.start(at)
-        oscillator.stop(at + length + 0.05)
-      }
-    }
-    const ring = () => {
-      const start = context.currentTime + 0.05
-      for (const [offset, frequency] of MELODY) note(start + offset, frequency)
-      navigator.vibrate?.([300, 150, 300])
-    }
-    void context.resume().then(ring)
-    tone = { context, timer: setInterval(ring, RING_EVERY_MS) }
-  } catch {
-    tone = null
-  }
+  stopRingtone = startRingtone()
 }
 
 function stopTone() {
-  navigator.vibrate?.(0)
-  if (!tone) return
-  clearInterval(tone.timer)
-  void tone.context.close().catch(() => undefined)
-  tone = null
+  stopRingtone?.()
+  stopRingtone = null
 }
 
 function dismiss() {

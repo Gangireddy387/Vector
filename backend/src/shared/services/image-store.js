@@ -5,8 +5,6 @@ import multer from 'multer';
 import { config } from '../../config/index.js';
 import { ApiError } from '../errors/api-error.js';
 
-const FILE_PATTERN = /^[a-f0-9-]{36}\.(png|jpg|webp|gif)$/;
-
 /** Detects the real image type from the file's first bytes; the declared MIME type is not trusted. */
 function detectImageType(buffer) {
   if (buffer.length < 12) return null;
@@ -17,21 +15,35 @@ function detectImageType(buffer) {
   return null;
 }
 
+/** Detects common audio formats from the file's first bytes. */
+export function detectAudioType(buffer) {
+  if (buffer.length < 12) return null;
+  const ascii = (start, end) => buffer.toString('ascii', start, end);
+  if (ascii(0, 3) === 'ID3' || (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0)) return { ext: 'mp3', mime: 'audio/mpeg' };
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WAVE') return { ext: 'wav', mime: 'audio/wav' };
+  if (ascii(0, 4) === 'OggS') return { ext: 'ogg', mime: 'audio/ogg' };
+  if (ascii(0, 4) === 'fLaC') return { ext: 'flac', mime: 'audio/flac' };
+  if (ascii(4, 8) === 'ftyp') return { ext: 'm4a', mime: 'audio/mp4' };
+  if (buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3) return { ext: 'webm', mime: 'audio/webm' };
+  return null;
+}
+
 /**
- * Small public images (profile photos, organization logos) stored under `uploads/<folder>` with unguessable names,
- * because <img> tags cannot send the bearer token. Files are served by GET `<urlPrefix><fileName>`.
+ * Small public files (profile photos, organization logos, ringtones) stored under `uploads/<folder>` with unguessable
+ * names, because <img> and <audio> cannot send the bearer token. Files are served by GET `<urlPrefix><fileName>`.
  */
-export function createImageStore({ folder, urlPrefix, field, maxBytes = 2 * 1024 * 1024 }) {
+export function createFileStore({ folder, urlPrefix, field, maxBytes = 2 * 1024 * 1024, detect, extensions, kind, typeMessage }) {
   const directory = path.join(config.uploads.dir, folder);
   fs.mkdirSync(directory, { recursive: true });
+  const filePattern = new RegExp(`^[a-f0-9-]{36}\\.(${extensions.join('|')})$`);
 
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: maxBytes, files: 1 } }).single(field);
 
-  /** Writes a validated image and returns its public URL. */
+  /** Writes a validated file and returns its public URL. */
   async function save(file) {
-    if (!file) throw ApiError.badRequest('Choose an image to upload');
-    const type = detectImageType(file.buffer);
-    if (!type) throw ApiError.badRequest('Use a PNG, JPEG, WebP or GIF image');
+    if (!file) throw ApiError.badRequest(`Choose ${kind} to upload`);
+    const type = detect(file.buffer);
+    if (!type || !extensions.includes(type.ext)) throw ApiError.badRequest(typeMessage);
     const fileName = `${crypto.randomUUID()}.${type.ext}`;
     await fs.promises.writeFile(path.join(directory, fileName), file.buffer);
     return `${urlPrefix}${fileName}`;
@@ -39,18 +51,28 @@ export function createImageStore({ folder, urlPrefix, field, maxBytes = 2 * 1024
 
   async function remove(url) {
     const fileName = url?.startsWith(urlPrefix) ? url.slice(urlPrefix.length) : null;
-    if (!fileName || !FILE_PATTERN.test(fileName)) return;
+    if (!fileName || !filePattern.test(fileName)) return;
     await fs.promises.unlink(path.join(directory, fileName)).catch((error) => {
       if (error.code !== 'ENOENT') console.warn(`[${folder}] could not delete`, fileName, error.message);
     });
   }
 
   function resolve(fileName) {
-    if (!FILE_PATTERN.test(fileName)) throw ApiError.notFound('Image not found');
+    if (!filePattern.test(fileName)) throw ApiError.notFound('File not found');
     const filePath = path.join(directory, fileName);
-    if (!fs.existsSync(filePath)) throw ApiError.notFound('Image not found');
+    if (!fs.existsSync(filePath)) throw ApiError.notFound('File not found');
     return filePath;
   }
 
   return { upload, save, remove, resolve };
 }
+
+/** Profile photos and organization logos. */
+export const createImageStore = (options) =>
+  createFileStore({
+    ...options,
+    detect: detectImageType,
+    extensions: ['png', 'jpg', 'webp', 'gif'],
+    kind: 'an image',
+    typeMessage: 'Use a PNG, JPEG, WebP or GIF image',
+  });

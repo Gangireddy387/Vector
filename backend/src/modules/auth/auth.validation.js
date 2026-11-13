@@ -45,6 +45,16 @@ export const updateProfileSchema = z.object({
       dailyDigest: z.boolean().optional(),
       /** Follow the device's time zone automatically (default) instead of a fixed one. */
       autoTimezone: z.boolean().optional(),
+      /** Chosen sounds (ids from the frontend's sound library) and their loudness; used when the plan includes custom sounds. */
+      sounds: z
+        .object({
+          ringtone: z.string().regex(/^[a-z-]{2,20}$/),
+          message: z.string().regex(/^[a-z-]{2,20}$/),
+          notification: z.string().regex(/^[a-z-]{2,20}$/),
+          volume: z.number().int().min(0).max(100),
+        })
+        .partial()
+        .optional(),
     })
     .optional(),
 });

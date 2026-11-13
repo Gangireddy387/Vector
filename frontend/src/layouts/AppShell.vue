@@ -7,6 +7,7 @@ import KeyboardShortcutsDialog from '@/components/layout/KeyboardShortcutsDialog
 import MobileShell from '@/components/layout/MobileShell.vue'
 import { useDevice } from '@/composables/useDevice'
 import { useHotkeys } from '@/composables/useHotkeys'
+import { useSoundPreferences } from '@/composables/useSoundPreferences'
 import { useTimezoneSync } from '@/composables/useTimezoneSync'
 import { setSoundGate } from '@/lib/sounds'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -42,6 +43,7 @@ function openNotification(notification: AppNotification) {
 
 // "Do not disturb" silences message and notification sounds.
 setSoundGate(() => presence.chosen !== 'dnd')
+useSoundPreferences()
 
 onMounted(async () => {
   // Live updates first, so a failed load below never leaves the session without them.

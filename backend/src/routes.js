@@ -31,6 +31,7 @@ import sprintRoutes from './modules/sprints/sprint.routes.js';
 import statusRoutes from './modules/statuses/status.routes.js';
 import templateRoutes from './modules/templates/template.routes.js';
 import { avatarRoutes, publicAvatarRoutes } from './modules/users/avatar.routes.js';
+import { publicRingtoneRoutes, ringtoneRoutes } from './modules/users/ringtone.routes.js';
 import userRoutes from './modules/users/user.routes.js';
 import worklogRoutes from './modules/worklogs/worklog.routes.js';
 import { publicWorkspaceRoutes } from './modules/workspace/workspace.routes.js';
@@ -44,6 +45,7 @@ export function createApiRouter() {
   router.use('/auth', authRoutes);
   router.use(publicWorkspaceRoutes);
   router.use(publicAvatarRoutes);
+  router.use(publicRingtoneRoutes);
   router.use(publicOrganizationRoutes);
   router.use(publicMeetingRoutes);
   router.use(publicRecordingRoutes);
@@ -53,6 +55,7 @@ export function createApiRouter() {
 
   router.use(authenticate);
   router.use(avatarRoutes);
+  router.use(ringtoneRoutes);
   router.use(calendarSyncRoutes);
   router.use(pushRoutes);
   router.use(organizationRoutes);

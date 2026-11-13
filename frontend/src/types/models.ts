@@ -26,6 +26,19 @@ export interface UserPreferences {
   dailyDigest: boolean
   /** Follow the device's time zone automatically; `false` keeps the zone the user picked. Missing means true. */
   autoTimezone?: boolean
+  /** Chosen call ringtone, message and notification sounds and their loudness (custom choices need the plan feature). */
+  sounds?: Partial<SoundPreferences>
+}
+
+export interface SoundPreferences {
+  ringtone: string
+  message: string
+  notification: string
+  /** 0–100. */
+  volume: number
+  /** The person's own uploaded ringtone (picked with ringtone `custom`). */
+  customRingtoneUrl?: string | null
+  customRingtoneName?: string | null
 }
 
 export type WorkspaceRole = 'admin' | 'member'

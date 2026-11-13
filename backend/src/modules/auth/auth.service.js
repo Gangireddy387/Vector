@@ -101,7 +101,10 @@ export async function acceptInvite({ token, name, password }) {
 export async function updateProfile(user, changes) {
   const { preferences, ...rest } = changes;
   const updates = { ...rest };
-  if (preferences) updates.preferences = { ...user.preferences, ...preferences };
+  if (preferences) {
+    updates.preferences = { ...user.preferences, ...preferences };
+    if (preferences.sounds) updates.preferences.sounds = { ...user.preferences?.sounds, ...preferences.sounds };
+  }
   await user.update(updates);
   return user.toJSON();
 }

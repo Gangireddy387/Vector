@@ -55,6 +55,12 @@ export const authApi = {
     return http.post<{ user: User }>('/users/me/avatar', form).then((r) => r.data.user)
   },
   removeAvatar: () => http.delete<{ user: User }>('/users/me/avatar').then((r) => r.data.user),
+  uploadRingtone: (file: File) => {
+    const form = new FormData()
+    form.append('ringtone', file, file.name)
+    return http.post<{ user: User }>('/users/me/ringtone', form).then((r) => r.data.user)
+  },
+  removeRingtone: () => http.delete<{ user: User }>('/users/me/ringtone').then((r) => r.data.user),
   /** Signs out every other session; the returned token keeps this one signed in. */
   changePassword: (payload: { currentPassword: string; newPassword: string }) => http.patch<{ token: string }>('/auth/me/password', payload).then((r) => r.data),
 }
