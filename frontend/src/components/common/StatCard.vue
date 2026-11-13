@@ -2,6 +2,7 @@
 import type { Component } from 'vue'
 import { cn } from '@/lib/utils'
 
+/** One figure in a stats strip: a small coloured icon and label above a large number. */
 withDefaults(
   defineProps<{
     label: string
@@ -13,24 +14,22 @@ withDefaults(
   { tone: 'default' },
 )
 
-const TONE_CLASSES = {
-  default: 'bg-brand text-primary-foreground shadow-glow',
-  danger: 'bg-destructive/12 text-destructive ring-1 ring-destructive/15',
-  warning: 'bg-warning/15 text-amber-600 ring-1 ring-warning/20 dark:text-warning',
-  success: 'bg-success/15 text-success ring-1 ring-success/20',
-  info: 'bg-info/15 text-info ring-1 ring-info/20',
+const ICON_TONES = {
+  default: 'text-primary',
+  danger: 'text-destructive',
+  warning: 'text-amber-500 dark:text-warning',
+  success: 'text-success',
+  info: 'text-info',
 }
 </script>
 
 <template>
-  <div class="surface-hover relative flex items-center gap-3 overflow-hidden border border-border/70 bg-card p-3 shadow-soft">
-    <div v-if="icon" :class="cn('flex size-10 shrink-0 items-center justify-center', TONE_CLASSES[tone])">
-      <component :is="icon" class="size-5" />
-    </div>
-    <div class="min-w-0">
-      <p class="text-xl leading-none font-semibold tracking-tight tabular-nums">{{ value }}</p>
-      <p class="mt-1 truncate text-xs font-medium text-muted-foreground" :title="label">{{ label }}</p>
-      <p v-if="hint" class="truncate text-[11px] text-muted-foreground/80">{{ hint }}</p>
-    </div>
+  <div class="min-w-0 px-4 py-3.5">
+    <p class="flex items-center gap-1.5 truncate text-xs font-medium text-muted-foreground" :title="label">
+      <component :is="icon" v-if="icon" :class="cn('size-3.5 shrink-0', ICON_TONES[tone])" />
+      {{ label }}
+    </p>
+    <p class="mt-1.5 text-2xl leading-none font-semibold tracking-tight tabular-nums" :class="tone === 'danger' && 'text-destructive'">{{ value }}</p>
+    <p v-if="hint" class="mt-1 truncate text-[11px] text-muted-foreground">{{ hint }}</p>
   </div>
 </template>

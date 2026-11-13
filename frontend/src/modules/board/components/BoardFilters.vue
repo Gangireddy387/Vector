@@ -39,8 +39,8 @@ function toggleAssignee(id: string) {
 <template>
   <div class="flex flex-wrap items-center gap-2">
     <div class="relative w-52">
-      <Search class="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input v-model="filters.search" placeholder="Filter board" class="h-8 pl-8" aria-label="Filter board" />
+      <Search class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Input v-model="filters.search" placeholder="Filter board" class="h-7 pl-8" aria-label="Filter board" />
     </div>
     <div class="flex items-center -space-x-1" role="group" aria-label="Filter by assignee">
       <button

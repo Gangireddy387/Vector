@@ -41,7 +41,7 @@ async function copyLink() {
 <template>
   <DropdownMenu>
     <DropdownMenuTrigger
-      class="group flex min-w-0 items-center gap-2.5 p-1 text-left transition-colors hover:bg-card hover:shadow-soft focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      class="group flex min-w-0 items-center gap-2.5 rounded-md p-1 text-left transition-colors hover:bg-sidebar-accent/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       :class="compact ? 'justify-center' : 'flex-1'"
       :aria-label="`Organization: ${auth.organization?.name ?? 'none'}. Switch organization`"
     >
@@ -59,12 +59,12 @@ async function copyLink() {
           square
           class="transition-transform duration-200 group-hover:-rotate-3"
         />
-        <span v-else class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-brand text-white shadow-glow transition-transform duration-200 group-hover:-rotate-3">
+        <span v-else class="relative flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-[7px] bg-brand text-white shadow-glow transition-transform duration-200 group-hover:-rotate-3">
           <span class="pointer-events-none absolute inset-0" style="background: radial-gradient(circle at 15% 5%, rgb(255 255 255 / 0.25), transparent 60%)" />
-          <BrandMark class="relative size-[22px]" />
+          <BrandMark class="relative size-[18px]" />
         </span>
         <span v-if="!compact" class="min-w-0 flex-1">
-          <span class="block truncate text-[15px] leading-tight font-semibold tracking-tight">{{ auth.organization?.name ?? 'Vector' }}</span>
+          <span class="block truncate text-[13.5px] leading-tight font-semibold tracking-tight">{{ auth.organization?.name ?? 'Vector' }}</span>
           <span class="block truncate text-[11px] leading-tight text-muted-foreground">{{ auth.organization ? `/${auth.organization.slug}` : 'No organization' }}</span>
         </span>
       </template>

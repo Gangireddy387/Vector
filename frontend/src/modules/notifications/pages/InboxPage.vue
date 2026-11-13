@@ -35,9 +35,12 @@ const counts = computed(() =>
   Object.fromEntries(INBOX_FILTERS.map((item) => [item.value, notifications.items.filter((notification) => matchesFilter(notification, item.value)).length])),
 )
 const unreadIn = (value: InboxFilter) => notifications.items.filter((notification) => !notification.readAt && matchesFilter(notification, value)).length
-/** On phones, category chips only show when they have something in them. */
-const chips = computed(() => INBOX_FILTERS.filter((item) => item.value === 'all' || item.value === 'unread' || counts.value[item.value]))
-const folderLabel = computed(() => INBOX_FILTERS.find((item) => item.value === filter.value)?.label ?? 'Inbox')
+/** Category chips only show when they have something in them (All, Unread and the open one always do). */
+const chips = computed(() => INBOX_FILTERS.filter((item) => item.value === 'all' || item.value === 'unread' || item.value === filter.value || counts.value[item.value]))
+function chooseFilter(value: InboxFilter) {
+  filter.value = value
+  selectedKey.value = null
+}
 
 const visible = computed(() => {
   const term = search.value.trim().toLowerCase()
@@ -137,105 +140,94 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
 </script>
 
 <template>
-  <!-- Desktop: a mailbox with folders, the message list and a reading pane, fitted to the window -->
-  <div v-if="isDesktop" class="flex h-full w-full flex-col gap-4 p-5">
-    <header class="flex shrink-0 flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 class="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
-          Inbox
-          <span v-if="notifications.unreadCount" class="bg-brand px-2 py-0.5 text-xs font-semibold text-white tabular-nums">{{ notifications.unreadCount }} new</span>
-        </h1>
-        <p class="text-sm text-muted-foreground">Assignments, mentions, updates on work you watch, reminders and messages from the Vector team.</p>
+  <!-- Desktop: filters on the list, the list and a reading pane, fitted to the window -->
+  <div v-if="isDesktop" class="flex h-full w-full flex-col">
+    <header class="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
+      <h1 class="flex items-center gap-2 text-[15px] font-semibold">
+        Inbox
+        <span v-if="notifications.unreadCount" class="rounded-full bg-primary/12 px-1.5 text-[11px] font-semibold text-primary tabular-nums dark:bg-primary/20">{{ notifications.unreadCount }}</span>
+      </h1>
+      <div class="relative ml-auto w-60">
+        <Search class="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input v-model="search" class="h-7 pl-8" placeholder="Search notifications" aria-label="Search notifications" />
       </div>
-      <div class="flex items-center gap-2">
-        <div class="relative w-72">
-          <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input v-model="search" class="pl-9" placeholder="Search notifications" aria-label="Search notifications" />
-        </div>
-        <Button variant="outline" :disabled="!notifications.unreadCount" @click="notifications.markAllRead()"><CheckCheck /> Mark all as read</Button>
-      </div>
+      <Button variant="outline" size="sm" :disabled="!notifications.unreadCount" @click="notifications.markAllRead()"><CheckCheck /> Mark all read</Button>
     </header>
 
-    <div class="flex min-h-[28rem] flex-1 overflow-hidden border border-border/80 bg-card shadow-soft">
-      <!-- Folders -->
-      <nav class="w-52 shrink-0 space-y-0.5 overflow-y-auto border-r border-border/70 bg-muted/25 p-2 scrollbar-thin" aria-label="Inbox folders">
-        <button
-          v-for="folder in INBOX_FILTERS"
-          :key="folder.value"
-          type="button"
-          class="relative flex h-9 w-full items-center gap-2.5 px-2.5 text-left text-sm transition-colors"
-          :class="
-            filter === folder.value
-              ? 'bg-card font-semibold text-primary shadow-soft before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:bg-brand'
-              : 'text-foreground/75 hover:bg-card/70 hover:text-foreground'
-          "
-          :aria-current="filter === folder.value ? 'page' : undefined"
-          @click="(filter = folder.value), (selectedKey = null)"
-        >
-          <component :is="folder.icon" class="size-4 shrink-0" />
-          <span class="min-w-0 flex-1 truncate">{{ folder.label }}</span>
-          <span
-            v-if="unreadIn(folder.value)"
-            class="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-semibold text-white tabular-nums"
-            :aria-label="`${unreadIn(folder.value)} unread`"
+    <div class="flex min-h-0 flex-1 overflow-hidden">
+      <!-- The list, with its filters on top -->
+      <section class="flex w-[26rem] shrink-0 flex-col border-r border-border xl:w-[30rem]">
+        <div class="flex shrink-0 flex-wrap gap-1 px-2.5 pt-2.5 pb-1.5" role="tablist" aria-label="Filter notifications">
+          <button
+            v-for="chip in chips"
+            :key="chip.value"
+            type="button"
+            role="tab"
+            class="inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors"
+            :class="filter === chip.value ? 'bg-accent text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'"
+            :aria-selected="filter === chip.value"
+            @click="chooseFilter(chip.value)"
           >
-            {{ unreadIn(folder.value) }}
-          </span>
-        </button>
-      </nav>
-
-      <!-- Message list -->
-      <section class="flex w-[24rem] shrink-0 flex-col border-r border-border/70 xl:w-[28rem]">
-        <div class="flex h-11 shrink-0 items-center justify-between border-b border-border/70 px-4">
-          <span class="text-sm font-semibold">{{ folderLabel }}</span>
-          <span class="text-xs text-muted-foreground tabular-nums">{{ entries.length }} {{ entries.length === 1 ? 'notification' : 'notifications' }}</span>
+            <component :is="chip.icon" class="size-3.5" />
+            {{ chip.label }}
+            <span
+              v-if="unreadIn(chip.value)"
+              class="min-w-4 rounded-full px-1 text-center text-[10px] font-semibold tabular-nums"
+              :class="'bg-primary text-primary-foreground'"
+              :aria-label="`${unreadIn(chip.value)} unread`"
+            >
+              {{ unreadIn(chip.value) }}
+            </span>
+          </button>
         </div>
+
         <div class="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
           <div v-if="notifications.isLoading && !notifications.items.length" class="space-y-2 p-3">
-            <Skeleton v-for="index in 7" :key="index" class="h-16 w-full" />
+            <Skeleton v-for="index in 7" :key="index" class="h-14 w-full" />
           </div>
           <EmptyState
             v-else-if="!entries.length"
             :icon="search ? Search : filter === 'unread' ? Inbox : BellOff"
             :title="search ? `Nothing matches “${search}”` : EMPTY[filter].title"
-            :description="search ? 'Try other words or another folder.' : EMPTY[filter].description"
-            class="py-16"
+            :description="search ? 'Try other words or another filter.' : EMPTY[filter].description"
+            class="py-14"
           />
           <template v-for="section in sections" v-else :key="section.label">
-            <p class="sticky top-0 z-10 border-b border-border/60 bg-card/95 px-4 py-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase backdrop-blur">
+            <p class="sticky top-0 z-10 bg-background/95 px-4 pt-3 pb-1 text-[11.5px] font-medium text-muted-foreground backdrop-blur">
               {{ section.label }}
             </p>
             <button
               v-for="entry in section.entries"
               :key="entry.key"
               type="button"
-              class="relative flex w-full gap-3 border-b border-border/50 px-4 py-3 text-left transition-colors"
+              class="relative mx-1.5 flex w-[calc(100%-0.75rem)] items-start gap-3 rounded-md px-2.5 py-2.5 text-left transition-colors"
               :class="
                 selectedKey === entry.key
-                  ? 'bg-primary/10 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-brand'
+                  ? 'bg-accent'
                   : isUnread(entry)
-                    ? 'bg-primary/[0.03] hover:bg-muted/60'
-                    : 'hover:bg-muted/60'
+                    ? 'hover:bg-accent/60'
+                    : 'hover:bg-accent/60'
               "
               @click="select(entry)"
             >
-              <UserAvatar v-if="entry.latest.actor" :user="entry.latest.actor" size="lg" class="size-9" />
-              <span v-else class="flex size-9 shrink-0 items-center justify-center" :class="kindOf(entry.latest.type).tone">
+              <UserAvatar v-if="entry.latest.actor" :user="entry.latest.actor" size="md" class="mt-0.5 size-8" />
+              <span v-else class="mt-0.5 flex size-8 shrink-0 items-center justify-center" :class="kindOf(entry.latest.type).tone">
                 <component :is="kindOf(entry.latest.type).icon" class="size-4" />
               </span>
               <span class="min-w-0 flex-1">
                 <span class="flex items-baseline gap-2">
-                  <span class="min-w-0 flex-1 truncate text-sm" :class="isUnread(entry) ? 'font-semibold' : 'text-foreground/80'">
-                    {{ senderOf(entry.latest) }}
+                  <span class="min-w-0 flex-1 truncate text-[13px]" :class="isUnread(entry) ? 'font-semibold' : 'font-medium text-foreground/85'">
+                    {{ entry.latest.title }}
                     <span v-if="entry.items.length > 1" class="font-normal text-muted-foreground">({{ entry.items.length }})</span>
                   </span>
                   <span class="shrink-0 text-[11px] tabular-nums" :class="isUnread(entry) ? 'font-semibold text-primary' : 'text-muted-foreground'">
                     {{ listTime(entry.latest) }}
                   </span>
                 </span>
-                <span class="block truncate text-[13px]" :class="isUnread(entry) ? 'font-medium text-foreground' : 'text-foreground/75'">{{ entry.latest.title }}</span>
                 <span class="flex items-center gap-2">
-                  <span class="min-w-0 flex-1 truncate text-xs text-muted-foreground">{{ entry.latest.body ? toPlainText(entry.latest.body, 140) : kindOf(entry.latest.type).label }}</span>
+                  <span class="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                    {{ senderOf(entry.latest) }} · {{ entry.latest.body ? toPlainText(entry.latest.body, 140) : kindOf(entry.latest.type).label }}
+                  </span>
                   <span v-if="isUnread(entry)" class="size-2 shrink-0 rounded-full bg-brand" aria-label="Unread" />
                 </span>
               </span>
@@ -246,7 +238,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
 
       <!-- Reading pane: chat and tasks open right here, so you can reply without leaving the Inbox -->
       <article v-if="selected && paneMode === 'chat'" class="flex min-w-0 flex-1 flex-col">
-        <div class="flex shrink-0 items-center gap-3 border-b border-border/70 px-5 py-3">
+        <div class="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
           <span class="flex size-9 items-center justify-center" :class="kindOf('support_message').tone"><MessageCircle class="size-4" /></span>
           <span class="min-w-0 flex-1">
             <span class="block text-sm font-semibold">Vector team</span>
@@ -271,49 +263,58 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
       </article>
 
       <article v-else class="min-w-0 flex-1 overflow-y-auto scrollbar-thin">
-        <div v-if="!selected" class="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-          <span class="flex size-16 items-center justify-center bg-primary/10 text-primary"><BellRing class="size-8" /></span>
-          <p class="font-medium">Select a notification to read it</p>
-          <p class="max-w-xs text-sm text-muted-foreground">Opening one marks it as read. Tasks and Vector team messages open right here, so you can comment or reply.</p>
+        <div v-if="!selected" class="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+          <span class="flex size-12 items-center justify-center bg-primary/10 text-primary"><BellRing class="size-6" /></span>
+          <p class="text-sm font-medium">Select a notification</p>
+          <p class="max-w-xs text-xs text-muted-foreground">Tasks and Vector team messages open right here, so you can comment or reply.</p>
         </div>
 
-        <template v-else>
-          <div class="sticky top-0 z-10 flex items-center gap-2 border-b border-border/70 bg-card/95 px-6 py-3 backdrop-blur">
+        <!-- A notification: who, what and when, its message, and what you can do with it -->
+        <div v-else class="max-w-2xl space-y-4 p-6">
+          <div class="flex items-start gap-3">
+            <UserAvatar v-if="selected.latest.actor" :user="selected.latest.actor" size="lg" class="size-10" />
+            <span v-else class="flex size-10 shrink-0 items-center justify-center" :class="kindOf(selected.latest.type).tone">
+              <component :is="kindOf(selected.latest.type).icon" class="size-5" />
+            </span>
+            <div class="min-w-0 flex-1">
+              <p class="flex items-center gap-2 text-xs text-muted-foreground">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 font-medium" :class="kindOf(selected.latest.type).tone">
+                  <component :is="kindOf(selected.latest.type).icon" class="size-3" /> {{ kindOf(selected.latest.type).label }}
+                </span>
+                <span :title="formatDateTime(selected.latest.createdAt)">{{ timeAgo(selected.latest.createdAt) }}</span>
+              </p>
+              <h2 class="mt-1.5 text-lg leading-snug font-semibold">{{ selected.latest.title }}</h2>
+              <p class="text-sm text-muted-foreground">{{ senderOf(selected.latest) }} · {{ formatDateTime(selected.latest.createdAt) }}</p>
+            </div>
+          </div>
+
+          <p v-if="selected.latest.body" class="border-l-2 border-primary/40 bg-muted/40 px-4 py-3 text-sm leading-relaxed whitespace-pre-line text-foreground/90">
+            {{ toPlainText(selected.latest.body, 4000) }}
+          </p>
+
+          <div class="flex flex-wrap items-center gap-2">
             <Button v-if="selected.latest.link" variant="brand" size="sm" @click="openLink(selected)">{{ openLabel(selected.latest) }} <ArrowUpRight /></Button>
             <Button v-if="isUnread(selected)" variant="outline" size="sm" @click="markEntryRead(selected)"><Check /> Mark as read</Button>
-            <Button variant="ghost" size="sm" class="ml-auto text-muted-foreground hover:text-destructive" @click="removeEntry(selected)"><Trash2 /> Dismiss</Button>
+            <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="removeEntry(selected)"><Trash2 /> Dismiss</Button>
           </div>
 
-          <div class="space-y-6 px-6 py-6">
-            <div class="space-y-3">
-              <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium" :class="kindOf(selected.latest.type).tone">
-                <component :is="kindOf(selected.latest.type).icon" class="size-3.5" /> {{ kindOf(selected.latest.type).label }}
-              </span>
-              <h2 class="text-2xl font-semibold tracking-tight">{{ selected.latest.title }}</h2>
-            </div>
-
-            <!-- The conversation: every folded notification, oldest first, like an email thread -->
-            <ol class="space-y-3">
-              <li v-for="item in [...selected.items].reverse()" :key="item.id" class="border border-border/70 bg-background/60">
-                <div class="flex items-center gap-3 border-b border-border/50 px-4 py-3">
-                  <UserAvatar v-if="item.actor" :user="item.actor" size="lg" class="size-9" />
-                  <span v-else class="flex size-9 items-center justify-center" :class="kindOf(item.type).tone"><component :is="kindOf(item.type).icon" class="size-4" /></span>
-                  <span class="min-w-0 flex-1">
-                    <span class="block truncate text-sm font-semibold">{{ senderOf(item) }}</span>
-                    <span class="block truncate text-xs text-muted-foreground">{{ item.title }}</span>
+          <!-- Earlier notifications about the same thing, newest first -->
+          <section v-if="selected.items.length > 1" class="space-y-2 pt-2">
+            <h3 class="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">Earlier ({{ selected.items.length - 1 }})</h3>
+            <ol class="divide-y divide-border/70 overflow-hidden rounded-lg border border-border">
+              <li v-for="item in selected.items.slice(1)" :key="item.id" class="flex items-start gap-2.5 px-3 py-2">
+                <UserAvatar v-if="item.actor" :user="item.actor" size="sm" class="mt-0.5" />
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-[13px]">
+                    <span class="font-medium">{{ senderOf(item) }}</span> <span class="text-muted-foreground">{{ item.title }}</span>
                   </span>
-                  <span class="shrink-0 text-right text-xs text-muted-foreground">
-                    <span class="block">{{ formatDateTime(item.createdAt) }}</span>
-                    <span class="block">{{ timeAgo(item.createdAt) }}</span>
-                  </span>
-                </div>
-                <p class="px-4 py-4 text-sm leading-relaxed whitespace-pre-line text-foreground/90">
-                  {{ item.body ? toPlainText(item.body, 4000) : 'No further details. Use the button above to open it.' }}
-                </p>
+                  <span v-if="item.body" class="block truncate text-xs text-muted-foreground">{{ toPlainText(item.body, 200) }}</span>
+                </span>
+                <span class="shrink-0 text-[11px] text-muted-foreground tabular-nums" :title="formatDateTime(item.createdAt)">{{ timeAgo(item.createdAt) }}</span>
               </li>
             </ol>
-          </div>
-        </template>
+          </section>
+        </div>
       </article>
     </div>
   </div>

@@ -43,29 +43,29 @@ const isOverLimit = computed(() => props.status.wipLimit !== null && issues.valu
   <section
     :class="
       cn(
-        'flex min-w-56 flex-1 basis-0 flex-col border border-border/60 bg-muted/45',
-        isOverLimit && 'bg-destructive/5 ring-1 ring-destructive/40',
+        'flex min-w-60 flex-1 basis-0 flex-col rounded-xl bg-muted/60 dark:bg-muted/45',
+        isOverLimit && 'bg-destructive/5 ring-1 ring-destructive/30 dark:bg-destructive/10',
       )
     "
     :aria-label="`${status.name} column`"
   >
     <header
-      class="sticky top-0 z-10 border-b border-border/60"
+      class="sticky top-0 z-10 rounded-t-xl"
       :class="
         isOverLimit
           ? 'bg-[color-mix(in_oklch,var(--destructive)_5%,var(--background))]'
-          : 'bg-[color-mix(in_oklch,var(--muted)_45%,var(--background))]'
+          : 'bg-[color-mix(in_oklch,var(--muted)_60%,var(--background))] dark:bg-[color-mix(in_oklch,var(--muted)_45%,var(--background))]'
       "
     >
-      <div class="flex items-center gap-2 px-3 py-2.5">
-        <span class="size-2.5 rounded-full" :style="{ backgroundColor: status.color }" />
-        <h2 class="truncate text-xs font-semibold tracking-wide uppercase">{{ status.name }}</h2>
-        <span class="bg-card px-2 py-0.5 text-[11px] font-semibold text-muted-foreground shadow-xs tabular-nums">
+      <div class="flex h-10 items-center gap-2 px-3">
+        <span class="size-2 rounded-full ring-[3px]" :style="{ backgroundColor: status.color, '--tw-ring-color': `${status.color}2e` }" />
+        <h2 class="truncate text-[13px] font-medium">{{ status.name }}</h2>
+        <span class="text-xs text-muted-foreground tabular-nums">
           {{ issues.length }}<template v-if="status.wipLimit !== null">/{{ status.wipLimit }}</template>
         </span>
         <span v-if="points" class="ml-auto text-[11px] text-muted-foreground tabular-nums" title="Story points">{{ points }} pts</span>
       </div>
-      <p v-if="isOverLimit" class="px-3 pb-2 text-[11px] font-medium text-destructive">Over the WIP limit — finish work before starting more.</p>
+      <p v-if="isOverLimit" class="px-3 pb-2 text-[11px] font-medium text-destructive">Over the WIP limit. Finish work before starting more.</p>
     </header>
 
     <VueDraggable
@@ -76,7 +76,7 @@ const isOverLimit = computed(() => props.status.wipLimit !== null && issues.valu
       ghost-class="opacity-40"
       drag-class="rotate-2"
       :data-status-id="status.id"
-      class="flex min-h-24 flex-1 flex-col gap-2 p-2"
+      class="flex min-h-24 flex-1 flex-col gap-2 px-2 pb-2"
       @start="emit('dragStart')"
       @end="(event: SortableEvent) => emit('dragEnd', event)"
     >

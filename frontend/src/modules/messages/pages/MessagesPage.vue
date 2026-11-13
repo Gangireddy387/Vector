@@ -107,22 +107,22 @@ async function startChat(person: UserSummary) {
 </script>
 
 <template>
-  <div class="flex h-full w-full flex-col" :class="isDesktop ? 'p-5' : ''">
-    <div class="flex min-h-0 flex-1 overflow-hidden bg-card" :class="isDesktop && 'border border-border/80 shadow-soft'">
+  <div class="flex w-full flex-col" :class="isDesktop ? 'h-full' : 'h-[calc(100dvh-10rem-1px-env(safe-area-inset-top)-env(safe-area-inset-bottom))]'">
+    <div class="flex min-h-0 flex-1 overflow-hidden bg-background">
       <!-- Conversation list -->
       <aside
         v-if="isDesktop || !selected"
-        class="flex min-h-0 flex-col border-r border-border/70"
+        class="flex min-h-0 flex-col border-r border-border"
         :class="isDesktop ? 'w-[22rem] shrink-0 xl:w-[26rem]' : 'w-full'"
       >
-        <header class="flex shrink-0 items-center justify-between gap-2 px-4 pt-4 pb-3">
-          <h1 class="text-xl font-bold tracking-tight">Messages</h1>
+        <header class="flex h-12 shrink-0 items-center justify-between gap-2 px-4">
+          <h1 class="text-[15px] font-semibold">Messages</h1>
           <Button v-if="canDirect" variant="ghost" size="icon-sm" title="New chat" aria-label="New chat" @click="openPicker"><MessageCirclePlus /></Button>
         </header>
         <div class="shrink-0 px-3 pb-2">
           <div class="relative">
             <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input v-model="search" class="rounded-lg bg-muted/50 pl-9" placeholder="Search chats" aria-label="Search chats" />
+            <Input v-model="search" class="h-8 pl-9" placeholder="Search chats" aria-label="Search chats" />
           </div>
         </div>
 
@@ -144,28 +144,28 @@ async function startChat(person: UserSummary) {
             v-else
             :key="conversation.id"
             type="button"
-            class="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors"
-            :class="selected?.id === conversation.id ? 'bg-primary/10' : 'hover:bg-muted/60'"
+            class="mx-1.5 flex w-[calc(100%-0.75rem)] items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors"
+            :class="selected?.id === conversation.id ? 'bg-accent' : 'hover:bg-accent/60'"
             @click="open(conversation)"
           >
             <span class="relative shrink-0">
-              <UserAvatar v-if="conversation.kind === 'direct'" :user="conversation.person" size="lg" class="size-12 text-base" />
-              <span v-else class="flex size-12 items-center justify-center rounded-full text-white" :class="conversation.kind === 'team' ? 'bg-sky-500' : 'bg-violet-500'">
+              <UserAvatar v-if="conversation.kind === 'direct'" :user="conversation.person" size="lg" class="size-10 text-sm" />
+              <span v-else class="flex size-10 items-center justify-center rounded-full text-white" :class="conversation.kind === 'team' ? 'bg-sky-500' : 'bg-violet-500'">
                 <UsersRound v-if="conversation.kind === 'team'" class="size-5" />
                 <Building2 v-else class="size-5" />
               </span>
               <PresenceBadge v-if="statusOf(conversation)" :status="statusOf(conversation)!" size="md" class="absolute right-0 bottom-0" />
             </span>
-            <span class="min-w-0 flex-1 border-b border-border/50 pb-2.5">
+            <span class="min-w-0 flex-1">
               <span class="flex items-baseline gap-2">
-                <span class="min-w-0 flex-1 truncate text-[15px]" :class="conversation.unread ? 'font-semibold' : 'font-medium'">{{ conversation.title }}</span>
-                <span class="shrink-0 text-[11px]" :class="conversation.unread ? 'font-semibold text-[#00a884]' : 'text-muted-foreground'">
+                <span class="min-w-0 flex-1 truncate text-[13.5px]" :class="conversation.unread ? 'font-semibold' : 'font-medium'">{{ conversation.title }}</span>
+                <span class="shrink-0 text-[11px]" :class="conversation.unread ? 'font-semibold text-primary' : 'text-muted-foreground'">
                   {{ conversation.lastMessage ? listTime(conversation.lastMessage.createdAt) : '' }}
                 </span>
               </span>
               <span class="mt-0.5 flex items-center gap-2">
                 <span class="min-w-0 flex-1 truncate text-[13px]" :class="conversation.unread ? 'text-foreground' : 'text-muted-foreground'">{{ preview(conversation) }}</span>
-                <span v-if="conversation.unread" class="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#25d366] px-1.5 text-[11px] font-semibold text-white tabular-nums">
+                <span v-if="conversation.unread" class="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1.5 text-[10.5px] font-semibold text-primary-foreground tabular-nums">
                   {{ conversation.unread > 99 ? '99+' : conversation.unread }}
                 </span>
               </span>
@@ -176,15 +176,15 @@ async function startChat(person: UserSummary) {
 
       <!-- Open chat -->
       <section v-if="selected" class="flex min-w-0 flex-1 flex-col">
-        <header class="flex shrink-0 items-center gap-3 border-b border-border/70 bg-[#f0f2f5] px-4 py-2.5 dark:bg-[#202c33]">
+        <header class="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-background px-4">
           <Button v-if="!isDesktop" variant="ghost" size="icon-sm" aria-label="Back to chats" @click="router.push({ name: 'messages' })"><ArrowLeft /></Button>
-          <UserAvatar v-if="selected.kind === 'direct'" :user="selected.person" size="md" class="size-10" />
-          <span v-else class="flex size-10 items-center justify-center rounded-full text-white" :class="selected.kind === 'team' ? 'bg-sky-500' : 'bg-violet-500'">
+          <UserAvatar v-if="selected.kind === 'direct'" :user="selected.person" size="md" class="size-8" />
+          <span v-else class="flex size-8 items-center justify-center rounded-full text-white" :class="selected.kind === 'team' ? 'bg-sky-500' : 'bg-violet-500'">
             <UsersRound v-if="selected.kind === 'team'" class="size-5" />
             <Building2 v-else class="size-5" />
           </span>
           <span class="min-w-0 flex-1">
-            <span class="block truncate text-[15px] font-semibold">{{ selected.title }}</span>
+            <span class="block truncate text-[13.5px] font-semibold">{{ selected.title }}</span>
             <span class="flex items-center gap-1.5 truncate text-xs" :class="statusOf(selected) ? PRESENCE_LOOK[statusOf(selected)!].text : 'text-muted-foreground'">
               <PresenceBadge v-if="statusOf(selected)" :status="statusOf(selected)!" size="xs" />
               {{ presence(selected) }}
@@ -203,8 +203,8 @@ async function startChat(person: UserSummary) {
       </section>
 
       <section v-else-if="isDesktop" class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-        <span class="flex size-20 items-center justify-center rounded-full bg-[#00a884]/10 text-[#00a884]"><MessagesSquare class="size-9" /></span>
-        <p class="text-lg font-medium">Messages</p>
+        <span class="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><MessagesSquare class="size-6" /></span>
+        <p class="text-sm font-medium">Messages</p>
         <p class="max-w-sm text-sm text-muted-foreground">
           Pick a chat on the left{{ canDirect ? ', or start a new one with anyone in your organization' : '' }}. Team and department chats include everyone who belongs to them.
         </p>
@@ -228,7 +228,7 @@ async function startChat(person: UserSummary) {
             v-for="person in pickable"
             :key="person.id"
             type="button"
-            class="flex w-full items-center gap-3 px-2 py-2.5 text-left transition-colors hover:bg-muted/60 disabled:opacity-60"
+            class="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent disabled:opacity-60"
             :disabled="isOpening !== null"
             @click="startChat(person)"
           >

@@ -41,11 +41,11 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
 
 <template>
   <aside
-    :class="[isCollapsed ? 'w-16' : 'w-64']"
-    class="flex shrink-0 flex-col border-r border-sidebar-border/70 bg-sidebar/75 text-sidebar-foreground backdrop-blur-xl transition-[width] duration-200"
+    :class="[isCollapsed ? 'w-16' : 'w-60']"
+    class="flex shrink-0 flex-col text-sidebar-foreground transition-[width] duration-200"
     aria-label="Main navigation"
   >
-    <div class="flex h-14 items-center justify-between gap-2 px-3">
+    <div class="flex h-14 items-center justify-between gap-1 px-2.5">
       <OrganizationSwitcher :compact="isCollapsed" />
       <Tooltip v-if="!isCollapsed">
         <TooltipTrigger as-child>
@@ -63,21 +63,21 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
       </Tooltip>
     </div>
 
-    <div class="px-3 pb-2">
-      <Button v-if="!isCollapsed" variant="brand" class="w-full justify-start" @click="openCreateIssue">
-        <Plus />
+    <div class="px-2.5 pb-1.5">
+      <Button v-if="!isCollapsed" variant="outline" class="w-full justify-start text-foreground" @click="openCreateIssue">
+        <Plus class="text-primary" />
         Create task
-        <kbd class="ml-auto border border-primary-foreground/30 px-1.5 text-[10px] font-medium">C</kbd>
+        <kbd class="ml-auto rounded-[4px] border border-border bg-muted px-1.5 font-sans text-[10px] font-medium text-muted-foreground">C</kbd>
       </Button>
       <Tooltip v-else>
         <TooltipTrigger as-child>
-          <Button variant="brand" size="icon" class="w-full" aria-label="Create task" @click="openCreateIssue"><Plus /></Button>
+          <Button variant="outline" size="icon" class="w-full" aria-label="Create task" @click="openCreateIssue"><Plus class="text-primary" /></Button>
         </TooltipTrigger>
         <TooltipContent side="right">Create task (C)</TooltipContent>
       </Tooltip>
     </div>
 
-    <nav class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-2 scrollbar-thin">
+    <nav class="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2.5 py-2 scrollbar-thin">
       <SidebarLink :to="{ name: 'home' }" label="Home" :icon="House" :collapsed="isCollapsed" exact />
       <SidebarLink :to="{ name: 'issues' }" label="All tasks" :icon="ListTodo" :collapsed="isCollapsed" exact />
       <SidebarLink :to="{ name: 'inbox' }" label="Inbox" :icon="Inbox" :badge="notifications.unreadCount" :collapsed="isCollapsed" />
@@ -102,13 +102,19 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
         :collapsed="isCollapsed"
       />
 
-      <div v-if="!isCollapsed" class="mt-5 mb-1 flex items-center justify-between px-2">
-        <span class="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">Your projects</span>
-        <Button variant="ghost" size="icon-sm" class="size-6" aria-label="New project" @click="isCreateProjectOpen = true">
+      <div v-if="!isCollapsed" class="group/projects mt-5 mb-0.5 flex h-6 items-center justify-between pr-1 pl-2">
+        <span class="text-[11.5px] font-medium text-muted-foreground">Your projects</span>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          class="size-5 text-muted-foreground opacity-0 transition-opacity group-hover/projects:opacity-100 focus-visible:opacity-100"
+          aria-label="New project"
+          @click="isCreateProjectOpen = true"
+        >
           <Plus class="size-3.5" />
         </Button>
       </div>
-      <div v-else class="my-3 border-t border-sidebar-border" />
+      <div v-else class="mx-2 my-3 border-t border-sidebar-border" />
 
       <template v-for="project in projects.joinedProjects" :key="project.id">
         <SidebarLink
@@ -130,7 +136,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
       </template>
     </nav>
 
-    <div class="border-t border-sidebar-border p-2">
+    <div class="p-2">
       <Tooltip v-if="isCollapsed">
         <TooltipTrigger as-child>
           <Button

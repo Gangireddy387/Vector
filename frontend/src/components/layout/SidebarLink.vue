@@ -28,24 +28,29 @@ withDefaults(
           :aria-current="(exact ? isExactActive : isActive) ? 'page' : undefined"
           :class="
             cn(
-              'group relative flex h-9 items-center gap-2.5 px-2.5 text-sm text-sidebar-foreground/75 transition-all hover:bg-card/80 hover:text-sidebar-foreground',
-              (exact ? isExactActive : isActive) &&
-                'bg-card font-medium text-primary shadow-soft before:absolute before:top-1/2 before:-left-3 before:h-5 before:w-1 before:-translate-y-1/2 before:bg-brand',
-              nested && 'h-8 pl-8 text-[13px] before:hidden',
+              'group relative flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground',
+              (exact ? isExactActive : isActive) && 'bg-sidebar-accent font-medium text-sidebar-foreground',
+              nested && 'h-7 pl-7 text-[12.5px]',
               collapsed && 'justify-center px-0',
             )
           "
           @click="navigate"
         >
-          <span v-if="color" class="size-2.5 shrink-0" :style="{ backgroundColor: color }" />
-          <component :is="icon" v-else-if="icon" class="size-4 shrink-0" />
+          <span v-if="color" class="size-2.5 shrink-0 rounded-[3px]" :style="{ backgroundColor: color }" />
+          <component
+            :is="icon"
+            v-else-if="icon"
+            class="size-4 shrink-0 transition-colors"
+            :class="(exact ? isExactActive : isActive) ? 'text-primary' : 'text-muted-foreground group-hover:text-sidebar-foreground'"
+          />
           <span v-if="!collapsed" class="min-w-0 flex-1 truncate">{{ label }}</span>
           <span
             v-if="badge && !collapsed"
-            class="ml-auto flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] leading-none font-semibold text-primary-foreground tabular-nums"
+            class="ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary/12 px-1.5 text-[10.5px] leading-none font-semibold text-primary tabular-nums dark:bg-primary/20"
           >
             {{ badge > 99 ? '99+' : badge }}
           </span>
+          <span v-else-if="badge && collapsed" class="absolute top-1 right-1.5 size-1.5 rounded-full bg-primary" />
         </a>
       </TooltipTrigger>
       <TooltipContent side="right">{{ label }}</TooltipContent>

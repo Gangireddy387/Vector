@@ -30,7 +30,7 @@ function save() {
     ref="textarea"
     v-model="draft"
     rows="2"
-    class="w-full resize-none border border-ring bg-background px-2 py-1 text-xl font-semibold tracking-tight outline-none ring-[3px] ring-ring/30 field-sizing-content"
+    class="w-full resize-none border border-ring bg-background rounded-md px-2 py-1 text-[22px] leading-snug font-semibold tracking-tight outline-none ring-[3px] ring-ring/30 field-sizing-content"
     aria-label="Task title"
     @keydown.enter.prevent="save"
     @keydown.esc="isEditing = false"
@@ -38,7 +38,7 @@ function save() {
   />
   <h1
     v-else
-    class="-mx-2 px-2 py-1 text-xl leading-snug font-semibold tracking-tight break-words"
+    class="-mx-2 rounded-md px-2 py-1 text-[22px] leading-snug font-semibold tracking-tight break-words"
     :class="[editable && 'cursor-text hover:bg-muted/60', done && 'text-muted-foreground']"
     :tabindex="editable ? 0 : undefined"
     @click="startEditing"

@@ -19,7 +19,7 @@ const emit = defineEmits<{ open: [issue: Issue]; toggleSelect: [issue: Issue] }>
 
 <template>
   <div
-    class="group flex h-11 items-center gap-2 border-b border-border/60 bg-card px-3 text-sm transition-colors last:border-b-0 hover:bg-accent/50"
+    class="group flex h-10 items-center gap-2 border-b border-border/70 bg-card px-3 text-[13px] transition-colors last:border-b-0 hover:bg-accent/60"
     :class="selected && 'bg-accent hover:bg-accent'"
     :data-issue-id="issue.id"
   >
@@ -38,7 +38,7 @@ const emit = defineEmits<{ open: [issue: Issue]; toggleSelect: [issue: Issue] }>
     <button type="button" class="min-w-0 flex-1 truncate text-left hover:underline" @click="emit('open', issue)">
       {{ issue.title }}
     </button>
-    <span v-if="issue.parent" class="hidden max-w-36 truncate bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-medium text-violet-600 xl:inline dark:text-violet-300">
+    <span v-if="issue.parent" class="hidden max-w-36 truncate rounded-[4px] bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-medium text-violet-600 xl:inline dark:text-violet-300">
       {{ issue.parent.title }}
     </span>
     <span class="hidden gap-1 lg:flex">

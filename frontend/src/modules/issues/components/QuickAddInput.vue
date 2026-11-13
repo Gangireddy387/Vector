@@ -76,11 +76,11 @@ async function submit() {
 
 <template>
   <div :class="cn('space-y-1.5', props.class)">
-    <div class="flex items-center gap-2 border border-dashed bg-background px-2.5 focus-within:border-solid focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30">
+    <div class="flex items-center gap-2 rounded-md border border-dashed border-input bg-background px-2.5 transition-colors hover:border-solid focus-within:border-solid focus-within:border-ring/70 focus-within:ring-[3px] focus-within:ring-ring/20">
       <Plus class="size-4 shrink-0 text-muted-foreground" />
       <input
         v-model="text"
-        class="h-9 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        class="h-8 min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground"
         :placeholder="placeholder"
         :autofocus="autofocus"
         :disabled="isSaving"

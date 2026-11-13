@@ -68,7 +68,7 @@ const atMax = computed(() => numeric.value !== null && props.max !== undefined &
   <div
     :class="
       cn(
-        'group flex w-full items-stretch border border-input bg-card/70 shadow-xs transition-[box-shadow,border-color] focus-within:border-primary focus-within:ring-4 focus-within:ring-ring/15 hover:border-primary/40 dark:bg-card/40',
+        'field-trigger group flex w-full items-stretch overflow-hidden rounded-md border border-border bg-card shadow-soft transition-[box-shadow,border-color,background-color] focus-within:border-ring/70 focus-within:ring-[3px] focus-within:ring-ring/20 hover:border-input',
         size === 'sm' ? 'h-8' : 'h-9',
         disabled && 'pointer-events-none opacity-50',
         props.class,
@@ -78,7 +78,7 @@ const atMax = computed(() => numeric.value !== null && props.max !== undefined &
     <button
       type="button"
       tabindex="-1"
-      class="flex w-8 shrink-0 items-center justify-center border-r border-input text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
+      class="flex w-8 shrink-0 items-center justify-center border-r border-border text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
       :disabled="disabled || atMin"
       aria-label="Decrease"
       @click="stepBy(-1)"
@@ -98,7 +98,7 @@ const atMax = computed(() => numeric.value !== null && props.max !== undefined &
       :aria-valuemin="min"
       :aria-valuemax="max"
       :aria-valuenow="numeric ?? undefined"
-      class="w-0 min-w-0 flex-1 bg-transparent px-2 text-center text-sm tabular-nums outline-none placeholder:text-muted-foreground/80"
+      class="w-0 min-w-0 flex-1 bg-transparent px-2 text-center text-[13px] tabular-nums outline-none placeholder:text-muted-foreground/80"
       @input="onInput"
       @blur="commit"
       @keydown.enter.prevent="commit"
@@ -109,7 +109,7 @@ const atMax = computed(() => numeric.value !== null && props.max !== undefined &
     <button
       type="button"
       tabindex="-1"
-      class="flex w-8 shrink-0 items-center justify-center border-l border-input text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
+      class="flex w-8 shrink-0 items-center justify-center border-l border-border text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-40"
       :disabled="disabled || atMax"
       aria-label="Increase"
       @click="stepBy(1)"

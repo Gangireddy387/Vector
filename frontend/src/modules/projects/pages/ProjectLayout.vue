@@ -70,13 +70,13 @@ onBeforeUnmount(() => (projects.currentProjectId = null))
 
   <div v-else class="flex min-h-full flex-col" :class="isDesktop && 'h-full'">
     <!-- Desktop header -->
-    <header v-if="isDesktop" class="shrink-0 border-b px-5 pt-3">
+    <header v-if="isDesktop" class="shrink-0 border-b border-border px-4 pt-2.5">
       <div class="flex items-center gap-3">
-        <span class="flex size-8 items-center justify-center text-xs font-bold text-white" :style="{ backgroundColor: project.color }">
+        <span class="flex size-7 items-center justify-center rounded-[7px] text-[11px] font-bold text-white shadow-glow" :style="{ backgroundColor: project.color }">
           {{ project.key.slice(0, 2) }}
         </span>
         <div class="flex min-w-0 items-center gap-2">
-          <h1 class="truncate text-lg font-semibold">{{ project.name }}</h1>
+          <h1 class="truncate text-[15px] font-semibold">{{ project.name }}</h1>
           <span v-if="project.team" class="truncate text-xs text-muted-foreground">· {{ project.team.name }} team</span>
         </div>
         <UserAvatarStack :users="project.members" :max="5" class="ml-2" />
@@ -85,7 +85,7 @@ onBeforeUnmount(() => (projects.currentProjectId = null))
           <Button size="sm" @click="ui.openCreateIssue({ projectId: project.id })"><Plus /> Task</Button>
         </span>
       </div>
-      <nav class="mt-2 -mb-px flex gap-1" aria-label="Project sections">
+      <nav class="mt-1.5 -mb-px flex gap-0.5" aria-label="Project sections">
         <RouterLink
           v-for="item in navigation"
           :key="item.name"
@@ -95,7 +95,7 @@ onBeforeUnmount(() => (projects.currentProjectId = null))
         >
           <a
             :href="href"
-            class="flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors"
+            class="flex h-9 items-center gap-1.5 border-b-2 px-2.5 text-[13px] font-medium transition-colors"
             :class="isActive ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
             :aria-current="isActive ? 'page' : undefined"
             @click="navigate"
@@ -117,7 +117,7 @@ onBeforeUnmount(() => (projects.currentProjectId = null))
       >
         <a
           :href="href"
-          class="flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-sm font-medium"
+          class="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium"
           :class="isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
           :aria-current="isActive ? 'page' : undefined"
           @click="navigate"

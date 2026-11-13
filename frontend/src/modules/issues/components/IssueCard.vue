@@ -23,7 +23,7 @@ const visibleLabels = computed(() => props.issue.labels.slice(0, 3))
   <article
     :class="
       cn(
-        'group cursor-pointer border border-border/70 bg-card p-3 text-left shadow-soft transition-all duration-150 hover:-translate-y-px hover:border-primary/35 hover:shadow-elevated focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none',
+        'group cursor-pointer rounded-lg border border-border bg-card p-3 text-left shadow-soft transition-[border-color,box-shadow] duration-150 hover:border-input hover:shadow-[0_2px_8px_-2px_oklch(0_0_0/0.1)] focus-visible:ring-[3px] focus-visible:ring-ring/25 focus-visible:outline-none dark:hover:border-muted-foreground/30',
         props.class,
       )
     "
@@ -36,7 +36,7 @@ const visibleLabels = computed(() => props.issue.labels.slice(0, 3))
       <button
         v-if="completable"
         type="button"
-        class="mt-0.5 flex size-5 shrink-0 items-center justify-center border-2 transition-colors"
+        class="mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors"
         :class="isDone ? 'border-success bg-success text-white' : 'border-muted-foreground/40 hover:border-success'"
         :aria-label="isDone ? `${issue.key} is done` : `Complete ${issue.key}`"
         :disabled="isDone"
@@ -46,14 +46,14 @@ const visibleLabels = computed(() => props.issue.labels.slice(0, 3))
       </button>
 
       <div class="min-w-0 flex-1 space-y-2">
-        <p class="line-clamp-2 text-sm leading-snug font-medium" :class="isDone && 'text-muted-foreground line-through'">
+        <p class="line-clamp-2 text-[13px] leading-snug font-medium" :class="isDone && 'text-muted-foreground line-through'">
           {{ issue.title }}
         </p>
 
         <div v-if="visibleLabels.length || issue.parent" class="flex flex-wrap items-center gap-1">
           <span
             v-if="issue.parent"
-            class="max-w-40 truncate bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-300"
+            class="max-w-40 truncate rounded-[4px] bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-medium text-violet-600 dark:text-violet-300"
             :title="issue.parent.title"
           >
             {{ issue.parent.title }}
@@ -61,7 +61,7 @@ const visibleLabels = computed(() => props.issue.labels.slice(0, 3))
           <LabelChip v-for="label in visibleLabels" :key="label.id" :label="label" />
         </div>
 
-        <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs whitespace-nowrap text-muted-foreground">
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[11.5px] whitespace-nowrap text-muted-foreground">
           <IssueTypeIcon :type="issue.type" />
           <span class="font-medium" :class="isDone && 'line-through'">{{ issue.key }}</span>
           <span v-if="showProject" class="truncate">· {{ issue.project.name }}</span>
@@ -78,7 +78,7 @@ const visibleLabels = computed(() => props.issue.labels.slice(0, 3))
 
           <span class="ml-auto flex shrink-0 items-center gap-1.5">
             <DueDateBadge :due-date="issue.dueDate" :done="isDone" compact />
-            <span v-if="issue.storyPoints !== null" class=" bg-muted px-1.5 text-[11px] font-semibold tabular-nums" title="Story points">
+            <span v-if="issue.storyPoints !== null" class="rounded-[4px] border border-border px-1 text-[10.5px] font-medium tabular-nums" title="Story points">
               {{ issue.storyPoints }}
             </span>
             <PriorityIcon :priority="issue.priority" />

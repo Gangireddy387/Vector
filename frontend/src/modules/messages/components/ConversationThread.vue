@@ -287,7 +287,7 @@ const notice = computed(() =>
 <template>
   <div class="flex min-h-0 flex-col">
     <div ref="scroller" class="chat-wallpaper min-h-0 flex-1 overflow-y-auto px-[6%] py-4 scrollbar-thin">
-      <div class="mx-auto mb-3 flex max-w-sm items-start gap-2 rounded-lg bg-[#ffeecd] px-3 py-2 text-center text-[11.5px] leading-snug text-[#54656f] shadow-sm dark:bg-[#182229] dark:text-[#ffd279]">
+      <div class="mx-auto mb-3 flex max-w-sm items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-center text-[11.5px] leading-snug text-amber-900/80 ring-1 ring-amber-200/70 dark:ring-amber-400/15 dark:bg-amber-400/10 dark:text-amber-200">
         <Lock class="mt-0.5 size-3 shrink-0" />
         <span>{{ notice }}</span>
       </div>
@@ -298,7 +298,7 @@ const notice = computed(() =>
 
       <template v-for="{ message, showDay, startsGroup } in entries" v-else :key="message.id">
         <div v-if="showDay" class="sticky top-0 z-10 flex justify-center py-2">
-          <span class="rounded-lg bg-white/95 px-3 py-1 text-[11.5px] font-medium text-[#54656f] uppercase shadow-sm dark:bg-[#182229] dark:text-[#8696a0]">
+          <span class="rounded-full border border-border bg-card px-3 py-0.5 text-[11px] font-medium text-muted-foreground shadow-soft">
             {{ dayLabel(message.createdAt) }}
           </span>
         </div>
@@ -307,7 +307,7 @@ const notice = computed(() =>
           <div
             class="relative max-w-[78%] rounded-lg px-2.5 pt-1.5 pb-1 text-[14px] leading-[19px] shadow-[0_1px_0.5px_rgb(11_20_26/0.13)]"
             :class="[
-              isMine(message) ? 'bg-[#d9fdd3] text-[#111b21] dark:bg-[#005c4b] dark:text-[#e9edef]' : 'bg-white text-[#111b21] dark:bg-[#202c33] dark:text-[#e9edef]',
+              isMine(message) ? 'bg-[#d9fdd3] text-[#111b21] dark:bg-[#005c4b] dark:text-[#e9edef]' : 'bg-card text-foreground',
               startsGroup && (isMine(message) ? 'rounded-tr-none' : 'rounded-tl-none'),
               editing?.id === message.id && 'ring-2 ring-[#00a884]',
               !isDesktop && 'cursor-pointer',
@@ -320,20 +320,20 @@ const notice = computed(() =>
               :class="
                 isMine(message)
                   ? '-right-2 bg-[#d9fdd3] [clip-path:polygon(0_0,100%_0,0_100%)] dark:bg-[#005c4b]'
-                  : '-left-2 bg-white [clip-path:polygon(0_0,100%_0,100%_100%)] dark:bg-[#202c33]'
+                  : '-left-2 bg-card [clip-path:polygon(0_0,100%_0,100%_100%)]'
               "
             />
 
             <p v-if="startsGroup && !isMine(message) && !isDirect" class="mb-0.5 text-[12.5px] font-semibold" :style="{ color: message.author?.avatarColor ?? '#00a884' }">
               {{ message.author?.name ?? 'Someone' }}
             </p>
-            <p v-if="message.deletedAt" class="flex items-center gap-1.5 pr-12 text-[13.5px] text-[#667781] italic dark:text-[#8696a0]">
+            <p v-if="message.deletedAt" class="flex items-center gap-1.5 pr-12 text-[13.5px] text-muted-foreground italic">
               <Ban class="size-3.5 shrink-0" /> {{ isMine(message) ? 'You deleted this message' : 'This message was deleted' }}
             </p>
             <p v-else class="whitespace-pre-wrap break-words">
               {{ message.body }}<span class="inline-block" :class="isMine(message) ? (message.editedAt ? 'w-[7.25rem]' : 'w-[4.25rem]') : message.editedAt ? 'w-[5.75rem]' : 'w-12'" />
             </p>
-            <span class="absolute right-2 bottom-1 flex items-center gap-0.5 text-[11px] leading-none text-[#667781] dark:text-[#8696a0]">
+            <span class="absolute right-2 bottom-1 flex items-center gap-0.5 text-[11px] leading-none text-muted-foreground">
               <span v-if="message.editedAt && !message.deletedAt" class="mr-1 italic" :title="`Edited ${format(parseISO(message.editedAt), 'd MMM, HH:mm')}`">edited</span>
               {{ format(parseISO(message.createdAt), 'HH:mm') }}
               <template v-if="isMine(message) && !message.deletedAt">
@@ -344,7 +344,7 @@ const notice = computed(() =>
           </div>
 
           <div
-            class="flex shrink-0 items-center gap-0.5 rounded-full bg-white p-0.5 shadow-md ring-1 ring-black/5 transition-opacity duration-150 dark:bg-[#233138] dark:ring-white/10"
+            class="flex shrink-0 items-center gap-0.5 rounded-full bg-popover p-0.5 shadow-elevated ring-1 ring-border transition-opacity duration-150"
             :class="activeId === message.id ? 'opacity-100' : 'pointer-events-none opacity-0 group-hover/row:pointer-events-auto group-hover/row:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100'"
             role="toolbar"
             aria-label="Message actions"
@@ -353,8 +353,8 @@ const notice = computed(() =>
               <TooltipTrigger as-child>
                 <button
                   type="button"
-                  class="flex size-8 items-center justify-center rounded-full text-[#54656f] transition-colors dark:text-[#aebac1]"
-                  :class="action.danger ? 'hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400' : 'hover:bg-black/5 hover:text-[#111b21] dark:hover:bg-white/10 dark:hover:text-white'"
+                  class="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors"
+                  :class="action.danger ? 'hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400' : 'hover:bg-accent hover:text-foreground'"
                   :aria-label="action.label"
                   @click.stop="action.run()"
                 >
@@ -367,20 +367,20 @@ const notice = computed(() =>
         </div>
       </template>
 
-      <p v-if="messages && !messages.length" class="mt-6 text-center text-xs text-[#667781] dark:text-[#8696a0]">No messages yet. Say hello 👋</p>
+      <p v-if="messages && !messages.length" class="mt-6 text-center text-xs text-muted-foreground">No messages yet. Say hello 👋</p>
     </div>
 
-    <div v-if="editing" class="flex shrink-0 items-center gap-3 bg-[#f0f2f5] px-4 pt-2.5 dark:bg-[#202c33]">
-      <div class="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border-l-4 border-[#00a884] bg-white px-3 py-2 dark:bg-[#2a3942]">
+    <div v-if="editing" class="flex shrink-0 items-center gap-3 border-t border-border bg-background px-4 pt-2.5">
+      <div class="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border-l-4 border-[#00a884] bg-card px-3 py-2">
         <Pencil class="size-4 shrink-0 text-[#00a884]" />
         <div class="min-w-0 flex-1">
           <p class="text-xs font-semibold text-[#00a884]">Editing message</p>
-          <p class="truncate text-xs text-[#667781] dark:text-[#8696a0]">{{ editing.body }}</p>
+          <p class="truncate text-xs text-muted-foreground">{{ editing.body }}</p>
         </div>
       </div>
       <button
         type="button"
-        class="flex size-8 shrink-0 items-center justify-center rounded-full text-[#54656f] hover:bg-black/5 dark:text-[#aebac1] dark:hover:bg-white/10"
+        class="flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
         aria-label="Cancel editing"
         title="Cancel (Esc)"
         @click="cancelEdit"
@@ -388,14 +388,14 @@ const notice = computed(() =>
         <X class="size-4" />
       </button>
     </div>
-    <form class="flex shrink-0 items-end gap-2 bg-[#f0f2f5] px-3 py-2.5 dark:bg-[#202c33]" @submit.prevent="submit">
-      <div class="flex min-h-10 flex-1 items-center rounded-3xl bg-white px-4 dark:bg-[#2a3942]">
+    <form class="flex shrink-0 items-end gap-2 border-t border-border bg-background px-3 py-2.5" @submit.prevent="submit">
+      <div class="flex min-h-10 flex-1 items-center rounded-xl border border-border bg-card px-4 shadow-soft transition-colors focus-within:border-ring/60 focus-within:ring-[3px] focus-within:ring-ring/15">
         <textarea
           ref="input"
           v-model="draft"
           rows="1"
           maxlength="4000"
-          class="max-h-32 flex-1 resize-none bg-transparent py-2.5 text-[14px] leading-5 text-[#111b21] outline-none placeholder:text-[#667781] dark:text-[#e9edef] dark:placeholder:text-[#8696a0]"
+          class="max-h-32 flex-1 resize-none bg-transparent py-2.5 text-[14px] leading-5 text-foreground outline-none placeholder:text-muted-foreground"
           placeholder="Type a message"
           aria-label="Message"
           title="Enter to send · Shift + Enter for a new line"
@@ -439,7 +439,7 @@ const notice = computed(() =>
 
 <style scoped>
 .chat-wallpaper {
-  background-color: #efeae2;
+  background-color: var(--sidebar);
   background-image:
     radial-gradient(rgb(0 0 0 / 0.045) 1px, transparent 1px),
     radial-gradient(rgb(0 0 0 / 0.03) 1px, transparent 1px);
@@ -448,8 +448,8 @@ const notice = computed(() =>
     11px 11px;
   background-size: 22px 22px;
 }
-:global(.dark) .chat-wallpaper {
-  background-color: #0b141a;
+.dark .chat-wallpaper {
+  background-color: var(--sidebar);
   background-image:
     radial-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1px),
     radial-gradient(rgb(255 255 255 / 0.025) 1px, transparent 1px);

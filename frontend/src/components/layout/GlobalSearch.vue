@@ -194,8 +194,8 @@ function clearQuery() {
 <template>
   <div ref="root" class="relative w-full max-w-md">
     <div
-      class="flex h-9 items-center gap-2 border bg-card/70 px-3 text-sm shadow-xs transition-all"
-      :class="ui.isSearchOpen ? 'border-primary bg-card ring-4 ring-ring/15' : 'border-border/70 hover:border-primary/30 hover:bg-card'"
+      class="flex h-8 items-center gap-2 rounded-md border px-2.5 text-[13px] transition-all"
+      :class="ui.isSearchOpen ? 'border-ring/70 bg-card ring-[3px] ring-ring/20' : 'border-transparent bg-muted/80 hover:bg-muted'"
     >
       <Search class="size-4 shrink-0 text-muted-foreground" />
       <input
@@ -225,7 +225,7 @@ function clearQuery() {
       >
         <X class="size-3.5" />
       </button>
-      <kbd v-else-if="!ui.isSearchOpen" class="shrink-0 border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">Ctrl K</kbd>
+      <kbd v-else-if="!ui.isSearchOpen" class="shrink-0 rounded-[4px] border border-border bg-background px-1.5 py-px text-[10px] font-medium text-muted-foreground">Ctrl K</kbd>
     </div>
 
     <Transition
@@ -236,7 +236,7 @@ function clearQuery() {
     >
       <div
         v-if="ui.isSearchOpen"
-        class="absolute top-full right-0 left-0 z-50 mt-1.5 flex flex-col border border-border/80 bg-popover/95 text-popover-foreground shadow-elevated backdrop-blur-xl"
+        class="absolute top-full right-0 left-0 z-50 mt-1.5 flex flex-col overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-elevated"
       >
         <div id="global-search-results" ref="list" class="max-h-[min(60vh,28rem)] overflow-y-auto p-1.5" role="listbox">
           <p v-if="!items.length" class="py-8 text-center text-sm text-muted-foreground">

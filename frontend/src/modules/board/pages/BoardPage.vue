@@ -165,20 +165,23 @@ function moveOnMobile(issue: Issue, status: Status) {
       </p>
       <!-- Desktop: full workflow at a glance -->
       <template v-if="isDesktop">
-        <div v-if="activeSprint" class="flex items-center gap-4 border-b px-5 py-2">
-          <p class="flex min-w-0 flex-1 items-baseline gap-2 text-sm">
-            <span class="shrink-0 font-semibold">{{ activeSprint.name }}</span>
-            <span v-if="activeSprint.goal" class="truncate text-xs text-muted-foreground">{{ activeSprint.goal }}</span>
-          </p>
-          <div class="hidden xl:block"><SprintProgress :sprint="activeSprint" :stats="sprintStats" inline /></div>
-          <Button v-if="canManageSprints" variant="outline" size="sm" @click="isCompleteOpen = true">Complete sprint</Button>
-        </div>
-        <div class="border-b px-5 py-2">
-          <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" />
+        <!-- One toolbar: filters on the left, the running sprint on the right -->
+        <div class="flex items-center gap-3 border-b border-border px-4 py-2">
+          <div class="min-w-0 flex-1">
+            <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" />
+          </div>
+          <template v-if="activeSprint">
+            <div class="flex min-w-0 shrink items-center gap-2 text-[13px]" :title="activeSprint.goal ?? undefined">
+              <span class="size-1.5 shrink-0 rounded-full bg-success" />
+              <span class="truncate font-medium">{{ activeSprint.name }}</span>
+            </div>
+            <div class="hidden shrink-0 xl:block"><SprintProgress :sprint="activeSprint" :stats="sprintStats" inline /></div>
+            <Button v-if="canManageSprints" variant="outline" size="sm" class="shrink-0" @click="isCompleteOpen = true">Complete sprint</Button>
+          </template>
         </div>
 
-        <div class="min-h-0 flex-1 overflow-auto px-5 pb-4 scrollbar-thin">
-          <div class="flex min-h-full gap-3 pt-4">
+        <div class="min-h-0 flex-1 overflow-auto px-4 pb-4 scrollbar-thin">
+          <div class="flex min-h-full gap-3 pt-3">
             <BoardColumn
               v-for="status in project.statuses"
               :key="status.id"

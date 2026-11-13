@@ -8,87 +8,82 @@
 /* ---------------------------------------------------------------------------
  * Design tokens (shadcn-vue naming), light and dark mode.
  *
- * A tint (hue + chroma), a primary colour and a brand gradient drive every
- * surface, so light and dark follow the same elevation ladder:
+ * Near-neutral greys with a faint indigo tint, crisp 1px borders and one
+ * accent colour, in the spirit of Linear and Vercel. Elevation ladder:
  *
- *   background  app canvas (lowest)
- *   sidebar     navigation panel on the canvas
+ *   sidebar     the app's outer canvas (navigation sits directly on it)
+ *   background  the raised content panel next to the sidebar
  *   muted       sunken areas inside a surface (board columns, table headers, chips)
- *   card        primary surface on the canvas (cards, panels, inputs)
- *   popover     floating surface on a surface (menus, dropdowns, dialogs)
- *
- * Both modes raise surfaces by making them lighter, so "surface on surface"
- * always reads the same way.
+ *   card        surfaces inside the panel (cards, inputs)
+ *   popover     floating surfaces (menus, dropdowns, dialogs)
  * ------------------------------------------------------------------------- */
 :root {
-  --tint-h: 277;
-  --tint-c: 0.022;
-  --primary: oklch(0.54 0.24 277);
+  --tint-h: 275;
+  --tint-c: 0.006;
+  --primary: oklch(0.55 0.2 275);
   --primary-foreground: oklch(0.99 0 0);
-  --brand-from: oklch(0.56 0.24 275);
-  --brand-to: oklch(0.62 0.24 315);
+  --brand-from: oklch(0.56 0.22 275);
+  --brand-to: oklch(0.6 0.22 305);
 
-  --background: oklch(0.966 var(--tint-c) var(--tint-h));
-  --foreground: oklch(0.2 calc(var(--tint-c) * 1.4) var(--tint-h));
-  --sidebar: oklch(0.948 calc(var(--tint-c) * 1.2) var(--tint-h));
-  --card: oklch(0.996 calc(var(--tint-c) * 0.2) var(--tint-h));
+  --background: oklch(0.995 calc(var(--tint-c) * 0.3) var(--tint-h));
+  --foreground: oklch(0.21 calc(var(--tint-c) * 2) var(--tint-h));
+  --sidebar: oklch(0.968 var(--tint-c) var(--tint-h));
+  --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
   --popover-foreground: var(--foreground);
-  --muted: oklch(0.952 calc(var(--tint-c) * 0.9) var(--tint-h));
-  --muted-foreground: oklch(0.5 calc(var(--tint-c) * 1.6) var(--tint-h));
-  --secondary: oklch(0.935 calc(var(--tint-c) * 1.1) var(--tint-h));
-  --secondary-foreground: oklch(0.28 calc(var(--tint-c) * 1.6) var(--tint-h));
-  --accent: color-mix(in oklch, var(--primary) 10%, var(--card));
-  --accent-foreground: color-mix(in oklch, var(--primary) 80%, var(--foreground));
-  --border: oklch(0.9 var(--tint-c) var(--tint-h));
-  --input: oklch(0.865 calc(var(--tint-c) * 1.1) var(--tint-h));
+  --muted: oklch(0.967 var(--tint-c) var(--tint-h));
+  --muted-foreground: oklch(0.52 calc(var(--tint-c) * 2.5) var(--tint-h));
+  --secondary: oklch(0.955 var(--tint-c) var(--tint-h));
+  --secondary-foreground: oklch(0.27 calc(var(--tint-c) * 2) var(--tint-h));
+  --accent: oklch(0.955 calc(var(--tint-c) * 1.4) var(--tint-h));
+  --accent-foreground: var(--foreground);
+  --border: oklch(0.915 calc(var(--tint-c) * 1.2) var(--tint-h));
+  --input: oklch(0.89 calc(var(--tint-c) * 1.4) var(--tint-h));
   --ring: var(--primary);
-  --destructive: oklch(0.6 0.22 25);
+  --destructive: oklch(0.6 0.21 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --success: oklch(0.63 0.17 150);
-  --warning: oklch(0.77 0.17 70);
-  --info: oklch(0.62 0.19 250);
+  --success: oklch(0.62 0.16 152);
+  --warning: oklch(0.76 0.16 70);
+  --info: oklch(0.6 0.17 250);
 
   --sidebar-foreground: var(--foreground);
-  --sidebar-accent: color-mix(in oklch, var(--primary) 12%, var(--card));
-  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-accent: oklch(0.93 calc(var(--tint-c) * 1.6) var(--tint-h));
+  --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
 
   /* Veil behind dialogs and side sheets: a light frost in light mode, never black. */
-  --scrim: color-mix(in oklch, var(--background) 62%, transparent);
+  --scrim: color-mix(in oklch, var(--sidebar) 55%, transparent);
 
-  /* Decorative layer painted behind the app canvas (see bg-app). */
-  --app-backdrop:
-    radial-gradient(60rem 38rem at -10% -15%, color-mix(in oklch, var(--brand-from) 9%, transparent), transparent 60%),
-    radial-gradient(48rem 30rem at 110% -10%, color-mix(in oklch, var(--brand-to) 7%, transparent), transparent 60%);
+  /* Decorative layer painted behind the app canvas (see bg-app): kept flat, the panel carries the depth. */
+  --app-backdrop: none;
 
   color: var(--foreground);
 }
 
 .dark {
-  --primary: oklch(0.68 0.19 278);
-  --brand-from: oklch(0.64 0.21 275);
-  --brand-to: oklch(0.68 0.22 320);
+  --primary: oklch(0.67 0.17 277);
+  --brand-from: oklch(0.63 0.19 275);
+  --brand-to: oklch(0.66 0.2 305);
 
-  --background: oklch(0.145 calc(var(--tint-c) * 1.5) var(--tint-h));
-  --foreground: oklch(0.965 calc(var(--tint-c) * 0.3) var(--tint-h));
-  --sidebar: oklch(0.168 calc(var(--tint-c) * 1.5) var(--tint-h));
-  --card: oklch(0.198 calc(var(--tint-c) * 1.4) var(--tint-h));
-  --popover: oklch(0.232 calc(var(--tint-c) * 1.3) var(--tint-h));
-  --muted: oklch(0.245 calc(var(--tint-c) * 1.3) var(--tint-h));
-  --muted-foreground: oklch(0.72 calc(var(--tint-c) * 1.2) var(--tint-h));
-  --secondary: oklch(0.27 calc(var(--tint-c) * 1.3) var(--tint-h));
+  --background: oklch(0.172 calc(var(--tint-c) * 1.6) var(--tint-h));
+  --foreground: oklch(0.955 calc(var(--tint-c) * 0.6) var(--tint-h));
+  --sidebar: oklch(0.142 calc(var(--tint-c) * 1.6) var(--tint-h));
+  --card: oklch(0.198 calc(var(--tint-c) * 1.8) var(--tint-h));
+  --popover: oklch(0.215 calc(var(--tint-c) * 1.8) var(--tint-h));
+  --muted: oklch(0.215 calc(var(--tint-c) * 1.8) var(--tint-h));
+  --muted-foreground: oklch(0.7 calc(var(--tint-c) * 2) var(--tint-h));
+  --secondary: oklch(0.24 calc(var(--tint-c) * 1.8) var(--tint-h));
   --secondary-foreground: var(--foreground);
-  --accent: color-mix(in oklch, var(--primary) 18%, var(--card));
-  --accent-foreground: color-mix(in oklch, var(--primary) 45%, white);
-  --border: oklch(0.29 calc(var(--tint-c) * 1.3) var(--tint-h));
-  --input: oklch(0.34 calc(var(--tint-c) * 1.3) var(--tint-h));
-  --destructive: oklch(0.7 0.19 22);
-  --success: oklch(0.72 0.19 150);
-  --warning: oklch(0.83 0.16 80);
-  --info: oklch(0.71 0.15 250);
-  --sidebar-accent: color-mix(in oklch, var(--primary) 20%, var(--sidebar));
+  --accent: oklch(0.245 calc(var(--tint-c) * 2.2) var(--tint-h));
+  --accent-foreground: var(--foreground);
+  --border: oklch(0.265 calc(var(--tint-c) * 2) var(--tint-h));
+  --input: oklch(0.3 calc(var(--tint-c) * 2) var(--tint-h));
+  --destructive: oklch(0.68 0.19 22);
+  --success: oklch(0.72 0.17 152);
+  --warning: oklch(0.82 0.15 80);
+  --info: oklch(0.7 0.14 250);
+  --sidebar-accent: oklch(0.215 calc(var(--tint-c) * 2.2) var(--tint-h));
   --scrim: oklch(0 0 0 / 0.55);
 }
 
@@ -127,18 +122,20 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-scrim: var(--scrim);
 
-  --radius-xs: 0px;
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-xl: 0px;
-  --radius-2xl: 0px;
-  --radius-3xl: 0px;
-  --radius-4xl: 0px;
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 9px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 22px;
+  --radius-4xl: 28px;
 
-  --shadow-soft: 0 1px 2px 0 oklch(0 0 0 / 0.04), 0 4px 16px -6px oklch(0 0 0 / 0.08);
-  --shadow-elevated: 0 2px 6px -2px oklch(0 0 0 / 0.08), 0 18px 44px -14px oklch(0 0 0 / 0.22);
-  --shadow-glow: 0 8px 22px -8px color-mix(in oklch, var(--primary) 60%, transparent);
+  --shadow-soft: 0 1px 2px 0 oklch(0 0 0 / 0.045);
+  --shadow-elevated: 0 0 0 1px oklch(0 0 0 / 0.03), 0 4px 12px -4px oklch(0 0 0 / 0.1), 0 18px 40px -16px oklch(0 0 0 / 0.22);
+  /* Primary buttons: a crisp edge and a faint top highlight instead of a coloured glow. */
+  --shadow-glow: 0 1px 2px 0 oklch(0 0 0 / 0.18), inset 0 1px 0 0 oklch(1 0 0 / 0.16);
+  --shadow-panel: 0 0 0 1px var(--border), 0 1px 3px 0 oklch(0 0 0 / 0.04);
 }
 
 @layer base {
@@ -165,13 +162,58 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
-    letter-spacing: -0.005em;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01', 'ss03';
+    letter-spacing: -0.011em;
+    text-rendering: optimizeLegibility;
   }
   h1,
   h2,
   h3 {
-    letter-spacing: -0.02em;
+    letter-spacing: -0.022em;
+  }
+
+  /*
+   * Corners. The UI components carry their shape here (zero specificity, so a rounded-* class on an element
+   * still wins): small controls 7px, floating surfaces 9px, cards 12px.
+   */
+  :where(
+      [data-slot='button'],
+      [data-slot='input'],
+      [data-slot='textarea'],
+      [data-slot='select-trigger'],
+      [data-slot='tabs-list'],
+      [data-slot='skeleton'],
+      [data-slot='tooltip-content']
+    ) {
+    border-radius: var(--radius-md);
+  }
+  :where(
+      [data-slot='dropdown-menu-item'],
+      [data-slot='dropdown-menu-checkbox-item'],
+      [data-slot='select-item'],
+      [data-slot='tabs-trigger'],
+      [data-slot='badge']
+    ) {
+    border-radius: var(--radius-sm);
+  }
+  :where([data-slot='checkbox']) {
+    border-radius: var(--radius-xs);
+  }
+  :where([data-slot='dropdown-menu-content'], [data-slot='select-content'], [data-slot='popover-content']) {
+    border-radius: var(--radius-lg);
+  }
+  :where([data-slot='dialog-content'], [data-slot='card']) {
+    border-radius: var(--radius-xl);
+  }
+  :where([data-slot='progress']) {
+    border-radius: 9999px;
+  }
+  /* Bordered cards and panels built from plain elements get the same shape as cards. */
+  :where(.border.bg-card, .border.bg-popover, .border.bg-muted, .border.bg-background) {
+    border-radius: var(--radius-lg);
+  }
+  :where([data-slot='sheet-content'][class*='bottom-0'][class*='inset-x-0']) {
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
   }
   :is(
       a[href],
@@ -236,6 +278,41 @@
     transform: translateY(-2px);
     box-shadow: var(--shadow-elevated);
     border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+  }
+}
+
+/*
+ * Property panels (a task's details): fields read as plain values and only show their box on hover or focus,
+ * so a column of properties looks calm instead of like a form.
+ */
+@utility ghost-fields {
+  & .field-trigger,
+  & [data-slot='select-trigger'],
+  & [data-slot='input'],
+  & [data-slot='textarea'] {
+    border-color: transparent;
+    background-color: transparent;
+    box-shadow: none;
+  }
+  /* Steppers keep their dividers out of sight until the field is pointed at. */
+  & .field-trigger > button {
+    border-color: transparent;
+  }
+  & .field-trigger:hover,
+  & [data-slot='select-trigger']:hover,
+  & [data-slot='input']:hover,
+  & [data-slot='textarea']:hover {
+    background-color: var(--accent);
+  }
+  & .field-trigger:focus-visible,
+  & .field-trigger:focus-within,
+  & .field-trigger[data-state='open'],
+  & [data-slot='select-trigger']:focus-visible,
+  & [data-slot='select-trigger'][data-state='open'],
+  & [data-slot='input']:focus-visible,
+  & [data-slot='textarea']:focus-visible {
+    border-color: color-mix(in oklch, var(--ring) 70%, transparent);
+    background-color: var(--card);
   }
 }
 

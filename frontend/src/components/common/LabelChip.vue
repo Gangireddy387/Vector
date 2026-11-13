@@ -7,12 +7,10 @@ defineEmits<{ remove: [] }>()
 </script>
 
 <template>
-  <span
-    class="inline-flex items-center gap-1 border px-2 py-0.5 text-[11px] font-medium"
-    :style="{ borderColor: `${label.color}55`, color: label.color, backgroundColor: `${label.color}12` }"
-  >
+  <span class="inline-flex h-5 items-center gap-1.5 rounded-full border border-border bg-card px-2 text-[11px] font-medium text-foreground/80">
+    <span class="size-1.5 shrink-0 rounded-full" :style="{ backgroundColor: label.color }" />
     {{ label.name }}
-    <button v-if="removable" type="button" class="-mr-1 p-0.5 hover:bg-black/5" :aria-label="`Remove ${label.name}`" @click.stop="$emit('remove')">
+    <button v-if="removable" type="button" class="-mr-1 rounded-full p-0.5 hover:bg-muted" :aria-label="`Remove ${label.name}`" @click.stop="$emit('remove')">
       <X class="size-3" />
     </button>
   </span>

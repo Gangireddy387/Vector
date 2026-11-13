@@ -11,14 +11,13 @@ const props = withDefaults(defineProps<{ status: Pick<StatusSummary, 'name' | 'c
   <span
     :class="
       cn(
-        'inline-flex max-w-full items-center gap-1.5 font-semibold whitespace-nowrap',
-        size === 'sm' ? 'px-2 py-0.5 text-[10.5px]' : 'px-2.5 py-1 text-xs',
+        'inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-card font-medium whitespace-nowrap text-foreground/85',
+        size === 'sm' ? 'h-5 px-2 text-[11px]' : 'h-6 px-2.5 text-xs',
         props.class,
       )
     "
-    :style="{ backgroundColor: `${status.color}1f`, color: status.color }"
   >
-    <span class="size-1.5 shrink-0 rounded-full" :style="{ backgroundColor: status.color }" />
-    <span class="truncate uppercase tracking-wide">{{ status.name }}</span>
+    <span class="size-2 shrink-0 rounded-full ring-2" :style="{ backgroundColor: status.color, '--tw-ring-color': `${status.color}33` }" />
+    <span class="truncate">{{ status.name }}</span>
   </span>
 </template>

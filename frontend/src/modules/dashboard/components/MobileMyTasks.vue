@@ -67,14 +67,14 @@ async function complete(issue: Issue) {
 
     <QuickCapture stacked />
 
-    <div class="grid grid-cols-4 gap-1 bg-muted p-1" role="tablist" aria-label="Task groups">
+    <div class="grid grid-cols-4 gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Task groups">
       <button
         v-for="item in SEGMENTS"
         :key="item.value"
         type="button"
         role="tab"
         :aria-selected="segment === item.value"
-        class=" py-2 text-xs font-medium transition"
+        class="rounded-md py-2 text-xs font-medium transition"
         :class="segment === item.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'"
         @click="segment = item.value"
       >

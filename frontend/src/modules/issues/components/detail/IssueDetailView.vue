@@ -170,8 +170,8 @@ function startLinking() {
 
   <div v-else class="flex h-full min-h-0 flex-col">
     <!-- Header: breadcrumbs and actions -->
-    <header class="flex shrink-0 items-center gap-2 border-b px-4 py-2.5" :class="!isDesktop && 'bg-background'">
-      <nav class="flex min-w-0 flex-1 items-center gap-1 text-sm text-muted-foreground" aria-label="Breadcrumb">
+    <header class="flex h-12 shrink-0 items-center gap-1.5 border-b border-border px-4" :class="!isDesktop && 'bg-background'">
+      <nav class="flex min-w-0 flex-1 items-center gap-1 text-[13px] text-muted-foreground" aria-label="Breadcrumb">
         <RouterLink :to="{ name: 'project-board', params: { projectId: project.id } }" class="hidden truncate hover:text-foreground sm:inline">
           {{ project.name }}
         </RouterLink>
@@ -226,7 +226,8 @@ function startLinking() {
 
     <div class="min-h-0 flex-1" :class="isDesktop ? 'grid grid-cols-[minmax(0,1fr)_340px] overflow-hidden' : ''">
       <!-- Main column -->
-      <div class="space-y-5 overflow-y-auto" :class="isDesktop ? 'p-5' : 'p-4 pb-8'">
+      <div class="overflow-y-auto" :class="isDesktop ? 'px-8 py-6' : 'p-4 pb-8'">
+        <div class="mx-auto max-w-3xl space-y-6">
         <div class="space-y-3">
           <IssueTitleEditor :title="issue.title" :editable="canEdit" :done="isDone" @save="(title) => update({ title })" />
 
@@ -301,10 +302,11 @@ function startLinking() {
             <IssueWorkLogs :issue-id="issue.id" :editable="canEdit" :refresh-key="refreshKey" @changed="load(false)" />
           </TabsContent>
         </Tabs>
+        </div>
       </div>
 
       <!-- Desktop side panel with every field visible at once -->
-      <aside v-if="isDesktop" class="overflow-y-auto border-l bg-muted/20 p-5">
+      <aside v-if="isDesktop" class="ghost-fields overflow-y-auto border-l border-border bg-sidebar/40 px-4 py-4 dark:bg-sidebar/50">
         <IssueFieldsPanel :issue="issue" :project="project" :sprints="sprints" :editable="canEdit" @update="update" />
       </aside>
     </div>

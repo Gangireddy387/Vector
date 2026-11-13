@@ -23,7 +23,7 @@ const text = computed(() => (props.compact ? formatDate(props.dueDate, 'd MMM') 
 <template>
   <span
     v-if="dueDate"
-    :class="cn('inline-flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap', STATE_CLASSES[state])"
+    :class="cn('inline-flex items-center gap-1 rounded-[4px] px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap', STATE_CLASSES[state])"
     :title="`Due ${formatDate(dueDate)}`"
   >
     <CalendarDays class="size-3" />

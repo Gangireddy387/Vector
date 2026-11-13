@@ -49,7 +49,7 @@ const nextStatus = computed(() => props.statuses[selectedIndex.value + 1] ?? nul
         type="button"
         role="tab"
         :aria-selected="status.id === selectedStatusId"
-        class="flex shrink-0 items-center gap-1.5 border px-3 py-1.5 text-sm font-medium transition-colors"
+        class="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors"
         :class="status.id === selectedStatusId ? 'border-primary bg-primary text-primary-foreground' : 'bg-background'"
         @click="selectedStatusId = status.id"
       >

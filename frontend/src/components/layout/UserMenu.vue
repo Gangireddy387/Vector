@@ -55,7 +55,7 @@ async function choose(value: ChosenPresence) {
 <template>
   <DropdownMenu>
     <DropdownMenuTrigger
-      class="flex w-full items-center gap-2.5 p-2 text-left transition-colors hover:bg-card hover:shadow-soft focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      class="flex w-full items-center gap-2.5 rounded-md p-1.5 text-left transition-colors hover:bg-sidebar-accent/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       :class="collapsed && 'justify-center'"
       aria-label="Account menu"
     >
@@ -64,8 +64,8 @@ async function choose(value: ChosenPresence) {
         <PresenceBadge :status="myStatus" size="sm" class="absolute -right-0.5 -bottom-0.5" />
       </span>
       <span v-if="!collapsed" class="min-w-0 flex-1">
-        <span class="block truncate text-sm font-medium">{{ auth.user?.name }}</span>
-        <span class="block truncate text-xs" :class="PRESENCE_LOOK[myStatus].text">{{ myLabel }}</span>
+        <span class="block truncate text-[13px] font-medium">{{ auth.user?.name }}</span>
+        <span class="block truncate text-[11.5px]" :class="PRESENCE_LOOK[myStatus].text">{{ myLabel }}</span>
       </span>
     </DropdownMenuTrigger>
     <DropdownMenuContent side="top" align="start" class="w-60">

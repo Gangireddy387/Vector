@@ -64,7 +64,7 @@ const completion = (summary?: { total: number; done: number }) => (summary?.tota
         class="surface-hover group flex flex-col gap-4 border border-border/70 bg-card p-5 shadow-soft focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <div class="flex items-start gap-3">
-          <span class="flex size-10 shrink-0 items-center justify-center text-sm font-bold text-white" :style="{ backgroundColor: project.color }">
+          <span class="flex size-9 shrink-0 items-center justify-center rounded-lg text-[13px] font-bold text-white shadow-glow" :style="{ backgroundColor: project.color }">
             {{ project.key.slice(0, 2) }}
           </span>
           <div class="min-w-0 flex-1">

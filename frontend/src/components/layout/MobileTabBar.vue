@@ -24,7 +24,7 @@ const openCreateIssue = () =>
 
 <template>
   <nav
-    class="glass fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 border border-border/70 shadow-elevated"
+    class="glass fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 rounded-2xl border border-border shadow-elevated"
     aria-label="Primary"
   >
     <ul class="grid h-16 grid-cols-5 items-center">
@@ -32,7 +32,7 @@ const openCreateIssue = () =>
         <li v-if="index === 2" class="flex justify-center">
           <button
             type="button"
-            class="-mt-7 flex size-14 items-center justify-center bg-brand text-primary-foreground shadow-glow ring-4 ring-background transition active:scale-95"
+            class="-mt-7 flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-glow ring-4 ring-background transition active:scale-95"
             aria-label="Create task"
             @click="openCreateIssue"
           >
@@ -46,7 +46,7 @@ const openCreateIssue = () =>
             :class="isActive(tab.name) ? 'text-primary' : 'text-muted-foreground'"
             :aria-current="isActive(tab.name) ? 'page' : undefined"
           >
-            <span class="flex h-7 w-12 items-center justify-center transition-colors" :class="isActive(tab.name) && 'bg-primary/12'">
+            <span class="flex h-7 w-12 items-center justify-center rounded-full transition-colors" :class="isActive(tab.name) && 'bg-primary/12'">
               <component :is="tab.icon" class="size-5" />
             </span>
             {{ tab.label }}

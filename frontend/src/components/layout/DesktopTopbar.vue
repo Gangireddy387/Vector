@@ -14,10 +14,10 @@ const openCreateIssue = () =>
 </script>
 
 <template>
-  <header class="glass relative z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border/60 px-4">
+  <header class="relative z-40 flex h-12 shrink-0 items-center gap-3 border-b border-border/80 bg-background/85 px-3 backdrop-blur-md">
     <GlobalSearch />
     <div class="ml-auto flex items-center gap-1">
-      <Button size="sm" variant="soft" @click="openCreateIssue"><Plus /> Create</Button>
+      <Button size="sm" variant="outline" @click="openCreateIssue"><Plus /> Create</Button>
       <NotificationBell />
     </div>
   </header>

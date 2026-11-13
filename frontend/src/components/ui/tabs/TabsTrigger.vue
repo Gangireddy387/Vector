@@ -14,7 +14,7 @@ const forwardedProps = useForwardProps(reactiveOmit(props, 'class'))
     v-bind="forwardedProps"
     :class="
       cn(
-        `inline-flex h-full flex-1 items-center justify-center gap-1.5 border border-transparent px-3 py-1 text-sm font-medium whitespace-nowrap text-muted-foreground transition-all hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-soft dark:data-[state=active]:border-border [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4`,
+        `inline-flex h-full flex-1 items-center justify-center gap-1.5 border border-transparent px-2.5 py-1 text-[13px] font-medium whitespace-nowrap text-muted-foreground transition-all hover:text-foreground focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-[0_1px_2px_0_oklch(0_0_0/0.08),0_0_0_1px_var(--border)] [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4`,
         props.class,
       )
     "
