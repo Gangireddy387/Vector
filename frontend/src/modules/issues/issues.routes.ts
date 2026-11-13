@@ -1,7 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router'
 
 export const issueRoutes: RouteRecordRaw[] = [
-  { path: 'issues', name: 'issues', component: () => import('./pages/IssueListPage.vue'), meta: { title: 'All tasks' } },
+  { path: 'issues', name: 'issues', component: () => import('./pages/IssueListPage.vue'), meta: { title: 'Tasks' } },
   {
     path: 'issues/new',
     name: 'issue-create',

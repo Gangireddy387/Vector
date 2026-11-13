@@ -20,7 +20,8 @@ const chat = useTemplateRef<InstanceType<typeof SupportChatThread>>('chat')
       <CardDescription>
         Talk with the Vector team about your plan, approval or anything you need. Every admin of {{ auth.organization.name }} sees this conversation.
       </CardDescription>
-      <CardAction>
+      <CardAction class="flex items-center gap-0.5">
+        <div id="settings-chat-actions" class="flex items-center gap-0.5" />
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
             <Button variant="ghost" size="icon-sm" aria-label="Chat options"><EllipsisVertical /></Button>
@@ -37,6 +38,7 @@ const chat = useTemplateRef<InstanceType<typeof SupportChatThread>>('chat')
       side="organization"
       :organization-id="auth.organization.id"
       :api="organizationSupportApi"
+      actions-to="#settings-chat-actions"
       placeholder="Type a message"
       notice="Messages here are only between your organization’s admins and the Vector team. Ask about your plan, limits or anything else."
     />

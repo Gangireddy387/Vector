@@ -53,7 +53,7 @@ const go = (to: Parameters<typeof router.push>[0]) => () => {
 const actions = computed<SearchItem[]>(() => [
   { id: 'create', group: 'Actions', label: 'Create task', hint: 'C', icon: Plus, run: () => { close(); ui.openCreateIssue() } },
   { id: 'home', group: 'Navigate', label: 'Go to Home', hint: 'G H', icon: House, run: go({ name: 'home' }) },
-  { id: 'issues', group: 'Navigate', label: 'Go to All tasks', hint: 'G A', icon: ListTodo, run: go({ name: 'issues' }) },
+  { id: 'issues', group: 'Navigate', label: 'Go to Tasks', hint: 'G A', icon: ListTodo, run: go({ name: 'issues' }) },
   { id: 'inbox', group: 'Navigate', label: 'Go to Inbox', hint: 'G I', icon: Inbox, run: go({ name: 'inbox' }) },
   { id: 'projects', group: 'Navigate', label: 'Go to Projects', hint: 'G P', icon: FolderKanban, run: go({ name: 'projects' }) },
   ...(auth.hasFeature('reports') ? [{ id: 'reports', group: 'Navigate', label: 'Go to Reports', icon: BarChart3, run: go({ name: 'reports' }) }] : []),

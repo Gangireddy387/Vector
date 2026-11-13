@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { format, isThisWeek, isToday, isYesterday, parseISO } from 'date-fns'
-import { ArrowUpRight, BellOff, BellRing, CheckCheck, Eraser, Inbox, MessageCircle, Search, Trash2 } from 'lucide-vue-next'
+import { ArrowUpRight, BellOff, BellRing, CheckCheck, EllipsisVertical, Eraser, Inbox, MessageCircle, Search, Trash2 } from 'lucide-vue-next'
 import { computed, defineAsyncComponent, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
@@ -274,8 +275,16 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
             <span class="block text-sm font-semibold">Vector team</span>
             <span class="block truncate text-xs text-muted-foreground">Your organization’s conversation with the portal team. Reply right here.</span>
           </span>
-          <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="supportChat?.clearChat()"><Eraser /> Clear chat</Button>
-          <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="removeEntry(selected)"><Trash2 /> Dismiss</Button>
+          <div id="inbox-chat-actions" class="flex items-center gap-0.5" />
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <Button variant="ghost" size="icon-sm" aria-label="Chat options"><EllipsisVertical /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" class="w-48">
+              <DropdownMenuItem variant="destructive" @select="supportChat?.clearChat()"><Eraser /> Clear chat</DropdownMenuItem>
+              <DropdownMenuItem @select="removeEntry(selected)"><Trash2 /> Dismiss from Inbox</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <SupportChatThread
           ref="supportChat"
@@ -284,6 +293,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
           side="organization"
           :organization-id="auth.organization!.id"
           :api="organizationSupportApi"
+          actions-to="#inbox-chat-actions"
           notice="Messages here are only between your organization’s admins and the Vector team."
         />
       </article>

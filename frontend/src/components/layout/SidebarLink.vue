@@ -14,6 +14,8 @@ withDefaults(
     collapsed?: boolean
     exact?: boolean
     nested?: boolean
+    /** Keyboard shortcut, e.g. "G I": shown on hover and in the collapsed tooltip. */
+    shortcut?: string
   }>(),
   { collapsed: false, exact: false, nested: false },
 )
@@ -51,9 +53,21 @@ withDefaults(
             {{ badge > 99 ? '99+' : badge }}
           </span>
           <span v-else-if="badge && collapsed" class="absolute top-1 right-1.5 size-1.5 rounded-full bg-primary" />
+          <span
+            v-else-if="shortcut && !collapsed"
+            class="ml-auto hidden items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 lg:flex"
+            aria-hidden="true"
+          >
+            <kbd v-for="key in shortcut.split(' ')" :key="key" class="rounded-[4px] border border-border bg-card px-1 font-sans text-[10px] leading-4 font-medium text-muted-foreground">
+              {{ key }}
+            </kbd>
+          </span>
         </a>
       </TooltipTrigger>
-      <TooltipContent side="right">{{ label }}</TooltipContent>
+      <TooltipContent side="right" class="flex items-center gap-2">
+        {{ label }}
+        <span v-if="shortcut" class="text-[10.5px] opacity-70">{{ shortcut }}</span>
+      </TooltipContent>
     </Tooltip>
   </RouterLink>
 </template>

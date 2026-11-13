@@ -15,7 +15,7 @@ async function signOut() {
 }
 
 const LINKS = computed(() => [
-  { to: { name: 'issues' }, label: 'All tasks', icon: ListTodo },
+  { to: { name: 'issues' }, label: 'Tasks', icon: ListTodo },
   ...(auth.hasFeature('reports') ? [{ to: { name: 'reports' }, label: 'Reports', icon: BarChart3 }] : []),
   { to: { name: 'search' }, label: 'Search', icon: Search },
   { to: { name: 'settings' }, label: 'Settings', icon: Settings },

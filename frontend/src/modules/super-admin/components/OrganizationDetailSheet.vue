@@ -196,6 +196,7 @@ async function copyEmail(email: string) {
               {{ chatPresence }}
             </SheetDescription>
           </div>
+          <div id="portal-chat-actions" class="flex items-center gap-0.5" />
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
               <Button variant="ghost" size="icon-sm" aria-label="Chat options"><EllipsisVertical /></Button>
@@ -212,6 +213,7 @@ async function copyEmail(email: string) {
           side="portal"
           :organization-id="detail.organization.id"
           :api="chatApi!"
+          actions-to="#portal-chat-actions"
           placeholder="Type a message"
           :notice="`Messages are shared with every admin of ${detail.organization.name}. They read and reply in Organization settings → Vector support.`"
           @read="emit('read', detail!.organization.id)"

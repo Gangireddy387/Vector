@@ -31,6 +31,8 @@ const props = defineProps<{
   placeholder?: string
   /** Shown in the notice at the top of the conversation. */
   notice?: string
+  /** Selector of a spot in the page's chat header for the call and disappearing-messages buttons (else they sit by the composer). */
+  actionsTo?: string
 }>()
 const emit = defineEmits<{ read: [] }>()
 
@@ -545,29 +547,34 @@ const senderName = (message: SupportMessage) => (message.fromPortal ? `${message
 
     <!-- Composer -->
     <form class="flex shrink-0 items-end gap-2 border-t border-border bg-background px-3 py-2.5" @submit.prevent="submit">
+      <!-- Call and disappearing messages: in the page's chat header when it offers a spot (actionsTo), else here -->
+      <Teleport :to="actionsTo ?? 'body'" :disabled="!actionsTo" defer>
       <button
         type="button"
-        class="flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+        class="relative flex shrink-0 items-center justify-center rounded-full transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+        :class="[actionsTo ? 'size-8' : 'size-10', call ? 'text-[#00a884]' : 'text-muted-foreground']"
         :title="call ? 'Join the video call' : side === 'portal' ? 'Video call the organization’s admins' : 'Video call the Vector team'"
         :aria-label="call ? 'Join the video call' : 'Start a video call'"
         :disabled="isStartingCall"
         @click="call ? openCall(call) : startCall()"
       >
-        <Video class="size-5" />
+        <LoaderCircle v-if="isStartingCall" :class="actionsTo ? 'size-[18px]' : 'size-5'" class="animate-spin" />
+        <Video v-else :class="actionsTo ? 'size-[18px]' : 'size-5'" />
+        <span v-if="call" class="absolute top-1 right-1 size-2 animate-pulse rounded-full bg-[#00a884] ring-2 ring-background" />
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
           <button
             type="button"
-            class="flex size-10 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-accent"
-            :class="disappearHours ? 'text-[#00a884]' : 'text-muted-foreground'"
+            class="flex shrink-0 items-center justify-center rounded-full transition-colors hover:bg-accent"
+            :class="[actionsTo ? 'size-8' : 'size-10', disappearHours ? 'text-[#00a884]' : 'text-muted-foreground hover:text-foreground']"
             :title="`Disappearing messages: ${disappearLabel}`"
             aria-label="Disappearing messages"
           >
-            <Timer class="size-5" />
+            <Timer :class="actionsTo ? 'size-[18px]' : 'size-5'" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" side="top" class="w-60">
+        <DropdownMenuContent :align="actionsTo ? 'end' : 'start'" :side="actionsTo ? 'bottom' : 'top'" class="w-60">
           <DropdownMenuLabel class="text-xs">Disappearing messages</DropdownMenuLabel>
           <p class="px-2 pb-1.5 text-[11px] leading-snug text-muted-foreground">New messages disappear for both sides after the chosen time. Earlier messages stay.</p>
           <DropdownMenuSeparator />
@@ -577,6 +584,7 @@ const senderName = (message: SupportMessage) => (message.fromPortal ? `${message
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      </Teleport>
       <div class="flex min-h-10 flex-1 items-center rounded-xl border border-border bg-card px-4 shadow-soft transition-colors focus-within:border-ring/60 focus-within:ring-[3px] focus-within:ring-ring/15">
         <textarea
           ref="input"

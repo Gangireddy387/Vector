@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { BarChart3, Building2, CalendarDays, MessagesSquare, ChevronsLeft, ChevronsRight, FolderKanban, House, Inbox, ListTodo, Plus, ShieldCheck, Video } from 'lucide-vue-next'
+import { BarChart3, CalendarDays, ChevronRight, ChevronsLeft, ChevronsRight, House, Inbox, ListTodo, MessagesSquare, Network, Plus, UserPlus, Video } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -28,6 +28,9 @@ const workspace = useWorkspaceStore()
 const auth = useAuthStore()
 
 const isCollapsed = useStorage('vector.sidebar.collapsed', false)
+/** Which sections are folded away, remembered per device. */
+const folded = useStorage<Record<string, boolean>>('vector.sidebar.folded', {})
+const toggle = (section: string) => (folded.value = { ...folded.value, [section]: !folded.value[section] })
 const isCreateProjectOpen = ref(false)
 
 const activeProjectId = computed(() => (typeof route.params.projectId === 'string' ? route.params.projectId : null))
@@ -35,6 +38,25 @@ const navigationFor = (projectId: string) => {
   const project = projects.details[projectId] ?? projects.projects.find((item) => item.id === projectId)
   return project ? getProjectNavigation(project, auth.hasFeature) : []
 }
+
+/** Long project lists show the first few (plus the open one) until "Show all". */
+const PROJECT_LIMIT = 6
+const showAllProjects = ref(false)
+const visibleProjects = computed(() => {
+  const all = projects.joinedProjects
+  if (showAllProjects.value || all.length <= PROJECT_LIMIT + 1) return all
+  const first = all.slice(0, PROJECT_LIMIT)
+  const open = all.find((project) => project.id === activeProjectId.value)
+  return open && !first.includes(open) ? [...first, open] : first
+})
+const hiddenProjectCount = computed(() => projects.joinedProjects.length - visibleProjects.value.length)
+
+const workspaceLinks = computed(() => [
+  { name: 'calendar', label: 'Calendar', icon: CalendarDays, show: true },
+  { name: 'meetings', label: 'Meetings', icon: Video, show: auth.hasFeature('meetings') },
+  { name: 'reports', label: 'Reports', icon: BarChart3, show: auth.hasFeature('reports'), shortcut: 'G R', exact: true },
+  { name: 'departments', label: 'Departments', icon: Network, show: true },
+])
 
 const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.value ?? undefined })
 </script>
@@ -49,13 +71,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
       <OrganizationSwitcher :compact="isCollapsed" />
       <Tooltip v-if="!isCollapsed">
         <TooltipTrigger as-child>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            class="text-muted-foreground hover:text-foreground"
-            aria-label="Collapse sidebar"
-            @click="isCollapsed = true"
-          >
+          <Button variant="ghost" size="icon-sm" class="text-muted-foreground hover:text-foreground" aria-label="Collapse sidebar" @click="isCollapsed = true">
             <ChevronsLeft />
           </Button>
         </TooltipTrigger>
@@ -78,37 +94,54 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
     </div>
 
     <nav class="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2.5 py-2 scrollbar-thin">
-      <SidebarLink :to="{ name: 'home' }" label="Home" :icon="House" :collapsed="isCollapsed" exact />
-      <SidebarLink :to="{ name: 'issues' }" label="All tasks" :icon="ListTodo" :collapsed="isCollapsed" exact />
-      <SidebarLink :to="{ name: 'inbox' }" label="Inbox" :icon="Inbox" :badge="notifications.unreadCount" :collapsed="isCollapsed" />
-      <SidebarLink
-        v-if="messages.isAvailable"
-        :to="{ name: 'messages' }"
-        label="Messages"
-        :icon="MessagesSquare"
-        :badge="messages.unreadTotal"
-        :collapsed="isCollapsed"
-      />
-      <SidebarLink :to="{ name: 'projects' }" label="Projects" :icon="FolderKanban" :collapsed="isCollapsed" exact />
-      <SidebarLink v-if="auth.hasFeature('reports')" :to="{ name: 'reports' }" label="Reports" :icon="BarChart3" :collapsed="isCollapsed" exact />
-      <SidebarLink :to="{ name: 'departments' }" label="Departments" :icon="Building2" :collapsed="isCollapsed" />
-      <SidebarLink :to="{ name: 'calendar' }" label="Calendar" :icon="CalendarDays" :collapsed="isCollapsed" />
-      <SidebarLink v-if="auth.hasFeature('meetings')" :to="{ name: 'meetings' }" label="Meetings" :icon="Video" :collapsed="isCollapsed" />
-      <SidebarLink
-        v-if="workspace.isAdmin"
-        :to="{ name: 'workspace-admin' }"
-        label="Organization"
-        :icon="ShieldCheck"
-        :collapsed="isCollapsed"
-      />
+      <!-- Your day: where work and conversations come in -->
+      <SidebarLink :to="{ name: 'home' }" label="Home" :icon="House" shortcut="G H" :collapsed="isCollapsed" exact />
+      <SidebarLink :to="{ name: 'inbox' }" label="Inbox" :icon="Inbox" shortcut="G I" :badge="notifications.unreadCount" :collapsed="isCollapsed" />
+      <SidebarLink :to="{ name: 'issues' }" label="Tasks" :icon="ListTodo" shortcut="G A" :collapsed="isCollapsed" />
+      <SidebarLink v-if="messages.isAvailable" :to="{ name: 'messages' }" label="Messages" :icon="MessagesSquare" :badge="messages.unreadTotal" :collapsed="isCollapsed" />
 
-      <div v-if="!isCollapsed" class="group/projects mt-5 mb-0.5 flex h-6 items-center justify-between pr-1 pl-2">
-        <span class="text-[11.5px] font-medium text-muted-foreground">Your projects</span>
+      <!-- Workspace: planning, people and insight -->
+      <button
+        v-if="!isCollapsed"
+        type="button"
+        class="group/section mt-4 mb-0.5 flex h-6 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        :aria-expanded="!folded.workspace"
+        @click="toggle('workspace')"
+      >
+        Workspace
+        <ChevronRight class="size-3 transition-transform" :class="!folded.workspace && 'rotate-90'" />
+      </button>
+      <div v-else class="mx-2 my-3 border-t border-sidebar-border" />
+      <template v-if="isCollapsed || !folded.workspace">
+        <template v-for="link in workspaceLinks" :key="link.name">
+          <SidebarLink v-if="link.show" :to="{ name: link.name }" :label="link.label" :icon="link.icon" :shortcut="link.shortcut" :exact="link.exact" :collapsed="isCollapsed" />
+        </template>
+      </template>
+
+      <!-- Projects: the heading opens the full list -->
+      <div v-if="!isCollapsed" class="group/section mt-4 mb-0.5 flex h-6 items-center gap-0.5 pr-1">
+        <RouterLink
+          :to="{ name: 'projects' }"
+          class="flex h-6 items-center rounded-md px-2 text-[11.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          title="All projects (G P)"
+        >
+          Projects
+        </RouterLink>
+        <button
+          type="button"
+          class="flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+          :aria-expanded="!folded.projects"
+          :aria-label="folded.projects ? 'Show projects' : 'Hide projects'"
+          @click="toggle('projects')"
+        >
+          <ChevronRight class="size-3 transition-transform" :class="!folded.projects && 'rotate-90'" />
+        </button>
         <Button
           variant="ghost"
           size="icon-sm"
-          class="size-5 text-muted-foreground opacity-0 transition-opacity group-hover/projects:opacity-100 focus-visible:opacity-100"
+          class="ml-auto size-5 text-muted-foreground opacity-0 transition-opacity group-hover/section:opacity-100 focus-visible:opacity-100"
           aria-label="New project"
+          title="New project"
           @click="isCreateProjectOpen = true"
         >
           <Plus class="size-3.5" />
@@ -116,36 +149,57 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
       </div>
       <div v-else class="mx-2 my-3 border-t border-sidebar-border" />
 
-      <template v-for="project in projects.joinedProjects" :key="project.id">
-        <SidebarLink
-          :to="{ name: 'project-board', params: { projectId: project.id } }"
-          :label="project.name"
-          :color="project.color"
-          :collapsed="isCollapsed"
-        />
-        <template v-if="!isCollapsed && activeProjectId === project.id">
-          <SidebarLink
-            v-for="item in navigationFor(project.id)"
-            :key="item.name"
-            :to="{ name: item.name, params: { projectId: project.id } }"
-            :label="item.label"
-            :icon="item.icon"
-            nested
-          />
+      <template v-if="isCollapsed || !folded.projects">
+        <template v-for="project in visibleProjects" :key="project.id">
+          <SidebarLink :to="{ name: 'project-board', params: { projectId: project.id } }" :label="project.name" :color="project.color" :collapsed="isCollapsed" />
+          <template v-if="!isCollapsed && activeProjectId === project.id">
+            <SidebarLink
+              v-for="item in navigationFor(project.id)"
+              :key="item.name"
+              :to="{ name: item.name, params: { projectId: project.id } }"
+              :label="item.label"
+              :icon="item.icon"
+              nested
+            />
+          </template>
         </template>
+        <button
+          v-if="!isCollapsed && (hiddenProjectCount > 0 || showAllProjects)"
+          type="button"
+          class="flex h-7 items-center rounded-md px-2 pl-[1.85rem] text-[12.5px] text-muted-foreground transition-colors hover:bg-sidebar-accent/70 hover:text-foreground"
+          @click="showAllProjects = !showAllProjects"
+        >
+          {{ showAllProjects ? 'Show less' : `Show all (${hiddenProjectCount} more)` }}
+        </button>
+        <button
+          v-if="!isCollapsed && !projects.joinedProjects.length"
+          type="button"
+          class="flex h-8 items-center gap-2.5 rounded-md border border-dashed border-border px-2 text-[13px] text-muted-foreground transition-colors hover:border-input hover:text-foreground"
+          @click="isCreateProjectOpen = true"
+        >
+          <Plus class="size-4" /> Create your first project
+        </button>
       </template>
     </nav>
 
-    <div class="p-2">
+    <div class="space-y-1 p-2">
+      <!-- Growing the team is one click away for admins -->
+      <Tooltip v-if="workspace.isAdmin" :disabled="!isCollapsed">
+        <TooltipTrigger as-child>
+          <RouterLink
+            :to="{ name: 'workspace-admin', query: { tab: 'people' } }"
+            class="flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+            :class="isCollapsed && 'justify-center px-0'"
+          >
+            <UserPlus class="size-4 shrink-0 text-muted-foreground" />
+            <span v-if="!isCollapsed">Invite people</span>
+          </RouterLink>
+        </TooltipTrigger>
+        <TooltipContent side="right">Invite people</TooltipContent>
+      </Tooltip>
       <Tooltip v-if="isCollapsed">
         <TooltipTrigger as-child>
-          <Button
-            variant="ghost"
-            size="icon"
-            class="mb-1 w-full text-muted-foreground hover:text-foreground"
-            aria-label="Expand sidebar"
-            @click="isCollapsed = false"
-          >
+          <Button variant="ghost" size="icon" class="w-full text-muted-foreground hover:text-foreground" aria-label="Expand sidebar" @click="isCollapsed = false">
             <ChevronsRight />
           </Button>
         </TooltipTrigger>
