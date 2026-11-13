@@ -36,6 +36,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useDevice } from '@/composables/useDevice'
 import { useTheme } from '@/composables/useTheme'
+import { applyBrand } from '@/lib/brand-theme'
 import { useSocketEvents } from '@/lib/socket-events'
 import IncomingCall from '@/modules/meetings/components/IncomingCall.vue'
 import { portalSupportApi, type SupportMessage } from '@/modules/support/support.api'
@@ -136,7 +137,10 @@ async function load() {
     isLoading.value = false
   }
 }
-onMounted(load)
+onMounted(() => {
+  applyBrand(null, { remember: false })
+  load()
+})
 
 function replace(next: ReviewedOrganization) {
   organizations.value = (organizations.value ?? []).map((organization) => (organization.id === next.id ? next : organization))

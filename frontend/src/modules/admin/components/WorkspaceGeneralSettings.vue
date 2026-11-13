@@ -16,6 +16,7 @@ import { useWorkspaceStore } from '@/stores/workspace.store'
 import type { ColorMode, WorkspaceSettings } from '@/types/models'
 import { workspaceApi } from '../admin.api'
 import OrganizationLogoField from './OrganizationLogoField.vue'
+import OrganizationThemeField from './OrganizationThemeField.vue'
 
 const workspace = useWorkspaceStore()
 const auth = useAuthStore()
@@ -115,6 +116,19 @@ async function deleteOrganization() {
       </CardHeader>
       <CardContent>
         <OrganizationLogoField />
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Theme colour</CardTitle>
+        <CardDescription>
+          Buttons, links, highlights and the sidebar take this colour for everyone in {{ workspace.settings.name }}, right away. Pick a theme, match your logo or
+          use your brand colour.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <OrganizationThemeField />
       </CardContent>
     </Card>
 

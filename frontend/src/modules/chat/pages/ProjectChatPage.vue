@@ -21,13 +21,17 @@ import { type AssistantCommand, type ChatIssueRef, type ChatMessage, chatApi } f
 import ChatComposer from '../components/ChatComposer.vue'
 import ChatMessageItem from '../components/ChatMessageItem.vue'
 
+/** Embedded (e.g. in the Inbox) the project and message come from props and the side rail is left out. */
+const props = defineProps<{ projectId?: string; messageId?: string | null; embedded?: boolean }>()
+
 const route = useRoute()
 const auth = useAuthStore()
 const projects = useProjectsStore()
 const confirm = useConfirm()
 const { isDesktop } = useDevice()
 
-const projectId = computed(() => route.params.projectId as string)
+const projectId = computed(() => props.projectId ?? (route.params.projectId as string))
+const targetMessage = computed(() => props.messageId ?? (typeof route.query.message === 'string' ? route.query.message : null))
 const project = computed(() => projects.details[projectId.value] ?? null)
 const isAdmin = computed(() => project.value?.myRole === 'admin')
 
@@ -62,6 +66,7 @@ async function focusMessage(id: string) {
 
 async function load() {
   isLoading.value = true
+  if (props.embedded) void projects.fetchProject(projectId.value).catch(() => {})
   try {
     const [page, people] = await Promise.all([chatApi.list(projectId.value), usersApi.search({ projectId: projectId.value })])
     messages.value = page.messages
@@ -73,11 +78,14 @@ async function load() {
   } finally {
     isLoading.value = false
   }
-  const target = typeof route.query.message === 'string' ? route.query.message : null
+  const target = targetMessage.value
   if (target && messages.value.some((message) => message.id === target)) await focusMessage(target)
   else await scrollToBottom()
 }
 watch(projectId, load, { immediate: true })
+watch(targetMessage, (id) => {
+  if (id && !isLoading.value && messages.value.some((message) => message.id === id)) void focusMessage(id)
+})
 
 async function loadOlder() {
   const first = messages.value[0]
@@ -191,7 +199,7 @@ const discussedTasks = computed(() => {
 </script>
 
 <template>
-  <div class="flex min-h-0" :class="isDesktop ? 'h-full' : 'h-[calc(100dvh-10.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]'">
+  <div class="flex min-h-0" :class="isDesktop || embedded ? 'h-full' : 'h-[calc(100dvh-10.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]'">
     <section class="flex min-w-0 flex-1 flex-col">
       <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-3">
         <div v-if="isLoading" class="space-y-4 p-4">
@@ -242,7 +250,7 @@ const discussedTasks = computed(() => {
       </div>
     </section>
 
-    <aside v-if="isDesktop" class="hidden w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l bg-muted/20 p-4 xl:flex">
+    <aside v-if="isDesktop && !embedded" class="hidden w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l bg-muted/20 p-4 xl:flex">
       <section>
         <h2 class="mb-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Daily standup</h2>
         <RouterLink

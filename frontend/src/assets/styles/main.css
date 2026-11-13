@@ -8,8 +8,9 @@
 /* ---------------------------------------------------------------------------
  * Design tokens (shadcn-vue naming), light and dark mode.
  *
- * Near-neutral greys with a faint indigo tint, crisp 1px borders and one
- * accent colour, in the spirit of Linear and Vercel. Elevation ladder:
+ * Near-neutral greys with a faint tint of the organization's theme colour,
+ * crisp 1px borders and one accent colour, in the spirit of Linear and
+ * Vercel. Elevation ladder:
  *
  *   sidebar     the app's outer canvas (navigation sits directly on it)
  *   background  the raised content panel next to the sidebar
@@ -18,16 +19,29 @@
  *   popover     floating surfaces (menus, dropdowns, dialogs)
  * ------------------------------------------------------------------------- */
 :root {
-  --tint-h: 275;
+  /*
+   * The organization's theme colour (lib/brand-theme.ts sets these on <html>; the values here are Vector's own indigo).
+   * Light and dark keep separate lightness, chroma and text colour so the accent stays readable on both.
+   */
+  --brand-h: 275;
+  --brand-c: 0.2;
+  --brand-l: 0.55;
+  --brand-fg: oklch(0.99 0 0);
+  --brand-c-dark: 0.17;
+  --brand-l-dark: 0.67;
+  --brand-fg-dark: oklch(0.99 0 0);
+  --brand-shift: 30;
+
+  --tint-h: var(--brand-h);
   --tint-c: 0.006;
-  --primary: oklch(0.55 0.2 275);
-  --primary-foreground: oklch(0.99 0 0);
-  --brand-from: oklch(0.56 0.22 275);
-  --brand-to: oklch(0.6 0.22 305);
+  --primary: oklch(var(--brand-l) var(--brand-c) var(--brand-h));
+  --primary-foreground: var(--brand-fg);
+  --brand-from: oklch(calc(var(--brand-l) + 0.01) calc(var(--brand-c) * 1.08) var(--brand-h));
+  --brand-to: oklch(calc(var(--brand-l) + 0.05) calc(var(--brand-c) * 1.08) calc(var(--brand-h) + var(--brand-shift)));
 
   --background: oklch(0.995 calc(var(--tint-c) * 0.3) var(--tint-h));
   --foreground: oklch(0.21 calc(var(--tint-c) * 2) var(--tint-h));
-  --sidebar: oklch(0.968 var(--tint-c) var(--tint-h));
+  --sidebar: oklch(0.966 calc(var(--tint-c) * 1.6) var(--tint-h));
   --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
@@ -48,7 +62,7 @@
   --info: oklch(0.6 0.17 250);
 
   --sidebar-foreground: var(--foreground);
-  --sidebar-accent: oklch(0.93 calc(var(--tint-c) * 1.6) var(--tint-h));
+  --sidebar-accent: oklch(0.928 calc(var(--tint-c) * 2.2) var(--tint-h));
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
 
@@ -62,13 +76,14 @@
 }
 
 .dark {
-  --primary: oklch(0.67 0.17 277);
-  --brand-from: oklch(0.63 0.19 275);
-  --brand-to: oklch(0.66 0.2 305);
+  --primary: oklch(var(--brand-l-dark) var(--brand-c-dark) var(--brand-h));
+  --primary-foreground: var(--brand-fg-dark);
+  --brand-from: oklch(calc(var(--brand-l-dark) - 0.04) calc(var(--brand-c-dark) * 1.1) var(--brand-h));
+  --brand-to: oklch(calc(var(--brand-l-dark) - 0.01) calc(var(--brand-c-dark) * 1.15) calc(var(--brand-h) + var(--brand-shift)));
 
   --background: oklch(0.172 calc(var(--tint-c) * 1.6) var(--tint-h));
   --foreground: oklch(0.955 calc(var(--tint-c) * 0.6) var(--tint-h));
-  --sidebar: oklch(0.142 calc(var(--tint-c) * 1.6) var(--tint-h));
+  --sidebar: oklch(0.142 calc(var(--tint-c) * 2.2) var(--tint-h));
   --card: oklch(0.198 calc(var(--tint-c) * 1.8) var(--tint-h));
   --popover: oklch(0.215 calc(var(--tint-c) * 1.8) var(--tint-h));
   --muted: oklch(0.215 calc(var(--tint-c) * 1.8) var(--tint-h));
@@ -148,6 +163,46 @@
   }
   html.dark {
     color-scheme: dark;
+  }
+
+  /*
+   * Scrollbars: a slim rounded thumb on a clear track, no arrow buttons. Faint until you hover the area it
+   * scrolls, a little wider while you hold it. Chromium and Safari use the ::-webkit-scrollbar rules (setting
+   * scrollbar-width/-color there would switch them back to the plain native bar); Firefox gets the standard ones.
+   */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
+    }
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-button {
+    display: none;
+  }
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-clip: padding-box;
+    background-color: color-mix(in oklch, var(--foreground) 16%, transparent);
+  }
+  :hover::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklch, var(--foreground) 26%, transparent);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    border-width: 2px;
+    background-color: color-mix(in oklch, var(--foreground) 34%, transparent);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    border-width: 2px;
+    background-color: color-mix(in oklch, var(--primary) 70%, transparent);
   }
   /* People who asked their system for less motion get instant changes instead of animations. */
   @media (prefers-reduced-motion: reduce) {
@@ -324,8 +379,11 @@
   padding-top: max(env(safe-area-inset-top), 0px);
 }
 
+/* Every scrollbar is already slim (see the base layer); kept so existing markup needs no change. */
 @utility scrollbar-thin {
-  scrollbar-width: thin;
+  @supports not selector(::-webkit-scrollbar) {
+    scrollbar-width: thin;
+  }
 }
 @utility scrollbar-none {
   scrollbar-width: none;

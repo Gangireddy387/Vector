@@ -5,6 +5,7 @@ import { toast } from 'vue-sonner'
 import ImageCropDialog from '@/components/common/ImageCropDialog.vue'
 import { analyzeLogo, type LogoTraits } from '@/components/common/OrganizationLogo.vue'
 import { Button } from '@/components/ui/button'
+import { colorFromImage } from '@/lib/brand-theme'
 import { assetUrl, getErrorMessage } from '@/lib/http'
 import { ACCEPTED_IMAGE_TYPES, assertImageFile } from '@/lib/image'
 import { useWorkspaceStore } from '@/stores/workspace.store'
@@ -45,7 +46,13 @@ async function upload(blob: Blob, fileName: string) {
   try {
     await workspace.uploadLogo(blob, fileName)
     isCropOpen.value = false
-    toast.success('Organization logo updated')
+    const color = workspace.settings.brandColor ? null : await colorFromImage(logo.value!).catch(() => null)
+    if (color) {
+      toast.success('Organization logo updated', {
+        description: 'Give the whole app your logo’s colour?',
+        action: { label: 'Use logo colour', onClick: () => workspace.update({ brandColor: color }).catch((error) => toast.error(getErrorMessage(error))) },
+      })
+    } else toast.success('Organization logo updated')
   } catch (error) {
     toast.error(getErrorMessage(error))
   } finally {

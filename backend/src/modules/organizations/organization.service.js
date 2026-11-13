@@ -55,6 +55,7 @@ export const toPublicOrganization = (organization) => ({
   slug: organization.slug,
   defaultMode: organization.defaultMode,
   logoUrl: organization.logoUrl ?? null,
+  brandColor: organization.brandColor ?? null,
   status: organization.status ?? 'approved',
   rejectionReason: organization.status === 'rejected' ? (organization.rejectionReason ?? null) : null,
   // Only when the plan was loaded; otherwise clients keep the entitlements they already have.
@@ -143,7 +144,7 @@ export async function switchOrganization(user, memberships, organizationId) {
 export async function getPublicOrganization(slug) {
   const organization = await Organization.findOne({ where: { slug: slugify(slug) } });
   if (!organization) throw ApiError.notFound('Organization not found');
-  return { name: organization.name, slug: organization.slug, defaultMode: organization.defaultMode };
+  return { name: organization.name, slug: organization.slug, defaultMode: organization.defaultMode, brandColor: organization.brandColor ?? null };
 }
 
 // --- Settings & people of the current organization ---------------------------

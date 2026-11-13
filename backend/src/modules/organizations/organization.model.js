@@ -18,6 +18,8 @@ Organization.init(
     slug: { type: DataTypes.STRING(40), allowNull: false, unique: true },
     defaultMode: { type: DataTypes.ENUM(...COLOR_MODES), allowNull: false, defaultValue: 'system' },
     logoUrl: { type: DataTypes.STRING(255), allowNull: true },
+    /** Theme colour everyone in the organization sees: a named theme (e.g. `ocean`) or a hex colour such as `#1a73e8` (null = Vector's own). */
+    brandColor: { type: DataTypes.STRING(20), allowNull: true },
     status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'pending', validate: { isIn: [ORGANIZATION_STATUSES] } },
     reviewedAt: { type: DataTypes.DATE, allowNull: true },
     reviewedById: { type: DataTypes.UUID, allowNull: true },

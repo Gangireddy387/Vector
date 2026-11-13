@@ -49,6 +49,8 @@ export interface WorkspaceSettings {
   slug?: string
   defaultMode: ColorMode
   logoUrl?: string | null
+  /** Theme colour for everyone in the organization: a named theme or a hex colour (null = Vector's own). */
+  brandColor?: string | null
   status?: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements
@@ -62,6 +64,7 @@ export interface OrganizationSummary {
   slug: string
   defaultMode: ColorMode
   logoUrl?: string | null
+  brandColor?: string | null
   status: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements

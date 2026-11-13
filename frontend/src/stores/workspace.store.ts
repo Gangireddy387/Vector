@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { PERSONAL_THEME_STORAGE_KEY, THEME_STORAGE_KEY, toThemePreference, useTheme } from '@/composables/useTheme'
+import { applyBrand } from '@/lib/brand-theme'
 import { bindSocketEvents } from '@/lib/socket-events'
 import { workspaceApi } from '@/modules/admin/admin.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -27,6 +28,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
           slug: auth.organization.slug,
           defaultMode: auth.organization.defaultMode,
           logoUrl: auth.organization.logoUrl ?? null,
+          brandColor: auth.organization.brandColor ?? null,
           updatedAt: auth.organization.updatedAt,
         }
       : branding.value,
@@ -56,6 +58,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     },
     { immediate: true },
   )
+
+  /** Everyone sees the organization's theme colour; admin changes arrive live through `workspace:updated`. */
+  watch(() => auth.organization?.brandColor ?? null, (brandColor) => applyBrand(brandColor), { immediate: true })
 
   async function update(changes: Partial<Omit<WorkspaceSettings, 'updatedAt'>>) {
     const current = settings.value as unknown as Record<string, unknown>

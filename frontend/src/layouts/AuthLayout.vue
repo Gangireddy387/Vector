@@ -604,7 +604,6 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
   width: calc(var(--disc) * 0.65 / var(--compact, 1));
   max-height: calc(var(--disc) * 0.9 / var(--compact, 1));
   overflow-y: auto;
-  scrollbar-width: thin;
   padding: 0.5rem 0.25rem;
 }
 

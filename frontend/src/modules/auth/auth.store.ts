@@ -152,6 +152,7 @@ export const useAuthStore = defineStore('auth', () => {
       slug: settings.slug ?? organization.value.slug,
       defaultMode: settings.defaultMode,
       logoUrl: settings.logoUrl !== undefined ? settings.logoUrl : organization.value.logoUrl,
+      brandColor: settings.brandColor !== undefined ? settings.brandColor : organization.value.brandColor,
       status: settings.status ?? organization.value.status,
       entitlements: settings.entitlements ?? organization.value.entitlements,
       rejectionReason: settings.rejectionReason !== undefined ? settings.rejectionReason : organization.value.rejectionReason,

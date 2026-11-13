@@ -7,8 +7,16 @@ export const createOrganizationSchema = z.object({ name: organizationName, slug:
 
 export const slugQuery = z.object({ slug: z.string().trim().max(80).default('') });
 
+/** A named theme (`ocean`) or a hex colour (`#1a73e8`); null goes back to Vector's own colours. */
+const brandColor = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^(#[0-9a-f]{6}|[a-z]{3,16})$/, 'Pick a theme or a colour like #1a73e8')
+  .nullable();
+
 export const updateOrganizationSchema = z
-  .object({ name: organizationName, slug: organizationSlug, defaultMode: z.enum(COLOR_MODES) })
+  .object({ name: organizationName, slug: organizationSlug, defaultMode: z.enum(COLOR_MODES), brandColor })
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one setting');
 

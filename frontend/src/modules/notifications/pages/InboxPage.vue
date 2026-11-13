@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { format, isThisWeek, isToday, isYesterday, parseISO } from 'date-fns'
-import { ArrowUpRight, BellOff, BellRing, Check, CheckCheck, Eraser, Inbox, MessageCircle, Search, Trash2 } from 'lucide-vue-next'
-import { computed, onMounted, ref, useTemplateRef } from 'vue'
+import { ArrowUpRight, BellOff, BellRing, CheckCheck, Eraser, Inbox, MessageCircle, Search, Trash2 } from 'lucide-vue-next'
+import { computed, defineAsyncComponent, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -9,16 +9,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
-import { formatDateTime, timeAgo } from '@/lib/format'
+import { formatDateTime } from '@/lib/format'
 import { toPlainText } from '@/lib/markdown'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import IssueDetailView from '@/modules/issues/components/detail/IssueDetailView.vue'
 import SupportChatThread from '@/modules/support/components/SupportChatThread.vue'
 import { organizationSupportApi } from '@/modules/support/support.api'
 import type { AppNotification } from '@/types/models'
+import NotificationDetail from '../components/NotificationDetail.vue'
 import NotificationItem from '../components/NotificationItem.vue'
-import { INBOX_FILTERS, type InboxFilter, kindOf, matchesFilter, openLabel } from '../notification-kinds'
+import { INBOX_FILTERS, type InboxFilter, kindOf, matchesFilter } from '../notification-kinds'
 import { useNotificationsStore } from '../notifications.store'
+
+const ProjectChatPage = defineAsyncComponent(() => import('@/modules/chat/pages/ProjectChatPage.vue'))
 
 const notifications = useNotificationsStore()
 const auth = useAuthStore()
@@ -97,12 +100,39 @@ const selected = computed(() => entries.value.find((entry) => entry.key === sele
 /** Task links look like /issues/KEY-12; those open the full task in the pane. */
 const taskKeyOf = (notification: AppNotification) => notification.link?.match(/^\/issues\/([A-Z][A-Z0-9]*-\d+)/i)?.[1]?.toUpperCase() ?? null
 const taskKey = computed(() => (selected.value ? taskKeyOf(selected.value.latest) : null))
-/** What the reading pane shows: the live support chat, the task itself, or the notification text. */
+/** Project chat links (/projects/:id/chat?message=…) open that conversation at the message, ready to reply. */
+const chatTarget = computed(() => {
+  const link = selected.value?.latest.link
+  const projectId = link?.match(/^\/projects\/([^/?#]+)\/chat(?:[?#]|$)/)?.[1]
+  if (!projectId || !auth.hasFeature('chat')) return null
+  return { projectId, messageId: new URLSearchParams(link!.split('?')[1] ?? '').get('message') }
+})
+/** What the reading pane shows: the live support chat, the task itself, the project chat, or the notification with its context. */
 const paneMode = computed(() => {
   if (!selected.value) return null
   if (selected.value.latest.type === 'support_message' && auth.isOrganizationAdmin && auth.organization) return 'chat'
-  return taskKey.value ? 'task' : 'thread'
+  if (taskKey.value) return 'task'
+  return chatTarget.value ? 'project-chat' : 'thread'
 })
+
+const projectOf = (notification: AppNotification) => notification.link?.match(/^\/projects\/([^/?#]+)/)?.[1] ?? null
+/** Other notifications about the selected one's project, for the "More from…" list. */
+const related = computed(() => {
+  if (!selected.value) return []
+  const projectId = projectOf(selected.value.latest)
+  if (!projectId) return []
+  const own = new Set(selected.value.items.map((item) => item.id))
+  return notifications.items.filter((item) => !own.has(item.id) && projectOf(item) === projectId).slice(0, 6)
+})
+function selectNotification(id: string) {
+  let entry = entries.value.find((item) => item.items.some((notification) => notification.id === id))
+  if (!entry) {
+    filter.value = 'all'
+    search.value = ''
+    entry = entries.value.find((item) => item.items.some((notification) => notification.id === id))
+  }
+  if (entry) select(entry)
+}
 
 const isUnread = (entry: Entry) => entry.items.some((item) => !item.readAt)
 const markEntryRead = (entry: Entry) => Promise.all(entry.items.filter((item) => !item.readAt).map((item) => notifications.markRead(item)))
@@ -262,58 +292,38 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         <IssueDetailView :key="taskKey!" :issue-key="taskKey!" mode="panel" class="h-full" @close="selectedKey = null" />
       </article>
 
-      <article v-else class="min-w-0 flex-1 overflow-y-auto scrollbar-thin">
-        <div v-if="!selected" class="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
-          <span class="flex size-12 items-center justify-center bg-primary/10 text-primary"><BellRing class="size-6" /></span>
-          <p class="text-sm font-medium">Select a notification</p>
-          <p class="max-w-xs text-xs text-muted-foreground">Tasks and Vector team messages open right here, so you can comment or reply.</p>
+      <!-- A chat mention: the conversation itself, scrolled to the message, with the composer to answer -->
+      <article v-else-if="selected && paneMode === 'project-chat'" class="flex min-w-0 flex-1 flex-col">
+        <div class="flex h-12 shrink-0 items-center gap-2.5 border-b border-border px-4">
+          <UserAvatar v-if="selected.latest.actor" :user="selected.latest.actor" size="md" class="size-7" />
+          <span class="min-w-0 flex-1">
+            <span class="block truncate text-[13px] font-semibold">{{ selected.latest.title }}</span>
+            <span class="block truncate text-[11.5px] text-muted-foreground">{{ formatDateTime(selected.latest.createdAt) }} · reply right here</span>
+          </span>
+          <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="removeEntry(selected)"><Trash2 /> Dismiss</Button>
+          <Button variant="outline" size="sm" @click="openLink(selected)">Open full chat <ArrowUpRight /></Button>
         </div>
+        <ProjectChatPage :key="chatTarget!.projectId" :project-id="chatTarget!.projectId" :message-id="chatTarget!.messageId" embedded class="min-h-0 flex-1" />
+      </article>
 
-        <!-- A notification: who, what and when, its message, and what you can do with it -->
-        <div v-else class="max-w-2xl space-y-4 p-6">
-          <div class="flex items-start gap-3">
-            <UserAvatar v-if="selected.latest.actor" :user="selected.latest.actor" size="lg" class="size-10" />
-            <span v-else class="flex size-10 shrink-0 items-center justify-center" :class="kindOf(selected.latest.type).tone">
-              <component :is="kindOf(selected.latest.type).icon" class="size-5" />
-            </span>
-            <div class="min-w-0 flex-1">
-              <p class="flex items-center gap-2 text-xs text-muted-foreground">
-                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 font-medium" :class="kindOf(selected.latest.type).tone">
-                  <component :is="kindOf(selected.latest.type).icon" class="size-3" /> {{ kindOf(selected.latest.type).label }}
-                </span>
-                <span :title="formatDateTime(selected.latest.createdAt)">{{ timeAgo(selected.latest.createdAt) }}</span>
-              </p>
-              <h2 class="mt-1.5 text-lg leading-snug font-semibold">{{ selected.latest.title }}</h2>
-              <p class="text-sm text-muted-foreground">{{ senderOf(selected.latest) }} · {{ formatDateTime(selected.latest.createdAt) }}</p>
-            </div>
-          </div>
+      <article v-else-if="selected" class="min-w-0 flex-1 overflow-hidden">
+        <NotificationDetail
+          :latest="selected.latest"
+          :items="selected.items"
+          :unread="isUnread(selected)"
+          :related="related"
+          @open="openLink(selected)"
+          @read="markEntryRead(selected)"
+          @remove="removeEntry(selected)"
+          @select="selectNotification"
+        />
+      </article>
 
-          <p v-if="selected.latest.body" class="border-l-2 border-primary/40 bg-muted/40 px-4 py-3 text-sm leading-relaxed whitespace-pre-line text-foreground/90">
-            {{ toPlainText(selected.latest.body, 4000) }}
-          </p>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <Button v-if="selected.latest.link" variant="brand" size="sm" @click="openLink(selected)">{{ openLabel(selected.latest) }} <ArrowUpRight /></Button>
-            <Button v-if="isUnread(selected)" variant="outline" size="sm" @click="markEntryRead(selected)"><Check /> Mark as read</Button>
-            <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="removeEntry(selected)"><Trash2 /> Dismiss</Button>
-          </div>
-
-          <!-- Earlier notifications about the same thing, newest first -->
-          <section v-if="selected.items.length > 1" class="space-y-2 pt-2">
-            <h3 class="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">Earlier ({{ selected.items.length - 1 }})</h3>
-            <ol class="divide-y divide-border/70 overflow-hidden rounded-lg border border-border">
-              <li v-for="item in selected.items.slice(1)" :key="item.id" class="flex items-start gap-2.5 px-3 py-2">
-                <UserAvatar v-if="item.actor" :user="item.actor" size="sm" class="mt-0.5" />
-                <span class="min-w-0 flex-1">
-                  <span class="block truncate text-[13px]">
-                    <span class="font-medium">{{ senderOf(item) }}</span> <span class="text-muted-foreground">{{ item.title }}</span>
-                  </span>
-                  <span v-if="item.body" class="block truncate text-xs text-muted-foreground">{{ toPlainText(item.body, 200) }}</span>
-                </span>
-                <span class="shrink-0 text-[11px] text-muted-foreground tabular-nums" :title="formatDateTime(item.createdAt)">{{ timeAgo(item.createdAt) }}</span>
-              </li>
-            </ol>
-          </section>
+      <article v-else class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+        <span class="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><BellRing class="size-6" /></span>
+        <div class="space-y-1">
+          <p class="text-sm font-medium">{{ notifications.unreadCount ? `${notifications.unreadCount} unread` : 'You are all caught up' }}</p>
+          <p class="max-w-xs text-xs text-muted-foreground">Pick a notification. Tasks, chat mentions and Vector team messages open right here, so you can reply without leaving.</p>
         </div>
       </article>
     </div>
@@ -335,8 +345,8 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         :key="chip.value"
         type="button"
         role="tab"
-        class="inline-flex shrink-0 items-center gap-1.5 border px-3 py-1.5 text-xs font-medium"
-        :class="filter === chip.value ? 'border-primary bg-primary text-primary-foreground' : 'border-border/80 bg-card text-muted-foreground'"
+        class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors"
+        :class="filter === chip.value ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground active:bg-accent'"
         :aria-selected="filter === chip.value"
         @click="filter = chip.value"
       >
