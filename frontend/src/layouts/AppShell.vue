@@ -14,6 +14,7 @@ import { useAuthStore } from '@/modules/auth/auth.store'
 import SetOwnPasswordDialog from '@/modules/auth/components/SetOwnPasswordDialog.vue'
 import IssueCreateSheet from '@/modules/issues/components/IssueCreateSheet.vue'
 import IssueDetailSheet from '@/modules/issues/components/IssueDetailSheet.vue'
+import { useCallFullscreen } from '@/modules/meetings/call/useCallFullscreen'
 import IncomingCall from '@/modules/meetings/components/IncomingCall.vue'
 import MiniCall from '@/modules/meetings/components/MiniCall.vue'
 import { useMessagesStore } from '@/modules/messages/messages.store'
@@ -35,6 +36,7 @@ const auth = useAuthStore()
 const messages = useMessagesStore()
 const presence = usePresenceStore()
 const isShortcutsOpen = ref(false)
+const callFullscreen = useCallFullscreen()
 useTimezoneSync()
 
 function openNotification(notification: AppNotification) {
@@ -95,10 +97,10 @@ useHotkeys({
 </script>
 
 <template>
-  <DesktopShell v-if="isDesktop" @show-shortcuts="isShortcutsOpen = true">
+  <DesktopShell v-if="isDesktop" :bare="callFullscreen.active.value" @show-shortcuts="isShortcutsOpen = true">
     <RouterView />
   </DesktopShell>
-  <MobileShell v-else>
+  <MobileShell v-else :bare="callFullscreen.active.value">
     <RouterView />
   </MobileShell>
 

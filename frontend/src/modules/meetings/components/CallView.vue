@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { differenceInSeconds, parseISO } from 'date-fns'
-import { CloudUpload, DoorOpen, LoaderCircle, Lock, Plus, Sparkles, Timer, Undo2, UsersRound } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { CloudUpload, DoorOpen, LoaderCircle, Lock, Maximize2, Minimize2, Plus, Sparkles, Timer, Undo2, UsersRound } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useDevice } from '@/composables/useDevice'
+import { useCallFullscreen } from '../call/useCallFullscreen'
 import { useCallTiles } from '../call/tiles'
 import { useMeetingCall } from '../useMeetingCall'
 import BreakoutRoomsDialog from './BreakoutRoomsDialog.vue'
@@ -25,6 +26,8 @@ const { isDesktop } = useDevice()
 const { tiles, presenter } = useCallTiles()
 const breakoutsOpen = ref(false)
 const now = useNow({ scheduler: (callback) => useIntervalFn(callback, 1000) })
+const fullscreen = useCallFullscreen()
+onBeforeUnmount(() => void fullscreen.exit())
 
 const elapsed = computed(() => {
   if (!props.startedAt) return ''
@@ -37,8 +40,8 @@ const elapsed = computed(() => {
 const others = computed(() => tiles.value.filter((tile) => tile.id !== presenter.value?.id))
 const gridClass = computed(() => {
   const count = tiles.value.length
-  if (count === 1) return 'grid-cols-1 max-w-4xl'
-  if (count <= 4) return 'grid-cols-1 sm:grid-cols-2 max-w-6xl'
+  if (count === 1) return fullscreen.active.value ? 'grid-cols-1 max-w-6xl' : 'grid-cols-1 max-w-4xl'
+  if (count <= 4) return fullscreen.active.value ? 'grid-cols-1 sm:grid-cols-2 max-w-7xl' : 'grid-cols-1 sm:grid-cols-2 max-w-6xl'
   if (count <= 9) return 'grid-cols-2 lg:grid-cols-3'
   if (count <= 16) return 'grid-cols-3 lg:grid-cols-4'
   return 'grid-cols-3 md:grid-cols-4 xl:grid-cols-6 content-start'
@@ -94,6 +97,16 @@ const backToMain = () => call.moveToRoom(null, null).catch((error: Error) => toa
           <CloudUpload class="size-3.5" /> Saving recording {{ call.uploadProgress.value }}%
         </span>
         <span class="ml-auto inline-flex items-center gap-1.5 text-xs text-white/70"><UsersRound class="size-3.5" /> {{ tiles.length }} {{ call.room.value ? 'in this room' : 'in the call' }}</span>
+        <button
+          type="button"
+          class="-my-1 flex size-8 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          :aria-label="fullscreen.active.value ? 'Exit full screen' : 'Full screen'"
+          :title="fullscreen.active.value ? 'Exit full screen' : 'Full screen'"
+          @click="fullscreen.toggle()"
+        >
+          <Minimize2 v-if="fullscreen.active.value" class="size-4" />
+          <Maximize2 v-else class="size-4" />
+        </button>
       </header>
 
       <div v-if="call.status.value === 'reconnecting'" class="mx-4 mb-2 flex items-center justify-center gap-2 rounded-lg bg-amber-500/15 px-3 py-2 text-sm text-amber-200" role="status">
