@@ -11,6 +11,7 @@ import { useSoundPreferences } from '@/composables/useSoundPreferences'
 import { useTimezoneSync } from '@/composables/useTimezoneSync'
 import { setSoundGate } from '@/lib/sounds'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import SetOwnPasswordDialog from '@/modules/auth/components/SetOwnPasswordDialog.vue'
 import IssueCreateSheet from '@/modules/issues/components/IssueCreateSheet.vue'
 import IssueDetailSheet from '@/modules/issues/components/IssueDetailSheet.vue'
 import IncomingCall from '@/modules/meetings/components/IncomingCall.vue'
@@ -104,6 +105,7 @@ useHotkeys({
   <IssueDetailSheet v-if="isDesktop" />
   <IssueCreateSheet v-if="isDesktop" />
   <KeyboardShortcutsDialog v-model:open="isShortcutsOpen" />
+  <SetOwnPasswordDialog />
   <MiniCall variant="floating" />
   <IncomingCall v-if="auth.hasFeature('meetings')" />
 </template>

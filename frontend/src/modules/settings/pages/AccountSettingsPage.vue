@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Download, Monitor, Moon, Sun } from 'lucide-vue-next'
+import { Download, Monitor, Moon, Sun, SunDim } from 'lucide-vue-next'
 import { reactive, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
@@ -44,6 +44,7 @@ const isSavingPassword = ref(false)
 
 const THEMES: Array<{ value: ThemePreference; label: string; icon: typeof Sun }> = [
   { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dim', label: 'Dim', icon: SunDim },
   { value: 'dark', label: 'Dark', icon: Moon },
   { value: 'auto', label: 'System', icon: Monitor },
 ]
@@ -190,7 +191,7 @@ async function changePassword() {
             <CardDescription>Light, dark, or follow your device. Saved on this device and kept even when your organization changes its default.</CardDescription>
           </CardHeader>
           <CardContent class="space-y-3">
-            <div class="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Colour mode">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Colour mode">
               <button
                 v-for="theme in THEMES"
                 :key="theme.value"

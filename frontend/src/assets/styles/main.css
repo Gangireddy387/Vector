@@ -102,6 +102,26 @@
   --scrim: oklch(0 0 0 / 0.55);
 }
 
+/*
+ * Dim: the dark theme (`.dark` styles all apply) with softer, blue-grey surfaces instead of near-black, for people who
+ * find dark too harsh and light too bright. Only the surfaces and text greys change; brand and status colours stay.
+ */
+.dim {
+  --background: oklch(0.262 0.03 252);
+  --foreground: oklch(0.96 0.008 250);
+  --sidebar: oklch(0.232 0.03 252);
+  --card: oklch(0.29 0.032 252);
+  --popover: oklch(0.305 0.032 252);
+  --muted: oklch(0.31 0.03 252);
+  --muted-foreground: oklch(0.76 0.025 250);
+  --secondary: oklch(0.325 0.03 252);
+  --accent: oklch(0.34 0.036 252);
+  --border: oklch(0.375 0.03 252);
+  --input: oklch(0.415 0.03 252);
+  --sidebar-accent: oklch(0.31 0.036 252);
+  --scrim: oklch(0.16 0.025 252 / 0.5);
+}
+
 @theme inline {
   --font-sans: 'Inter Variable', 'Inter', 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

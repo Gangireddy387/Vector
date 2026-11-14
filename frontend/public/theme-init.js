@@ -2,10 +2,15 @@
 // inline, so the content security policy can forbid inline scripts entirely.
 try {
   localStorage.removeItem('vector.appliedTheme')
-  var mode = localStorage.getItem('vector.theme') || 'auto'
-  var dark = mode === 'dark' || (mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)
+  // The super admin portal keeps its own theme (and Vector's own colours), separate from the organization's tabs.
+  var superAdminPath = /^\/super-?admin(\/|$|\?)/
+  var redirect = new URLSearchParams(location.search).get('redirect') || ''
+  var isSuperAdmin = superAdminPath.test(location.pathname) || superAdminPath.test(redirect)
+  var mode = localStorage.getItem(isSuperAdmin ? 'vector.superAdmin.theme' : 'vector.theme') || 'auto'
+  // Dim is the dark theme with softer, blue-grey surfaces: both classes.
+  var dark = mode === 'dark' || mode === 'dim' || (mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)
   if (dark) document.documentElement.classList.add('dark')
-  // The super admin portal always uses Vector's own colours.
-  var brand = location.pathname.indexOf('/super-admin') === 0 ? null : JSON.parse(localStorage.getItem('vector.brand') || 'null')
+  if (mode === 'dim') document.documentElement.classList.add('dim')
+  var brand = isSuperAdmin ? null : JSON.parse(localStorage.getItem('vector.brand') || 'null')
   if (brand) for (var name in brand) document.documentElement.style.setProperty(name, brand[name])
 } catch (error) {}

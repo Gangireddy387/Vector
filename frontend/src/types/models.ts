@@ -151,6 +151,8 @@ export interface User extends UserSummary {
   workspaceRole: WorkspaceRole
   /** The portal owner (SUPER_ADMIN_EMAIL) who approves organizations. */
   isSuperAdmin?: boolean
+  /** Signed in with a temporary password from a one-click invitation: must choose their own first. */
+  mustChangePassword?: boolean
   status: 'active' | 'invited' | 'disabled'
   timezone: string
   preferences: UserPreferences

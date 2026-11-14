@@ -58,4 +58,7 @@ export const workspaceApi = {
   updateMember: (userId: string, changes: { workspaceRole?: WorkspaceRole; status?: 'active' | 'disabled' }) =>
     http.patch(`/workspace/members/${userId}`, changes),
   removeMember: (userId: string) => http.delete(`/workspace/members/${userId}`),
+  /** A new invitation for someone who has not accepted yet; without invitation emails the link comes back to share. */
+  resendInvitation: (userId: string) =>
+    http.post<{ emailed: boolean; inviteLink: string | null }>(`/workspace/members/${userId}/resend-invitation`).then((r) => r.data),
 }

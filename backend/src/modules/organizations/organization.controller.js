@@ -45,3 +45,7 @@ export const remove = async (req, res) => {
   res.status(204).end();
 };
 export const invite = async (req, res) => res.status(201).json({ member: await organizationService.inviteMember(req.organization, req.user, req.body) });
+export const resendInvitation = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(await organizationService.resendInvitation(req.organization, req.user, req.params.userId));
+};

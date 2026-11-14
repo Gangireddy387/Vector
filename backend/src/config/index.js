@@ -25,7 +25,11 @@ export const config = {
     /** Requests per minute per address across the whole API. */
     perMinute: toInt(process.env.API_RATE_LIMIT_PER_MINUTE, 1200),
   },
-  clientUrl: process.env.CLIENT_URL ?? 'http://localhost:5173',
+  /**
+   * Where the app is opened. The first address is used in emails; all of them may call the API. The development
+   * server runs on https (calls need it), with plain http still allowed for `npm run dev:http`.
+   */
+  clientUrl: process.env.CLIENT_URL ?? 'https://localhost:5173,http://localhost:5173',
   jwt: {
     secret: process.env.JWT_SECRET || DEFAULT_JWT_SECRET,
     expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',

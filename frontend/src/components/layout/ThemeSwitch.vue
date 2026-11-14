@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { Monitor, Moon, Sun } from 'lucide-vue-next'
+import { Monitor, Moon, Sun, SunDim } from 'lucide-vue-next'
 import { type ThemePreference, useTheme } from '@/composables/useTheme'
 
 /**
- * Light, dark or the device's own setting, as three small buttons. The choice is saved on this device and is the
+ * Light, dim, dark or the device's own setting, as three small buttons. The choice is saved on this device and is the
  * same one as in Settings. `inverted`: white, for use on the brand gradient.
  */
 withDefaults(defineProps<{ inverted?: boolean }>(), { inverted: false })
@@ -11,6 +11,7 @@ const { preference } = useTheme()
 
 const OPTIONS: Array<{ value: ThemePreference; label: string; icon: typeof Sun }> = [
   { value: 'light', label: 'Light theme', icon: Sun },
+  { value: 'dim', label: 'Dim theme', icon: SunDim },
   { value: 'dark', label: 'Dark theme', icon: Moon },
   { value: 'auto', label: 'Use the device’s theme', icon: Monitor },
 ]

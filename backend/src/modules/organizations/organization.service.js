@@ -100,6 +100,17 @@ async function assertSlugAvailable(slug, exceptId) {
   return result.slug;
 }
 
+/**
+ * Keeps the super admin's open tabs current without reloading: a new signup waiting for approval, a rename or a
+ * status change, or an organization removed. `action`: created, updated or deleted.
+ */
+export async function notifyPortal(action, organization) {
+  if (!config.superAdmin.email) return;
+  const admins = await User.findAll({ where: { email: config.superAdmin.email }, attributes: ['id'], raw: true });
+  const payload = { action, organization: { id: organization.id, name: organization.name, slug: organization.slug, status: organization.status } };
+  admins.forEach((admin) => emitToUser(admin.id, 'portal:organization', payload));
+}
+
 export async function createOrganization(user, { name, slug }) {
   const address = await assertSlugAvailable(slug || name);
   const needsApproval = Boolean(config.superAdmin.email);
@@ -115,6 +126,7 @@ export async function createOrganization(user, { name, slug }) {
   await OrganizationMember.create({ organizationId: organization.id, userId: user.id, role: 'admin' });
   await user.update({ lastOrganizationId: organization.id });
   if (needsApproval) await sendEmail({ to: config.superAdmin.email, ...organizationReviewRequestEmail({ organization, creator: user }) });
+  await notifyPortal('created', organization);
   return organization;
 }
 
@@ -167,6 +179,7 @@ export async function broadcastOrganization(organization) {
   const result = toPublicOrganization(organization);
   const members = await OrganizationMember.findAll({ where: { organizationId: organization.id, status: 'active' }, attributes: ['userId'], raw: true });
   members.forEach((member) => emitToUser(member.userId, 'workspace:updated', result));
+  await notifyPortal('updated', organization);
   return result;
 }
 
@@ -313,6 +326,7 @@ export async function purgeOrganization(organization, { removeAccounts = false }
     emitToUser(userId, 'workspace:removed', { id: organizationId });
     revokeRealtimeAccess(userId, { organizationId, projectIds });
   }
+  await notifyPortal('deleted', organization);
 
   if (!removeAccounts) return 0;
   let removed = 0;
@@ -332,9 +346,23 @@ export async function purgeOrganization(organization, { removeAccounts = false }
   return removed;
 }
 
-/** Makes sure a person belongs to an organization, creating an invited account for new email addresses. */
+/**
+ * A new invitation link for someone who has not accepted yet. Only the newest link works, so an old email (for
+ * example one with a broken link) cannot be used once a new one is sent.
+ */
+async function renewInvitation(user, organizationId) {
+  const token = createOneTimeToken();
+  await user.update({ inviteToken: token.hash, ...(user.lastOrganizationId ? {} : { lastOrganizationId: organizationId }) });
+  return token.raw;
+}
+
+/**
+ * Makes sure a person belongs to an organization, creating an invited account for new email addresses. People who
+ * were invited before but never accepted get a fresh invitation (they have no password yet, so "you were added"
+ * would leave them locked out).
+ */
 export async function ensureOrganizationMember(organizationId, email, role = 'member') {
-  let user = await User.findOne({ where: { email } });
+  let user = await User.scope('withSecrets').findOne({ where: { email } });
   const isMember = user && (await OrganizationMember.count({ where: { organizationId, userId: user.id } }));
   if (!isMember) await assertWithinLimit(organizationId, 'members');
   let inviteToken = null;
@@ -342,9 +370,29 @@ export async function ensureOrganizationMember(organizationId, email, role = 'me
     const token = createOneTimeToken();
     inviteToken = token.raw;
     user = await User.create({ name: email.split('@')[0], email, status: 'invited', inviteToken: token.hash, avatarColor: pickAvatarColor(email), lastOrganizationId: organizationId });
+  } else if (user.status === 'invited') {
+    inviteToken = await renewInvitation(user, organizationId);
   }
   const [membership, created] = await OrganizationMember.findOrCreate({ where: { organizationId, userId: user.id }, defaults: { role } });
   return { user, membership, created, inviteToken };
+}
+
+/**
+ * Sends the invitation again to someone in the organization who has not accepted yet (for example the first email
+ * never arrived or its link did not work). Without invitation emails in the plan, the admin gets the link to share.
+ */
+export async function resendInvitation(organization, inviter, userId) {
+  const membership = await OrganizationMember.findOne({ where: { organizationId: organization.id, userId } });
+  const user = membership ? await User.scope('withSecrets').findByPk(userId) : null;
+  if (!user) throw ApiError.notFound('This person is not in the organization');
+  if (user.status !== 'invited') throw ApiError.badRequest(`${user.email} already joined. They can sign in, or reset their password from the sign-in page.`);
+  const token = await renewInvitation(user, organization.id);
+  const mayEmailInvite = entitlementsFor(organization).features.emailInvitations;
+  if (mayEmailInvite) {
+    const details = { inviterName: inviter.name, inviterEmail: inviter.email, organization, role: membership.role };
+    await sendEmail({ to: user.email, ...organizationInviteEmail({ ...details, email: user.email, token }) });
+  }
+  return { emailed: mayEmailInvite, inviteLink: mayEmailInvite ? null : inviteLinkFor(token) };
 }
 
 /**

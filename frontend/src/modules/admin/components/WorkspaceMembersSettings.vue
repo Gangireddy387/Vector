@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { Crown, Ellipsis, FolderKanban, LayoutGrid, List, MessageCircle, Search, ShieldCheck, UserCheck, UserMinus, UserPlus, UserRound, UserX } from 'lucide-vue-next'
+import { Crown, Ellipsis, FolderKanban, LayoutGrid, List, MailPlus, MessageCircle, Search, ShieldCheck, UserCheck, UserMinus, UserPlus, UserRound, UserX } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -113,6 +113,21 @@ async function remove(member: WorkspaceMember) {
     destructive: true,
   })
   if (confirmed) await run(() => workspaceApi.removeMember(member.id), `${member.name} removed`)
+}
+
+/** A new invitation email (or link to share) for someone who has not accepted yet; earlier links stop working. */
+const resendingId = ref<string | null>(null)
+async function resend(member: WorkspaceMember) {
+  resendingId.value = member.id
+  try {
+    const result = await workspaceApi.resendInvitation(member.id)
+    if (result.inviteLink) await shareInviteLink(member.email, result.inviteLink)
+    else toast.success(`New invitation sent to ${member.email}`, { description: 'Earlier invitation links no longer work; they should use the newest email.' })
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    resendingId.value = null
+  }
 }
 
 // --- Invite -----------------------------------------------------------------
@@ -287,6 +302,17 @@ async function sendInvite() {
                 <MessageCircle />
               </Button>
               <MeetButton v-if="member.status === 'active'" compact :preset="{ title: `Call with ${member.name}`, people: [member] }" />
+              <Button
+                v-if="member.status === 'invited'"
+                variant="outline"
+                size="icon-sm"
+                :title="`Send ${member.email} a new invitation`"
+                :aria-label="`Resend invitation to ${member.email}`"
+                :loading="resendingId === member.id"
+                @click="resend(member)"
+              >
+                <MailPlus />
+              </Button>
             </div>
           </article>
         </div>
@@ -331,6 +357,9 @@ async function sendInvite() {
               @click="toggleStatus(member)"
             >
               {{ member.status === 'active' ? 'Deactivate' : 'Reactivate' }}
+            </Button>
+            <Button v-else variant="ghost" size="sm" :loading="resendingId === member.id" :title="`Send ${member.email} a new invitation`" @click="resend(member)">
+              <MailPlus /> Resend invitation
             </Button>
             <Button
               variant="ghost"

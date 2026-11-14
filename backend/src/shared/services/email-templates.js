@@ -142,7 +142,7 @@ export const inviteEmail = ({ inviterName, inviterEmail, organization, project, 
     ],
     actionLabel: 'Accept invitation',
     actionUrl: inviteLinkFor(token),
-    note: `<strong>What happens next?</strong> Choose your name and a password, and you will land right in ${escapeHtml(organization.name)} with access to ${escapeHtml(project.name)}.`,
+    note: `<strong>What happens next?</strong> One click sets up your account and opens ${escapeHtml(project.name)} in ${escapeHtml(organization.name)}. You get a temporary password (also by email) and choose your own when you first sign in.`,
     footer: invitationFooter(email, inviterName),
   }),
 });
@@ -163,8 +163,28 @@ export const organizationInviteEmail = ({ inviterName, inviterEmail, organizatio
     ],
     actionLabel: 'Accept invitation',
     actionUrl: inviteLinkFor(token),
-    note: `<strong>What happens next?</strong> Choose your name and a password, and you will land right in ${escapeHtml(organization.name)}.`,
+    note: `<strong>What happens next?</strong> One click sets up your account and opens ${escapeHtml(organization.name)}. You get a temporary password (also by email) and choose your own when you first sign in.`,
     footer: invitationFooter(email, inviterName),
+  }),
+});
+
+/** After a one-click invitation: the account exists, here is how to sign in until they choose their own password. */
+export const accountReadyEmail = ({ name, email, temporaryPassword, organization }) => ({
+  subject: organization ? `Your Vector account for ${organization.name} is ready` : 'Your Vector account is ready',
+  html: renderLayout({
+    preheader: 'Your account is set up. Keep this email until you choose your own password.',
+    brand: organization ?? null,
+    eyebrow: 'Account ready',
+    heading: `Welcome to Vector, ${name}`,
+    intro: `<p style="margin:0">Your account is set up${organization ? ` and you are in <strong>${escapeHtml(organization.name)}</strong>` : ''}. Sign in with these details until you choose your own password, which Vector asks for the first time you sign in.</p>`,
+    details: [
+      { label: 'Email', value: escapeHtml(email) },
+      { label: 'Temporary password', value: `<span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:15px;font-weight:700;letter-spacing:1px">${escapeHtml(temporaryPassword)}</span>` },
+    ],
+    actionLabel: 'Sign in to Vector',
+    actionUrl: appUrl(organization?.slug ? `/login?redirect=${encodeURIComponent(`/${organization.slug}`)}` : '/login'),
+    note: 'For your security this password only works until you set your own. Never share it with anyone.',
+    footer: `This email was sent to ${email} because an invitation to Vector was accepted. If that was not you, reset your password from the sign-in page.`,
   }),
 });
 
@@ -203,7 +223,8 @@ export const addedToProjectEmail = ({ inviterName, inviterEmail, organization, p
       { label: 'Added by', value: inviterLine({ inviterName, inviterEmail }) },
     ],
     actionLabel: 'Open project',
-    actionUrl: appUrl(`/projects/${project.id}/board`),
+    // Through the organization's address, so it opens in the right organization for people who belong to several.
+    actionUrl: appUrl(`${organization.slug ? `/${organization.slug}` : ''}/projects/${project.id}/board`),
   }),
 });
 

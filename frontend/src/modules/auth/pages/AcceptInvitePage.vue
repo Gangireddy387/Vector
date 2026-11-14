@@ -1,54 +1,78 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { useClipboard } from '@vueuse/core'
+import { ArrowRight, Check, CircleCheck, Copy, LoaderCircle, MailCheck } from 'lucide-vue-next'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import FormField from '@/components/common/FormField.vue'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '../auth.store'
 import AuthHeading from '../components/AuthHeading.vue'
-import PasswordInput from '../components/PasswordInput.vue'
 
+/**
+ * Where "Accept invitation" in the email lands: the account is set up at once with a temporary password, shown here
+ * and emailed. Inside the app the person is asked to choose their own password before they start.
+ */
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const { copy, copied } = useClipboard({ legacy: true })
 
 const token = computed(() => (typeof route.query.token === 'string' ? route.query.token : ''))
-const form = reactive({ name: '', password: '' })
+const temporaryPassword = ref<string | null>(null)
 const errorMessage = ref('')
-const isSubmitting = ref(false)
+const isAccepting = ref(true)
 
-async function submit() {
-  errorMessage.value = ''
-  isSubmitting.value = true
+onMounted(async () => {
+  if (!token.value) {
+    isAccepting.value = false
+    return
+  }
   try {
-    await auth.acceptInvite({ token: token.value, ...form })
-    await router.replace({ name: 'projects' })
+    temporaryPassword.value = await auth.acceptInviteQuick(token.value)
   } catch (error) {
     errorMessage.value = getErrorMessage(error)
   } finally {
-    isSubmitting.value = false
+    isAccepting.value = false
   }
-}
+})
+
+const continueToApp = () => void router.replace({ name: 'projects' })
 </script>
 
 <template>
-  <AuthHeading title="Join your team" description="Finish setting up your account to start collaborating." />
-  <p v-if="!token" class=" bg-destructive/10 px-3 py-2 text-sm text-destructive">This invitation link is incomplete.</p>
-  <form v-else class="space-y-4" novalidate @submit.prevent="submit">
-    <FormField label="Full name" for="name">
-      <Input id="name" v-model="form.name" autocomplete="name" required />
-    </FormField>
-    <FormField label="Password" for="password" hint="At least 8 characters.">
-      <PasswordInput id="password" v-model="form.password" autocomplete="new-password" required />
-    </FormField>
-    <p v-if="errorMessage" class=" bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
-    <Button type="submit" variant="brand" class="w-full" size="lg" :loading="isSubmitting">Join workspace</Button>
-    <p class="text-center text-xs text-muted-foreground">
-      By joining you agree to the
-      <RouterLink :to="{ name: 'terms' }" class="font-medium text-foreground underline-offset-2 hover:underline">Terms of Service</RouterLink>
-      and
-      <RouterLink :to="{ name: 'privacy' }" class="font-medium text-foreground underline-offset-2 hover:underline">Privacy Policy</RouterLink>.
+  <div v-if="isAccepting" class="flex flex-col items-center gap-3 py-10 text-center">
+    <LoaderCircle class="size-8 animate-spin text-primary" />
+    <p class="font-medium">Setting up your account…</p>
+  </div>
+
+  <template v-else-if="temporaryPassword">
+    <AuthHeading
+      :title="auth.organization ? `Welcome to ${auth.organization.name}` : 'Welcome to Vector'"
+      description="Your account is ready and you are signed in."
+    />
+    <div class="space-y-4">
+      <div class="space-y-2 rounded-xl border border-border/70 bg-card p-4 shadow-soft">
+        <p class="flex items-center gap-2 text-sm font-medium"><CircleCheck class="size-4 text-success" /> Your temporary password</p>
+        <div class="flex items-center gap-2">
+          <code class="min-w-0 flex-1 truncate rounded-lg bg-muted px-3 py-2 font-mono text-lg font-semibold tracking-wider">{{ temporaryPassword }}</code>
+          <Button variant="outline" size="icon" :aria-label="copied ? 'Copied' : 'Copy password'" @click="copy(temporaryPassword)">
+            <Check v-if="copied" class="text-success" />
+            <Copy v-else />
+          </Button>
+        </div>
+        <p class="text-xs text-muted-foreground">Sign in as <strong class="text-foreground">{{ auth.user?.email }}</strong> with this password until you choose your own.</p>
+        <p class="flex items-center gap-1.5 text-xs text-muted-foreground"><MailCheck class="size-3.5" /> We also emailed it to you.</p>
+      </div>
+      <p class="text-sm text-muted-foreground">Next, choose your own password. It only takes a moment.</p>
+      <Button variant="brand" class="w-full" size="lg" @click="continueToApp">Continue <ArrowRight /></Button>
+    </div>
+  </template>
+
+  <template v-else>
+    <AuthHeading title="This invitation does not work" description="It may be incomplete, or it was already used." />
+    <p class="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+      {{ errorMessage || 'This invitation link is incomplete. Open it again from the email.' }}
     </p>
-  </form>
+    <Button variant="outline" class="mt-4 w-full" @click="router.replace({ name: 'login' })">Go to sign in</Button>
+  </template>
 </template>

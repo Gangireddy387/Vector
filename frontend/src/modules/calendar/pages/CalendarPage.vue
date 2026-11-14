@@ -250,13 +250,15 @@ useHotkeys({
       </template>
     </PageHeader>
 
-    <div class="grid grid-cols-2 divide-x divide-border overflow-hidden rounded-xl border border-border bg-card shadow-soft lg:grid-cols-4 max-lg:[&>*:nth-child(3)]:border-l-0 max-lg:[&>*:nth-child(n+3)]:border-t">
-      <StatCard label="Events" :value="stats.planned" :icon="CalendarDays" :hint="periodLabel" />
-      <StatCard label="Completed" :value="`${stats.percent}%`" :icon="CalendarCheck2" tone="success" :hint="`${stats.done} of ${stats.planned} done`">
-        <Progress :model-value="stats.percent" class="mt-2 h-1" indicator-class="bg-success" />
+    <!-- shrink-0: on wide screens the calendar below takes the remaining height, never this row's -->
+    <div class="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4">
+      <StatCard variant="card" label="Events" :value="stats.planned" :icon="CalendarDays" :hint="periodLabel" />
+      <StatCard variant="card" label="Completed" :value="`${stats.percent}%`" :icon="CalendarCheck2" tone="success" :hint="`${stats.done} of ${stats.planned} done`">
+        <Progress :model-value="stats.percent" class="mt-2.5 h-1.5" indicator-class="bg-success" />
       </StatCard>
-      <StatCard label="Time scheduled" :value="formatHours(stats.minutes)" :icon="Clock3" tone="warning" :hint="periodLabel" />
+      <StatCard variant="card" label="Time scheduled" :value="formatHours(stats.minutes)" :icon="Clock3" tone="warning" :hint="periodLabel" />
       <StatCard
+        variant="card"
         label="Your tasks due"
         :value="showTasks ? stats.tasks : '–'"
         :icon="ListTodo"

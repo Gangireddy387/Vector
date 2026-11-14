@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import FormField from '@/components/common/FormField.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { getErrorMessage } from '@/lib/http'
+import { getErrorMessage, isSuperAdminPath } from '@/lib/http'
 import { organizationsApi } from '../auth.api'
 import { useAuthStore } from '../auth.store'
 import AuthHeading from '../components/AuthHeading.vue'
@@ -25,6 +25,8 @@ async function submit() {
   try {
     await auth.login(form)
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    // Signed in as the super admin from a normal tab: reload into the portal so it uses the portal's own theme and sign-in.
+    if (auth.isSuperAdmin && !isSuperAdminPath(window.location.pathname) && !isSuperAdminPath(redirect)) return window.location.replace('/super-admin')
     await router.replace(redirect)
   } catch (error) {
     errorMessage.value = getErrorMessage(error)

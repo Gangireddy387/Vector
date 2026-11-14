@@ -12,6 +12,10 @@ export const forgotPassword = async (req, res) => {
 
 export const resetPassword = async (req, res) => res.json(await authService.resetPassword(req.body));
 export const acceptInvite = async (req, res) => res.json(await authService.acceptInvite(req.body));
+export const acceptInviteQuick = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(await authService.acceptInviteQuick(req.body));
+};
 export const updateProfile = async (req, res) => {
   const user = await authService.updateProfile(req.user, req.body);
   res.json({ user: { ...user, workspaceRole: req.organizationRole ?? 'member' } });

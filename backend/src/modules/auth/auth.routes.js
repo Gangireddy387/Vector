@@ -4,6 +4,7 @@ import { authenticate } from '../../shared/middleware/authenticate.js';
 import { validate } from '../../shared/middleware/validate.js';
 import * as controller from './auth.controller.js';
 import {
+  acceptInviteQuickSchema,
   acceptInviteSchema,
   changePasswordSchema,
   forgotPasswordSchema,
@@ -31,6 +32,8 @@ router.post('/login', credentialLimiter, validate({ body: loginSchema }), accoun
 router.post('/forgot-password', credentialLimiter, validate({ body: forgotPasswordSchema }), controller.forgotPassword);
 router.post('/reset-password', credentialLimiter, validate({ body: resetPasswordSchema }), controller.resetPassword);
 router.post('/accept-invite', credentialLimiter, validate({ body: acceptInviteSchema }), controller.acceptInvite);
+/** One click from the invitation email: the account is set up with a temporary password (shown once and emailed). */
+router.post('/accept-invite/quick', credentialLimiter, validate({ body: acceptInviteQuickSchema }), controller.acceptInviteQuick);
 
 router.get('/me', authenticate, controller.me);
 router.patch('/me', authenticate, validate({ body: updateProfileSchema }), controller.updateProfile);

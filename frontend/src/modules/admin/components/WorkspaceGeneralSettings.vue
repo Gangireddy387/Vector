@@ -21,7 +21,7 @@ import OrganizationThemeField from './OrganizationThemeField.vue'
 const workspace = useWorkspaceStore()
 const auth = useAuthStore()
 const theme = useTheme()
-const PERSONAL_LABEL = { light: 'Light', dark: 'Dark', auto: 'System' } as const
+const PERSONAL_LABEL = { light: 'Light', dim: 'Dim', dark: 'Dark', auto: 'System' } as const
 
 const form = ref({ name: workspace.settings.name, slug: workspace.settings.slug ?? '' })
 const slugAvailable = ref(true)

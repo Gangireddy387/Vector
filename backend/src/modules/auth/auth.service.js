@@ -1,10 +1,11 @@
+import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { Op } from 'sequelize';
 import { config } from '../../config/index.js';
-import { User } from '../../database/models.js';
+import { Organization, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { sendEmail } from '../../shared/services/email.service.js';
-import { passwordResetEmail } from '../../shared/services/email-templates.js';
+import { accountReadyEmail, passwordResetEmail } from '../../shared/services/email-templates.js';
 import { createOneTimeToken, hashOneTimeToken, signAccessToken } from './token.js';
 import { listMyOrganizations, resolveOrganization, toPublicOrganization } from '../organizations/index.js';
 import { checkSlug, createOrganization } from '../organizations/organization.service.js';
@@ -85,7 +86,13 @@ export async function resetPassword({ token, password }) {
     where: { resetToken: hashOneTimeToken(token), resetTokenExpiresAt: { [Op.gt]: new Date() } },
   });
   if (!user) throw ApiError.badRequest('This reset link is invalid or has expired');
-  await user.update({ passwordHash: await hashPassword(password), resetToken: null, resetTokenExpiresAt: null, tokenVersion: (user.tokenVersion ?? 0) + 1 });
+  await user.update({
+    passwordHash: await hashPassword(password),
+    resetToken: null,
+    resetTokenExpiresAt: null,
+    mustChangePassword: false,
+    tokenVersion: (user.tokenVersion ?? 0) + 1,
+  });
   return buildSession(user);
 }
 
@@ -94,8 +101,29 @@ export async function acceptInvite({ token, name, password }) {
     where: { inviteToken: hashOneTimeToken(token), status: 'invited' },
   });
   if (!user) throw ApiError.badRequest('This invitation is invalid or was already accepted');
-  await user.update({ name, passwordHash: await hashPassword(password), status: 'active', inviteToken: null });
+  await user.update({ name, passwordHash: await hashPassword(password), status: 'active', inviteToken: null, mustChangePassword: false });
   return buildSession(user);
+}
+
+/** Easy to read out and type: no 0/O, 1/l/I. 12 characters ≈ 70 bits. */
+const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+export function temporaryPassword() {
+  const characters = Array.from(crypto.randomBytes(12), (byte) => PASSWORD_ALPHABET[byte % PASSWORD_ALPHABET.length]);
+  return `${characters.slice(0, 4).join('')}-${characters.slice(4, 8).join('')}-${characters.slice(8).join('')}`;
+}
+
+/**
+ * One-click invitation: clicking "Accept" in the email activates the account with a temporary password, which is
+ * shown once and emailed, and signs the person in. They must choose their own password before they start.
+ */
+export async function acceptInviteQuick({ token }) {
+  const user = await User.scope('withSecrets').findOne({ where: { inviteToken: hashOneTimeToken(token), status: 'invited' } });
+  if (!user) throw ApiError.badRequest('This invitation is invalid or was already accepted. If you accepted it before, sign in with the password from your email.');
+  const password = temporaryPassword();
+  await user.update({ passwordHash: await hashPassword(password), status: 'active', inviteToken: null, mustChangePassword: true });
+  const organization = user.lastOrganizationId ? await Organization.findByPk(user.lastOrganizationId, { attributes: ['id', 'name', 'slug', 'logoUrl'] }) : null;
+  await sendEmail({ to: user.email, ...accountReadyEmail({ name: user.name, email: user.email, temporaryPassword: password, organization }) });
+  return { ...(await buildSession(user)), temporaryPassword: password };
 }
 
 export async function updateProfile(user, changes) {
@@ -110,10 +138,18 @@ export async function updateProfile(user, changes) {
 }
 
 /** Signs out every other session; returns a new token for this one. */
+/**
+ * Changes the password (other devices are signed out). Someone still on a temporary password from a one-click
+ * invitation does not need to type it again: they are signed in with it and must replace it now.
+ */
 export async function changePassword(user, { currentPassword, newPassword }) {
   const withSecrets = await User.scope('withSecrets').findByPk(user.id);
-  const isValid = await bcrypt.compare(currentPassword, withSecrets.passwordHash ?? DUMMY_HASH);
-  if (!withSecrets.passwordHash || !isValid) throw ApiError.badRequest('Current password is incorrect');
-  await withSecrets.update({ passwordHash: await hashPassword(newPassword), tokenVersion: (withSecrets.tokenVersion ?? 0) + 1 });
+  if (!withSecrets.mustChangePassword) {
+    const isValid = await bcrypt.compare(currentPassword ?? '', withSecrets.passwordHash ?? DUMMY_HASH);
+    if (!withSecrets.passwordHash || !isValid) throw ApiError.badRequest('Current password is incorrect');
+  } else if (await bcrypt.compare(newPassword, withSecrets.passwordHash ?? DUMMY_HASH)) {
+    throw ApiError.badRequest('Choose a password different from the temporary one', [{ path: 'newPassword', message: 'Choose a password different from the temporary one' }]);
+  }
+  await withSecrets.update({ passwordHash: await hashPassword(newPassword), mustChangePassword: false, tokenVersion: (withSecrets.tokenVersion ?? 0) + 1 });
   return { token: signAccessToken(withSecrets) };
 }

@@ -59,7 +59,10 @@ export const updateProfileSchema = z.object({
     .optional(),
 });
 
+/** `currentPassword` may be left out only while replacing a temporary password (checked by the service). */
 export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1),
+  currentPassword: z.string().min(1).optional(),
   newPassword: password,
 });
+
+export const acceptInviteQuickSchema = z.object({ token: z.string().min(10) });

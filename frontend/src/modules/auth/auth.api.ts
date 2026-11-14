@@ -47,6 +47,9 @@ export const authApi = {
     http.post<Session>('/auth/reset-password', payload).then((r) => r.data),
   acceptInvite: (payload: { token: string; name: string; password: string }) =>
     http.post<Session>('/auth/accept-invite', payload).then((r) => r.data),
+  /** One click from the invitation email: the account is ready, with a temporary password shown once (and emailed). */
+  acceptInviteQuick: (token: string) =>
+    http.post<Session & { temporaryPassword: string }>('/auth/accept-invite/quick', { token }).then((r) => r.data),
   me: () => http.get<SessionState>('/auth/me').then((r) => r.data),
   updateProfile: (changes: ProfileChanges) => http.patch<{ user: User }>('/auth/me', changes).then((r) => r.data.user),
   uploadAvatar: (image: Blob, fileName: string) => {
@@ -62,7 +65,7 @@ export const authApi = {
   },
   removeRingtone: () => http.delete<{ user: User }>('/users/me/ringtone').then((r) => r.data.user),
   /** Signs out every other session; the returned token keeps this one signed in. */
-  changePassword: (payload: { currentPassword: string; newPassword: string }) => http.patch<{ token: string }>('/auth/me/password', payload).then((r) => r.data),
+  changePassword: (payload: { currentPassword?: string; newPassword: string }) => http.patch<{ token: string }>('/auth/me/password', payload).then((r) => r.data),
 }
 
 export const organizationsApi = {

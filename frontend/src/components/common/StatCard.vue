@@ -2,7 +2,10 @@
 import type { Component } from 'vue'
 import { cn } from '@/lib/utils'
 
-/** One figure in a stats strip: a small coloured icon and label above a large number. */
+/**
+ * One figure: a label and a large number, with an optional hint and extra content (e.g. a progress bar).
+ * `strip`: a cell in a divided stats strip. `card`: its own card with a coloured icon tile.
+ */
 withDefaults(
   defineProps<{
     label: string
@@ -10,8 +13,9 @@ withDefaults(
     icon?: Component
     hint?: string
     tone?: 'default' | 'danger' | 'warning' | 'success' | 'info'
+    variant?: 'strip' | 'card'
   }>(),
-  { tone: 'default' },
+  { tone: 'default', variant: 'strip' },
 )
 
 const ICON_TONES = {
@@ -21,10 +25,32 @@ const ICON_TONES = {
   success: 'text-success',
   info: 'text-info',
 }
+
+const TILE_TONES = {
+  default: 'bg-primary/10 text-primary',
+  danger: 'bg-destructive/12 text-destructive',
+  warning: 'bg-warning/15 text-amber-600 dark:text-warning',
+  success: 'bg-success/15 text-success',
+  info: 'bg-info/15 text-info',
+}
 </script>
 
 <template>
-  <div class="min-w-0 px-4 py-3.5">
+  <div v-if="variant === 'card'" class="flex min-w-0 flex-col gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-soft">
+    <div class="flex items-start justify-between gap-3">
+      <p class="truncate pt-0.5 text-xs font-medium text-muted-foreground" :title="label">{{ label }}</p>
+      <span v-if="icon" :class="cn('flex size-9 shrink-0 items-center justify-center rounded-lg', TILE_TONES[tone])">
+        <component :is="icon" class="size-[18px]" />
+      </span>
+    </div>
+    <div class="min-w-0">
+      <p class="text-2xl leading-none font-semibold tracking-tight tabular-nums" :class="tone === 'danger' && 'text-destructive'">{{ value }}</p>
+      <p v-if="hint" class="mt-1.5 truncate text-xs text-muted-foreground">{{ hint }}</p>
+      <slot />
+    </div>
+  </div>
+
+  <div v-else class="min-w-0 px-4 py-3.5">
     <p class="flex items-center gap-1.5 truncate text-xs font-medium text-muted-foreground" :title="label">
       <component :is="icon" v-if="icon" :class="cn('size-3.5 shrink-0', ICON_TONES[tone])" />
       {{ label }}

@@ -65,3 +65,5 @@ organizationAdminRoutes.put(
 organizationAdminRoutes.get('/workspace/members/:userId/profile', requireOrganizationAdmin, controller.showMemberProfile);
 organizationAdminRoutes.patch('/workspace/members/:userId', requireOrganizationAdmin, validate({ body: updateMemberSchema }), controller.updateMember);
 organizationAdminRoutes.delete('/workspace/members/:userId', requireOrganizationAdmin, controller.removeMember);
+/** A fresh invitation for someone who has not accepted yet (the old link stops working). */
+organizationAdminRoutes.post('/workspace/members/:userId/resend-invitation', requireOrganizationAdmin, controller.resendInvitation);

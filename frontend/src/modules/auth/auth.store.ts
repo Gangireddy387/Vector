@@ -126,6 +126,12 @@ export const useAuthStore = defineStore('auth', () => {
   const resetPassword = async (payload: { token: string; password: string }) => applySession(await authApi.resetPassword(payload))
   const acceptInvite = async (payload: { token: string; name: string; password: string }) =>
     applySession(await authApi.acceptInvite(payload))
+  /** One-click invitation: signs in and returns the temporary password to show once. */
+  async function acceptInviteQuick(inviteToken: string) {
+    const { temporaryPassword, ...session } = await authApi.acceptInviteQuick(inviteToken)
+    applySession(session)
+    return temporaryPassword
+  }
 
   /**
    * Opens another organization. The page reloads at `path` so nothing from the previous organization
@@ -189,10 +195,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /** Signs out every other browser; this one keeps working with the new token the server returns. */
-  async function changePassword(payload: { currentPassword: string; newPassword: string }) {
+  async function changePassword(payload: { currentPassword?: string; newPassword: string }) {
     const { token: next } = await authApi.changePassword(payload)
     token.value = next
     localStorage.setItem(currentTokenKey(), next)
+    if (user.value?.mustChangePassword) user.value = { ...user.value, mustChangePassword: false }
     connectRealtime()
   }
 
@@ -213,6 +220,7 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     resetPassword,
     acceptInvite,
+    acceptInviteQuick,
     switchOrganization,
     createOrganization,
     patchOrganization,

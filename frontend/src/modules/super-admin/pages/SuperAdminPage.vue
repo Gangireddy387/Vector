@@ -17,10 +17,12 @@ import {
   Search,
   ShieldCheck,
   Sun,
+  SunDim,
   Trash2,
   UserRound,
   Users,
 } from 'lucide-vue-next'
+import { useDebounceFn } from '@vueuse/core'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -39,6 +41,7 @@ import { useSoundPreferences } from '@/composables/useSoundPreferences'
 import { useTheme } from '@/composables/useTheme'
 import { applyBrand } from '@/lib/brand-theme'
 import { useSocketEvents } from '@/lib/socket-events'
+import { playSound } from '@/lib/sounds'
 import IncomingCall from '@/modules/meetings/components/IncomingCall.vue'
 import { portalSupportApi, type SupportMessage } from '@/modules/support/support.api'
 import { formatDate, timeAgo } from '@/lib/format'
@@ -57,11 +60,11 @@ const auth = useAuthStore()
 const router = useRouter()
 const { isDesktop } = useDevice()
 
-/** Quick theme switch beside sign-out: light → dark → system (the full choice is on Your profile). */
+/** Quick theme switch beside sign-out: light → dim → dark → system (the full choice is on Your profile). */
 const { preference } = useTheme()
-const THEME_CYCLE = { light: 'dark', dark: 'auto', auto: 'light' } as const
-const themeLabel = computed(() => ({ light: 'Light', dark: 'Dark', auto: 'System' })[preference.value])
-const themeIcon = computed(() => ({ light: Sun, dark: Moon, auto: Monitor })[preference.value])
+const THEME_CYCLE = { light: 'dim', dim: 'dark', dark: 'auto', auto: 'light' } as const
+const themeLabel = computed(() => ({ light: 'Light', dim: 'Dim', dark: 'Dark', auto: 'System' })[preference.value])
+const themeIcon = computed(() => ({ light: Sun, dim: SunDim, dark: Moon, auto: Monitor })[preference.value])
 const cycleTheme = () => (preference.value = THEME_CYCLE[preference.value])
 
 const section = ref<'organizations' | 'plans' | 'profile'>('organizations')
@@ -126,7 +129,35 @@ const unread = ref<Record<string, number>>({})
 function onSupportMessage(message: SupportMessage) {
   if (!message.fromPortal) unread.value[message.organizationId] = (unread.value[message.organizationId] ?? 0) + 1
 }
-useSocketEvents({ 'support:message': onSupportMessage })
+/** New signups, renames and removals arrive live; the list is fetched again (a burst of changes fetches once). */
+const refreshOrganizations = useDebounceFn(async () => {
+  try {
+    organizations.value = await superAdminApi.organizations()
+  } catch {
+    // The next change or reload catches up.
+  }
+}, 400)
+function onOrganization(event: { action: 'created' | 'updated' | 'deleted'; organization: { id: string; name: string; status: OrganizationStatus } }) {
+  if (event.action === 'created' && event.organization.status === 'pending') {
+    playSound('notification', { id: `organization-${event.organization.id}` })
+    toast(`${event.organization.name} is waiting for approval`, {
+      description: 'A new organization signed up.',
+      action: { label: 'Review', onClick: () => (filter.value = 'pending') },
+    })
+  }
+  void refreshOrganizations()
+}
+// After the connection drops and comes back, anything missed meanwhile is fetched.
+let connectedBefore = false
+useSocketEvents(
+  { 'support:message': onSupportMessage, 'portal:organization': onOrganization },
+  {
+    onConnect: () => {
+      if (connectedBefore) void refreshOrganizations()
+      connectedBefore = true
+    },
+  },
+)
 
 async function load() {
   isLoading.value = true

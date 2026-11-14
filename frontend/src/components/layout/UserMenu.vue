@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Crown, Download, Keyboard, LogOut, Monitor, Moon, Settings, Sun } from 'lucide-vue-next'
+import { Crown, Download, Keyboard, LogOut, Monitor, Moon, Settings, Sun, SunDim } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import {
@@ -30,6 +30,7 @@ const { canInstall, install } = usePwaInstall()
 
 const THEMES: Array<{ value: ThemePreference; label: string; icon: typeof Sun }> = [
   { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dim', label: 'Dim', icon: SunDim },
   { value: 'dark', label: 'Dark', icon: Moon },
   { value: 'auto', label: 'System', icon: Monitor },
 ]
