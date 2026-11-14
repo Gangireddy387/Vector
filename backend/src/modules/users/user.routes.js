@@ -6,5 +6,6 @@ import { searchUsersQuery } from './user.validation.js';
 const router = Router();
 
 router.get('/', validate({ query: searchUsersQuery }), controller.search);
+router.get('/:userId/card', controller.card);
 
 export default router;

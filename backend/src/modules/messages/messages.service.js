@@ -1,9 +1,14 @@
 import { Op } from 'sequelize';
 import {
+  Channel,
+  ChannelMember,
   Conversation,
+  ConversationFile,
   ConversationHiddenMessage,
   ConversationMember,
   ConversationMessage,
+  ConversationReaction,
+  ConversationSavedMessage,
   Department,
   OrganizationMember,
   Team,
@@ -12,49 +17,33 @@ import {
 } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { emitToUser, isUserOnline } from '../../shared/realtime/socket.js';
+import { deleteStoredFile } from '../attachments/attachment.storage.js';
+import { extractMentionIds } from '../comments/comment.service.js';
+import { notifyUsers } from '../notifications/notification.service.js';
+import { REACTION_EMOJIS } from './conversation.model.js';
 import { assertFeature, entitlementsFor } from '../plans/plan.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
+import { participantIds } from './membership.js';
 
 const THREAD_LIMIT = 300;
+/** Group chats load their latest posts, each with all of its replies. */
+const POST_LIMIT = 100;
 const authorInclude = [{ model: User, as: 'author', attributes: USER_SUMMARY_ATTRIBUTES }];
 /** Which plan switch a kind of conversation needs. */
-const FEATURE_FOR = { direct: 'directMessages', team: 'teamChat', department: 'teamChat' };
+const FEATURE_FOR = { direct: 'directMessages', team: 'teamChat', department: 'teamChat', channel: 'teamChat' };
 
 /*
  * Every function takes the `viewer`: { id, organization (loaded with its plan), isAdmin }.
- * Organization admins can open every team and department chat; direct chats are only ever visible to their two people.
+ * Organization admins can open every team and department chat and every standard channel; private channels and
+ * direct chats are only ever visible to their people.
  */
 
-const adminIdsOf = async (organizationId) =>
-  (await OrganizationMember.findAll({ where: { organizationId, role: 'admin', status: 'active' }, attributes: ['userId'], raw: true })).map((row) => row.userId);
+/** Renaming, deleting and choosing who is in a channel: its creator, the team lead, the department head and admins. */
+export const canManageChannel = (viewer, channel, team, department) =>
+  Boolean(viewer.isAdmin || channel.createdById === viewer.id || team?.leadId === viewer.id || department?.headId === viewer.id);
 
-async function teamPeople(team) {
-  const members = (await TeamMember.findAll({ where: { teamId: team.id }, attributes: ['userId'], raw: true })).map((row) => row.userId);
-  const department = await Department.findByPk(team.departmentId, { attributes: ['headId'], raw: true });
-  return [...members, team.leadId, department?.headId].filter(Boolean);
-}
-
-async function departmentPeople(department) {
-  const teams = await Team.findAll({ where: { departmentId: department.id }, attributes: ['id', 'leadId'], raw: true });
-  const members = teams.length ? (await TeamMember.findAll({ where: { teamId: teams.map((team) => team.id) }, attributes: ['userId'], raw: true })).map((row) => row.userId) : [];
-  return [...members, ...teams.map((team) => team.leadId), department.headId].filter(Boolean);
-}
-
-/** Everyone who can read a conversation right now (group chats follow team and department membership). */
-async function participantIds(conversation) {
-  if (conversation.kind === 'direct') {
-    return (await ConversationMember.findAll({ where: { conversationId: conversation.id }, attributes: ['userId'], raw: true })).map((row) => row.userId);
-  }
-  const admins = await adminIdsOf(conversation.organizationId);
-  if (conversation.kind === 'team') {
-    const team = await Team.findByPk(conversation.teamId);
-    return team ? [...new Set([...(await teamPeople(team)), ...admins])] : [];
-  }
-  const department = await Department.findByPk(conversation.departmentId);
-  return department ? [...new Set([...(await departmentPeople(department)), ...admins])] : [];
-}
-
-async function loadConversation(viewer, conversationId) {
+/** The conversation and everyone in it, when this person may open it (files and typing use it too). */
+export async function loadConversation(viewer, conversationId) {
   const conversation = await Conversation.findOne({ where: { id: conversationId, organizationId: viewer.organization.id } });
   if (!conversation) throw ApiError.notFound('Conversation not found');
   assertFeature(viewer.organization, FEATURE_FOR[conversation.kind]);
@@ -62,6 +51,9 @@ async function loadConversation(viewer, conversationId) {
   if (!people.includes(viewer.id)) throw ApiError.notFound('Conversation not found');
   return { conversation, people };
 }
+
+/** `@[everyone](…)`: mentions everyone in a team chat or channel (Teams' @channel). */
+export const EVERYONE_ID = '00000000-0000-0000-0000-000000000000';
 
 const broadcast = (people, event, payload) => people.forEach((userId) => emitToUser(userId, event, payload));
 
@@ -96,11 +88,34 @@ async function groupConversations(viewer) {
     const conversation = await ensure(byTeam, team.id, { teamId: team.id }, { organizationId, kind: 'team', teamId: team.id });
     conversations.push({ conversation, team, department: departments.find((department) => department.id === team.departmentId) ?? null });
   }
+  conversations.push(...(await channelConversations(viewer, teams, departments)));
   for (const department of departments) {
     const conversation = await ensure(byDepartment, department.id, { departmentId: department.id }, { organizationId, kind: 'department', departmentId: department.id });
     conversations.push({ conversation, department });
   }
   return conversations;
+}
+
+/** The channels of these teams this person can open: every standard one, and the private ones they were added to. */
+async function channelConversations(viewer, teams, departments) {
+  if (!teams.length) return [];
+  const channels = await Channel.findAll({ where: { teamId: teams.map((team) => team.id) }, order: [['name', 'ASC']] });
+  const privateIds = channels.filter((channel) => channel.privacy === 'private').map((channel) => channel.id);
+  const joined = privateIds.length
+    ? new Set((await ChannelMember.findAll({ where: { channelId: privateIds, userId: viewer.id }, attributes: ['channelId'], raw: true })).map((row) => row.channelId))
+    : new Set();
+  const visible = channels.filter((channel) => channel.privacy !== 'private' || joined.has(channel.id));
+  if (!visible.length) return [];
+  const existing = new Map((await Conversation.findAll({ where: { channelId: visible.map((channel) => channel.id) } })).map((item) => [item.channelId, item]));
+  const entries = [];
+  for (const channel of visible) {
+    const conversation =
+      existing.get(channel.id) ??
+      (await Conversation.findOrCreate({ where: { channelId: channel.id }, defaults: { organizationId: channel.organizationId, kind: 'channel', channelId: channel.id } }))[0];
+    const team = teams.find((item) => item.id === channel.teamId);
+    entries.push({ conversation, channel, team, department: departments.find((department) => department.id === team?.departmentId) ?? null });
+  }
+  return entries;
 }
 
 async function directConversations(viewer) {
@@ -146,7 +161,7 @@ async function prefetchFor(viewer, conversationIds) {
   };
 }
 
-async function summarize(viewer, { conversation, team = null, department = null }, people = null, prefetched = null) {
+async function summarize(viewer, { conversation, team = null, department = null, channel = null }, people = null, prefetched = null) {
   const membership = prefetched ? prefetched.memberships.get(conversation.id) : await ConversationMember.findOne({ where: { conversationId: conversation.id, userId: viewer.id } });
   const visible = await visibleTo(viewer, conversation.id, membership, prefetched ? (prefetched.hidden.get(conversation.id) ?? []) : null);
   const lastMessage = await ConversationMessage.findOne({
@@ -168,10 +183,11 @@ async function summarize(viewer, { conversation, team = null, department = null 
     id: conversation.id,
     kind: conversation.kind,
     unread,
+    muted: Boolean(membership?.mutedAt),
     lastMessage: lastMessage
       ? {
           id: lastMessage.id,
-          body: lastMessage.deletedAt ? '' : lastMessage.body,
+          body: lastMessage.deletedAt ? '' : preview(lastMessage.subject ? `${lastMessage.subject}: ${lastMessage.body}` : lastMessage.body),
           deleted: Boolean(lastMessage.deletedAt),
           createdAt: lastMessage.createdAt,
           author: lastMessage.author,
@@ -190,6 +206,23 @@ async function summarize(viewer, { conversation, team = null, department = null 
     return { ...base, title: person?.name ?? 'Someone', subtitle: person?.title ?? person?.email ?? '', person: person && { ...person, isOnline: isUserOnline(person.id) }, otherLastReadAt: other?.lastReadAt ?? null };
   }
   const memberCount = (people ?? (await participantIds(conversation))).length;
+  if (conversation.kind === 'channel') {
+    return {
+      ...base,
+      title: channel?.name ?? 'Channel',
+      subtitle: `${team?.name ?? 'Team'} · ${channel?.privacy === 'private' ? 'private channel' : 'channel'}`,
+      team: team && { id: team.id, name: team.name },
+      channel: channel && {
+        id: channel.id,
+        name: channel.name,
+        description: channel.description,
+        privacy: channel.privacy,
+        createdById: channel.createdById,
+        canManage: canManageChannel(viewer, channel, team, department),
+      },
+      memberCount,
+    };
+  }
   if (conversation.kind === 'team') {
     return { ...base, title: team?.name ?? 'Team', subtitle: department ? `${department.name} · team` : 'Team', team: team && { id: team.id, name: team.name }, memberCount };
   }
@@ -227,6 +260,12 @@ export async function openDirect(viewer, otherUserId) {
 
 async function describe(viewer, conversation, people) {
   if (conversation.kind === 'direct') return summarize(viewer, { conversation }, people);
+  if (conversation.kind === 'channel') {
+    const channel = await Channel.findByPk(conversation.channelId);
+    const team = channel ? await Team.findByPk(channel.teamId) : null;
+    const department = team ? await Department.findByPk(team.departmentId) : null;
+    return summarize(viewer, { conversation, channel, team, department }, people);
+  }
   if (conversation.kind === 'team') {
     const team = await Team.findByPk(conversation.teamId);
     const department = team ? await Department.findByPk(team.departmentId) : null;
@@ -235,18 +274,84 @@ async function describe(viewer, conversation, people) {
   return summarize(viewer, { conversation, department: await Department.findByPk(conversation.departmentId) }, people);
 }
 
-/** The conversation with its latest messages, oldest first. */
+/** The list entry for one conversation this person can open. */
+export async function conversationSummary(viewer, conversationId) {
+  const { conversation, people } = await loadConversation(viewer, conversationId);
+  return describe(viewer, conversation, people);
+}
+
+/**
+ * The conversation with its latest messages, oldest first. Group chats are posts with replies (like Teams): their
+ * latest posts come with every reply, so a thread is never cut in half.
+ */
 export async function getConversation(viewer, conversationId) {
   const { conversation, people } = await loadConversation(viewer, conversationId);
   const membership = await ConversationMember.findOne({ where: { conversationId, userId: viewer.id } });
-  const messages = await ConversationMessage.findAll({
-    where: { conversationId, ...(await visibleTo(viewer, conversationId, membership)) },
-    include: authorInclude,
-    order: [['createdAt', 'DESC']],
-    limit: THREAD_LIMIT,
-  });
-  return { conversation: await describe(viewer, conversation, people), messages: messages.reverse() };
+  const visible = await visibleTo(viewer, conversationId, membership);
+  let messages;
+  if (conversation.kind === 'direct') {
+    messages = (await ConversationMessage.findAll({ where: { conversationId, ...visible }, include: authorInclude, order: [['createdAt', 'DESC']], limit: THREAD_LIMIT })).reverse();
+  } else {
+    const posts = (
+      await ConversationMessage.findAll({ where: { conversationId, parentId: null, ...visible }, include: authorInclude, order: [['createdAt', 'DESC']], limit: POST_LIMIT })
+    ).reverse();
+    // Pinned posts stay reachable even when they are older than the latest posts.
+    const loaded = new Set(posts.map((post) => post.id));
+    const pinned = (
+      await ConversationMessage.findAll({ where: { conversationId, parentId: null, pinnedAt: { [Op.ne]: null }, ...visible }, include: authorInclude, order: [['createdAt', 'ASC']] })
+    ).filter((post) => !loaded.has(post.id));
+    const threadPosts = [...pinned, ...posts];
+    const replies = threadPosts.length
+      ? await ConversationMessage.findAll({ where: { conversationId, parentId: threadPosts.map((post) => post.id), ...visible }, include: authorInclude, order: [['createdAt', 'ASC']] })
+      : [];
+    messages = [...threadPosts, ...replies];
+  }
+  const savedIds = messages.length
+    ? (await ConversationSavedMessage.findAll({ where: { userId: viewer.id, messageId: messages.map((message) => message.id) }, attributes: ['messageId'], raw: true })).map(
+        (row) => row.messageId,
+      )
+    : [];
+  return { conversation: await describe(viewer, conversation, people), messages: await decorate(messages), savedIds };
 }
+
+/** Everyone who can read the conversation (for @mentions and calls). */
+export async function listPeople(viewer, conversationId) {
+  const { people } = await loadConversation(viewer, conversationId);
+  return User.findAll({ where: { id: people }, attributes: USER_SUMMARY_ATTRIBUTES, order: [['name', 'ASC']] });
+}
+
+/** Each message's reactions, one entry per emoji (in the picker's order) with who reacted. */
+async function reactionsFor(messageIds) {
+  const byMessage = new Map();
+  if (!messageIds.length) return byMessage;
+  const rows = await ConversationReaction.findAll({ where: { messageId: messageIds }, attributes: ['messageId', 'userId', 'emoji'], order: [['createdAt', 'ASC']], raw: true });
+  for (const row of rows) {
+    const emojis = byMessage.get(row.messageId) ?? new Map();
+    emojis.set(row.emoji, [...(emojis.get(row.emoji) ?? []), row.userId]);
+    byMessage.set(row.messageId, emojis);
+  }
+  const order = (emoji) => (REACTION_EMOJIS.includes(emoji) ? REACTION_EMOJIS.indexOf(emoji) : REACTION_EMOJIS.length);
+  return new Map(
+    [...byMessage].map(([messageId, emojis]) => [messageId, [...emojis].map(([emoji, userIds]) => ({ emoji, userIds })).sort((a, b) => order(a.emoji) - order(b.emoji))]),
+  );
+}
+
+export const fileView = (file) => ({ id: file.id, fileName: file.fileName, mimeType: file.mimeType, size: file.size });
+
+/** Messages as the app shows them: with their reactions and the files shared with them. */
+async function decorate(messages) {
+  const plainMessages = messages.map((message) => (message.toJSON ? message.toJSON() : message));
+  const ids = plainMessages.map((message) => message.id);
+  const [reactions, files] = await Promise.all([
+    reactionsFor(ids),
+    ids.length ? ConversationFile.findAll({ where: { messageId: ids }, order: [['createdAt', 'ASC']] }) : [],
+  ]);
+  const filesOf = new Map();
+  for (const file of files) filesOf.set(file.messageId, [...(filesOf.get(file.messageId) ?? []), fileView(file)]);
+  return plainMessages.map((message) => ({ ...message, reactions: reactions.get(message.id) ?? [], files: filesOf.get(message.id) ?? [] }));
+}
+
+const loadMessage = async (messageId) => (await decorate([await ConversationMessage.findByPk(messageId, { include: authorInclude })]))[0];
 
 async function markReadInternal(conversationId, userId, people) {
   const readAt = new Date();
@@ -256,13 +361,117 @@ async function markReadInternal(conversationId, userId, people) {
   return readAt;
 }
 
-export async function sendMessage(viewer, conversationId, body) {
-  const { people } = await loadConversation(viewer, conversationId);
-  const created = await ConversationMessage.create({ conversationId, authorId: viewer.id, body });
-  const message = (await ConversationMessage.findByPk(created.id, { include: authorInclude })).toJSON();
+const MAX_PINNED = 20;
+const isGroup = (conversation) => conversation.kind !== 'direct';
+const preview = (body) => body.replace(/@\[([^\]]+)\]\([0-9a-f-]{36}\)/gi, '@$1').replace(/\s+/g, ' ').trim().slice(0, 240);
+async function placeName(viewer, conversation, people) {
+  const summary = await describe(viewer, conversation, people);
+  return conversation.kind === 'team' ? `${summary.title} · General` : summary.title;
+}
+
+/**
+ * `parentId`: a reply to that post. `subject` and `important`: a headline and an "Important" mark for a post. All
+ * three only in group chats (team chats, departments and channels). `fileIds`: files this person uploaded to the
+ * conversation, shared with the message (a message can be only files).
+ */
+export async function sendMessage(viewer, conversationId, { body = '', parentId = null, subject = null, important = false, fileIds = [] }) {
+  const { conversation, people } = await loadConversation(viewer, conversationId);
+  let parent = null;
+  if ((parentId || subject || important) && !isGroup(conversation)) throw ApiError.badRequest('Replies, subjects and important posts are for team chats and channels');
+  if (!body && !fileIds.length) throw ApiError.badRequest('Write a message');
+  if (parentId) {
+    parent = await ConversationMessage.findOne({ where: { id: parentId, conversationId }, attributes: ['id', 'parentId', 'authorId', 'deletedAt'] });
+    if (!parent || parent.parentId) throw ApiError.badRequest('Reply to a post in this conversation');
+    if (parent.deletedAt) throw ApiError.badRequest('This post was deleted');
+  }
+  const files = fileIds.length ? await ConversationFile.findAll({ where: { id: fileIds, conversationId, uploaderId: viewer.id, messageId: null } }) : [];
+  if (files.length !== new Set(fileIds).size) throw ApiError.badRequest('A file could not be attached. Upload it again.');
+  const created = await ConversationMessage.create({
+    conversationId,
+    authorId: viewer.id,
+    body,
+    parentId: parent?.id ?? null,
+    subject: parent ? null : subject || null,
+    important: Boolean(important && !parent),
+  });
+  if (files.length) await ConversationFile.update({ messageId: created.id }, { where: { id: files.map((file) => file.id) } });
+  const message = await loadMessage(created.id);
   broadcast(people, 'conversation:message', message);
   await markReadInternal(conversationId, viewer.id, people);
+  if (isGroup(conversation)) {
+    const mentioned = await notifyMentions(viewer, conversation, message, people);
+    if (parent) await notifyThread(viewer, conversation, parent, message, people, mentioned);
+  }
   return message;
+}
+
+/** @mentioned people in the conversation hear about it (`skip`: people already mentioned before an edit). */
+async function notifyMentions(viewer, conversation, message, people, skip = new Set()) {
+  const audience = new Set(people);
+  const mentionedIds = extractMentionIds(message.body);
+  const everyone = mentionedIds.includes(EVERYONE_ID) && !skip.has(EVERYONE_ID);
+  const userIds = (everyone ? people : mentionedIds).filter((userId) => userId !== viewer.id && audience.has(userId) && !skip.has(userId));
+  if (!userIds.length) return new Set();
+  const place = await placeName(viewer, conversation, people);
+  await notifyUsers({
+    userIds,
+    actorId: viewer.id,
+    type: 'chat_mention',
+    title: everyone ? `${viewer.name ?? 'Someone'} mentioned everyone in ${place}` : `${viewer.name ?? 'Someone'} mentioned you in ${place}`,
+    body: preview(message.body),
+    link: `/messages/${conversation.id}?post=${message.parentId ?? message.id}`,
+    email: false,
+  });
+  return new Set(userIds);
+}
+
+/** A reply tells the post's author and everyone who already replied to it, like a Teams thread. */
+async function notifyThread(viewer, conversation, parent, message, people, mentioned) {
+  const repliers = (await ConversationMessage.findAll({ where: { parentId: parent.id }, attributes: ['authorId'], raw: true })).map((row) => row.authorId);
+  const audience = new Set(people);
+  const userIds = [parent.authorId, ...repliers].filter((userId) => userId && userId !== viewer.id && audience.has(userId) && !mentioned.has(userId));
+  if (!userIds.length) return;
+  await notifyUsers({
+    userIds,
+    actorId: viewer.id,
+    type: 'channel_reply',
+    title: `${viewer.name ?? 'Someone'} replied in ${await placeName(viewer, conversation, people)}`,
+    body: preview(message.body),
+    link: `/messages/${conversation.id}?post=${parent.id}`,
+    email: false,
+  });
+}
+
+/** Pins a post to the top of a group chat (or unpins it); anyone in the conversation can. */
+export async function pinMessage(viewer, conversationId, messageId, pinned) {
+  const { conversation, people } = await loadConversation(viewer, conversationId);
+  if (!isGroup(conversation)) throw ApiError.badRequest('Posts are pinned in team chats and channels');
+  const message = await ConversationMessage.findOne({ where: { id: messageId, conversationId } });
+  if (!message) throw ApiError.notFound('Message not found');
+  if (message.parentId) throw ApiError.badRequest('Pin the post, not a reply');
+  if (pinned && message.deletedAt) throw ApiError.badRequest('This post was deleted');
+  if (pinned && !message.pinnedAt) {
+    const count = await ConversationMessage.count({ where: { conversationId, pinnedAt: { [Op.ne]: null } } });
+    if (count >= MAX_PINNED) throw ApiError.badRequest(`Up to ${MAX_PINNED} posts can be pinned. Unpin one first.`);
+  }
+  if (Boolean(message.pinnedAt) !== pinned) await message.update(pinned ? { pinnedAt: new Date(), pinnedById: viewer.id } : { pinnedAt: null, pinnedById: null });
+  const updated = await loadMessage(message.id);
+  broadcast(people, 'conversation:updated', updated);
+  return updated;
+}
+
+/** Adds this person's reaction, or takes it back when they already reacted with that emoji. */
+export async function toggleReaction(viewer, conversationId, messageId, emoji) {
+  const { people } = await loadConversation(viewer, conversationId);
+  const message = await ConversationMessage.findOne({ where: { id: messageId, conversationId }, attributes: ['id', 'deletedAt'] });
+  if (!message) throw ApiError.notFound('Message not found');
+  if (message.deletedAt) throw ApiError.badRequest('This message was deleted');
+  const existing = await ConversationReaction.findOne({ where: { messageId, userId: viewer.id, emoji } });
+  if (existing) await existing.destroy();
+  else await ConversationReaction.findOrCreate({ where: { messageId, userId: viewer.id, emoji }, defaults: { conversationId } });
+  const reactions = (await reactionsFor([messageId])).get(messageId) ?? [];
+  broadcast(people, 'conversation:reactions', { conversationId, messageId, reactions });
+  return { messageId, reactions };
 }
 
 export async function markRead(viewer, conversationId) {
@@ -276,22 +485,32 @@ export async function deleteMessage(viewer, conversationId, messageId) {
   const message = await ConversationMessage.findOne({ where: { id: messageId, conversationId } });
   if (!message) throw ApiError.notFound('Message not found');
   if (message.authorId !== viewer.id) throw ApiError.forbidden('You can only delete your own messages');
-  if (!message.deletedAt) await message.update({ body: '', deletedAt: new Date() });
-  const updated = (await ConversationMessage.findByPk(message.id, { include: authorInclude })).toJSON();
+  if (!message.deletedAt) {
+    await message.update({ body: '', subject: null, important: false, deletedAt: new Date(), pinnedAt: null, pinnedById: null });
+    await ConversationReaction.destroy({ where: { messageId: message.id } });
+    await deleteFilesWhere({ messageId: message.id });
+  }
+  const updated = await loadMessage(message.id);
   broadcast(people, 'conversation:updated', updated);
   return updated;
 }
 
-/** Changes the text of your own message; everyone sees the new text, marked as edited. */
-export async function editMessage(viewer, conversationId, messageId, body) {
-  const { people } = await loadConversation(viewer, conversationId);
+/**
+ * Changes the text (and, for posts, the subject) of your own message; everyone sees it marked as edited. People
+ * newly @mentioned in the edit hear about it.
+ */
+export async function editMessage(viewer, conversationId, messageId, { body, subject }) {
+  const { conversation, people } = await loadConversation(viewer, conversationId);
   const message = await ConversationMessage.findOne({ where: { id: messageId, conversationId } });
   if (!message) throw ApiError.notFound('Message not found');
   if (message.authorId !== viewer.id) throw ApiError.forbidden('You can only edit your own messages');
   if (message.deletedAt) throw ApiError.badRequest('This message was deleted');
-  if (message.body !== body) await message.update({ body, editedAt: new Date() });
-  const updated = (await ConversationMessage.findByPk(message.id, { include: authorInclude })).toJSON();
+  const nextSubject = subject === undefined || message.parentId || !isGroup(conversation) ? message.subject : subject || null;
+  const alreadyMentioned = new Set(extractMentionIds(message.body));
+  if (message.body !== body || message.subject !== nextSubject) await message.update({ body, subject: nextSubject, editedAt: new Date() });
+  const updated = await loadMessage(message.id);
   broadcast(people, 'conversation:updated', updated);
+  if (isGroup(conversation)) await notifyMentions(viewer, conversation, updated, people, alreadyMentioned);
   return updated;
 }
 
@@ -313,4 +532,92 @@ export async function clearConversation(viewer, conversationId) {
   await membership.update({ clearedAt, lastReadAt: clearedAt });
   emitToUser(viewer.id, 'conversation:cleared', { conversationId, clearedAt });
   return describe(viewer, conversation, people);
+}
+
+/** Removes stored files (and their rows), e.g. of a deleted message or channel. */
+export async function deleteFilesWhere(where) {
+  const files = await ConversationFile.findAll({ where, attributes: ['id', 'storageKey'] });
+  if (!files.length) return;
+  await Promise.all(files.map((file) => deleteStoredFile(file.storageKey)));
+  await ConversationFile.destroy({ where: { id: files.map((file) => file.id) } });
+}
+
+/** The Files tab: everything shared in the conversation, newest first, with who shared it and in which post. */
+export async function listFiles(viewer, conversationId) {
+  await loadConversation(viewer, conversationId);
+  const files = await ConversationFile.findAll({
+    where: { conversationId, messageId: { [Op.ne]: null } },
+    include: [
+      { model: User, as: 'uploader', attributes: USER_SUMMARY_ATTRIBUTES },
+      { model: ConversationMessage, as: 'message', attributes: ['id', 'parentId'], required: true, where: { deletedAt: null } },
+    ],
+    order: [['createdAt', 'DESC']],
+    limit: 500,
+  });
+  return files.map((file) => ({ ...fileView(file), createdAt: file.createdAt, uploader: file.uploader, messageId: file.message.id, postId: file.message.parentId ?? file.message.id }));
+}
+
+/** "Save this message": private bookmarks; returns whether it is saved now. */
+export async function setSaved(viewer, conversationId, messageId, saved) {
+  await loadConversation(viewer, conversationId);
+  const message = await ConversationMessage.findOne({ where: { id: messageId, conversationId }, attributes: ['id', 'deletedAt'] });
+  if (!message) throw ApiError.notFound('Message not found');
+  if (saved) {
+    if (message.deletedAt) throw ApiError.badRequest('This message was deleted');
+    await ConversationSavedMessage.findOrCreate({ where: { userId: viewer.id, messageId }, defaults: { conversationId } });
+  } else {
+    await ConversationSavedMessage.destroy({ where: { userId: viewer.id, messageId } });
+  }
+  emitToUser(viewer.id, 'conversation:saved', { conversationId, messageId, saved });
+  return { messageId, saved };
+}
+
+/** Everything this person saved that they can still open, newest saves first, with where it was said. */
+export async function listSaved(viewer) {
+  const rows = await ConversationSavedMessage.findAll({
+    where: { userId: viewer.id },
+    include: [{ model: ConversationMessage, as: 'message', required: true, where: { deletedAt: null }, include: authorInclude }],
+    order: [['createdAt', 'DESC']],
+    limit: 200,
+  });
+  const places = new Map();
+  const items = [];
+  for (const row of rows) {
+    if (!places.has(row.conversationId)) {
+      places.set(
+        row.conversationId,
+        await loadConversation(viewer, row.conversationId)
+          .then(async ({ conversation, people }) => {
+            const summary = await describe(viewer, conversation, people);
+            return { id: conversation.id, kind: conversation.kind, title: conversation.kind === 'team' ? 'General' : summary.title, team: summary.team ?? null };
+          })
+          .catch(() => null),
+      );
+    }
+    const place = places.get(row.conversationId);
+    if (place) items.push({ savedAt: row.createdAt, conversation: place, message: (await decorate([row.message]))[0] });
+  }
+  return items;
+}
+
+/** "Mark as unread": the conversation counts as unread again from this message on. */
+export async function markUnread(viewer, conversationId, messageId) {
+  const { conversation, people } = await loadConversation(viewer, conversationId);
+  const message = await ConversationMessage.findOne({ where: { id: messageId, conversationId }, attributes: ['createdAt'] });
+  if (!message) throw ApiError.notFound('Message not found');
+  const [membership] = await ConversationMember.findOrCreate({ where: { conversationId, userId: viewer.id } });
+  await membership.update({ lastReadAt: new Date(new Date(message.createdAt).getTime() - 1) });
+  const summary = await describe(viewer, conversation, people);
+  emitToUser(viewer.id, 'conversation:summary', summary);
+  return summary;
+}
+
+/** Mutes (or unmutes) the conversation for this person only. */
+export async function setMuted(viewer, conversationId, muted) {
+  const { conversation, people } = await loadConversation(viewer, conversationId);
+  const [membership] = await ConversationMember.findOrCreate({ where: { conversationId, userId: viewer.id } });
+  await membership.update({ mutedAt: muted ? new Date() : null });
+  const summary = await describe(viewer, conversation, people);
+  emitToUser(viewer.id, 'conversation:summary', summary);
+  return summary;
 }

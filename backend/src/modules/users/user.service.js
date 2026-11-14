@@ -2,6 +2,8 @@ import { Op } from 'sequelize';
 import { likeOperator } from '../../database/connection.js';
 import { OrganizationMember, ProjectMember, User } from '../../database/models.js';
 import { currentOrganizationId } from '../../shared/context/request-context.js';
+import { ApiError } from '../../shared/errors/api-error.js';
+import { isUuid } from '../../shared/utils/ids.js';
 import { USER_SUMMARY_ATTRIBUTES } from './user.model.js';
 import { assertProjectRole } from '../projects/project-access.js';
 
@@ -33,4 +35,15 @@ export async function searchUsers(currentUserId, { q, projectId }) {
     where[Op.or] = [{ name: { [likeOperator]: term } }, { email: { [likeOperator]: term } }];
   }
   return User.findAll({ where, attributes: [...USER_SUMMARY_ATTRIBUTES, 'status'], order: [['name', 'ASC']], limit: 50 });
+}
+
+/**
+ * The profile card people see when they click someone in a chat or channel (like Teams): who they are, and their
+ * time zone for "local time". Only for people in the same organization; private details (phone, about…) stay out.
+ */
+export async function getUserCard(userId) {
+  const organizationId = currentOrganizationId();
+  const isMember = organizationId && isUuid(userId) && (await OrganizationMember.count({ where: { organizationId, userId, status: 'active' } }));
+  if (!isMember) throw ApiError.notFound('Person not found');
+  return User.findByPk(userId, { attributes: [...USER_SUMMARY_ATTRIBUTES, 'timezone', 'lastSeenAt'] });
 }

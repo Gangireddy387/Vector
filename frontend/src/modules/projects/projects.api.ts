@@ -76,7 +76,11 @@ export const projectsApi = {
     http.get<{ activities: Activity[] }>(`/projects/${projectId}/activity`, { params: { limit } }).then((r) => r.data.activities),
 }
 
+/** What a person's profile card shows (people in the same organization). */
+export type UserCard = UserSummary & { timezone: string; lastSeenAt: string | null }
+
 export const usersApi = {
   search: (params: { q?: string; projectId?: string }) =>
     http.get<{ users: UserSummary[] }>('/users', { params }).then((r) => r.data.users),
+  card: (userId: string) => http.get<{ user: UserCard }>(`/users/${userId}/card`).then((r) => r.data.user),
 }

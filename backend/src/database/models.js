@@ -29,7 +29,16 @@ import { Department, Team, TeamMember } from '../modules/departments/department.
 import { CalendarEvent } from '../modules/calendar/calendar-event.model.js';
 import { CalendarConnection, MeetingCalendarLink } from '../modules/calendar/calendar-connection.model.js';
 import { SupportMessage } from '../modules/support/support-message.model.js';
-import { Conversation, ConversationHiddenMessage, ConversationMember, ConversationMessage } from '../modules/messages/conversation.model.js';
+import {
+  Conversation,
+  ConversationHiddenMessage,
+  ConversationMember,
+  ConversationFile,
+  ConversationMessage,
+  ConversationReaction,
+  ConversationSavedMessage,
+} from '../modules/messages/conversation.model.js';
+import { Channel, ChannelMember } from '../modules/messages/channel.model.js';
 import {
   Meeting,
   MeetingAttendance,
@@ -181,9 +190,24 @@ ConversationMember.belongsTo(User, { as: 'user', foreignKey: 'userId', ...cascad
 ConversationMessage.belongsTo(User, { as: 'author', foreignKey: 'authorId', onDelete: 'SET NULL' });
 ConversationMessage.hasMany(ConversationHiddenMessage, { as: 'hides', foreignKey: 'messageId', ...cascade });
 User.hasMany(ConversationHiddenMessage, { as: 'hiddenMessages', foreignKey: 'userId', ...cascade });
+ConversationMessage.hasMany(ConversationReaction, { as: 'reactions', foreignKey: 'messageId', ...cascade });
+User.hasMany(ConversationReaction, { as: 'reactions', foreignKey: 'userId', ...cascade });
+Conversation.hasMany(ConversationFile, { as: 'files', foreignKey: 'conversationId', ...cascade });
+ConversationFile.belongsTo(User, { as: 'uploader', foreignKey: 'uploaderId', onDelete: 'SET NULL' });
+ConversationFile.belongsTo(ConversationMessage, { as: 'message', foreignKey: 'messageId', constraints: false });
+ConversationMessage.hasMany(ConversationSavedMessage, { as: 'saves', foreignKey: 'messageId', ...cascade });
+User.hasMany(ConversationSavedMessage, { as: 'savedMessages', foreignKey: 'userId', ...cascade });
+ConversationSavedMessage.belongsTo(ConversationMessage, { as: 'message', foreignKey: 'messageId' });
 // No database constraint: the chat of a deleted team or department simply stops being listed.
 Conversation.belongsTo(Team, { as: 'team', foreignKey: 'teamId', constraints: false });
 Conversation.belongsTo(Department, { as: 'department', foreignKey: 'departmentId', constraints: false });
+// Team channels: deleting a team deletes its channels (their conversations are removed in code).
+Team.hasMany(Channel, { as: 'channels', foreignKey: 'teamId', ...cascade });
+Channel.belongsTo(Team, { as: 'team', foreignKey: 'teamId' });
+Channel.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+Channel.hasMany(ChannelMember, { as: 'members', foreignKey: 'channelId', ...cascade });
+ChannelMember.belongsTo(User, { as: 'user', foreignKey: 'userId', ...cascade });
+Conversation.belongsTo(Channel, { as: 'channel', foreignKey: 'channelId', constraints: false });
 
 // Video meetings
 Organization.hasMany(Meeting, { as: 'meetings', foreignKey: 'organizationId', ...cascade });
@@ -249,7 +273,12 @@ export {
   Conversation,
   ConversationHiddenMessage,
   ConversationMember,
+  ConversationFile,
   ConversationMessage,
+  ConversationReaction,
+  ConversationSavedMessage,
+  Channel,
+  ChannelMember,
   Meeting,
   MeetingParticipant,
   MeetingUpdate,

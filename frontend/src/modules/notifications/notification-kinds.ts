@@ -38,6 +38,7 @@ const KINDS: Record<string, KindStyle> = {
   sprint_completed: { label: 'Sprint', icon: Rocket, tone: 'bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400' },
   member_added: { label: 'Access', icon: UserPlus, tone: 'bg-teal-500/15 text-teal-600 dark:text-teal-400' },
   chat_task: { label: 'Chat', icon: MessagesSquare, tone: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400' },
+  channel_reply: { label: 'Reply', icon: MessagesSquare, tone: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400' },
   support_message: { label: 'Vector team', icon: MessageCircle, tone: 'bg-[#00a884]/15 text-[#00a884]' },
   support_call: { label: 'Vector team call', icon: Video, tone: 'bg-[#00a884]/15 text-[#00a884]' },
   meeting_invite: { label: 'Meeting', icon: Video, tone: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },
@@ -55,7 +56,7 @@ export const INBOX_FILTERS: Array<{ value: InboxFilter; label: string; icon: Com
   { value: 'all', label: 'Inbox', icon: Inbox },
   { value: 'unread', label: 'Unread', icon: MailOpen },
   { value: 'assigned', label: 'Assigned', icon: UserPlus, types: ['assigned'] },
-  { value: 'mentions', label: 'Mentions', icon: AtSign, types: ['mentioned', 'chat_mention'] },
+  { value: 'mentions', label: 'Mentions', icon: AtSign, types: ['mentioned', 'chat_mention', 'channel_reply'] },
   {
     value: 'updates',
     label: 'Updates',
@@ -69,6 +70,7 @@ export const INBOX_FILTERS: Array<{ value: InboxFilter; label: string; icon: Com
 /** What the reading pane's main button says for a notification's link. */
 export function openLabel(notification: AppNotification) {
   if (notification.type === 'support_message') return 'Open chat'
+  if (notification.type === 'channel_reply') return 'Open conversation'
   if (notification.link?.startsWith('/meetings/')) return 'Open meeting'
   if (notification.link?.startsWith('/issues/') || notification.link?.includes('issue=')) return 'Open task'
   if (notification.link?.includes('/projects/')) return 'Open project'

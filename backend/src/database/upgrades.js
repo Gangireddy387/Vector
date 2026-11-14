@@ -56,6 +56,13 @@ const ADDED_COLUMNS = [
   { table: 'conversation_members', column: 'cleared_at', definition: { type: DataTypes.DATE, allowNull: true } },
   { table: 'meetings', column: 'kind', definition: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'meeting' } },
   { table: 'support_messages', column: 'recording', definition: { type: DataTypes.JSON, allowNull: true } },
+  { table: 'conversations', column: 'channel_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'conversation_messages', column: 'parent_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'conversation_messages', column: 'subject', definition: { type: DataTypes.STRING(150), allowNull: true } },
+  { table: 'conversation_messages', column: 'pinned_at', definition: { type: DataTypes.DATE, allowNull: true } },
+  { table: 'conversation_messages', column: 'pinned_by_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'conversation_messages', column: 'important', definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false } },
+  { table: 'conversation_members', column: 'muted_at', definition: { type: DataTypes.DATE, allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

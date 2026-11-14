@@ -14,7 +14,7 @@ export const useMessagesStore = defineStore('messages', () => {
   let isBound = false
 
   const isAvailable = computed(() => auth.hasFeature('directMessages') || auth.hasFeature('teamChat'))
-  const unreadTotal = computed(() => (conversations.value ?? []).reduce((total, conversation) => total + conversation.unread, 0))
+  const unreadTotal = computed(() => (conversations.value ?? []).reduce((total, conversation) => total + (conversation.muted ? 0 : conversation.unread), 0))
 
   async function load() {
     if (!isAvailable.value) return (conversations.value = [])
@@ -28,9 +28,9 @@ export const useMessagesStore = defineStore('messages', () => {
 
   function onMessage(message: ChatMessage) {
     const isMine = message.authorId === auth.user?.id
-    // Someone else's message: a ding, softer when that conversation is already on screen.
-    if (!isMine) playSound('message', { id: message.id, quiet: openId.value === message.conversationId && document.hasFocus() })
     const conversation = conversations.value?.find((item) => item.id === message.conversationId)
+    // Someone else's message: a ding, softer when that conversation is already on screen (none when it is muted).
+    if (!isMine && !conversation?.muted) playSound('message', { id: message.id, quiet: openId.value === message.conversationId && document.hasFocus() })
     if (!conversation) return void load()
     upsert({
       ...conversation,
@@ -60,6 +60,12 @@ export const useMessagesStore = defineStore('messages', () => {
     if (conversation?.lastMessage?.id === messageId) void load()
   }
 
+  /** A channel was deleted, or this person was taken out of a private one. */
+  function onRemoved({ conversationId }: { conversationId: string | null }) {
+    if (!conversationId || !conversations.value) return
+    conversations.value = conversations.value.filter((conversation) => conversation.id !== conversationId)
+  }
+
   function markReadLocally(conversationId: string) {
     const conversation = conversations.value?.find((item) => item.id === conversationId)
     if (conversation) conversation.unread = 0
@@ -76,6 +82,11 @@ export const useMessagesStore = defineStore('messages', () => {
         'conversation:updated': onUpdated,
         'conversation:cleared': onCleared,
         'conversation:hidden': onHidden,
+        'conversation:removed': onRemoved,
+        // Muted or marked unread (possibly in another tab).
+        'conversation:summary': (summary: ConversationSummary) => conversations.value && upsert(summary),
+        // Channels were added, renamed or opened to this person.
+        'conversation:list': () => void load().catch(() => undefined),
         'conversation:read': (event: { conversationId: string; userId: string }) => {
           if (event.userId === auth.user?.id) markReadLocally(event.conversationId)
         },
@@ -89,5 +100,5 @@ export const useMessagesStore = defineStore('messages', () => {
     )
   }
 
-  return { conversations, openId, isAvailable, unreadTotal, load, upsert, markReadLocally, bindRealtime }
+  return { conversations, openId, isAvailable, unreadTotal, load, upsert, remove: (conversationId: string) => onRemoved({ conversationId }), markReadLocally, bindRealtime }
 })

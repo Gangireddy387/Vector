@@ -13,6 +13,7 @@ import departmentRoutes from './modules/departments/department.routes.js';
 import issueRoutes from './modules/issues/issue.routes.js';
 import labelRoutes from './modules/labels/label.routes.js';
 import messageRoutes from './modules/messages/messages.routes.js';
+import { conversationFileRoutes, publicConversationFileRoutes } from './modules/messages/conversation.files.js';
 import { publicMeetingRoutes } from './modules/meetings/meeting.guest.js';
 import { publicRecordingRoutes } from './modules/meetings/meeting.recordings.js';
 import { publicMeetingFileRoutes } from './modules/meetings/meeting.files.js';
@@ -50,6 +51,7 @@ export function createApiRouter() {
   router.use(publicMeetingRoutes);
   router.use(publicRecordingRoutes);
   router.use(publicMeetingFileRoutes);
+  router.use(publicConversationFileRoutes);
   router.use(publicCalendarSyncRoutes);
   router.use(livekitWebhookRoutes);
 
@@ -89,6 +91,7 @@ export function createApiRouter() {
     standupRoutes,
     calendarRoutes,
     messageRoutes,
+    conversationFileRoutes,
     meetingRoutes,
     aiRoutes,
   ].forEach((moduleRouter) => router.use(moduleRouter));

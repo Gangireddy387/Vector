@@ -10,6 +10,7 @@ import { registerMeetingAi } from '../../modules/meetings/meeting.ai.js';
 import { registerMeetingPhone } from '../../modules/meetings/meeting.phone.js';
 import { registerMeetingQa } from '../../modules/meetings/meeting.qa.js';
 import { registerMeetingSignaling } from '../../modules/meetings/meeting.signaling.js';
+import { registerConversationTyping } from '../../modules/messages/conversation.typing.js';
 import { canWatchProject } from '../../modules/projects/project-access.js';
 import { presenceConnected, presenceDisconnected, registerPresence } from './presence.js';
 
@@ -95,6 +96,7 @@ export function initRealtime(httpServer, redis = null) {
     socket.join(`user:${userId}`);
     connections.set(userId, (connections.get(userId) ?? 0) + 1);
     registerPresence(io, socket);
+    registerConversationTyping(io, socket);
     void presenceConnected(io, socket).catch((error) => console.warn('[presence] could not mark online:', error.message));
     // The portal's super admin sees everyone's presence, across organizations.
     void superAdminUserId()
