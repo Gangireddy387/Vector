@@ -2,17 +2,21 @@
 import { format, isToday, isYesterday, parseISO } from 'date-fns'
 import {
   ArrowLeft,
-  Bell,
+  AtSign,
   BellOff,
+  BellRing,
   Bookmark,
   Building2,
+  Check,
   ChevronDown,
   Ellipsis,
   EllipsisVertical,
   Eraser,
   ExternalLink,
+  FileText,
   FolderOpen,
   Hash,
+  Kanban,
   Lock,
   LogOut,
   MessageCirclePlus,
@@ -30,7 +34,7 @@ import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
@@ -47,11 +51,13 @@ import { usePresenceStore } from '@/stores/presence.store'
 import type { UserSummary } from '@/types/models'
 import ChannelDialog from '../components/ChannelDialog.vue'
 import ChannelFiles from '../components/ChannelFiles.vue'
+import ChannelBoard from '../components/ChannelBoard.vue'
+import ChannelDocs from '../components/ChannelDocs.vue'
 import ChannelMembersDialog from '../components/ChannelMembersDialog.vue'
 import ChannelThread from '../components/ChannelThread.vue'
 import ConversationThread from '../components/ConversationThread.vue'
 import SavedMessagesDialog from '../components/SavedMessagesDialog.vue'
-import { type ConversationSummary, channelsApi, messagesApi } from '../messages.api'
+import { type ConversationSummary, type NotifyLevel, channelsApi, messagesApi, notifyLevelOf } from '../messages.api'
 import { useMessagesStore } from '../messages.store'
 
 /**
@@ -93,10 +99,33 @@ const focusPostId = computed(() => (typeof route.query.post === 'string' ? route
 const canAttach = computed(() => auth.hasFeature('attachments'))
 const savedOpen = ref(false)
 
-/** The open channel's tabs (Posts, Files) and its in-channel search. */
-const view = ref<'posts' | 'files'>('posts')
+/** The open channel's tabs (Posts, Files, Docs, Board) and its in-channel search. */
+const view = ref<'posts' | 'files' | 'docs' | 'board'>('posts')
 const channelSearch = ref('')
 const isSearching = ref(false)
+
+const NOTIFY_OPTIONS: Array<{ value: NotifyLevel; label: string; description: string; icon: typeof BellRing }> = [
+  { value: 'all', label: 'All messages', description: 'Sounds and unread badge for every post', icon: BellRing },
+  { value: 'mentions', label: 'Mentions only', description: 'Quiet unless someone @mentions you', icon: AtSign },
+  { value: 'none', label: 'Off', description: 'No sounds, badge, or mention alerts', icon: BellOff },
+]
+
+const channelTabs = computed(() => {
+  const tabs: Array<{ value: 'posts' | 'files' | 'docs' | 'board'; label: string }> = [
+    { value: 'posts', label: 'Posts' },
+    { value: 'files', label: 'Files' },
+    { value: 'docs', label: 'Docs' },
+  ]
+  if (selected.value?.team) tabs.push({ value: 'board', label: 'Board' })
+  return tabs
+})
+
+watch(
+  () => selected.value?.team?.id,
+  () => {
+    if (view.value === 'board' && !selected.value?.team) view.value = 'posts'
+  },
+)
 watch(
   () => props.conversationId,
   () => {
@@ -116,16 +145,25 @@ function closeSearch() {
   isSearching.value = false
 }
 
-async function toggleMute(conversation: ConversationSummary) {
+async function setNotifyLevel(conversation: ConversationSummary, notifyLevel: NotifyLevel) {
+  if (notifyLevelOf(conversation) === notifyLevel) return
   try {
-    const summary = await messagesApi.mute(conversation.id, !conversation.muted)
+    const summary = await messagesApi.setNotifyLevel(conversation.id, notifyLevel)
     store.upsert(summary)
-    toast.success(summary.muted ? `${headerTitle(summary)} is muted` : `${headerTitle(summary)} is unmuted`, {
-      description: summary.muted ? 'No sounds or unread badge; @mentions still reach you.' : undefined,
+    const option = NOTIFY_OPTIONS.find((item) => item.value === notifyLevelOf(summary))
+    toast.success(`${headerTitle(summary)}: ${option?.label ?? notifyLevel}`, {
+      description: option?.description,
     })
   } catch (error) {
     toast.error(getErrorMessage(error))
   }
+}
+
+const notifyIcon = (conversation: ConversationSummary) => {
+  const level = notifyLevelOf(conversation)
+  if (level === 'none') return BellOff
+  if (level === 'mentions') return AtSign
+  return BellRing
 }
 
 /** Everyone in the open team chat or channel: who can be @mentioned, and who "Meet" calls. */
@@ -171,7 +209,7 @@ const teamGroups = computed(() => {
         general,
         channels: teamMatches ? channels : channels.filter(matches),
         visible: teamMatches || channels.some(matches),
-        unread: [general, ...channels].reduce((total, conversation) => total + (conversation.muted ? 0 : conversation.unread), 0),
+        unread: [general, ...channels].reduce((total, conversation) => total + (notifyLevelOf(conversation) === 'all' ? conversation.unread : 0), 0),
       }
     })
   return groups.filter((group) => group.visible).sort((a, b) => a.team.name.localeCompare(b.team.name))
@@ -179,7 +217,8 @@ const teamGroups = computed(() => {
 const departmentChats = computed(() => all.value.filter((conversation) => conversation.kind === 'department' && matches(conversation)))
 const teamsForChannels = computed(() => all.value.filter((conversation) => conversation.kind === 'team' && conversation.team).map((conversation) => conversation.team!))
 
-const unreadOf = (list: ConversationSummary[]) => list.reduce((total, conversation) => total + (conversation.muted ? 0 : conversation.unread), 0)
+const unreadOf = (list: ConversationSummary[]) =>
+  list.reduce((total, conversation) => total + (notifyLevelOf(conversation) === 'all' ? conversation.unread : 0), 0)
 const chatUnread = computed(() => unreadOf(all.value.filter((conversation) => conversation.kind === 'direct')))
 const teamsUnread = computed(() => unreadOf(all.value.filter((conversation) => conversation.kind !== 'direct')))
 
@@ -205,8 +244,21 @@ const preview = (conversation: ConversationSummary) => {
 }
 /** Live, like Teams: "Available", "In a call", "Offline · last seen 5 minutes ago"… */
 const presence = (conversation: ConversationSummary) => {
-  if (conversation.kind === 'channel' || conversation.kind === 'team') return `${conversation.team?.name ?? ''} · ${conversation.memberCount ?? 0} people`
-  if (conversation.kind !== 'direct') return `${conversation.memberCount ?? 0} people · ${conversation.subtitle}`
+  if (conversation.kind === 'channel' || conversation.kind === 'team' || conversation.kind === 'department') {
+    const people = selected.value?.id === conversation.id ? conversationPeople.value : []
+    if (people.length) presenceStore.track(people.map((person) => person.id))
+    const online = people.filter((person) => {
+      const status = presenceStore.statusOf(person.id)
+      return status != null && status !== 'offline'
+    }).length
+    const total = conversation.memberCount ?? people.length
+    const team = conversation.kind === 'department' ? '' : (conversation.team?.name ?? '')
+    if (conversation.kind === 'department') {
+      return online > 0 ? `${online} online · ${total} people · ${conversation.subtitle}` : `${total} people · ${conversation.subtitle}`
+    }
+    if (online > 0) return `${team} · ${online} online · ${total} people`
+    return `${team} · ${total} people`
+  }
   const live = presenceStore.describe(conversation.person?.id)
   if (live) return live
   if (conversation.person?.isOnline) return 'Available'
@@ -428,8 +480,10 @@ async function leaveChannel(conversation: ConversationSummary) {
                   <DropdownMenuContent align="end" class="w-52">
                     <DropdownMenuItem @select="addChannel(group.team.id)"><Plus /> Add a channel</DropdownMenuItem>
                     <DropdownMenuItem @select="router.push({ name: 'team', params: { teamId: group.team.id } })"><ExternalLink /> Open the team page</DropdownMenuItem>
-                    <DropdownMenuItem @select="toggleMute(group.general)">
-                      <Bell v-if="group.general.muted" /><BellOff v-else /> {{ group.general.muted ? 'Unmute General' : 'Mute General' }}
+                    <DropdownMenuLabel class="text-[11px] font-medium text-muted-foreground">General alerts</DropdownMenuLabel>
+                    <DropdownMenuItem v-for="option in NOTIFY_OPTIONS" :key="option.value" @select="setNotifyLevel(group.general, option.value)">
+                      <component :is="option.icon" /> {{ option.label }}
+                      <Check v-if="notifyLevelOf(group.general) === option.value" class="ml-auto size-3.5" />
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -447,15 +501,20 @@ async function leaveChannel(conversation: ConversationSummary) {
                   <Hash v-else class="size-3.5 shrink-0 text-muted-foreground" />
                   <span
                     class="min-w-0 flex-1 truncate text-[13px]"
-                    :class="conversation.muted ? 'text-muted-foreground' : conversation.unread ? 'font-semibold text-foreground' : 'text-foreground/85'"
+                    :class="notifyLevelOf(conversation) !== 'all' ? 'text-muted-foreground' : conversation.unread ? 'font-semibold text-foreground' : 'text-foreground/85'"
                   >
                     {{ headerTitle(conversation) }}
                   </span>
-                  <BellOff v-if="conversation.muted" class="size-3.5 shrink-0 text-muted-foreground" aria-label="Muted" />
+                  <component
+                    :is="notifyIcon(conversation)"
+                    v-if="notifyLevelOf(conversation) !== 'all'"
+                    class="size-3.5 shrink-0 text-muted-foreground"
+                    :aria-label="notifyLevelOf(conversation) === 'none' ? 'Notifications off' : 'Mentions only'"
+                  />
                   <span
                     v-if="conversation.unread"
                     class="flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10.5px] font-semibold tabular-nums"
-                    :class="conversation.muted ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'"
+                    :class="notifyLevelOf(conversation) === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
                   >
                     {{ conversation.unread > 99 ? '99+' : conversation.unread }}
                   </span>
@@ -497,7 +556,12 @@ async function leaveChannel(conversation: ConversationSummary) {
           <span class="min-w-0 shrink" :class="selected.kind === 'direct' ? 'flex-1' : ''">
             <span class="flex items-center gap-1.5 truncate text-[13.5px] font-semibold">
               {{ headerTitle(selected) }}
-              <BellOff v-if="selected.muted" class="size-3.5 shrink-0 text-muted-foreground" aria-label="Muted" />
+              <component
+                :is="notifyIcon(selected)"
+                v-if="notifyLevelOf(selected) !== 'all'"
+                class="size-3.5 shrink-0 text-muted-foreground"
+                :aria-label="notifyLevelOf(selected) === 'none' ? 'Notifications off' : 'Mentions only'"
+              />
             </span>
             <span class="flex items-center gap-1.5 truncate text-xs" :class="statusOf(selected) ? PRESENCE_LOOK[statusOf(selected)!].text : 'text-muted-foreground'">
               <PresenceBadge v-if="statusOf(selected)" :status="statusOf(selected)!" size="xs" />
@@ -514,7 +578,7 @@ async function leaveChannel(conversation: ConversationSummary) {
             </div>
             <nav v-else class="ml-2 flex h-full flex-1 items-stretch gap-1" aria-label="Channel tabs">
               <button
-                v-for="item in [{ value: 'posts', label: 'Posts' }, { value: 'files', label: 'Files' }] as const"
+                v-for="item in channelTabs"
                 :key="item.value"
                 type="button"
                 class="relative px-2.5 text-[13px] font-medium transition-colors"
@@ -537,12 +601,17 @@ async function leaveChannel(conversation: ConversationSummary) {
             <DropdownMenuTrigger as-child>
               <Button variant="ghost" size="icon-sm" aria-label="Options" title="Options"><EllipsisVertical /></Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" class="w-56">
-              <DropdownMenuItem @select="toggleMute(selected)">
-                <Bell v-if="selected.muted" /><BellOff v-else /> {{ selected.muted ? 'Unmute' : 'Mute' }} {{ selected.kind === 'direct' ? 'chat' : selected.kind === 'channel' ? 'channel' : '' }}
+            <DropdownMenuContent align="end" class="w-60">
+              <DropdownMenuLabel class="text-[11px] font-medium text-muted-foreground">Notifications</DropdownMenuLabel>
+              <DropdownMenuItem v-for="option in NOTIFY_OPTIONS" :key="option.value" @select="setNotifyLevel(selected, option.value)">
+                <component :is="option.icon" /> {{ option.label }}
+                <Check v-if="notifyLevelOf(selected) === option.value" class="ml-auto size-3.5" />
               </DropdownMenuItem>
-              <DropdownMenuItem v-if="selected.kind !== 'direct'" @select="view = 'files'"><FolderOpen /> Files shared here</DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem v-if="selected.kind !== 'direct'" @select="view = 'files'"><FolderOpen /> Files shared here</DropdownMenuItem>
+              <DropdownMenuItem v-if="selected.kind !== 'direct'" @select="view = 'docs'"><FileText /> Docs</DropdownMenuItem>
+              <DropdownMenuItem v-if="selected.team" @select="view = 'board'"><Kanban /> Board</DropdownMenuItem>
+              <DropdownMenuSeparator v-if="selected.kind !== 'direct'" />
               <DropdownMenuItem v-if="selected.kind === 'direct'" variant="destructive" :disabled="thread?.isEmpty" @select="thread?.clearChat()"><Eraser /> Clear chat</DropdownMenuItem>
               <DropdownMenuItem v-if="selected.kind === 'team'" @select="addChannel(selected.team?.id ?? null)"><Plus /> Add a channel</DropdownMenuItem>
               <DropdownMenuItem v-if="selected.kind === 'team' && selected.team" @select="router.push({ name: 'team', params: { teamId: selected.team.id } })">
@@ -561,6 +630,8 @@ async function leaveChannel(conversation: ConversationSummary) {
         </header>
         <ConversationThread v-if="selected.kind === 'direct'" ref="thread" :key="selected.id" :conversation="selected" class="min-h-0 flex-1" />
         <ChannelFiles v-else-if="view === 'files'" :key="`files-${selected.id}`" :conversation-id="selected.id" class="min-h-0 flex-1" @open-post="openPost" />
+        <ChannelDocs v-else-if="view === 'docs'" :key="`docs-${selected.id}`" :conversation-id="selected.id" class="min-h-0 flex-1" />
+        <ChannelBoard v-else-if="view === 'board'" :key="`board-${selected.id}`" :conversation="selected" class="min-h-0 flex-1" />
         <ChannelThread
           v-else
           :key="selected.id"

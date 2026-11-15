@@ -47,6 +47,11 @@ ConversationMember.init(
     clearedAt: { type: DataTypes.DATE, allowNull: true },
     /** Muted: new messages make no sound and do not add to the unread badge (mentions still notify). */
     mutedAt: { type: DataTypes.DATE, allowNull: true },
+    /**
+     * Teams-style alerts for this chat: `all` (default), `mentions` (sound/badge off; @mentions still notify),
+     * `none` (everything quiet, including @mentions). `mutedAt` stays in sync for older clients.
+     */
+    notifyLevel: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'all' },
   },
   {
     sequelize,
@@ -55,6 +60,8 @@ ConversationMember.init(
     indexes: [{ unique: true, fields: ['conversation_id', 'user_id'] }, { fields: ['user_id'] }],
   },
 );
+
+export const NOTIFY_LEVELS = ['all', 'mentions', 'none'];
 
 export class ConversationMessage extends Model {}
 
@@ -168,5 +175,92 @@ ConversationHiddenMessage.init(
     modelName: 'ConversationHiddenMessage',
     tableName: 'conversation_hidden_messages',
     indexes: [{ unique: true, fields: ['message_id', 'user_id'] }, { fields: ['user_id', 'conversation_id'] }],
+  },
+);
+
+/** Previous body/subject of a message, kept when the author edits it (Teams-style edit history). */
+export class ConversationMessageRevision extends Model {}
+
+ConversationMessageRevision.init(
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    messageId: { type: DataTypes.UUID, allowNull: false },
+    conversationId: { type: DataTypes.UUID, allowNull: false },
+    editorId: { type: DataTypes.UUID, allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: false },
+    subject: { type: DataTypes.STRING(150), allowNull: true },
+  },
+  {
+    sequelize,
+    modelName: 'ConversationMessageRevision',
+    tableName: 'conversation_message_revisions',
+    updatedAt: false,
+    indexes: [{ fields: ['message_id', 'created_at'] }],
+  },
+);
+
+/** A shared markdown doc on a team chat or channel (Docs tab / Loop-style notes). */
+export class ConversationDoc extends Model {}
+
+ConversationDoc.init(
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    conversationId: { type: DataTypes.UUID, allowNull: false },
+    title: { type: DataTypes.STRING(150), allowNull: false },
+    body: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
+    createdById: { type: DataTypes.UUID, allowNull: true },
+    updatedById: { type: DataTypes.UUID, allowNull: true },
+  },
+  {
+    sequelize,
+    modelName: 'ConversationDoc',
+    tableName: 'conversation_docs',
+    indexes: [{ fields: ['conversation_id', 'updated_at'] }],
+  },
+);
+
+/** A poll attached to a channel post. */
+export class ConversationPoll extends Model {}
+
+ConversationPoll.init(
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    conversationId: { type: DataTypes.UUID, allowNull: false },
+    messageId: { type: DataTypes.UUID, allowNull: false },
+    createdById: { type: DataTypes.UUID, allowNull: true },
+    question: { type: DataTypes.STRING(200), allowNull: false },
+    /** Answer labels, in order. */
+    options: { type: DataTypes.JSON, allowNull: false },
+    /** userId → chosen option index. */
+    votes: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
+    status: { type: DataTypes.STRING(10), allowNull: false, defaultValue: 'open' },
+  },
+  {
+    sequelize,
+    modelName: 'ConversationPoll',
+    tableName: 'conversation_polls',
+    indexes: [{ unique: true, fields: ['message_id'] }, { fields: ['conversation_id'] }],
+  },
+);
+
+/** An approval request attached to a channel post (approve / reject). */
+export class ConversationApproval extends Model {}
+
+ConversationApproval.init(
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    conversationId: { type: DataTypes.UUID, allowNull: false },
+    messageId: { type: DataTypes.UUID, allowNull: false },
+    createdById: { type: DataTypes.UUID, allowNull: true },
+    title: { type: DataTypes.STRING(150), allowNull: false },
+    /** userId → `approved` | `rejected`. */
+    responses: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
+    status: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'pending' },
+  },
+  {
+    sequelize,
+    modelName: 'ConversationApproval',
+    tableName: 'conversation_approvals',
+    indexes: [{ unique: true, fields: ['message_id'] }, { fields: ['conversation_id'] }],
   },
 );

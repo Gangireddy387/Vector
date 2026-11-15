@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { format, isToday, parseISO } from 'date-fns'
-import { Ban, Bookmark, BookmarkCheck, CircleAlert, Copy, Ellipsis, EyeOff, Link2, Pencil, Pin, PinOff, SmilePlus, Trash2 } from 'lucide-vue-next'
+import { Ban, Bookmark, BookmarkCheck, CircleAlert, Copy, Ellipsis, EyeOff, Forward, History, Link2, ListTodo, Pencil, Pin, PinOff, SmilePlus, Trash2 } from 'lucide-vue-next'
 import { computed } from 'vue'
 import MarkdownContent from '@/components/common/MarkdownContent.vue'
 import PersonCard from '@/components/common/PersonCard.vue'
@@ -13,6 +13,8 @@ import { useAuthStore } from '@/modules/auth/auth.store'
 import type { UserSummary } from '@/types/models'
 import { type ChatMessage, type ComposerExtras, REACTIONS, messagesApi } from '../messages.api'
 import ChannelComposer from './ChannelComposer.vue'
+import MessageApprovalCard from './MessageApprovalCard.vue'
+import MessagePollCard from './MessagePollCard.vue'
 
 /**
  * One post or reply in a channel, like Teams: who wrote it, an "Important" mark and subject, formatted text, shared
@@ -36,6 +38,12 @@ const emit = defineEmits<{
   pin: []
   toggleSaved: []
   markUnread: []
+  createTask: []
+  forward: []
+  showHistory: []
+  votePoll: [optionIndex: number]
+  closePoll: []
+  respondApproval: [decision: 'approved' | 'rejected']
   edit: []
   cancelEdit: []
   remove: []
@@ -70,7 +78,15 @@ const hoverButton = 'flex size-7 items-center justify-center rounded text-muted-
           <span class="font-semibold hover:text-primary hover:underline">{{ message.author?.name ?? 'Someone' }}</span>
         </PersonCard>
         <span class="text-[11px] text-muted-foreground" :title="format(parseISO(message.createdAt), 'd MMM yyyy, HH:mm')">{{ timeLabel(message.createdAt) }}</span>
-        <span v-if="message.editedAt && !message.deletedAt" class="text-[11px] text-muted-foreground italic" :title="`Edited ${format(parseISO(message.editedAt), 'd MMM, HH:mm')}`">Edited</span>
+        <button
+          v-if="message.editedAt && !message.deletedAt"
+          type="button"
+          class="text-[11px] text-muted-foreground italic hover:text-foreground hover:underline"
+          :title="`Edited ${format(parseISO(message.editedAt), 'd MMM, HH:mm')} · View history`"
+          @click="emit('showHistory')"
+        >
+          Edited
+        </button>
         <span v-if="message.pinnedAt" class="inline-flex items-center gap-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400"><Pin class="size-3" /> Pinned</span>
         <span v-if="saved" class="inline-flex items-center gap-0.5 text-[11px] font-medium text-primary"><BookmarkCheck class="size-3" /> Saved</span>
       </p>
@@ -92,7 +108,10 @@ const hoverButton = 'flex size-7 items-center justify-center rounded text-muted-
       <template v-else>
         <p v-if="message.important" class="mt-1 flex items-center gap-1 text-[11px] font-bold tracking-wide text-red-600 uppercase dark:text-red-400"><CircleAlert class="size-3.5" /> Important!</p>
         <h3 v-if="message.subject" class="mt-1 text-[15.5px] leading-snug font-semibold">{{ message.subject }}</h3>
-        <MarkdownContent v-if="message.body" :source="message.body" class="compact mt-0.5 break-words" :class="reply ? 'text-[13.5px]' : 'text-[14px]'" />
+        <MarkdownContent v-if="message.body && !message.poll" :source="message.body" class="compact mt-0.5 break-words" :class="reply ? 'text-[13.5px]' : 'text-[14px]'" />
+        <MarkdownContent v-else-if="message.body && message.poll && message.body !== message.poll.question" :source="message.body" class="compact mt-0.5 break-words" :class="reply ? 'text-[13.5px]' : 'text-[14px]'" />
+        <MessagePollCard v-if="message.poll && !message.deletedAt" :poll="message.poll" @vote="emit('votePoll', $event)" @close="emit('closePoll')" />
+        <MessageApprovalCard v-if="message.approval && !message.deletedAt" :approval="message.approval" @respond="emit('respondApproval', $event)" />
         <div v-if="message.files?.length" class="mt-1.5 flex flex-wrap gap-2">
           <ChatAttachment v-for="file in message.files" :key="file.id" :file="file" :resolve="resolveFile" />
         </div>
@@ -169,11 +188,16 @@ const hoverButton = 'flex size-7 items-center justify-center rounded text-muted-
           <DropdownMenuItem @select="emit('toggleSaved')">
             <BookmarkCheck v-if="saved" /><Bookmark v-else /> {{ saved ? 'Unsave this message' : 'Save this message' }}
           </DropdownMenuItem>
+          <DropdownMenuItem v-if="!message.deletedAt" @select="emit('createTask')">
+            <ListTodo /> Create task from this
+          </DropdownMenuItem>
+          <DropdownMenuItem v-if="!message.deletedAt" @select="emit('forward')"><Forward /> Forward</DropdownMenuItem>
           <DropdownMenuItem v-if="!reply" @select="emit('pin')">
             <PinOff v-if="message.pinnedAt" /><Pin v-else /> {{ message.pinnedAt ? 'Unpin' : 'Pin to the top' }}
           </DropdownMenuItem>
           <DropdownMenuItem @select="emit('copyLink')"><Link2 /> Copy link</DropdownMenuItem>
           <DropdownMenuItem v-if="message.body" @select="emit('copy')"><Copy /> Copy text</DropdownMenuItem>
+          <DropdownMenuItem v-if="message.editedAt && !message.deletedAt" @select="emit('showHistory')"><History /> View edit history</DropdownMenuItem>
           <DropdownMenuItem v-if="!isMine" @select="emit('markUnread')"><EyeOff /> Mark as unread</DropdownMenuItem>
           <template v-if="isMine">
             <DropdownMenuSeparator />

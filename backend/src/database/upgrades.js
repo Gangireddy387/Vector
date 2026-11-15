@@ -63,6 +63,7 @@ const ADDED_COLUMNS = [
   { table: 'conversation_messages', column: 'pinned_by_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'conversation_messages', column: 'important', definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false } },
   { table: 'conversation_members', column: 'muted_at', definition: { type: DataTypes.DATE, allowNull: true } },
+  { table: 'conversation_members', column: 'notify_level', definition: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'all' } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */
@@ -126,6 +127,14 @@ export async function applySchemaUpgrades() {
   for (const { table, column } of DROPPED_UNIQUE) {
     const description = await queryInterface.describeTable(table).catch(() => null);
     if (description) await dropUniqueConstraint(table, column);
+  }
+
+  // Existing mutes become "mentions only" once notify_level exists.
+  const members = await queryInterface.describeTable('conversation_members').catch(() => null);
+  if (members?.notify_level && members?.muted_at) {
+    await sequelize.query(
+      `UPDATE conversation_members SET notify_level = 'mentions' WHERE muted_at IS NOT NULL AND (notify_level IS NULL OR notify_level = 'all')`,
+    );
   }
 }
 

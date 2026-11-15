@@ -7,6 +7,7 @@ import {
   ConversationHiddenMessage,
   ConversationMember,
   ConversationMessage,
+  ConversationMessageRevision,
   ConversationReaction,
   ConversationSavedMessage,
   Department,
@@ -20,7 +21,7 @@ import { emitToUser, isUserOnline } from '../../shared/realtime/socket.js';
 import { deleteStoredFile } from '../attachments/attachment.storage.js';
 import { extractMentionIds } from '../comments/comment.service.js';
 import { notifyUsers } from '../notifications/notification.service.js';
-import { REACTION_EMOJIS } from './conversation.model.js';
+import { NOTIFY_LEVELS, REACTION_EMOJIS } from './conversation.model.js';
 import { assertFeature, entitlementsFor } from '../plans/plan.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { participantIds } from './membership.js';
@@ -179,11 +180,14 @@ async function summarize(viewer, { conversation, team = null, department = null,
     },
   });
 
+  const notifyLevel = levelOf(membership);
   const base = {
     id: conversation.id,
     kind: conversation.kind,
     unread,
-    muted: Boolean(membership?.mutedAt),
+    notifyLevel,
+    /** True when alerts are not "all" (mentions-only or off). Kept for older clients. */
+    muted: notifyLevel !== 'all',
     lastMessage: lastMessage
       ? {
           id: lastMessage.id,
@@ -311,7 +315,7 @@ export async function getConversation(viewer, conversationId) {
         (row) => row.messageId,
       )
     : [];
-  return { conversation: await describe(viewer, conversation, people), messages: await decorate(messages), savedIds };
+  return { conversation: await describe(viewer, conversation, people), messages: await decorate(messages, viewer.id), savedIds };
 }
 
 /** Everyone who can read the conversation (for @mentions and calls). */
@@ -338,8 +342,8 @@ async function reactionsFor(messageIds) {
 
 export const fileView = (file) => ({ id: file.id, fileName: file.fileName, mimeType: file.mimeType, size: file.size });
 
-/** Messages as the app shows them: with their reactions and the files shared with them. */
-async function decorate(messages) {
+/** Messages as the app shows them: with their reactions, files, and poll/approval cards. */
+async function decorate(messages, viewerId = null) {
   const plainMessages = messages.map((message) => (message.toJSON ? message.toJSON() : message));
   const ids = plainMessages.map((message) => message.id);
   const [reactions, files] = await Promise.all([
@@ -348,10 +352,16 @@ async function decorate(messages) {
   ]);
   const filesOf = new Map();
   for (const file of files) filesOf.set(file.messageId, [...(filesOf.get(file.messageId) ?? []), fileView(file)]);
-  return plainMessages.map((message) => ({ ...message, reactions: reactions.get(message.id) ?? [], files: filesOf.get(message.id) ?? [] }));
+  const withFiles = plainMessages.map((message) => ({ ...message, reactions: reactions.get(message.id) ?? [], files: filesOf.get(message.id) ?? [] }));
+  const { attachCollab } = await import('./conversation-collab.service.js');
+  return attachCollab(withFiles, viewerId);
 }
 
-const loadMessage = async (messageId) => (await decorate([await ConversationMessage.findByPk(messageId, { include: authorInclude })]))[0];
+const loadMessage = async (messageId, viewerId = null) =>
+  (await decorate([await ConversationMessage.findByPk(messageId, { include: authorInclude })], viewerId))[0];
+
+/** Public reload used by polls/approvals after a vote or response. */
+export const reloadMessage = loadMessage;
 
 async function markReadInternal(conversationId, userId, people) {
   const readAt = new Date();
@@ -395,7 +405,7 @@ export async function sendMessage(viewer, conversationId, { body = '', parentId 
     important: Boolean(important && !parent),
   });
   if (files.length) await ConversationFile.update({ messageId: created.id }, { where: { id: files.map((file) => file.id) } });
-  const message = await loadMessage(created.id);
+  const message = await loadMessage(created.id, viewer.id);
   broadcast(people, 'conversation:message', message);
   await markReadInternal(conversationId, viewer.id, people);
   if (isGroup(conversation)) {
@@ -405,12 +415,41 @@ export async function sendMessage(viewer, conversationId, { body = '', parentId 
   return message;
 }
 
+/** `all` | `mentions` | `none`. Older muted rows that still have the default level count as mentions-only. */
+function levelOf(membership) {
+  if (!membership) return 'all';
+  const level = NOTIFY_LEVELS.includes(membership.notifyLevel) ? membership.notifyLevel : null;
+  if (level && level !== 'all') return level;
+  if (membership.mutedAt) return 'mentions';
+  return 'all';
+}
+
+/**
+ * Drops people whose notify preference blocks this kind of alert.
+ * `allowMentions`: mention alerts go to `all` and `mentions`; thread replies only to `all`.
+ */
+async function filterByNotifyLevel(conversationId, userIds, { allowMentions }) {
+  if (!userIds.length) return [];
+  const rows = await ConversationMember.findAll({
+    where: { conversationId, userId: { [Op.in]: userIds } },
+    attributes: ['userId', 'notifyLevel', 'mutedAt'],
+  });
+  const byUser = new Map(rows.map((row) => [row.userId, levelOf(row)]));
+  return userIds.filter((userId) => {
+    const level = byUser.get(userId) ?? 'all';
+    if (level === 'none') return false;
+    if (level === 'mentions') return allowMentions;
+    return true;
+  });
+}
+
 /** @mentioned people in the conversation hear about it (`skip`: people already mentioned before an edit). */
 async function notifyMentions(viewer, conversation, message, people, skip = new Set()) {
   const audience = new Set(people);
   const mentionedIds = extractMentionIds(message.body);
   const everyone = mentionedIds.includes(EVERYONE_ID) && !skip.has(EVERYONE_ID);
-  const userIds = (everyone ? people : mentionedIds).filter((userId) => userId !== viewer.id && audience.has(userId) && !skip.has(userId));
+  const candidates = (everyone ? people : mentionedIds).filter((userId) => userId !== viewer.id && audience.has(userId) && !skip.has(userId));
+  const userIds = await filterByNotifyLevel(conversation.id, candidates, { allowMentions: true });
   if (!userIds.length) return new Set();
   const place = await placeName(viewer, conversation, people);
   await notifyUsers({
@@ -429,7 +468,8 @@ async function notifyMentions(viewer, conversation, message, people, skip = new 
 async function notifyThread(viewer, conversation, parent, message, people, mentioned) {
   const repliers = (await ConversationMessage.findAll({ where: { parentId: parent.id }, attributes: ['authorId'], raw: true })).map((row) => row.authorId);
   const audience = new Set(people);
-  const userIds = [parent.authorId, ...repliers].filter((userId) => userId && userId !== viewer.id && audience.has(userId) && !mentioned.has(userId));
+  const candidates = [parent.authorId, ...repliers].filter((userId) => userId && userId !== viewer.id && audience.has(userId) && !mentioned.has(userId));
+  const userIds = await filterByNotifyLevel(conversation.id, candidates, { allowMentions: false });
   if (!userIds.length) return;
   await notifyUsers({
     userIds,
@@ -489,8 +529,10 @@ export async function deleteMessage(viewer, conversationId, messageId) {
     await message.update({ body: '', subject: null, important: false, deletedAt: new Date(), pinnedAt: null, pinnedById: null });
     await ConversationReaction.destroy({ where: { messageId: message.id } });
     await deleteFilesWhere({ messageId: message.id });
+    const { destroyCollabForMessage } = await import('./conversation-collab.service.js');
+    await destroyCollabForMessage(message.id);
   }
-  const updated = await loadMessage(message.id);
+  const updated = await loadMessage(message.id, viewer.id);
   broadcast(people, 'conversation:updated', updated);
   return updated;
 }
@@ -507,11 +549,69 @@ export async function editMessage(viewer, conversationId, messageId, { body, sub
   if (message.deletedAt) throw ApiError.badRequest('This message was deleted');
   const nextSubject = subject === undefined || message.parentId || !isGroup(conversation) ? message.subject : subject || null;
   const alreadyMentioned = new Set(extractMentionIds(message.body));
-  if (message.body !== body || message.subject !== nextSubject) await message.update({ body, subject: nextSubject, editedAt: new Date() });
+  if (message.body !== body || message.subject !== nextSubject) {
+    await ConversationMessageRevision.create({
+      messageId: message.id,
+      conversationId,
+      editorId: viewer.id,
+      body: message.body,
+      subject: message.subject,
+    });
+    await message.update({ body, subject: nextSubject, editedAt: new Date() });
+  }
   const updated = await loadMessage(message.id);
   broadcast(people, 'conversation:updated', updated);
   if (isGroup(conversation)) await notifyMentions(viewer, conversation, updated, people, alreadyMentioned);
   return updated;
+}
+
+/** Prior versions of a message, newest first (after the author edited it). */
+export async function listMessageHistory(viewer, conversationId, messageId) {
+  await loadConversation(viewer, conversationId);
+  const message = await ConversationMessage.findOne({ where: { id: messageId, conversationId }, attributes: ['id', 'deletedAt'] });
+  if (!message) throw ApiError.notFound('Message not found');
+  if (message.deletedAt) throw ApiError.badRequest('This message was deleted');
+  const revisions = await ConversationMessageRevision.findAll({
+    where: { messageId },
+    include: [{ model: User, as: 'editor', attributes: USER_SUMMARY_ATTRIBUTES }],
+    order: [['createdAt', 'DESC']],
+    limit: 50,
+  });
+  return revisions.map((row) => ({
+    id: row.id,
+    body: row.body,
+    subject: row.subject,
+    createdAt: row.createdAt,
+    editor: row.editor,
+  }));
+}
+
+/**
+ * Posts a copy of a message into another conversation this person can open, with attribution
+ * (Teams "Forward"). Optional `note` is appended after the quote.
+ */
+export async function forwardMessage(viewer, conversationId, messageId, { targetConversationId, note = '' }) {
+  if (targetConversationId === conversationId) throw ApiError.badRequest('Pick a different chat to forward to');
+  const { conversation: source, people: sourcePeople } = await loadConversation(viewer, conversationId);
+  const message = await ConversationMessage.findOne({
+    where: { id: messageId, conversationId },
+    include: authorInclude,
+  });
+  if (!message) throw ApiError.notFound('Message not found');
+  if (message.deletedAt) throw ApiError.badRequest('This message was deleted');
+  await loadConversation(viewer, targetConversationId);
+  const place = await placeName(viewer, source, sourcePeople);
+  const authorName = message.author?.name ?? 'Someone';
+  const quotedBody = (message.body || '')
+    .split('\n')
+    .map((line) => `> ${line}`)
+    .join('\n');
+  const subjectLine = message.subject ? `> **${message.subject}**\n` : '';
+  const header = `**Forwarded from ${authorName} in ${place}**`;
+  const extra = typeof note === 'string' ? note.trim() : '';
+  const body = [header, `${subjectLine}${quotedBody}`.trim(), extra].filter(Boolean).join('\n\n').slice(0, 4000);
+  if (!body.trim()) throw ApiError.badRequest('Nothing to forward');
+  return sendMessage(viewer, targetConversationId, { body });
 }
 
 /** "Delete for me": anyone can remove any message from their own view; everyone else still sees it. */
@@ -612,12 +712,29 @@ export async function markUnread(viewer, conversationId, messageId) {
   return summary;
 }
 
-/** Mutes (or unmutes) the conversation for this person only. */
-export async function setMuted(viewer, conversationId, muted) {
+/**
+ * Sets how this person is alerted for the conversation: `all`, `mentions`, or `none`.
+ * `muted: true/false` still works for older clients (`true` → mentions, `false` → all).
+ */
+export async function setNotifyLevel(viewer, conversationId, { notifyLevel, muted } = {}) {
+  let level = notifyLevel;
+  if (level == null && typeof muted === 'boolean') level = muted ? 'mentions' : 'all';
+  if (!NOTIFY_LEVELS.includes(level)) throw ApiError.badRequest('Choose all, mentions, or none');
   const { conversation, people } = await loadConversation(viewer, conversationId);
-  const [membership] = await ConversationMember.findOrCreate({ where: { conversationId, userId: viewer.id } });
-  await membership.update({ mutedAt: muted ? new Date() : null });
+  const [membership] = await ConversationMember.findOrCreate({
+    where: { conversationId, userId: viewer.id },
+    defaults: { notifyLevel: 'all' },
+  });
+  await membership.update({
+    notifyLevel: level,
+    mutedAt: level === 'all' ? null : membership.mutedAt || new Date(),
+  });
   const summary = await describe(viewer, conversation, people);
   emitToUser(viewer.id, 'conversation:summary', summary);
   return summary;
+}
+
+/** @deprecated Prefer setNotifyLevel; kept so older mute toggles keep working. */
+export async function setMuted(viewer, conversationId, muted) {
+  return setNotifyLevel(viewer, conversationId, { muted: Boolean(muted) });
 }

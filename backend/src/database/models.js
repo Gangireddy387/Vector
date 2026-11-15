@@ -31,10 +31,14 @@ import { CalendarConnection, MeetingCalendarLink } from '../modules/calendar/cal
 import { SupportMessage } from '../modules/support/support-message.model.js';
 import {
   Conversation,
+  ConversationApproval,
+  ConversationDoc,
   ConversationHiddenMessage,
   ConversationMember,
   ConversationFile,
   ConversationMessage,
+  ConversationMessageRevision,
+  ConversationPoll,
   ConversationReaction,
   ConversationSavedMessage,
 } from '../modules/messages/conversation.model.js';
@@ -192,6 +196,15 @@ ConversationMessage.hasMany(ConversationHiddenMessage, { as: 'hides', foreignKey
 User.hasMany(ConversationHiddenMessage, { as: 'hiddenMessages', foreignKey: 'userId', ...cascade });
 ConversationMessage.hasMany(ConversationReaction, { as: 'reactions', foreignKey: 'messageId', ...cascade });
 User.hasMany(ConversationReaction, { as: 'reactions', foreignKey: 'userId', ...cascade });
+ConversationMessage.hasMany(ConversationMessageRevision, { as: 'revisions', foreignKey: 'messageId', ...cascade });
+ConversationMessageRevision.belongsTo(User, { as: 'editor', foreignKey: 'editorId', onDelete: 'SET NULL' });
+Conversation.hasMany(ConversationDoc, { as: 'docs', foreignKey: 'conversationId', ...cascade });
+ConversationDoc.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+ConversationDoc.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
+ConversationMessage.hasOne(ConversationPoll, { as: 'poll', foreignKey: 'messageId', ...cascade });
+ConversationPoll.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+ConversationMessage.hasOne(ConversationApproval, { as: 'approval', foreignKey: 'messageId', ...cascade });
+ConversationApproval.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
 Conversation.hasMany(ConversationFile, { as: 'files', foreignKey: 'conversationId', ...cascade });
 ConversationFile.belongsTo(User, { as: 'uploader', foreignKey: 'uploaderId', onDelete: 'SET NULL' });
 ConversationFile.belongsTo(ConversationMessage, { as: 'message', foreignKey: 'messageId', constraints: false });
@@ -275,6 +288,10 @@ export {
   ConversationMember,
   ConversationFile,
   ConversationMessage,
+  ConversationMessageRevision,
+  ConversationDoc,
+  ConversationPoll,
+  ConversationApproval,
   ConversationReaction,
   ConversationSavedMessage,
   Channel,

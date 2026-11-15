@@ -45,6 +45,53 @@ export interface ComposerExtras {
 /** `@[everyone](…)`: mentions everyone in a team chat or channel. */
 export const EVERYONE_ID = '00000000-0000-0000-0000-000000000000'
 
+export interface MessagePollOption {
+  text: string
+  votes: number
+}
+
+export interface MessagePoll {
+  id: string
+  messageId: string
+  question: string
+  options: MessagePollOption[]
+  total: number
+  status: 'open' | 'closed'
+  createdById: string | null
+  myVote: number | null
+}
+
+export interface MessageApprovalResponse {
+  userId: string
+  decision: 'approved' | 'rejected'
+  user: UserSummary | null
+}
+
+export interface MessageApproval {
+  id: string
+  messageId: string
+  title: string
+  status: 'pending' | 'approved' | 'rejected'
+  createdById: string | null
+  responses: MessageApprovalResponse[]
+  approved: number
+  rejected: number
+  myDecision: 'approved' | 'rejected' | null
+}
+
+export interface ConversationDoc {
+  id: string
+  conversationId: string
+  title: string
+  body: string
+  createdById: string | null
+  updatedById: string | null
+  createdBy: UserSummary | null
+  updatedBy: UserSummary | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface ChatMessage {
   id: string
   conversationId: string
@@ -57,6 +104,8 @@ export interface ChatMessage {
   /** Group chat posts marked "Important". */
   important?: boolean
   files?: ConversationFile[]
+  poll?: MessagePoll | null
+  approval?: MessageApproval | null
   /** Markdown, with `@[Name](id)` mentions. */
   body: string
   /** Group chat posts pinned to the top. */
@@ -80,6 +129,9 @@ export interface ChannelInfo {
   canManage: boolean
 }
 
+/** Teams-style alerts for a conversation. */
+export type NotifyLevel = 'all' | 'mentions' | 'none'
+
 /** A conversation as the list and the chat header show it. */
 export interface ConversationSummary {
   id: string
@@ -88,7 +140,9 @@ export interface ConversationSummary {
   subtitle: string
   unread: number
   updatedAt: string
-  /** Muted by this person: no sound, and left out of the unread badge. */
+  /** How this person is alerted: all messages, @mentions only, or none. */
+  notifyLevel?: NotifyLevel
+  /** True when notifyLevel is not `all` (kept for older clients). */
   muted?: boolean
   lastMessage: { id: string; body: string; deleted: boolean; createdAt: string; author: UserSummary | null } | null
   /** Direct chats: the other person, with whether they have the app open. */
@@ -100,6 +154,14 @@ export interface ConversationSummary {
   department?: { id: string; name: string } | null
   channel?: ChannelInfo | null
   memberCount?: number
+}
+
+export interface MessageRevision {
+  id: string
+  body: string
+  subject: string | null
+  createdAt: string
+  editor: UserSummary | null
 }
 
 export interface ChannelRoster {
@@ -154,11 +216,23 @@ export const messagesApi = {
   markUnread: (conversationId: string, messageId: string) =>
     http.post<{ conversation: ConversationSummary }>(`/conversations/${conversationId}/unread`, { messageId }).then((r) => r.data.conversation),
   mute: (conversationId: string, muted: boolean) => http.post<{ conversation: ConversationSummary }>(`/conversations/${conversationId}/mute`, { muted }).then((r) => r.data.conversation),
+  /** Teams-style: all | mentions | none. */
+  setNotifyLevel: (conversationId: string, notifyLevel: NotifyLevel) =>
+    http.post<{ conversation: ConversationSummary }>(`/conversations/${conversationId}/mute`, { notifyLevel }).then((r) => r.data.conversation),
   markRead: (conversationId: string) => http.post(`/conversations/${conversationId}/read`),
   /** `subject`: posts only; leave it out to keep the current one. */
   edit: (conversationId: string, messageId: string, body: string, subject?: string | null) =>
     http
       .patch<{ message: ChatMessage }>(`/conversations/${conversationId}/messages/${messageId}`, { body, ...(subject !== undefined ? { subject } : {}) })
+      .then((r) => r.data.message),
+  history: (conversationId: string, messageId: string) =>
+    http.get<{ revisions: MessageRevision[] }>(`/conversations/${conversationId}/messages/${messageId}/history`).then((r) => r.data.revisions),
+  forward: (conversationId: string, messageId: string, targetConversationId: string, note?: string) =>
+    http
+      .post<{ message: ChatMessage }>(`/conversations/${conversationId}/messages/${messageId}/forward`, {
+        targetConversationId,
+        ...(note?.trim() ? { note: note.trim() } : {}),
+      })
       .then((r) => r.data.message),
   /** Everyone who can read the conversation (for @mentions and calls). */
   people: (conversationId: string) => http.get<{ people: UserSummary[] }>(`/conversations/${conversationId}/people`).then((r) => r.data.people),
@@ -174,7 +248,26 @@ export const messagesApi = {
     http.post<{ conversation: ConversationSummary }>(`/conversations/${conversationId}/messages/${messageId}/hide`).then((r) => r.data.conversation),
   /** Empties the chat for you only. */
   clear: (conversationId: string) => http.post<{ conversation: ConversationSummary }>(`/conversations/${conversationId}/clear`).then((r) => r.data.conversation),
+  docs: (conversationId: string) => http.get<{ docs: ConversationDoc[] }>(`/conversations/${conversationId}/docs`).then((r) => r.data.docs),
+  createDoc: (conversationId: string, input: { title: string; body?: string }) =>
+    http.post<{ doc: ConversationDoc }>(`/conversations/${conversationId}/docs`, input).then((r) => r.data.doc),
+  updateDoc: (conversationId: string, docId: string, input: { title?: string; body?: string }) =>
+    http.patch<{ doc: ConversationDoc }>(`/conversations/${conversationId}/docs/${docId}`, input).then((r) => r.data.doc),
+  removeDoc: (conversationId: string, docId: string) => http.delete(`/conversations/${conversationId}/docs/${docId}`),
+  createPoll: (conversationId: string, input: { question: string; options: string[]; subject?: string | null }) =>
+    http.post<{ message: ChatMessage }>(`/conversations/${conversationId}/polls`, input).then((r) => r.data.message),
+  votePoll: (conversationId: string, pollId: string, optionIndex: number) =>
+    http.post<{ message: ChatMessage }>(`/conversations/${conversationId}/polls/${pollId}/vote`, { optionIndex }).then((r) => r.data.message),
+  closePoll: (conversationId: string, pollId: string) =>
+    http.post<{ message: ChatMessage }>(`/conversations/${conversationId}/polls/${pollId}/close`).then((r) => r.data.message),
+  createApproval: (conversationId: string, input: { title: string; body?: string }) =>
+    http.post<{ message: ChatMessage }>(`/conversations/${conversationId}/approvals`, input).then((r) => r.data.message),
+  respondApproval: (conversationId: string, approvalId: string, decision: 'approved' | 'rejected') =>
+    http.post<{ message: ChatMessage }>(`/conversations/${conversationId}/approvals/${approvalId}/respond`, { decision }).then((r) => r.data.message),
 }
+
+export const notifyLevelOf = (conversation: Pick<ConversationSummary, 'notifyLevel' | 'muted'>): NotifyLevel =>
+  conversation.notifyLevel ?? (conversation.muted ? 'mentions' : 'all')
 
 export const channelsApi = {
   create: (input: ChannelInput) => http.post<{ conversation: ConversationSummary }>('/channels', input).then((r) => r.data.conversation),

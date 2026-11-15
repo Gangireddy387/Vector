@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { validate } from '../../shared/middleware/validate.js';
 import { CHANNEL_PRIVACY } from './channel.model.js';
 import * as channels from './channels.service.js';
-import { REACTION_EMOJIS } from './conversation.model.js';
+import * as collab from './conversation-collab.service.js';
+import { NOTIFY_LEVELS, REACTION_EMOJIS } from './conversation.model.js';
 import * as service from './messages.service.js';
 
 const body = z.string().trim().min(1, 'Write a message').max(4000);
@@ -20,6 +21,16 @@ const sendSchema = z
   })
   .refine((value) => value.body.length > 0 || value.fileIds.length > 0, { message: 'Write a message', path: ['body'] });
 const flagSchema = (key) => z.object({ [key]: z.boolean() });
+const muteSchema = z
+  .object({
+    notifyLevel: z.enum(NOTIFY_LEVELS).optional(),
+    muted: z.boolean().optional(),
+  })
+  .refine((value) => value.notifyLevel != null || value.muted != null, { message: 'Choose a notification level' });
+const forwardSchema = z.object({
+  targetConversationId: z.string().uuid('Choose a chat to forward to'),
+  note: z.string().trim().max(1000).optional(),
+});
 const messageIdSchema = z.object({ messageId: z.string().uuid() });
 const pinSchema = z.object({ pinned: z.boolean() });
 const reactionSchema = z.object({ emoji: z.enum(REACTION_EMOJIS) });
@@ -42,6 +53,27 @@ const channelUpdateSchema = z
   .object({ name: channelName.optional(), description: channelDescription })
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one change');
 const membersSchema = z.object({ userIds: z.array(z.string().uuid()).min(1, 'Choose someone to add').max(500) });
+const docSchema = z.object({
+  title: z.string().trim().min(1, 'Give the doc a title').max(150),
+  body: z.string().max(50_000).optional(),
+});
+const docUpdateSchema = z
+  .object({
+    title: z.string().trim().min(1).max(150).optional(),
+    body: z.string().max(50_000).optional(),
+  })
+  .refine((value) => value.title !== undefined || value.body !== undefined, { message: 'Provide a change' });
+const pollSchema = z.object({
+  question: z.string().trim().min(1, 'Ask a question').max(200),
+  options: z.array(z.string().trim().min(1).max(80)).min(2).max(6),
+  subject: z.string().trim().max(150).nullable().optional(),
+});
+const voteSchema = z.object({ optionIndex: z.number().int().min(0).max(5) });
+const approvalSchema = z.object({
+  title: z.string().trim().min(1, 'Give the approval a title').max(150),
+  body: z.string().trim().max(4000).optional(),
+});
+const approvalDecisionSchema = z.object({ decision: z.enum(['approved', 'rejected']) });
 
 /** Direct messages, team/department chats and team channels; each kind only works when the organization's plan includes it. */
 const router = Router();
@@ -58,11 +90,43 @@ router.post('/conversations/:conversationId/messages', validate({ body: sendSche
 );
 router.get('/conversations/:conversationId/people', async (req, res) => res.json({ people: await service.listPeople(viewer(req), req.params.conversationId) }));
 router.get('/conversations/:conversationId/files', async (req, res) => res.json({ files: await service.listFiles(viewer(req), req.params.conversationId) }));
+router.get('/conversations/:conversationId/docs', async (req, res) => res.json({ docs: await collab.listDocs(viewer(req), req.params.conversationId) }));
+router.post('/conversations/:conversationId/docs', validate({ body: docSchema }), async (req, res) =>
+  res.status(201).json({ doc: await collab.createDoc(viewer(req), req.params.conversationId, req.body) }),
+);
+router.patch('/conversations/:conversationId/docs/:docId', validate({ body: docUpdateSchema }), async (req, res) =>
+  res.json({ doc: await collab.updateDoc(viewer(req), req.params.conversationId, req.params.docId, req.body) }),
+);
+router.delete('/conversations/:conversationId/docs/:docId', async (req, res) => {
+  await collab.deleteDoc(viewer(req), req.params.conversationId, req.params.docId);
+  res.status(204).end();
+});
+router.post('/conversations/:conversationId/polls', validate({ body: pollSchema }), async (req, res) =>
+  res.status(201).json({ message: await collab.createPoll(viewer(req), req.params.conversationId, req.body) }),
+);
+router.post('/conversations/:conversationId/polls/:pollId/vote', validate({ body: voteSchema }), async (req, res) =>
+  res.json({ message: await collab.votePoll(viewer(req), req.params.conversationId, req.params.pollId, req.body.optionIndex) }),
+);
+router.post('/conversations/:conversationId/polls/:pollId/close', async (req, res) =>
+  res.json({ message: await collab.closePoll(viewer(req), req.params.conversationId, req.params.pollId) }),
+);
+router.post('/conversations/:conversationId/approvals', validate({ body: approvalSchema }), async (req, res) =>
+  res.status(201).json({ message: await collab.createApproval(viewer(req), req.params.conversationId, req.body) }),
+);
+router.post('/conversations/:conversationId/approvals/:approvalId/respond', validate({ body: approvalDecisionSchema }), async (req, res) =>
+  res.json({ message: await collab.respondApproval(viewer(req), req.params.conversationId, req.params.approvalId, req.body.decision) }),
+);
 router.post('/conversations/:conversationId/unread', validate({ body: messageIdSchema }), async (req, res) =>
   res.json({ conversation: await service.markUnread(viewer(req), req.params.conversationId, req.body.messageId) }),
 );
-router.post('/conversations/:conversationId/mute', validate({ body: flagSchema('muted') }), async (req, res) =>
-  res.json({ conversation: await service.setMuted(viewer(req), req.params.conversationId, req.body.muted) }),
+router.post('/conversations/:conversationId/mute', validate({ body: muteSchema }), async (req, res) =>
+  res.json({ conversation: await service.setNotifyLevel(viewer(req), req.params.conversationId, req.body) }),
+);
+router.post('/conversations/:conversationId/messages/:messageId/forward', validate({ body: forwardSchema }), async (req, res) =>
+  res.status(201).json({ message: await service.forwardMessage(viewer(req), req.params.conversationId, req.params.messageId, req.body) }),
+);
+router.get('/conversations/:conversationId/messages/:messageId/history', async (req, res) =>
+  res.json({ revisions: await service.listMessageHistory(viewer(req), req.params.conversationId, req.params.messageId) }),
 );
 router.post('/conversations/:conversationId/messages/:messageId/save', validate({ body: flagSchema('saved') }), async (req, res) =>
   res.json(await service.setSaved(viewer(req), req.params.conversationId, req.params.messageId, req.body.saved)),

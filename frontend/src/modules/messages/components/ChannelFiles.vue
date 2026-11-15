@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { format, parseISO } from 'date-fns'
-import { Download, FileArchive, FileImage, FileSpreadsheet, FileText, FolderOpen, MessageSquareText, Search } from 'lucide-vue-next'
+import { Copy, Download, FileArchive, FileImage, FileSpreadsheet, FileText, FolderOpen, MessageSquareText, Search } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -58,6 +58,16 @@ async function open(file: SharedFile) {
     toast.error(getErrorMessage(error))
   }
 }
+
+async function copyLink(file: SharedFile) {
+  try {
+    const url = assetUrl(await messagesApi.fileLink(props.conversationId, file.id))!
+    await navigator.clipboard.writeText(url.startsWith('http') ? url : `${window.location.origin}${url}`)
+    toast.success('Link copied')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  }
+}
 </script>
 
 <template>
@@ -103,8 +113,9 @@ async function open(file: SharedFile) {
             <td class="hidden px-3 py-2 whitespace-nowrap text-muted-foreground sm:table-cell">{{ format(parseISO(file.createdAt), 'd MMM yyyy') }}</td>
             <td class="hidden px-3 py-2 text-right whitespace-nowrap text-muted-foreground tabular-nums sm:table-cell">{{ formatBytes(file.size) }}</td>
             <td class="px-4 py-2 sm:pr-[5%]">
-              <span class="flex justify-end gap-0.5">
+              <span class="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                 <Button variant="ghost" size="icon-sm" :aria-label="`Show the post with ${file.fileName}`" title="Show in the conversation" @click="emit('openPost', file.postId)"><MessageSquareText /></Button>
+                <Button variant="ghost" size="icon-sm" :aria-label="`Copy link to ${file.fileName}`" title="Copy link" @click="copyLink(file)"><Copy /></Button>
                 <Button variant="ghost" size="icon-sm" :aria-label="`Open ${file.fileName}`" title="Open" @click="open(file)"><Download /></Button>
               </span>
             </td>

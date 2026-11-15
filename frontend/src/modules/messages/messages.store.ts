@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { bindSocketEvents } from '@/lib/socket-events'
 import { playSound } from '@/lib/sounds'
 import { useAuthStore } from '@/modules/auth/auth.store'
-import { type ChatMessage, type ConversationSummary, messagesApi } from './messages.api'
+import { type ChatMessage, type ConversationSummary, messagesApi, notifyLevelOf } from './messages.api'
 
 /** The conversation list and unread counts, kept live so the sidebar badge and the Messages page agree. */
 export const useMessagesStore = defineStore('messages', () => {
@@ -14,7 +14,9 @@ export const useMessagesStore = defineStore('messages', () => {
   let isBound = false
 
   const isAvailable = computed(() => auth.hasFeature('directMessages') || auth.hasFeature('teamChat'))
-  const unreadTotal = computed(() => (conversations.value ?? []).reduce((total, conversation) => total + (conversation.muted ? 0 : conversation.unread), 0))
+  const unreadTotal = computed(() =>
+    (conversations.value ?? []).reduce((total, conversation) => total + (notifyLevelOf(conversation) === 'all' ? conversation.unread : 0), 0),
+  )
 
   async function load() {
     if (!isAvailable.value) return (conversations.value = [])
@@ -29,8 +31,10 @@ export const useMessagesStore = defineStore('messages', () => {
   function onMessage(message: ChatMessage) {
     const isMine = message.authorId === auth.user?.id
     const conversation = conversations.value?.find((item) => item.id === message.conversationId)
-    // Someone else's message: a ding, softer when that conversation is already on screen (none when it is muted).
-    if (!isMine && !conversation?.muted) playSound('message', { id: message.id, quiet: openId.value === message.conversationId && document.hasFocus() })
+    // Someone else's message: a ding when alerts are "all" (softer when that chat is already open).
+    if (!isMine && conversation && notifyLevelOf(conversation) === 'all') {
+      playSound('message', { id: message.id, quiet: openId.value === message.conversationId && document.hasFocus() })
+    }
     if (!conversation) return void load()
     upsert({
       ...conversation,

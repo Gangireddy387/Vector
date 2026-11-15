@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useIntervalFn } from '@vueuse/core'
 import { format, isSameDay, isToday, isYesterday, parseISO } from 'date-fns'
-import { ArrowDown, ChevronDown, Hash, Lock, MessageSquareReply, Pin, SearchX, UsersRound } from 'lucide-vue-next'
+import { ArrowDown, BarChart3, ChevronDown, ClipboardCheck, Hash, Lock, MessageSquareReply, Pin, SearchX, UsersRound } from 'lucide-vue-next'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import UserAvatarStack from '@/components/common/UserAvatarStack.vue'
@@ -12,11 +12,16 @@ import { toPlainText } from '@/lib/markdown'
 import { getSocket } from '@/lib/realtime'
 import { useSocketEvents } from '@/lib/socket-events'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { useUiStore } from '@/stores/ui.store'
 import type { UserSummary } from '@/types/models'
 import { type ChatMessage, type ComposerExtras, type ConversationSummary, type MessageReaction, messagesApi } from '../messages.api'
 import { useMessagesStore } from '../messages.store'
 import ChannelComposer from './ChannelComposer.vue'
 import ChannelMessage from './ChannelMessage.vue'
+import CreateApprovalDialog from './CreateApprovalDialog.vue'
+import CreatePollDialog from './CreatePollDialog.vue'
+import ForwardMessageDialog from './ForwardMessageDialog.vue'
+import MessageHistoryDialog from './MessageHistoryDialog.vue'
 
 /**
  * A team chat or channel, Microsoft Teams style: posts as cards (newest at the bottom), each with its replies,
@@ -33,6 +38,7 @@ const props = withDefaults(defineProps<{ conversation: ConversationSummary; focu
 
 const auth = useAuthStore()
 const store = useMessagesStore()
+const ui = useUiStore()
 const confirm = useConfirm()
 const messages = ref<ChatMessage[] | null>(null)
 const savedIds = ref(new Set<string>())
@@ -46,6 +52,12 @@ const highlighted = ref<string | null>(null)
 const pinsOpen = ref(false)
 /** New posts that arrived while scrolled up. */
 const unseen = ref(0)
+/** First unread post when opening the channel (Teams-style “New” line). */
+const unreadAnchorId = ref<string | null>(null)
+const forwardMessage = ref<ChatMessage | null>(null)
+const historyMessage = ref<ChatMessage | null>(null)
+const pollOpen = ref(false)
+const approvalOpen = ref(false)
 const scroller = useTemplateRef<HTMLElement>('scroller')
 const replyBoxes = ref<Record<string, InstanceType<typeof ChannelComposer> | null>>({})
 
@@ -80,6 +92,7 @@ const threads = computed(() => {
       hidden,
       hiddenAuthors,
       showDay: !previous || !isSameDay(parseISO(previous.createdAt), parseISO(post.createdAt)),
+      showUnread: post.id === unreadAnchorId.value,
     }
   })
 })
@@ -112,12 +125,19 @@ async function markRead() {
 
 async function load() {
   messages.value = null
+  unreadAnchorId.value = null
   const conversationId = props.conversation.id
+  const unreadWhenOpened = props.conversation.unread
   try {
     const thread = await messagesApi.get(conversationId)
     if (conversationId !== props.conversation.id) return
     messages.value = thread.messages
     savedIds.value = new Set(thread.savedIds ?? [])
+    if (unreadWhenOpened > 0) {
+      const topLevel = thread.messages.filter((message) => !message.parentId).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      const start = Math.max(0, topLevel.length - unreadWhenOpened)
+      unreadAnchorId.value = topLevel[start]?.id ?? null
+    }
     if (props.focusPostId) await focusPost(props.focusPostId)
     else await scrollToEnd()
     await markRead()
@@ -286,6 +306,23 @@ async function copy(message: ChatMessage) {
   }
 }
 
+function createTask(message: ChatMessage) {
+  const plain = toPlainText(message.body, 2000).trim()
+  const firstLine = plain.split(/\n/).find((line) => line.trim())?.trim() ?? ''
+  const title = (message.subject?.trim() || firstLine || 'New task').slice(0, 120)
+  const postUrl = `${window.location.origin}/messages/${props.conversation.id}?post=${message.parentId ?? message.id}`
+  const description = [
+    plain,
+    '',
+    `From ${message.author?.name ?? 'someone'} in ${channelName.value}`,
+    postUrl,
+  ]
+    .filter((line, index, list) => line !== '' || (index > 0 && list[index - 1] !== ''))
+    .join('\n')
+    .trim()
+  ui.openCreateIssue({ title, description: description || null })
+}
+
 async function openReply(postId: string) {
   editingId.value = null
   replyingTo.value = postId
@@ -322,6 +359,19 @@ const notice = computed(() => {
   return `Everyone in the ${props.conversation.team?.name ?? props.conversation.title} team can see this channel.`
 })
 const pinPreview = (message: ChatMessage) => message.subject || toPlainText(message.body, 90) || message.files?.[0]?.fileName || 'Post'
+const votePoll = (message: ChatMessage, optionIndex: number) => {
+  if (!message.poll) return
+  void attempt(async () => onUpdated(await messagesApi.votePoll(props.conversation.id, message.poll!.id, optionIndex)))
+}
+const closePoll = (message: ChatMessage) => {
+  if (!message.poll) return
+  void attempt(async () => onUpdated(await messagesApi.closePoll(props.conversation.id, message.poll!.id)))
+}
+const respondApproval = (message: ChatMessage, decision: 'approved' | 'rejected') => {
+  if (!message.approval) return
+  void attempt(async () => onUpdated(await messagesApi.respondApproval(props.conversation.id, message.approval!.id, decision)))
+}
+
 const messageEvents = (message: ChatMessage) => ({
   react: (emoji: string) => react(message, emoji),
   copy: () => copy(message),
@@ -329,6 +379,12 @@ const messageEvents = (message: ChatMessage) => ({
   pin: () => togglePin(message),
   toggleSaved: () => toggleSaved(message),
   markUnread: () => markUnread(message),
+  createTask: () => createTask(message),
+  forward: () => (forwardMessage.value = message),
+  showHistory: () => (historyMessage.value = message),
+  votePoll: (optionIndex: number) => votePoll(message, optionIndex),
+  closePoll: () => closePoll(message),
+  respondApproval: (decision: 'approved' | 'rejected') => respondApproval(message, decision),
   edit: () => startEdit(message),
   cancelEdit: () => (editingId.value = null),
   remove: () => remove(message),
@@ -359,16 +415,16 @@ const messageEvents = (message: ChatMessage) => ({
 
     <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto bg-sidebar/60 px-4 pt-3 pb-4 scrollbar-thin sm:px-[5%]" @scroll.passive="onScroll">
       <div class="mx-auto flex max-w-3xl flex-col gap-3">
-        <div v-if="!term" class="flex items-start gap-3 rounded-xl border border-border/70 bg-card/70 px-4 py-3 shadow-soft">
-          <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Lock v-if="isPrivate" class="size-[18px]" />
-            <UsersRound v-else-if="conversation.kind === 'department'" class="size-[18px]" />
-            <Hash v-else class="size-[18px]" />
+        <div v-if="!term" class="flex items-start gap-3 rounded-xl border border-border/70 bg-card/70 px-4 py-2.5 shadow-soft">
+          <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Lock v-if="isPrivate" class="size-4" />
+            <UsersRound v-else-if="conversation.kind === 'department'" class="size-4" />
+            <Hash v-else class="size-4" />
           </span>
           <div class="min-w-0 flex-1">
-            <p class="text-sm font-semibold">Welcome to {{ channelName }}</p>
-            <p v-if="conversation.channel?.description" class="mt-0.5 text-[13px] text-foreground/80">{{ conversation.channel.description }}</p>
-            <p class="mt-0.5 text-xs text-muted-foreground">{{ notice }}</p>
+            <p class="text-[13px] font-semibold">Welcome to {{ channelName }}</p>
+            <p v-if="conversation.channel?.description" class="mt-0.5 text-[12.5px] text-foreground/80">{{ conversation.channel.description }}</p>
+            <p class="mt-0.5 text-[11.5px] text-muted-foreground">{{ notice }}</p>
           </div>
         </div>
         <p v-else class="text-center text-xs text-muted-foreground">
@@ -379,9 +435,12 @@ const messageEvents = (message: ChatMessage) => ({
           <Skeleton v-for="index in 3" :key="index" class="h-24 w-full rounded-xl" />
         </template>
 
-        <template v-for="{ post: item, replies, hidden, hiddenAuthors, showDay } in threads" v-else :key="item.id">
-          <div v-if="showDay" class="flex items-center gap-3 py-1 text-[11px] font-medium text-muted-foreground">
+        <template v-for="{ post: item, replies, hidden, hiddenAuthors, showDay, showUnread } in threads" v-else :key="item.id">
+          <div v-if="showDay && !showUnread" class="flex items-center gap-3 py-1 text-[11px] font-medium text-muted-foreground">
             <span class="h-px flex-1 bg-border" /> {{ dayLabel(item.createdAt) }} <span class="h-px flex-1 bg-border" />
+          </div>
+          <div v-if="showUnread" class="flex items-center gap-3 py-1 text-[11px] font-semibold text-primary">
+            <span class="h-px flex-1 bg-primary/40" /> New <span class="h-px flex-1 bg-primary/40" />
           </div>
 
           <article
@@ -466,7 +525,15 @@ const messageEvents = (message: ChatMessage) => ({
     </button>
 
     <div class="shrink-0 border-t border-border bg-background px-4 pt-1.5 pb-3 sm:px-[5%]">
-      <p class="mx-auto h-4 max-w-3xl truncate text-[11.5px] text-muted-foreground italic" aria-live="polite">{{ typingLine(null) }}</p>
+      <div class="mx-auto flex max-w-3xl items-center gap-1">
+        <p class="h-4 min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground italic" aria-live="polite">{{ typingLine(null) }}</p>
+        <button type="button" class="inline-flex items-center gap-1 rounded px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground" @click="pollOpen = true">
+          <BarChart3 class="size-3.5" /> Poll
+        </button>
+        <button type="button" class="inline-flex items-center gap-1 rounded px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground" @click="approvalOpen = true">
+          <ClipboardCheck class="size-3.5" /> Approval
+        </button>
+      </div>
       <ChannelComposer
         class="mx-auto mt-0.5 max-w-3xl"
         allow-subject
@@ -479,5 +546,20 @@ const messageEvents = (message: ChatMessage) => ({
         @typing="sendTyping(null)"
       />
     </div>
+
+    <ForwardMessageDialog
+      :open="Boolean(forwardMessage)"
+      :conversation-id="conversation.id"
+      :message="forwardMessage"
+      @update:open="(open) => !open && (forwardMessage = null)"
+    />
+    <MessageHistoryDialog
+      :open="Boolean(historyMessage)"
+      :conversation-id="conversation.id"
+      :message="historyMessage"
+      @update:open="(open) => !open && (historyMessage = null)"
+    />
+    <CreatePollDialog :open="pollOpen" :conversation-id="conversation.id" @update:open="(open) => (pollOpen = open)" @created="onMessage" />
+    <CreateApprovalDialog :open="approvalOpen" :conversation-id="conversation.id" @update:open="(open) => (approvalOpen = open)" @created="onMessage" />
   </div>
 </template>
