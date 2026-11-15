@@ -102,7 +102,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="w-full space-y-5" :class="isDesktop ? 'p-5' : 'p-3'">
+  <div class="mx-auto w-full max-w-5xl space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <div class="space-y-1.5">
       <StructureBreadcrumb
         :items="[
@@ -112,8 +112,8 @@ async function save() {
           { label: isEdit ? 'Edit' : 'New team' },
         ]"
       />
-      <h1 class="text-2xl font-bold tracking-tight">{{ isEdit ? `Edit ${team?.name ?? 'team'}` : `New team${department ? ` in ${department.name}` : ''}` }}</h1>
-      <p class="text-sm text-muted-foreground">Choose a team lead and the people who work in this team.</p>
+      <h1 class="text-xl font-bold tracking-tight sm:text-2xl">{{ isEdit ? `Edit ${team?.name ?? 'team'}` : `New team${department ? ` in ${department.name}` : ''}` }}</h1>
+      <p class="text-[13px] text-muted-foreground sm:text-sm">Choose a team lead and the people who work in this team.</p>
     </div>
 
     <Skeleton v-if="structure.departments === null" class="h-96 w-full" />
@@ -122,10 +122,10 @@ async function save() {
       <Button variant="outline" as-child><RouterLink :to="{ name: 'departments' }">All departments</RouterLink></Button>
     </EmptyState>
 
-    <form v-else class="space-y-5" novalidate @submit.prevent="save">
-      <div class="grid items-start gap-5 lg:grid-cols-2">
-      <div class="space-y-5">
-      <section class="space-y-4 border border-border/80 bg-card p-5 shadow-soft sm:p-6">
+    <form v-else class="space-y-4 sm:space-y-5" novalidate @submit.prevent="save">
+      <div class="grid items-start gap-4 sm:gap-5 lg:grid-cols-2">
+      <div class="space-y-4 sm:space-y-5">
+      <section class="space-y-4 rounded-xl border border-border/80 bg-card p-4 shadow-soft sm:p-5 lg:p-6">
         <h2 class="flex items-center gap-2 text-sm font-semibold"><UsersRound class="size-4 text-primary" /> Details</h2>
         <FormField label="Team name" for="team-name" :error="fieldErrors.name">
           <Input id="team-name" v-model="form.name" placeholder="e.g. Frontend" maxlength="80" autofocus />
@@ -138,7 +138,7 @@ async function save() {
         </FormField>
       </section>
 
-      <section class="space-y-4 border border-border/80 bg-card p-5 shadow-soft sm:p-6">
+      <section class="space-y-4 rounded-xl border border-border/80 bg-card p-4 shadow-soft sm:p-5 lg:p-6">
         <h2 class="flex items-center gap-2 text-sm font-semibold"><Crown class="size-4 text-amber-500" /> Team lead</h2>
         <FormField label="Lead" for="team-lead" hint="The lead is added to the team automatically." :error="fieldErrors.leadId">
           <SelectField id="team-lead" v-model="form.leadId" :options="leadOptions" searchable search-placeholder="Search people…" aria-label="Team lead" />
@@ -146,25 +146,25 @@ async function save() {
       </section>
       </div>
 
-      <section class="border border-border/80 bg-card shadow-soft">
-        <div class="flex items-center justify-between gap-2 p-5 pb-3 sm:px-6">
+      <section class="overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft">
+        <div class="flex items-center justify-between gap-2 p-4 pb-3 sm:px-5 lg:px-6">
           <h2 class="flex items-center gap-2 text-sm font-semibold"><Users class="size-4 text-primary" /> Members</h2>
           <span class="text-xs text-muted-foreground tabular-nums">{{ form.memberIds.length }} selected</span>
         </div>
-        <p v-if="fieldErrors.memberIds" class="px-5 pb-2 text-xs text-destructive sm:px-6">{{ fieldErrors.memberIds }}</p>
+        <p v-if="fieldErrors.memberIds" class="px-4 pb-2 text-xs text-destructive sm:px-5 lg:px-6">{{ fieldErrors.memberIds }}</p>
         <div class="relative border-y border-border/60">
-          <Search class="pointer-events-none absolute top-1/2 left-5 size-4 -translate-y-1/2 text-muted-foreground sm:left-6" />
+          <Search class="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground sm:left-5 lg:left-6" />
           <input
             v-model="search"
-            class="h-10 w-full bg-transparent pr-4 pl-11 text-sm outline-none placeholder:text-muted-foreground sm:pl-12"
+            class="h-10 w-full bg-transparent pr-4 pl-10 text-sm outline-none placeholder:text-muted-foreground sm:pl-11 lg:pl-12"
             placeholder="Search people…"
             aria-label="Search people"
             autocomplete="off"
           />
         </div>
-        <ul class="max-h-80 overflow-y-auto">
+        <ul class="max-h-80 overflow-y-auto scrollbar-thin">
           <li v-for="person in visiblePeople" :key="person.id">
-            <label class="flex cursor-pointer items-center gap-3 px-5 py-2.5 hover:bg-accent/40 sm:px-6">
+            <label class="flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-accent/40 sm:px-5 lg:px-6">
               <Checkbox
                 :model-value="form.memberIds.includes(person.id)"
                 :disabled="person.id === form.leadId"
@@ -185,8 +185,8 @@ async function save() {
       </div>
 
       <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button variant="ghost" as-child><RouterLink :to="back">Cancel</RouterLink></Button>
-        <Button type="submit" variant="brand" :loading="isSaving" :disabled="form.name.trim().length < 2 || !form.departmentId">{{ isEdit ? 'Save team' : 'Create team' }}</Button>
+        <Button variant="ghost" class="max-sm:w-full" as-child><RouterLink :to="back">Cancel</RouterLink></Button>
+        <Button type="submit" variant="brand" class="max-sm:w-full" :loading="isSaving" :disabled="form.name.trim().length < 2 || !form.departmentId">{{ isEdit ? 'Save team' : 'Create team' }}</Button>
       </div>
     </form>
   </div>

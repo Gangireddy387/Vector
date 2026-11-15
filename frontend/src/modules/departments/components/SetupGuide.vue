@@ -15,15 +15,15 @@ const nextIndex = computed(() => props.steps.findIndex((step) => !step.done))
 </script>
 
 <template>
-  <section v-if="doneCount < steps.length" class="border border-primary/25 bg-card shadow-soft">
-    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-5 py-3.5">
-      <h2 class="flex items-center gap-2 text-sm font-semibold"><Sparkles class="size-4 text-primary" /> {{ title }}</h2>
-      <div class="flex w-40 items-center gap-2">
+  <section v-if="doneCount < steps.length" class="overflow-hidden rounded-xl border border-primary/25 bg-card shadow-soft">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3 sm:px-5 sm:py-3.5">
+      <h2 class="flex min-w-0 items-center gap-2 text-sm font-semibold"><Sparkles class="size-4 shrink-0 text-primary" /> <span class="truncate">{{ title }}</span></h2>
+      <div class="flex w-full max-w-40 items-center gap-2 sm:w-40">
         <Progress :model-value="(doneCount / steps.length) * 100" class="h-1.5" />
         <span class="shrink-0 text-xs text-muted-foreground tabular-nums">{{ doneCount }}/{{ steps.length }}</span>
       </div>
     </div>
-    <ol class="grid gap-px bg-border/60 sm:grid-cols-3">
+    <ol class="grid gap-px bg-border/60 md:grid-cols-3">
       <li v-for="(step, index) in steps" :key="step.label" class="flex gap-3 bg-card p-4" :class="index === nextIndex && 'bg-primary/5'">
         <span
           class="flex size-7 shrink-0 items-center justify-center text-xs font-semibold"

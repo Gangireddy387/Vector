@@ -136,7 +136,7 @@ async function remove() {
 </script>
 
 <template>
-  <div class="w-full space-y-5" :class="isDesktop ? 'p-5' : 'p-3'">
+  <div class="mx-auto w-full max-w-7xl space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <div v-if="structure.departments === null" class="space-y-4">
       <Skeleton class="h-36 w-full" />
       <Skeleton class="h-64 w-full" />
@@ -148,39 +148,43 @@ async function remove() {
 
     <template v-else>
       <!-- Header: identity and key facts -->
-      <section class="relative overflow-hidden border border-border/80 bg-card shadow-soft">
+      <section class="relative overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft">
         <div
           class="pointer-events-none absolute inset-0 opacity-80"
           style="background: radial-gradient(40rem 14rem at 0% 0%, color-mix(in oklch, var(--brand-from) 12%, transparent), transparent 70%)"
         />
-        <div class="relative space-y-4 p-5 sm:p-6">
-          <div class="flex items-start gap-4">
-            <span class="flex size-14 shrink-0 items-center justify-center bg-brand text-white shadow-glow"><Building2 class="size-6" /></span>
-            <div class="min-w-0 flex-1 space-y-1.5">
-              <StructureBreadcrumb :items="[{ label: 'Departments', to: { name: 'departments' } }, { label: department.name }]" />
-              <h1 class="truncate text-2xl font-bold tracking-tight sm:text-3xl">{{ department.name }}</h1>
-              <p class="max-w-2xl text-sm text-muted-foreground">{{ department.description || 'No description yet.' }}</p>
+        <div class="relative space-y-4 p-4 sm:p-5 lg:p-6">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+            <div class="flex min-w-0 flex-1 items-start gap-3 sm:gap-4">
+              <span class="flex size-11 shrink-0 items-center justify-center bg-brand text-white shadow-glow sm:size-14"><Building2 class="size-5 sm:size-6" /></span>
+              <div class="min-w-0 flex-1 space-y-1.5">
+                <StructureBreadcrumb :items="[{ label: 'Departments', to: { name: 'departments' } }, { label: department.name }]" />
+                <h1 class="truncate text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">{{ department.name }}</h1>
+                <p class="max-w-2xl text-[13px] text-muted-foreground sm:text-sm">{{ department.description || 'No description yet.' }}</p>
+              </div>
             </div>
-            <MeetButton v-if="meetPreset" :preset="meetPreset" size="default" />
-            <DropdownMenu v-if="isAdmin">
-              <DropdownMenuTrigger as-child>
-                <Button variant="outline" size="icon" aria-label="Department actions"><Ellipsis /></Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem @select="router.push({ name: 'department-edit', params: { departmentId: department.id } })"><Pencil /> Edit department</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" @select="remove"><Trash2 /> Delete department</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div class="flex shrink-0 items-center gap-2 self-end sm:self-start">
+              <MeetButton v-if="meetPreset" :preset="meetPreset" size="default" />
+              <DropdownMenu v-if="isAdmin">
+                <DropdownMenuTrigger as-child>
+                  <Button variant="outline" size="icon" aria-label="Department actions"><Ellipsis /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem @select="router.push({ name: 'department-edit', params: { departmentId: department.id } })"><Pencil /> Edit department</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" @select="remove"><Trash2 /> Delete department</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
-          <dl class="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border/60 pt-4 text-sm">
-            <div class="flex items-center gap-2">
+          <dl class="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-border/60 pt-4 text-[13px] sm:gap-x-6 sm:gap-y-3 sm:text-sm">
+            <div class="flex min-w-0 items-center gap-2">
               <dt class="sr-only">Department head</dt>
-              <Crown class="size-4 text-amber-500" />
-              <dd v-if="department.head" class="flex items-center gap-2">
+              <Crown class="size-4 shrink-0 text-amber-500" />
+              <dd v-if="department.head" class="flex min-w-0 items-center gap-2">
                 <UserAvatar :user="department.head" size="sm" />
-                <span><span class="font-medium">{{ department.head.name }}</span> <span class="text-muted-foreground">· Department head</span></span>
+                <span class="min-w-0 truncate"><span class="font-medium">{{ department.head.name }}</span> <span class="text-muted-foreground max-sm:hidden">· Department head</span></span>
               </dd>
               <dd v-else class="text-muted-foreground">No department head yet</dd>
             </div>
@@ -202,7 +206,7 @@ async function remove() {
             <div class="flex items-center gap-2 text-muted-foreground">
               <dt class="sr-only">Tasks</dt>
               <CheckCircle2 class="size-4 text-success" />
-              <dd>{{ percent(department.work) }}% of tasks done<template v-if="department.work.overdue"> · <span class="font-medium text-destructive">{{ department.work.overdue }} overdue</span></template></dd>
+              <dd>{{ percent(department.work) }}% done<template v-if="department.work.overdue"> · <span class="font-medium text-destructive">{{ department.work.overdue }} overdue</span></template></dd>
             </div>
           </dl>
         </div>
@@ -211,11 +215,13 @@ async function remove() {
       <SetupGuide v-if="isAdmin" :title="`Set up ${department.name}`" :steps="steps" />
 
       <Tabs v-model="tab" class="gap-4">
-        <TabsList>
-          <TabsTrigger value="teams"><UsersRound /> Teams <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ department.teams.length }}</span></TabsTrigger>
-          <TabsTrigger value="projects"><FolderKanban /> Projects <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ department.projectCount }}</span></TabsTrigger>
-          <TabsTrigger value="people"><Users /> People <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ roster.length }}</span></TabsTrigger>
-        </TabsList>
+        <div class="-mx-1 overflow-x-auto px-1 scrollbar-none">
+          <TabsList class="min-w-max">
+            <TabsTrigger value="teams"><UsersRound /> Teams <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ department.teams.length }}</span></TabsTrigger>
+            <TabsTrigger value="projects"><FolderKanban /> Projects <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ department.projectCount }}</span></TabsTrigger>
+            <TabsTrigger value="people"><Users /> People <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ roster.length }}</span></TabsTrigger>
+          </TabsList>
+        </div>
 
         <!-- Teams -->
         <TabsContent value="teams" class="space-y-3">
@@ -238,12 +244,12 @@ async function remove() {
             </Button>
           </EmptyState>
 
-          <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <RouterLink
               v-for="team in department.teams"
               :key="team.id"
               :to="{ name: 'team', params: { teamId: team.id } }"
-              class="group flex flex-col gap-4 border border-border/80 bg-card p-4 shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none"
+              class="group flex min-w-0 flex-col gap-4 rounded-xl border border-border/80 bg-card p-4 shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none"
             >
               <div class="flex items-start gap-3">
                 <span class="flex size-10 shrink-0 items-center justify-center bg-primary/10 text-primary"><UsersRound class="size-5" /></span>
@@ -325,13 +331,13 @@ async function remove() {
             description="Choose a department head, or add people to its teams."
             class="border border-dashed bg-card/60 py-14"
           />
-          <div v-else class="overflow-hidden border border-border/80 bg-card shadow-soft">
-            <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-3 border-b border-border/60 bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground">
+          <div v-else class="overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft">
+            <div class="hidden gap-3 border-b border-border/60 bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
               <span>Person</span>
               <span>Role</span>
             </div>
             <ul class="divide-y divide-border/60">
-              <li v-for="item in roster" :key="item.person.id" class="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-center gap-3 px-4 py-3">
+              <li v-for="item in roster" :key="item.person.id" class="flex flex-col gap-2.5 px-4 py-3 sm:grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] sm:items-center sm:gap-3">
                 <div class="flex min-w-0 items-center gap-3">
                   <UserAvatar :user="item.person" size="md" />
                   <div class="min-w-0">
@@ -339,7 +345,7 @@ async function remove() {
                     <p class="truncate text-xs text-muted-foreground">{{ item.person.title || item.person.email }}</p>
                   </div>
                 </div>
-                <div class="flex flex-wrap gap-1.5">
+                <div class="flex flex-wrap gap-1.5 pl-11 sm:pl-0">
                   <Badge v-if="item.isHead" variant="soft"><Crown /> Department head</Badge>
                   <Badge v-for="name in item.leads" :key="`lead-${name}`" variant="outline"><Crown class="text-amber-500" /> Lead · {{ name }}</Badge>
                   <Badge v-for="name in item.memberOf" :key="`member-${name}`" variant="secondary">{{ name }}</Badge>

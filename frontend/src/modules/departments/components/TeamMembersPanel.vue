@@ -123,26 +123,30 @@ defineExpose({ openAdd })
       <Button v-if="isAdmin" variant="brand" @click="openAdd"><UserPlus /> Add people</Button>
     </EmptyState>
 
-    <div v-else-if="team.members.length" class="overflow-hidden border border-border/80 bg-card shadow-soft">
-      <div class="grid grid-cols-[minmax(0,1fr)_8rem_auto] items-center gap-3 border-b border-border/60 bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground">
+    <div v-else-if="team.members.length" class="overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft">
+      <div class="hidden items-center gap-3 border-b border-border/60 bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground md:grid md:grid-cols-[minmax(0,1fr)_8rem_auto]">
         <span>Person</span>
         <span>Role</span>
         <span class="sr-only">Actions</span>
       </div>
       <ul class="divide-y divide-border/60">
-        <li v-for="member in team.members" :key="member.id" class="grid grid-cols-[minmax(0,1fr)_8rem_auto] items-center gap-3 px-4 py-3">
+        <li v-for="member in team.members" :key="member.id" class="flex flex-col gap-3 px-4 py-3 md:grid md:grid-cols-[minmax(0,1fr)_8rem_auto] md:items-center">
           <div class="flex min-w-0 items-center gap-3">
             <UserAvatar :user="member" size="md" />
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium">{{ member.name }}</p>
               <p class="truncate text-xs text-muted-foreground">{{ member.title || member.email }}</p>
+              <div class="mt-1 md:hidden">
+                <Badge v-if="member.id === team.leadId" variant="soft"><Crown /> Team lead</Badge>
+                <span v-else class="text-xs text-muted-foreground">Member</span>
+              </div>
             </div>
           </div>
-          <div>
+          <div class="hidden md:block">
             <Badge v-if="member.id === team.leadId" variant="soft"><Crown /> Team lead</Badge>
             <span v-else class="text-sm text-muted-foreground">Member</span>
           </div>
-          <div class="flex items-center justify-end gap-1">
+          <div class="flex flex-wrap items-center gap-1 pl-11 md:justify-end md:pl-0">
             <Button
               v-if="canMessage(member.id)"
               variant="ghost"

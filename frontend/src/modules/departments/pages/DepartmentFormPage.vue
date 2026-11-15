@@ -67,7 +67,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="w-full space-y-5" :class="isDesktop ? 'p-5' : 'p-3'">
+  <div class="mx-auto w-full max-w-5xl space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <div class="space-y-1.5">
       <StructureBreadcrumb
         :items="[
@@ -76,8 +76,8 @@ async function save() {
           { label: isEdit ? 'Edit' : 'New department' },
         ]"
       />
-      <h1 class="text-2xl font-bold tracking-tight">{{ isEdit ? `Edit ${department?.name ?? 'department'}` : 'New department' }}</h1>
-      <p class="text-sm text-muted-foreground">A department groups teams, like Engineering or Sales. Its head oversees every team in it.</p>
+      <h1 class="text-xl font-bold tracking-tight sm:text-2xl">{{ isEdit ? `Edit ${department?.name ?? 'department'}` : 'New department' }}</h1>
+      <p class="text-[13px] text-muted-foreground sm:text-sm">A department groups teams, like Engineering or Sales. Its head oversees every team in it.</p>
     </div>
 
     <Skeleton v-if="isEdit && structure.departments === null" class="h-80 w-full" />
@@ -87,8 +87,8 @@ async function save() {
     </EmptyState>
 
     <form v-else class="space-y-5" novalidate @submit.prevent="save">
-      <div class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_24rem]">
-      <section class="space-y-4 border border-border/80 bg-card p-5 shadow-soft sm:p-6">
+      <div class="grid items-start gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_min(100%,24rem)]">
+      <section class="space-y-4 rounded-xl border border-border/80 bg-card p-4 shadow-soft sm:p-5 lg:p-6">
         <h2 class="flex items-center gap-2 text-sm font-semibold"><Building2 class="size-4 text-primary" /> Details</h2>
         <FormField label="Department name" for="department-name" :error="fieldErrors.name">
           <Input id="department-name" v-model="form.name" placeholder="e.g. Engineering" maxlength="80" autofocus />
@@ -98,7 +98,7 @@ async function save() {
         </FormField>
       </section>
 
-      <section class="space-y-4 border border-border/80 bg-card p-5 shadow-soft sm:p-6">
+      <section class="space-y-4 rounded-xl border border-border/80 bg-card p-4 shadow-soft sm:p-5 lg:p-6">
         <h2 class="flex items-center gap-2 text-sm font-semibold"><Crown class="size-4 text-amber-500" /> Department head</h2>
         <FormField label="Head" for="department-head" hint="Anyone in the organization. You can change it later." :error="fieldErrors.headId">
           <SelectField id="department-head" v-model="form.headId" :options="headOptions" searchable search-placeholder="Search people…" aria-label="Department head" />
@@ -107,8 +107,8 @@ async function save() {
       </div>
 
       <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button variant="ghost" as-child><RouterLink :to="back">Cancel</RouterLink></Button>
-        <Button type="submit" variant="brand" :loading="isSaving" :disabled="form.name.trim().length < 2">{{ isEdit ? 'Save department' : 'Create department' }}</Button>
+        <Button variant="ghost" class="max-sm:w-full" as-child><RouterLink :to="back">Cancel</RouterLink></Button>
+        <Button type="submit" variant="brand" class="max-sm:w-full" :loading="isSaving" :disabled="form.name.trim().length < 2">{{ isEdit ? 'Save department' : 'Create department' }}</Button>
       </div>
     </form>
   </div>

@@ -100,7 +100,7 @@ async function remove() {
 </script>
 
 <template>
-  <div class="w-full space-y-5" :class="isDesktop ? 'p-5' : 'p-3'">
+  <div class="mx-auto w-full max-w-7xl space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <div v-if="structure.departments === null" class="space-y-4">
       <Skeleton class="h-36 w-full" />
       <Skeleton class="h-72 w-full" />
@@ -112,45 +112,49 @@ async function remove() {
 
     <template v-else>
       <!-- Header: identity and key facts -->
-      <section class="relative overflow-hidden border border-border/80 bg-card shadow-soft">
+      <section class="relative overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft">
         <div
           class="pointer-events-none absolute inset-0 opacity-80"
           style="background: radial-gradient(40rem 14rem at 0% 0%, color-mix(in oklch, var(--brand-to) 12%, transparent), transparent 70%)"
         />
-        <div class="relative space-y-4 p-5 sm:p-6">
-          <div class="flex items-start gap-4">
-            <span class="flex size-14 shrink-0 items-center justify-center bg-primary/10 text-primary ring-4 ring-primary/5"><UsersRound class="size-6" /></span>
-            <div class="min-w-0 flex-1 space-y-1.5">
-              <StructureBreadcrumb
-                :items="[
-                  { label: 'Departments', to: { name: 'departments' } },
-                  { label: department?.name ?? 'Department', to: { name: 'department', params: { departmentId: team.departmentId } } },
-                  { label: team.name },
-                ]"
-              />
-              <h1 class="truncate text-2xl font-bold tracking-tight sm:text-3xl">{{ team.name }}</h1>
-              <p class="max-w-2xl text-sm text-muted-foreground">{{ team.description || 'No description yet.' }}</p>
+        <div class="relative space-y-4 p-4 sm:p-5 lg:p-6">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+            <div class="flex min-w-0 flex-1 items-start gap-3 sm:gap-4">
+              <span class="flex size-11 shrink-0 items-center justify-center bg-primary/10 text-primary ring-4 ring-primary/5 sm:size-14"><UsersRound class="size-5 sm:size-6" /></span>
+              <div class="min-w-0 flex-1 space-y-1.5">
+                <StructureBreadcrumb
+                  :items="[
+                    { label: 'Departments', to: { name: 'departments' } },
+                    { label: department?.name ?? 'Department', to: { name: 'department', params: { departmentId: team.departmentId } } },
+                    { label: team.name },
+                  ]"
+                />
+                <h1 class="truncate text-xl font-bold tracking-tight sm:text-2xl lg:text-3xl">{{ team.name }}</h1>
+                <p class="max-w-2xl text-[13px] text-muted-foreground sm:text-sm">{{ team.description || 'No description yet.' }}</p>
+              </div>
             </div>
-            <MeetButton v-if="meetPreset" :preset="meetPreset" size="default" />
-            <DropdownMenu v-if="isAdmin">
-              <DropdownMenuTrigger as-child>
-                <Button variant="outline" size="icon" aria-label="Team actions"><Ellipsis /></Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem @select="router.push({ name: 'team-edit', params: { teamId: team.id } })"><Pencil /> Edit team</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" @select="remove"><Trash2 /> Delete team</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div class="flex shrink-0 items-center gap-2 self-end sm:self-start">
+              <MeetButton v-if="meetPreset" :preset="meetPreset" size="default" />
+              <DropdownMenu v-if="isAdmin">
+                <DropdownMenuTrigger as-child>
+                  <Button variant="outline" size="icon" aria-label="Team actions"><Ellipsis /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem @select="router.push({ name: 'team-edit', params: { teamId: team.id } })"><Pencil /> Edit team</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" @select="remove"><Trash2 /> Delete team</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
-          <dl class="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-border/60 pt-4 text-sm">
-            <div class="flex items-center gap-2">
+          <dl class="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-border/60 pt-4 text-[13px] sm:gap-x-6 sm:gap-y-3 sm:text-sm">
+            <div class="flex min-w-0 items-center gap-2">
               <dt class="sr-only">Team lead</dt>
-              <Crown class="size-4 text-amber-500" />
-              <dd v-if="team.lead" class="flex items-center gap-2">
+              <Crown class="size-4 shrink-0 text-amber-500" />
+              <dd v-if="team.lead" class="flex min-w-0 items-center gap-2">
                 <UserAvatar :user="team.lead" size="sm" />
-                <span><span class="font-medium">{{ team.lead.name }}</span> <span class="text-muted-foreground">· Team lead</span></span>
+                <span class="min-w-0 truncate"><span class="font-medium">{{ team.lead.name }}</span> <span class="text-muted-foreground max-sm:hidden">· Team lead</span></span>
               </dd>
               <dd v-else class="text-muted-foreground">No team lead yet</dd>
             </div>
@@ -168,7 +172,7 @@ async function remove() {
             <div class="flex items-center gap-2 text-muted-foreground">
               <dt class="sr-only">Tasks</dt>
               <CheckCircle2 class="size-4 text-success" />
-              <dd>{{ percentDone }}% of tasks done<template v-if="team.work.overdue"> · <span class="font-medium text-destructive">{{ team.work.overdue }} overdue</span></template></dd>
+              <dd>{{ percentDone }}% done<template v-if="team.work.overdue"> · <span class="font-medium text-destructive">{{ team.work.overdue }} overdue</span></template></dd>
             </div>
           </dl>
         </div>
@@ -177,10 +181,12 @@ async function remove() {
       <SetupGuide v-if="isAdmin" :title="`Set up ${team.name}`" :steps="steps" />
 
       <Tabs v-model="tab" class="gap-4">
-        <TabsList>
-          <TabsTrigger value="projects"><FolderKanban /> Projects <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ team.projectCount }}</span></TabsTrigger>
-          <TabsTrigger value="members"><Users /> Members <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ team.members.length }}</span></TabsTrigger>
-        </TabsList>
+        <div class="-mx-1 overflow-x-auto px-1 scrollbar-none">
+          <TabsList class="min-w-max">
+            <TabsTrigger value="projects"><FolderKanban /> Projects <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ team.projectCount }}</span></TabsTrigger>
+            <TabsTrigger value="members"><Users /> Members <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ team.members.length }}</span></TabsTrigger>
+          </TabsList>
+        </div>
         <TabsContent value="projects">
           <TeamWorkSection ref="workSection" :team-id="team.id" :team-name="team.name" @changed="structure.load()" />
         </TabsContent>

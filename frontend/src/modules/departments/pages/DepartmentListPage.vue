@@ -45,7 +45,7 @@ const STATS = computed(() => [
 </script>
 
 <template>
-  <div class="w-full space-y-5" :class="isDesktop ? 'p-5' : 'p-3'">
+  <div class="mx-auto w-full max-w-7xl space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <PageHeader
       title="Departments"
       :description="
@@ -55,14 +55,17 @@ const STATS = computed(() => [
       "
     >
       <template v-if="isAdmin" #actions>
-        <Button variant="brand" as-child><RouterLink :to="{ name: 'department-create' }"><Plus /> New department</RouterLink></Button>
+        <Button variant="brand" class="max-sm:w-full" as-child>
+          <RouterLink :to="{ name: 'department-create' }"><Plus /> New department</RouterLink>
+        </Button>
       </template>
     </PageHeader>
 
-    <div v-if="isAdmin" class="grid grid-cols-2 divide-x divide-border overflow-hidden rounded-xl border border-border bg-card shadow-soft lg:grid-cols-4">
+    <div v-if="isAdmin" class="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
       <StatCard
         v-for="stat in STATS"
         :key="stat.label"
+        variant="card"
         :label="stat.label"
         :value="structure.departments ? stat.value : '–'"
         :icon="stat.icon"
@@ -71,13 +74,13 @@ const STATS = computed(() => [
       />
     </div>
 
-    <div v-if="structure.departments?.length" class="relative max-w-sm">
+    <div v-if="structure.departments?.length" class="relative w-full max-w-md">
       <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input v-model="search" class="pl-9" placeholder="Search departments or teams…" aria-label="Search departments or teams" />
     </div>
 
-    <div v-if="structure.departments === null" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <Skeleton v-for="index in 3" :key="index" class="h-56 w-full" />
+    <div v-if="structure.departments === null" class="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <Skeleton v-for="index in 3" :key="index" class="h-52 w-full sm:h-56" />
     </div>
 
     <EmptyState
@@ -89,30 +92,32 @@ const STATS = computed(() => [
           ? 'Start with a department such as Engineering or Sales, choose its head, then add teams inside it.'
           : 'When an organization admin adds you to a team, its department shows up here.'
       "
-      class="border border-dashed bg-card/60 py-16"
+      class="border border-dashed bg-card/60 py-12 sm:py-16"
     >
       <Button v-if="isAdmin" variant="brand" as-child><RouterLink :to="{ name: 'department-create' }"><Plus /> Create the first department</RouterLink></Button>
     </EmptyState>
 
     <EmptyState v-else-if="!visible.length" :icon="Search" :title="`Nothing matches “${search}”`" class="border border-dashed py-12" />
 
-    <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div v-else class="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <RouterLink
         v-for="department in visible"
         :key="department.id"
         :to="{ name: 'department', params: { departmentId: department.id } }"
-        class="group flex flex-col rounded-xl border border-border bg-card shadow-soft transition-[border-color,box-shadow] hover:border-input hover:shadow-elevated focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none"
+        class="group flex min-w-0 flex-col rounded-xl border border-border bg-card shadow-soft transition-[border-color,box-shadow] hover:border-input hover:shadow-elevated focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none"
       >
-        <div class="flex items-start gap-3 p-5">
-          <span class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary"><Building2 class="size-5" /></span>
+        <div class="flex items-start gap-3 p-4 sm:p-5">
+          <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary sm:size-10">
+            <Building2 class="size-4 sm:size-5" />
+          </span>
           <div class="min-w-0 flex-1">
-            <h2 class="truncate text-base font-semibold tracking-tight">{{ department.name }}</h2>
-            <p class="line-clamp-2 min-h-10 text-sm text-muted-foreground">{{ department.description || 'No description yet.' }}</p>
+            <h2 class="truncate text-[15px] font-semibold tracking-tight sm:text-base">{{ department.name }}</h2>
+            <p class="mt-0.5 line-clamp-2 text-[13px] text-muted-foreground sm:min-h-10 sm:text-sm">{{ department.description || 'No description yet.' }}</p>
           </div>
           <ArrowRight class="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
         </div>
 
-        <div class="mx-5 flex items-center gap-2.5 rounded-lg bg-muted/60 px-3 py-2.5">
+        <div class="mx-4 flex items-center gap-2.5 rounded-lg bg-muted/60 px-3 py-2.5 sm:mx-5">
           <Crown class="size-4 shrink-0 text-amber-500" />
           <template v-if="department.head">
             <UserAvatar :user="department.head" size="sm" />
@@ -124,11 +129,11 @@ const STATS = computed(() => [
           <span v-else class="text-sm text-muted-foreground">No department head yet</span>
         </div>
 
-        <div class="mt-auto flex items-center justify-between gap-3 px-5 pt-4 pb-5 text-xs text-muted-foreground">
-          <span class="flex items-center gap-3">
-            <span class="inline-flex items-center gap-1"><FolderKanban class="size-3.5" /> {{ department.projectCount }} project{{ department.projectCount === 1 ? '' : 's' }}</span>
-            <span class="inline-flex items-center gap-1"><UsersRound class="size-3.5" /> {{ department.teams.length }} team{{ department.teams.length === 1 ? '' : 's' }}</span>
-            <span class="inline-flex items-center gap-1"><Users class="size-3.5" /> {{ departmentPeople(department).length }} people</span>
+        <div class="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pt-3 pb-4 text-xs text-muted-foreground sm:px-5 sm:pt-4 sm:pb-5">
+          <span class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span class="inline-flex items-center gap-1"><FolderKanban class="size-3.5" /> {{ department.projectCount }}</span>
+            <span class="inline-flex items-center gap-1"><UsersRound class="size-3.5" /> {{ department.teams.length }}</span>
+            <span class="inline-flex items-center gap-1"><Users class="size-3.5" /> {{ departmentPeople(department).length }}</span>
           </span>
           <UserAvatarStack v-if="departmentPeople(department).length" :users="departmentPeople(department)" :max="4" />
         </div>
