@@ -100,7 +100,7 @@ async function remove() {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-7xl space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <div v-if="structure.departments === null" class="space-y-4">
       <Skeleton class="h-36 w-full" />
       <Skeleton class="h-72 w-full" />
@@ -181,12 +181,10 @@ async function remove() {
       <SetupGuide v-if="isAdmin" :title="`Set up ${team.name}`" :steps="steps" />
 
       <Tabs v-model="tab" class="gap-4">
-        <div class="-mx-1 overflow-x-auto px-1 scrollbar-none">
-          <TabsList class="min-w-max">
-            <TabsTrigger value="projects"><FolderKanban /> Projects <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ team.projectCount }}</span></TabsTrigger>
-            <TabsTrigger value="members"><Users /> Members <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ team.members.length }}</span></TabsTrigger>
-          </TabsList>
-        </div>
+        <TabsList class="grid w-full grid-cols-2">
+          <TabsTrigger value="projects"><FolderKanban /> Projects <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ team.projectCount }}</span></TabsTrigger>
+          <TabsTrigger value="members"><Users /> Members <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ team.members.length }}</span></TabsTrigger>
+        </TabsList>
         <TabsContent value="projects">
           <TeamWorkSection ref="workSection" :team-id="team.id" :team-name="team.name" @changed="structure.load()" />
         </TabsContent>

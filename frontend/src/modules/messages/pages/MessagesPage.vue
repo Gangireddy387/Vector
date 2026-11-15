@@ -31,6 +31,7 @@ import {
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -576,12 +577,15 @@ async function leaveChannel(conversation: ConversationSummary) {
               <Input v-model="channelSearch" class="h-8 pr-8 pl-9" :placeholder="`Search in ${headerTitle(selected)}`" aria-label="Search in this channel" autofocus @keydown.esc="closeSearch" />
               <button type="button" class="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label="Close search" @click="closeSearch"><X class="size-4" /></button>
             </div>
-            <nav v-else class="ml-2 flex h-full flex-1 items-stretch gap-1" aria-label="Channel tabs">
+            <div v-else-if="!isDesktop" class="ml-1 min-w-0 flex-1">
+              <MobileSectionSelect v-model="view" :options="channelTabs" aria-label="Channel tabs" />
+            </div>
+            <nav v-else class="ml-2 flex h-full min-w-0 flex-1 flex-wrap items-stretch gap-1" aria-label="Channel tabs">
               <button
                 v-for="item in channelTabs"
                 :key="item.value"
                 type="button"
-                class="relative px-2.5 text-[13px] font-medium transition-colors"
+                class="relative shrink-0 px-2.5 text-[13px] font-medium transition-colors"
                 :class="view === item.value ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'"
                 :aria-current="view === item.value ? 'page' : undefined"
                 @click="view = item.value"

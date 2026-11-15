@@ -331,7 +331,11 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
 
 <template>
   <div class="flex h-full min-h-0 flex-col">
-    <div v-if="isLoading" class="grid w-full gap-5 p-5 lg:grid-cols-[1.6fr_1fr]">
+    <div
+      v-if="isLoading"
+      class="grid w-full gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr]"
+      :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'"
+    >
       <Skeleton class="aspect-video w-full" />
       <Skeleton class="h-80 w-full" />
     </div>
@@ -363,13 +367,16 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
 
     <!-- Lobby, or the summary of a meeting that is over -->
     <div v-else-if="meeting" class="min-h-0 flex-1 overflow-y-auto">
-      <div class="grid w-full gap-5 lg:grid-cols-[1.6fr_1fr]" :class="isDesktop ? 'p-5' : 'p-3'">
+      <div
+        class="grid w-full gap-4 space-y-0 sm:gap-5 lg:grid-cols-[1.6fr_1fr]"
+        :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'"
+      >
         <div class="space-y-4">
           <button type="button" class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" @click="router.push({ name: 'meetings' })">
             <ArrowLeft class="size-4" /> All meetings
           </button>
 
-          <div v-if="canJoin && inOtherCall" class="flex flex-col items-center gap-3 border border-border/70 bg-card px-6 py-12 text-center shadow-soft">
+          <div v-if="canJoin && inOtherCall" class="flex flex-col items-center gap-3 rounded-xl border border-border/70 bg-card px-6 py-12 text-center shadow-soft">
             <span class="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary"><PhoneCall class="size-6" /></span>
             <p class="font-semibold">You are in another call{{ call.title.value ? `: “${call.title.value}”` : '' }}</p>
             <p class="max-w-sm text-sm text-muted-foreground">Joining this meeting leaves that call.</p>
@@ -377,7 +384,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
           </div>
 
           <template v-else-if="canJoin">
-            <div class="relative overflow-hidden bg-[#0d1017] p-2 shadow-soft">
+            <div class="relative overflow-hidden rounded-xl bg-[#0d1017] p-2 shadow-soft">
               <VideoTile
                 :stream="call.selfStream.value"
                 :user="auth.user"
@@ -438,7 +445,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
             <BackgroundPicker v-model:open="backgroundsOpen" />
             <p v-if="call.deviceNote.value" class="border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 dark:text-warning">{{ call.deviceNote.value }}</p>
 
-            <div v-if="isWaiting" class="flex flex-wrap items-center gap-3 border border-sky-500/40 bg-sky-500/5 p-4 shadow-soft" role="status">
+            <div v-if="isWaiting" class="flex flex-col gap-3 rounded-xl border border-sky-500/40 bg-sky-500/5 p-4 shadow-soft sm:flex-row sm:flex-wrap sm:items-center" role="status">
               <span class="flex size-10 shrink-0 items-center justify-center rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-300">
                 <LoaderCircle class="size-5 animate-spin" />
               </span>
@@ -452,9 +459,9 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
                   }}
                 </p>
               </div>
-              <Button variant="outline" @click="stopWaiting">Stop waiting</Button>
+              <Button variant="outline" class="max-sm:w-full shrink-0" @click="stopWaiting">Stop waiting</Button>
             </div>
-            <div v-else class="flex flex-wrap items-center gap-3 border border-border/70 bg-card p-4 shadow-soft">
+            <div v-else class="flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-soft sm:flex-row sm:flex-wrap sm:items-center">
               <div class="min-w-0 flex-1">
                 <p class="text-sm font-semibold">{{ hasLeft ? 'You left the call' : 'Ready to join?' }}</p>
                 <p class="text-xs text-muted-foreground">
@@ -469,13 +476,13 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
                 :users="[...(meeting.host ? [meeting.host] : []), ...meeting.participants].filter((person, index, all) => meeting!.inCall.includes(person.id) && all.findIndex((item) => item.id === person.id) === index)"
                 :max="5"
               />
-              <Button variant="brand" size="lg" :loading="isJoining" @click="join">
+              <Button variant="brand" size="lg" class="max-sm:w-full shrink-0" :loading="isJoining" @click="join">
                 <Video /> {{ hasLeft ? 'Rejoin' : meeting.status === 'live' ? 'Join now' : 'Start the call' }}
               </Button>
             </div>
           </template>
 
-          <div v-else class="flex flex-col items-center gap-2 border border-border/70 bg-card px-6 py-12 text-center shadow-soft">
+          <div v-else class="flex flex-col items-center gap-2 rounded-xl border border-border/70 bg-card px-6 py-12 text-center shadow-soft">
             <span class="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground"><VideoOff class="size-6" /></span>
             <p class="font-semibold">{{ meeting.status === 'cancelled' ? 'This meeting was cancelled' : 'This meeting has ended' }}</p>
             <p class="max-w-sm text-sm text-muted-foreground">
@@ -496,13 +503,13 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
             @changed="load"
           />
 
-          <section v-if="!canJoin && whiteboard?.length" class="h-[420px] border border-border/70 bg-slate-100 p-3 shadow-soft dark:bg-slate-900">
+          <section v-if="!canJoin && whiteboard?.length" class="h-[280px] rounded-xl border border-border/70 bg-slate-100 p-3 shadow-soft sm:h-[420px] dark:bg-slate-900">
             <CallWhiteboard :strokes="whiteboard" :closable="false" />
           </section>
         </div>
 
         <div class="flex min-h-0 flex-col gap-4">
-          <section class="space-y-3 border border-border/70 bg-card p-4 shadow-soft">
+          <section class="min-w-0 space-y-3 rounded-xl border border-border/70 bg-card p-4 shadow-soft">
             <div class="flex flex-wrap items-center gap-2">
               <h1 class="min-w-0 flex-1 truncate text-lg font-semibold">{{ meeting.title }}</h1>
               <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :class="BADGE_CLASSES[meetingBadge(meeting, now).tone]">{{ meetingBadge(meeting, now).label }}</span>
@@ -517,7 +524,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
                 <RefreshCw class="size-4" /> Synced with the host’s {{ PROVIDER_LABELS[meeting.calendarSync.provider] }}
               </div>
             </dl>
-            <div v-if="meeting.dialIn" class="flex items-center gap-3 border border-border/70 bg-muted/30 px-3 py-2">
+            <div v-if="meeting.dialIn" class="flex flex-col gap-2 rounded-lg border border-border/70 bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:gap-3">
               <Phone class="size-4 shrink-0 text-muted-foreground" />
               <div class="min-w-0 flex-1 text-sm">
                 <p class="font-medium">Join by phone</p>
@@ -534,7 +541,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
             </Button>
           </section>
 
-          <section class="flex h-[460px] min-h-0 flex-col overflow-hidden border border-border/70 shadow-soft">
+          <section class="flex min-h-[min(24rem,60vh)] flex-col overflow-hidden rounded-xl border border-border/70 shadow-soft sm:h-[460px] sm:min-h-0">
             <MeetingPanel
               v-model:tab="panelTab"
               :meeting="meeting"

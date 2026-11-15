@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import LineChart from '@/components/common/charts/LineChart.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -86,16 +87,17 @@ const burnupTooltips = computed(
 </script>
 
 <template>
-  <div class="w-full space-y-4" :class="isDesktop ? 'px-5 py-4' : 'p-3'">
-    <Tabs v-if="views.length > 1" v-model="view">
-      <TabsList class="h-9 max-w-full overflow-x-auto">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+    <MobileSectionSelect v-if="views.length > 1 && !isDesktop" v-model="view" :options="views" aria-label="Progress views" />
+    <Tabs v-else-if="views.length > 1" v-model="view">
+      <TabsList class="inline-flex h-9 flex-wrap">
         <TabsTrigger v-for="option in views" :key="option.value" :value="option.value" class="gap-1.5 px-3">
           <component :is="option.icon" class="size-4" /> {{ option.label }}
         </TabsTrigger>
       </TabsList>
     </Tabs>
 
-    <p v-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
+    <p v-if="errorMessage" class="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
 
     <template v-if="view === 'overview'">
       <div v-if="!progress && !errorMessage" class="space-y-4">

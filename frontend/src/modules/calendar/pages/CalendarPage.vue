@@ -18,6 +18,7 @@ import { CalendarCheck2, CalendarDays, CalendarRange, ChevronLeft, ChevronRight,
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import { Button } from '@/components/ui/button'
@@ -188,6 +189,7 @@ function setView(next: CalendarView) {
   cursor.value = parseISO(selected.value)
   view.value = next
 }
+const onViewSelect = (value: string) => setView(value as CalendarView)
 function openDay(date: string) {
   selected.value = date
   setView('day')
@@ -243,15 +245,15 @@ useHotkeys({
 
 <template>
   <!-- On wide screens the page fits the window: the calendar takes the remaining height instead of the page scrolling. -->
-  <div class="w-full space-y-5 xl:flex xl:h-full xl:flex-col xl:space-y-4" :class="isDesktop ? 'p-5' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5 xl:flex xl:h-full xl:flex-col xl:space-y-4" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <PageHeader title="Calendar" description="Plan each day, tick off what you finished and see how your time was spent. Only you see your events.">
       <template #actions>
-        <Button variant="brand" title="New event (N)" @click="createForSelected"><Plus /> New event</Button>
+        <Button variant="brand" class="max-sm:w-full" title="New event (N)" @click="createForSelected"><Plus /> New event</Button>
       </template>
     </PageHeader>
 
     <!-- shrink-0: on wide screens the calendar below takes the remaining height, never this row's -->
-    <div class="grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4">
+    <div class="grid shrink-0 grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
       <StatCard variant="card" label="Events" :value="stats.planned" :icon="CalendarDays" :hint="periodLabel" />
       <StatCard variant="card" label="Completed" :value="`${stats.percent}%`" :icon="CalendarCheck2" tone="success" :hint="`${stats.done} of ${stats.planned} done`">
         <Progress :model-value="stats.percent" class="mt-2.5 h-1.5" indicator-class="bg-success" />
@@ -267,34 +269,47 @@ useHotkeys({
       />
     </div>
 
-    <div class="grid gap-5 xl:min-h-[30rem] xl:flex-1 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-4">
+    <div class="grid gap-4 sm:gap-5 xl:min-h-[30rem] xl:flex-1 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-4">
       <section class="relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft xl:min-h-0">
         <div v-if="isLoading" class="absolute inset-x-0 top-0 z-30 h-0.5 animate-pulse bg-brand" aria-hidden="true" />
 
-        <div class="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-          <Button variant="outline" size="sm" title="Today (T)" @click="goToday">Today</Button>
-          <div class="flex">
-            <Button variant="ghost" size="icon-sm" :aria-label="`Previous ${stepLabel}`" :title="`Previous ${stepLabel} (←)`" @click="shift(-1)"><ChevronLeft /></Button>
-            <Button variant="ghost" size="icon-sm" :aria-label="`Next ${stepLabel}`" :title="`Next ${stepLabel} (→)`" @click="shift(1)"><ChevronRight /></Button>
+        <div class="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" title="Today (T)" @click="goToday">Today</Button>
+            <div class="flex">
+              <Button variant="ghost" size="icon-sm" :aria-label="`Previous ${stepLabel}`" :title="`Previous ${stepLabel} (←)`" @click="shift(-1)"><ChevronLeft /></Button>
+              <Button variant="ghost" size="icon-sm" :aria-label="`Next ${stepLabel}`" :title="`Next ${stepLabel} (→)`" @click="shift(1)"><ChevronRight /></Button>
+            </div>
+            <h2 class="min-w-0 flex-1 truncate text-base font-semibold tracking-tight sm:mr-auto" aria-live="polite">{{ heading }}</h2>
           </div>
-          <h2 class="mr-auto min-w-0 truncate text-base font-semibold tracking-tight" aria-live="polite">{{ heading }}</h2>
 
-          <label class="flex items-center gap-2 text-xs text-muted-foreground"><Switch v-model="showTasks" aria-label="Show my tasks due" /> My tasks</label>
-          <div class="flex h-8 w-full items-center rounded-md bg-muted p-0.5 sm:w-auto" role="tablist" aria-label="Calendar view">
-            <button
-              v-for="option in VIEWS"
-              :key="option.value"
-              type="button"
-              role="tab"
-              class="flex h-7 flex-1 items-center justify-center gap-1.5 rounded-[5px] px-3 text-xs font-medium transition-colors sm:flex-none"
-              :class="view === option.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
-              :aria-selected="view === option.value"
-              :title="`${option.label} view (${option.key})`"
-              @click="setView(option.value)"
-            >
-              <component :is="option.icon" class="size-3.5" />
-              {{ option.label }}
-            </button>
+          <div class="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto">
+            <label class="flex items-center gap-2 text-xs text-muted-foreground"><Switch v-model="showTasks" aria-label="Show my tasks due" /> My tasks</label>
+            <MobileSectionSelect
+              v-if="!isDesktop"
+              :model-value="view"
+              :options="VIEWS"
+              aria-label="Calendar view"
+              @update:model-value="onViewSelect"
+            />
+            <div v-else class="flex h-8 min-w-0 flex-wrap items-center sm:w-auto">
+              <div class="inline-flex flex-wrap items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="Calendar view">
+                <button
+                  v-for="option in VIEWS"
+                  :key="option.value"
+                  type="button"
+                  role="tab"
+                  class="flex h-7 items-center justify-center gap-1.5 rounded-[5px] px-3 text-xs font-medium transition-colors"
+                  :class="view === option.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
+                  :aria-selected="view === option.value"
+                  :title="`${option.label} view (${option.key})`"
+                  @click="setView(option.value)"
+                >
+                  <component :is="option.icon" class="size-3.5" />
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -31,17 +31,15 @@ const completion = (summary?: { total: number; done: number }) => (summary?.tota
 </script>
 
 <template>
-  <div class="w-full space-y-4" :class="isDesktop ? 'p-5' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <PageHeader
-      v-if="isDesktop"
       title="Projects"
       :description="auth.isOrganizationAdmin ? 'Every project in the organization. As an admin you can open all of them.' : 'Every project you are a member of.'"
     >
       <template #actions>
-        <Button @click="isCreateOpen = true"><Plus /> New project</Button>
+        <Button class="max-sm:w-full" @click="isCreateOpen = true"><Plus /> New project</Button>
       </template>
     </PageHeader>
-    <Button v-else class="w-full" @click="isCreateOpen = true"><Plus /> New project</Button>
 
     <div v-if="isLoading" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <Skeleton v-for="index in 3" :key="index" class="h-40" />
@@ -61,7 +59,7 @@ const completion = (summary?: { total: number; done: number }) => (summary?.tota
         v-for="project in projects.activeProjects"
         :key="project.id"
         :to="{ name: 'project-board', params: { projectId: project.id } }"
-        class="surface-hover group flex flex-col gap-4 border border-border/70 bg-card p-5 shadow-soft focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        class="surface-hover group flex min-w-0 flex-col gap-4 rounded-xl border border-border/70 bg-card p-4 shadow-soft focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-5"
       >
         <div class="flex items-start gap-3">
           <span class="flex size-9 shrink-0 items-center justify-center rounded-lg text-[13px] font-bold text-white shadow-glow" :style="{ backgroundColor: project.color }">
@@ -80,7 +78,7 @@ const completion = (summary?: { total: number; done: number }) => (summary?.tota
             <span>{{ completion(project.issueSummary) }}%</span>
           </div>
           <Progress :model-value="completion(project.issueSummary)" class="h-1.5" />
-          <div class="flex items-center justify-between text-xs text-muted-foreground">
+          <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-muted-foreground">
             <span class="flex items-center gap-1.5"><UserAvatar :user="project.lead" size="xs" /> {{ project.lead?.name ?? 'No lead' }}</span>
             <span class="flex items-center gap-1"><Users class="size-3.5" /> {{ project.memberCount }}</span>
           </div>

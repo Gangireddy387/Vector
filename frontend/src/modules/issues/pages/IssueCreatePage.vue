@@ -60,14 +60,16 @@ function onCreated(issue: IssueDetail) {
 </script>
 
 <template>
-  <div class="flex min-h-full flex-col">
-    <header v-if="isDesktop" class="mx-auto flex w-full max-w-6xl items-center gap-2 px-5 pt-4">
-      <Button variant="ghost" size="icon" aria-label="Back" @click="leave()"><ArrowLeft /></Button>
-      <div class="min-w-0">
-        <h1 class="truncate text-xl font-bold tracking-tight">Create task</h1>
-        <p class="text-sm text-muted-foreground">
-          {{ projectName ? `New task in ${projectName}` : 'Capture the task, then fine-tune the details on the right.' }}
-        </p>
+  <div class="flex min-h-full w-full flex-col" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+    <header class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
+      <div class="flex min-w-0 items-center gap-2">
+        <Button variant="ghost" size="icon" aria-label="Back" @click="leave()"><ArrowLeft /></Button>
+        <div class="min-w-0 flex-1">
+          <h1 class="truncate text-lg font-bold tracking-tight sm:text-xl">Create task</h1>
+          <p class="text-[13px] text-muted-foreground sm:text-sm">
+            {{ projectName ? `New task in ${projectName}` : isDesktop ? 'Capture the task, then fine-tune the details on the right.' : 'Fill in the essentials below.' }}
+          </p>
+        </div>
       </div>
     </header>
     <IssueCreateForm

@@ -128,14 +128,14 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="w-full space-y-5" :class="isDesktop ? 'p-5' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <PageHeader title="Meetings" description="Video calls right in the browser: join with a click, talk face to face and share your updates with the team.">
       <template #actions>
-        <Button v-if="canSchedule" variant="brand" @click="sheetTarget = {}"><Plus /> Schedule meeting</Button>
+        <Button v-if="canSchedule" variant="brand" class="max-sm:w-full" @click="sheetTarget = {}"><Plus /> Schedule meeting</Button>
       </template>
     </PageHeader>
 
-    <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       <div class="inline-flex h-8 items-center rounded-md bg-muted p-0.5" role="tablist">
         <button
           v-for="tab in [{ value: 'upcoming', label: 'Upcoming', icon: CalendarClock }, { value: 'past', label: 'Past', icon: History }] as const"
@@ -183,7 +183,7 @@ onMounted(async () => {
             </p>
           </div>
           <UserAvatarStack :users="peopleOf(meeting).filter((person) => meeting.inCall.includes(person.id))" :max="5" />
-          <Button variant="brand" class="bg-red-600 hover:bg-red-600/90" @click="open(meeting)"><Video /> Join now</Button>
+          <Button variant="brand" class="max-sm:w-full bg-red-600 hover:bg-red-600/90" @click="open(meeting)"><Video /> Join now</Button>
         </article>
       </section>
 
@@ -192,7 +192,7 @@ onMounted(async () => {
         <article
           v-for="meeting in group.items"
           :key="meeting.id"
-          class="group flex cursor-pointer gap-4 rounded-xl border border-border bg-card p-4 shadow-soft transition-colors hover:border-input"
+          class="group flex min-w-0 cursor-pointer flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-soft transition-colors hover:border-input sm:flex-row"
           :class="meeting.status === 'cancelled' && 'opacity-70'"
           @click="open(meeting)"
         >
@@ -218,7 +218,7 @@ onMounted(async () => {
             <p v-if="meeting.agenda" class="line-clamp-1 text-sm text-muted-foreground/90">{{ meeting.agenda }}</p>
           </div>
 
-          <div class="flex shrink-0 flex-col items-end justify-between gap-2" @click.stop>
+          <div class="flex w-full shrink-0 flex-row flex-wrap items-center justify-between gap-2 sm:w-auto sm:flex-col sm:items-end" @click.stop>
             <div class="flex items-center gap-1">
               <UserAvatarStack :users="peopleOf(meeting)" :max="4" />
               <DropdownMenu v-if="meeting.canManage && (scope === 'past' || isJoinable(meeting, now))">
@@ -261,7 +261,7 @@ onMounted(async () => {
         "
         class="rounded-xl border border-dashed border-border py-14"
       >
-        <Button v-if="canSchedule && scope === 'upcoming'" variant="brand" class="mt-4" @click="sheetTarget = {}"><Plus /> Schedule meeting</Button>
+        <Button v-if="canSchedule && scope === 'upcoming'" variant="brand" class="mt-4 max-sm:w-full" @click="sheetTarget = {}"><Plus /> Schedule meeting</Button>
       </EmptyState>
     </template>
     </template>

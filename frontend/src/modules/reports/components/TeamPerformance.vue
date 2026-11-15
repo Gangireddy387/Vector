@@ -170,23 +170,23 @@ function exportCsv() {
 
 <template>
   <div class="space-y-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div class="flex flex-wrap items-center gap-2">
+    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
         <SelectField
           v-if="!lockedProjectId"
           :model-value="projectId ?? null"
           :options="projectOptions"
           size="sm"
-          class="w-52"
+          class="w-full sm:w-52"
           aria-label="Project"
           @update:model-value="(value) => (projectId = value ?? undefined)"
         />
-        <PeriodPicker v-model="period" />
+        <PeriodPicker v-model="period" class="w-full sm:w-auto" />
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
         <Popover>
           <PopoverTrigger as-child>
-            <Button variant="ghost" size="sm"><Info /> How scores work</Button>
+            <Button variant="ghost" size="sm" class="max-sm:w-full"><Info /> How scores work</Button>
           </PopoverTrigger>
           <PopoverContent align="end" class="w-80 space-y-2 text-sm">
             <p class="font-semibold">Contribution score (0–100)</p>
@@ -200,7 +200,7 @@ function exportCsv() {
             <p class="text-xs text-muted-foreground">Use it as a starting point for a conversation, together with the details in each person's review, not as the only input.</p>
           </PopoverContent>
         </Popover>
-        <Button variant="outline" size="sm" :disabled="!report?.members.length" @click="exportCsv"><Download /> Export CSV</Button>
+        <Button variant="outline" size="sm" class="max-sm:w-full" :disabled="!report?.members.length" @click="exportCsv"><Download /> Export CSV</Button>
       </div>
     </div>
 

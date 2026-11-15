@@ -4,6 +4,7 @@ import { ArrowUpRight, BellOff, BellRing, CheckCheck, EllipsisVertical, Eraser, 
 import { computed, defineAsyncComponent, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
+import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -41,6 +42,12 @@ const counts = computed(() =>
 const unreadIn = (value: InboxFilter) => notifications.items.filter((notification) => !notification.readAt && matchesFilter(notification, value)).length
 /** Category chips only show when they have something in them (All, Unread and the open one always do). */
 const chips = computed(() => INBOX_FILTERS.filter((item) => item.value === 'all' || item.value === 'unread' || item.value === filter.value || counts.value[item.value]))
+const chipOptions = computed(() =>
+  chips.value.map((chip) => {
+    const unread = unreadIn(chip.value)
+    return { value: chip.value, label: chip.label, ...(unread ? { count: unread } : {}) }
+  }),
+)
 function chooseFilter(value: InboxFilter) {
   filter.value = value
   selectedKey.value = null
@@ -340,29 +347,16 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
   </div>
 
   <!-- Phones: one list, tapping an item opens what it points to -->
-  <div v-else class="w-full space-y-3 p-3">
-    <div class="flex items-center justify-between gap-2">
+  <div v-else class="w-full space-y-4 sm:space-y-5 p-3">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <h1 class="text-lg font-bold">Inbox</h1>
-      <Button v-if="notifications.unreadCount" variant="ghost" size="sm" @click="notifications.markAllRead()"><CheckCheck /> Read all</Button>
+      <Button v-if="notifications.unreadCount" variant="ghost" size="sm" class="max-sm:w-full" @click="notifications.markAllRead()"><CheckCheck /> Read all</Button>
     </div>
     <div class="relative">
       <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input v-model="search" class="pl-9" placeholder="Search notifications" aria-label="Search notifications" />
     </div>
-    <div class="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-1" role="tablist" aria-label="Filter notifications">
-      <button
-        v-for="chip in chips"
-        :key="chip.value"
-        type="button"
-        role="tab"
-        class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors"
-        :class="filter === chip.value ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-muted-foreground active:bg-accent'"
-        :aria-selected="filter === chip.value"
-        @click="filter = chip.value"
-      >
-        {{ chip.label }} <span v-if="unreadIn(chip.value)" class="tabular-nums opacity-75">{{ unreadIn(chip.value) }}</span>
-      </button>
-    </div>
+    <MobileSectionSelect v-model="filter" :options="chipOptions" aria-label="Filter notifications" />
     <EmptyState
       v-if="!entries.length && !(notifications.isLoading && !notifications.items.length)"
       :icon="filter === 'unread' ? Inbox : BellOff"
@@ -372,7 +366,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
     />
     <section v-for="section in sections" :key="section.label" class="space-y-1.5">
       <h2 class="px-1 text-xs font-medium text-muted-foreground">{{ section.label }}</h2>
-      <ul class="divide-y divide-border/60 overflow-hidden border border-border/80 bg-card">
+      <ul class="min-w-0 divide-y divide-border/60 overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft">
         <li v-for="entry in section.entries" :key="entry.key">
           <NotificationItem
             :notification="entry.latest"

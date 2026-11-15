@@ -229,7 +229,7 @@ defineExpose({ createAnother })
     @keydown.ctrl.enter.prevent="submit"
     @keydown.meta.enter.prevent="submit"
   >
-    <div class="mx-auto grid w-full max-w-6xl flex-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-4" :class="compact ? 'p-3' : 'px-5 pt-3 pb-5'">
+    <div class="grid w-full flex-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-4" :class="compact ? 'p-3' : 'px-5 pt-3 pb-5'">
       <!-- What: title, description, sub-tasks -->
       <section class="space-y-5 border border-border/70 bg-card p-4 shadow-soft sm:p-5" aria-label="Task content">
         <div class="grid gap-2">
@@ -369,7 +369,7 @@ defineExpose({ createAnother })
 
     <!-- Actions -->
     <footer class="glass sticky bottom-0 z-20 border-t border-border/60" :class="compact && 'pb-safe'">
-      <div class="mx-auto flex w-full max-w-6xl flex-col gap-3 sm:flex-row sm:items-center" :class="compact ? 'p-3' : 'px-5 py-2.5'">
+      <div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center" :class="compact ? 'p-3' : 'px-5 py-2.5'">
         <p v-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive sm:order-2 sm:flex-1" role="alert">{{ errorMessage }}</p>
         <label class="flex items-center gap-2 text-sm text-muted-foreground sm:order-1" :class="!errorMessage && 'sm:flex-1'">
           <Switch v-model="createAnother" aria-label="Create another" />

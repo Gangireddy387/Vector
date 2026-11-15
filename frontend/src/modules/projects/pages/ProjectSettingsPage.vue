@@ -28,7 +28,7 @@ const activeSection = ref('general')
 </script>
 
 <template>
-  <div class="w-full" :class="isDesktop ? 'px-5 py-4' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'px-5 py-4' : 'p-3'">
     <EmptyState v-if="project && project.myRole !== 'admin'" title="Admins only" description="Ask a project admin to change these settings." />
     <SettingsLayout v-else-if="project" v-model="activeSection" :sections="SECTIONS" aria-label="Project settings">
       <template #general><GeneralSettings :project="project" /></template>

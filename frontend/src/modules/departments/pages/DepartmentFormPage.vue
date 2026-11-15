@@ -67,7 +67,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-5xl space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <div class="space-y-1.5">
       <StructureBreadcrumb
         :items="[

@@ -4,6 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import UserAvatarStack from '@/components/common/UserAvatarStack.vue'
 import { Badge } from '@/components/ui/badge'
@@ -87,6 +88,12 @@ const roster = computed(() => {
   return [...byId.values()].sort((a, b) => Number(b.isHead) - Number(a.isHead) || b.leads.length - a.leads.length || a.person.name.localeCompare(b.person.name))
 })
 
+const sectionOptions = computed(() => [
+  { value: 'teams', label: 'Teams', icon: UsersRound, count: department.value?.teams.length ?? 0 },
+  { value: 'projects', label: 'Projects', icon: FolderKanban, count: department.value?.projectCount ?? 0 },
+  { value: 'people', label: 'People', icon: Users, count: roster.value.length },
+])
+
 // --- Next steps --------------------------------------------------------------------------
 const steps = computed(() => {
   const current = department.value
@@ -136,7 +143,7 @@ async function remove() {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-7xl space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <div v-if="structure.departments === null" class="space-y-4">
       <Skeleton class="h-36 w-full" />
       <Skeleton class="h-64 w-full" />
@@ -215,13 +222,12 @@ async function remove() {
       <SetupGuide v-if="isAdmin" :title="`Set up ${department.name}`" :steps="steps" />
 
       <Tabs v-model="tab" class="gap-4">
-        <div class="-mx-1 overflow-x-auto px-1 scrollbar-none">
-          <TabsList class="min-w-max">
-            <TabsTrigger value="teams"><UsersRound /> Teams <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ department.teams.length }}</span></TabsTrigger>
-            <TabsTrigger value="projects"><FolderKanban /> Projects <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ department.projectCount }}</span></TabsTrigger>
-            <TabsTrigger value="people"><Users /> People <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ roster.length }}</span></TabsTrigger>
-          </TabsList>
-        </div>
+        <MobileSectionSelect v-if="!isDesktop" v-model="tab" :options="sectionOptions" aria-label="Department sections" />
+        <TabsList v-else class="grid w-full grid-cols-3 sm:inline-flex sm:w-auto">
+          <TabsTrigger value="teams"><UsersRound /> Teams <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ department.teams.length }}</span></TabsTrigger>
+          <TabsTrigger value="projects"><FolderKanban /> Projects <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ department.projectCount }}</span></TabsTrigger>
+          <TabsTrigger value="people"><Users /> People <span class="ml-1 bg-muted px-1.5 text-xs tabular-nums">{{ roster.length }}</span></TabsTrigger>
+        </TabsList>
 
         <!-- Teams -->
         <TabsContent value="teams" class="space-y-3">

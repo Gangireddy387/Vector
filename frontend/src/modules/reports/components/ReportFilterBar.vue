@@ -3,12 +3,14 @@ import { CalendarRange, FolderKanban, RotateCcw, UserRound, Users } from 'lucide
 import { computed } from 'vue'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
 import { Button } from '@/components/ui/button'
+import { useDevice } from '@/composables/useDevice'
 import { ISSUE_TYPE_META, ISSUE_TYPES, PRIORITIES, PRIORITY_META } from '@/constants/issue'
 import type { Project, UserSummary } from '@/types/models'
 import type { ReportFilters } from '../reports.api'
 
 const props = defineProps<{ projects: Project[]; members: UserSummary[]; lockProject?: boolean }>()
 const filters = defineModel<ReportFilters>({ required: true })
+const { isDesktop } = useDevice()
 
 const PERIOD_OPTIONS: SelectFieldOption[] = [7, 14, 30, 90, 180].map((days) => ({
   value: String(days),
@@ -54,13 +56,18 @@ function reset() {
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Report filters">
+  <div
+    class="flex gap-2"
+    :class="isDesktop ? 'flex-wrap items-center' : 'w-full flex-col'"
+    role="group"
+    aria-label="Report filters"
+  >
     <SelectField
       v-if="!lockProject"
       :model-value="filters.projectId ?? null"
       :options="projectOptions"
       size="sm"
-      class="w-52"
+      class="max-sm:w-full sm:w-52"
       aria-label="Project"
       @update:model-value="(value) => set('projectId', value ?? undefined)"
     />
@@ -68,7 +75,7 @@ function reset() {
       :model-value="String(filters.days)"
       :options="PERIOD_OPTIONS"
       size="sm"
-      class="w-44"
+      class="max-sm:w-full sm:w-44"
       aria-label="Period"
       @update:model-value="(value) => value && set('days', Number(value))"
     />
@@ -76,7 +83,7 @@ function reset() {
       :model-value="filters.assigneeId ?? null"
       :options="assigneeOptions"
       size="sm"
-      class="w-48"
+      class="max-sm:w-full sm:w-48"
       aria-label="Assignee"
       @update:model-value="(value) => set('assigneeId', value ?? undefined)"
     />
@@ -84,7 +91,7 @@ function reset() {
       :model-value="filters.type ?? null"
       :options="typeOptions"
       size="sm"
-      class="w-36"
+      class="max-sm:w-full sm:w-36"
       aria-label="Task type"
       @update:model-value="(value) => set('type', value ?? undefined)"
     />
@@ -92,10 +99,10 @@ function reset() {
       :model-value="filters.priority ?? null"
       :options="priorityOptions"
       size="sm"
-      class="w-40"
+      class="max-sm:w-full sm:w-40"
       aria-label="Priority"
       @update:model-value="(value) => set('priority', value ?? undefined)"
     />
-    <Button v-if="isFiltered" variant="ghost" size="sm" @click="reset"><RotateCcw /> Reset</Button>
+    <Button v-if="isFiltered" variant="ghost" size="sm" :class="!isDesktop && 'w-full'" @click="reset"><RotateCcw /> Reset</Button>
   </div>
 </template>

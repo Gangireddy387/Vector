@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import type { SortableEvent } from 'vue-draggable-plus'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -54,6 +55,16 @@ const isLoading = ref(true)
 const isDragging = ref(false)
 const showDone = ref(false)
 const epicFilter = ref<string | null>(null)
+const epicSelect = computed({
+  get: () => epicFilter.value ?? '',
+  set: (value: string) => {
+    epicFilter.value = value || null
+  },
+})
+const epicOptions = computed(() => [
+  { value: '', label: 'All' },
+  ...epics.value.map((epic) => ({ value: epic.id, label: epic.title })),
+])
 
 const isSprintFormOpen = ref(false)
 const editingSprint = ref<Sprint | null>(null)
@@ -164,7 +175,7 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
 </script>
 
 <template>
-  <div class="space-y-4" :class="isDesktop ? 'px-5 py-4' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <div v-if="isLoading" class="space-y-3">
       <Skeleton v-for="index in 3" :key="index" class="h-40 w-full" />
     </div>
@@ -180,24 +191,27 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
     />
 
     <template v-else>
-      <div class="flex flex-wrap items-center gap-2">
-        <div v-if="epics.length" class="flex flex-wrap items-center gap-1.5">
-          <span class="flex items-center gap-1 text-xs font-medium text-muted-foreground"><Zap class="size-3.5" /> Epics</span>
-          <Button size="xs" :variant="epicFilter === null ? 'secondary' : 'ghost'" @click="epicFilter = null">All</Button>
-          <Button
-            v-for="epic in epics"
-            :key="epic.id"
-            size="xs"
-            :variant="epicFilter === epic.id ? 'secondary' : 'ghost'"
-            class="max-w-48 truncate"
-            @click="epicFilter = epicFilter === epic.id ? null : epic.id"
-          >
-            {{ epic.title }}
-          </Button>
+      <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div v-if="epics.length" class="min-w-0 sm:flex sm:flex-wrap sm:items-center sm:gap-1.5">
+          <MobileSectionSelect v-if="!isDesktop" v-model="epicSelect" :options="epicOptions" aria-label="Filter by epic" />
+          <template v-else>
+            <span class="flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground"><Zap class="size-3.5" /> Epics</span>
+            <Button size="xs" class="shrink-0" :variant="epicFilter === null ? 'secondary' : 'ghost'" @click="epicFilter = null">All</Button>
+            <Button
+              v-for="epic in epics"
+              :key="epic.id"
+              size="xs"
+              :variant="epicFilter === epic.id ? 'secondary' : 'ghost'"
+              class="max-w-48 shrink-0 truncate"
+              @click="epicFilter = epicFilter === epic.id ? null : epic.id"
+            >
+              {{ epic.title }}
+            </Button>
+          </template>
         </div>
-        <div class="ml-auto flex items-center gap-3">
+        <div class="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center sm:gap-3">
           <label class="flex items-center gap-2 text-sm text-muted-foreground"><Switch v-model="showDone" /> Show done</label>
-          <Button v-if="canManageSprints" size="sm" variant="outline" @click="openSprintForm()"><Plus /> Create sprint</Button>
+          <Button v-if="canManageSprints" size="sm" variant="outline" class="max-sm:w-full" @click="openSprintForm()"><Plus /> Create sprint</Button>
         </div>
       </div>
 

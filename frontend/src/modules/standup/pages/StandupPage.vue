@@ -110,15 +110,15 @@ async function copySummary() {
 </script>
 
 <template>
-  <div class="w-full space-y-4" :class="isDesktop ? 'px-5 py-4' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <!-- Day navigation -->
-    <div class="flex flex-wrap items-center gap-3">
-      <div class="flex items-center gap-1">
+    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+      <div class="flex min-w-0 flex-wrap items-center gap-1">
         <Button variant="outline" size="icon-sm" aria-label="Previous day" @click="shift(-1)"><ChevronLeft /></Button>
         <DatePicker
           :model-value="date"
           size="sm"
-          class="w-48"
+          class="min-w-0 flex-1 sm:w-48 sm:flex-none"
           :clearable="false"
           :presets="false"
           display-format="EEE, d MMM yyyy"
@@ -128,7 +128,7 @@ async function copySummary() {
         <Button variant="outline" size="icon-sm" aria-label="Next day" :disabled="date >= today" @click="shift(1)"><ChevronRight /></Button>
         <Button v-if="date !== today" variant="ghost" size="sm" @click="date = today">Today</Button>
       </div>
-      <div class="flex flex-wrap items-center gap-1" aria-label="Recent standups">
+      <div class="hidden min-w-0 flex-wrap items-center gap-1 sm:flex sm:flex-1" aria-label="Recent standups">
         <button
           v-for="entry in recentDays"
           :key="entry.date"
@@ -145,10 +145,10 @@ async function copySummary() {
           </span>
         </button>
       </div>
-      <Button variant="outline" size="sm" class="ml-auto" :disabled="!day?.stats.posted" @click="copySummary"><ClipboardCopy /> Copy summary</Button>
+      <Button variant="outline" size="sm" class="max-sm:w-full sm:ml-auto" :disabled="!day?.stats.posted" @click="copySummary"><ClipboardCopy /> Copy summary</Button>
     </div>
 
-    <p v-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
+    <p v-if="errorMessage" class="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
 
     <div v-if="isLoading" class="space-y-4">
       <Skeleton class="h-20 w-full" />
@@ -157,12 +157,12 @@ async function copySummary() {
 
     <template v-else-if="day">
       <!-- At a glance -->
-      <section class="flex flex-wrap items-center gap-x-8 gap-y-3 border bg-card px-4 py-3 shadow-soft">
-        <div>
+      <section class="flex flex-col gap-3 rounded-xl border bg-card px-4 py-3 shadow-soft sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-8 sm:gap-y-3">
+        <div class="min-w-0">
           <h1 class="text-base font-semibold">{{ dateTitle }}'s standup</h1>
           <p class="text-xs text-muted-foreground">{{ formatDate(date, 'd MMMM yyyy') }} · covers work since {{ formatDate(day.previousDate, 'EEEE d MMM') }}</p>
         </div>
-        <div class="flex min-w-48 flex-1 items-center gap-3">
+        <div class="flex min-w-0 w-full items-center gap-3 sm:min-w-48 sm:w-auto sm:flex-1">
           <Users class="size-4 text-muted-foreground" />
           <span class="h-2 flex-1 bg-muted"><span class="block h-full bg-success transition-[width] duration-500" :style="{ width: `${day.stats.expected ? (day.stats.posted / day.stats.expected) * 100 : 0}%` }" /></span>
           <span class="text-sm font-semibold tabular-nums">{{ day.stats.posted }}/{{ day.stats.expected }} posted</span>

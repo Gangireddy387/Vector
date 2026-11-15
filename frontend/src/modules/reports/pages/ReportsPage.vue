@@ -29,7 +29,10 @@ const tab = computed({
 </script>
 
 <template>
-  <div class="w-full space-y-4" :class="isDesktop ? (projectId ? 'px-5 py-4' : 'p-5') : 'p-3'">
+  <div
+    class="w-full space-y-4 sm:space-y-5"
+    :class="isDesktop ? (projectId ? 'px-5 py-4' : 'p-4 sm:p-5 lg:p-6') : 'p-3'"
+  >
     <PageHeader
       v-if="isDesktop && !projectId"
       title="Reports"
@@ -40,9 +43,9 @@ const tab = computed({
       "
     />
     <Tabs v-if="canReviewTeam" v-model="tab">
-      <TabsList class="h-9">
+      <TabsList class="grid h-9 w-full grid-cols-2 sm:inline-flex sm:w-auto">
         <TabsTrigger value="overview" class="gap-1.5 px-3"><BarChart3 class="size-4" /> Overview</TabsTrigger>
-        <TabsTrigger value="team" class="gap-1.5 px-3"><Users class="size-4" /> Team performance</TabsTrigger>
+        <TabsTrigger value="team" class="gap-1.5 px-3"><Users class="size-4 shrink-0" /> <span class="truncate">Team</span></TabsTrigger>
       </TabsList>
     </Tabs>
     <TeamPerformance v-if="tab === 'team'" />

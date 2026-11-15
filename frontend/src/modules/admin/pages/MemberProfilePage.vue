@@ -147,7 +147,7 @@ async function copyEmail() {
 </script>
 
 <template>
-  <div class="w-full" :class="isDesktop ? 'p-5' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <RouterLink
       :to="{ name: 'workspace-admin', query: { tab: 'people' } }"
       class="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -162,18 +162,19 @@ async function copyEmail() {
       <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]"><Skeleton class="h-80" /><Skeleton class="h-80" /></div>
     </div>
 
-    <div v-else class="space-y-4">
+    <div v-else class="min-w-0 space-y-4 sm:space-y-5">
       <!-- Header card -->
-      <section class="overflow-hidden border border-border/80 bg-card shadow-soft">
+      <section class="min-w-0 overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft">
         <div class="h-32 sm:h-40" :style="coverStyle" />
-        <div class="relative px-5 pb-5">
-          <div class="-mt-14 flex flex-wrap items-end justify-between gap-4 sm:-mt-16">
+        <div class="relative px-4 pb-5 sm:px-5">
+          <div class="-mt-14 flex flex-col gap-4 sm:-mt-16 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
             <UserAvatar :user="person" size="xl" class="size-28 text-4xl ring-4 ring-card shadow-lg sm:size-32" />
-            <div class="flex flex-wrap items-center gap-2 pb-1">
+            <div class="flex w-full flex-wrap items-center gap-2 pb-1 sm:w-auto max-sm:[&>button]:flex-1 max-sm:[&>a]:flex-1">
               <Button
                 v-if="canMessage(person.id) && status === 'active'"
                 variant="brand"
                 size="sm"
+                class="max-sm:w-full"
                 :loading="openingId === person.id"
                 @click="messagePerson(person.id)"
               >
@@ -241,7 +242,7 @@ async function copyEmail() {
       <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div class="min-w-0 space-y-4">
           <!-- About -->
-          <section class="border border-border/80 bg-card p-5 shadow-soft">
+          <section class="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-soft sm:p-5">
             <h2 class="mb-2 text-base font-semibold">About</h2>
             <p v-if="person.about" class="text-sm leading-relaxed whitespace-pre-line text-foreground/85">{{ person.about }}</p>
             <p v-else class="text-sm text-muted-foreground">
@@ -250,7 +251,7 @@ async function copyEmail() {
           </section>
 
           <!-- Organization -->
-          <section class="border border-border/80 bg-card p-5 shadow-soft">
+          <section class="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-soft sm:p-5">
             <h2 class="mb-3 text-base font-semibold">In {{ auth.organization?.name }}</h2>
             <ul v-if="profile.structure.headOf.length || profile.structure.teams.length" class="space-y-0">
               <li v-for="department in profile.structure.headOf" :key="department.id" class="flex gap-3 border-b border-border/60 py-3 first:pt-0 last:border-b-0 last:pb-0">
@@ -276,7 +277,7 @@ async function copyEmail() {
           </section>
 
           <!-- Projects -->
-          <section class="border border-border/80 bg-card p-5 shadow-soft">
+          <section class="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-soft sm:p-5">
             <div class="mb-3 flex items-center justify-between">
               <h2 class="text-base font-semibold">Projects</h2>
               <span class="text-xs text-muted-foreground">{{ profile.projects.length }}</span>
@@ -286,7 +287,7 @@ async function copyEmail() {
                 v-for="project in profile.projects"
                 :key="project.id"
                 :to="{ name: 'project-board', params: { projectId: project.id } }"
-                class="group flex items-center gap-3 border border-border/70 p-3 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                class="group flex min-w-0 items-center gap-3 rounded-xl border border-border/70 p-3 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
               >
                 <span class="flex size-10 shrink-0 items-center justify-center text-xs font-bold text-white" :style="{ backgroundColor: project.color }">{{ project.key.slice(0, 3) }}</span>
                 <span class="min-w-0 flex-1">
@@ -305,7 +306,7 @@ async function copyEmail() {
           </section>
 
           <!-- Activity -->
-          <section class="border border-border/80 bg-card p-5 shadow-soft">
+          <section class="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-soft sm:p-5">
             <h2 class="mb-3 flex items-center gap-2 text-base font-semibold"><History class="size-4 text-muted-foreground" /> Recent activity</h2>
             <ol v-if="profile.activity.length" class="relative space-y-4 border-l border-border/70 pl-5">
               <li v-for="item in profile.activity" :key="item.id" class="relative">
@@ -325,10 +326,10 @@ async function copyEmail() {
         </div>
 
         <aside class="space-y-4">
-          <section class="border border-border/80 bg-card p-4 shadow-soft">
+          <section class="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-soft">
             <h2 class="mb-3 text-sm font-semibold">Work at a glance</h2>
-            <div class="grid grid-cols-2 gap-2">
-              <div v-for="stat in STATS" :key="stat.label" class="border border-border/60 p-3">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-2">
+              <div v-for="stat in STATS" :key="stat.label" class="min-w-0 rounded-lg border border-border/60 p-3">
                 <span class="mb-2 flex size-8 items-center justify-center" :class="stat.tone"><component :is="stat.icon" class="size-4" /></span>
                 <span class="block text-xl leading-none font-semibold tabular-nums">{{ stat.value }}</span>
                 <span class="mt-1 block text-[11px] leading-tight text-muted-foreground">{{ stat.label }}</span>
@@ -336,7 +337,7 @@ async function copyEmail() {
             </div>
           </section>
 
-          <section class="border border-border/80 bg-card p-4 shadow-soft">
+          <section class="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-soft">
             <h2 class="mb-3 text-sm font-semibold">Contact</h2>
             <ul class="space-y-3 text-sm">
               <li class="flex items-center gap-3">
@@ -360,7 +361,7 @@ async function copyEmail() {
             </ul>
           </section>
 
-          <section class="border border-border/80 bg-card p-4 shadow-soft">
+          <section class="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-soft">
             <h2 class="mb-3 text-sm font-semibold">Skills</h2>
             <div v-if="person.skills.length" class="flex flex-wrap gap-1.5">
               <span v-for="skill in person.skills" :key="skill" class="border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary">{{ skill }}</span>
@@ -368,7 +369,7 @@ async function copyEmail() {
             <p v-else class="text-sm text-muted-foreground">No skills added yet.</p>
           </section>
 
-          <section class="border border-border/80 bg-card p-4 shadow-soft">
+          <section class="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-soft">
             <h2 class="mb-3 text-sm font-semibold">Recently completed</h2>
             <ul v-if="profile.recentlyCompleted.length" class="space-y-2.5">
               <li v-for="task in profile.recentlyCompleted" :key="task.id">

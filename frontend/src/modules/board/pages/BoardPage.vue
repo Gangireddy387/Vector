@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { addDays, endOfDay, isBefore, parseISO, startOfDay, subDays } from 'date-fns'
-import { CalendarCheck, ChevronDown, Columns3, SearchX } from 'lucide-vue-next'
+import { CalendarCheck, ChevronDown, Columns3, ListFilter, Search, SearchX } from 'lucide-vue-next'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { SortableEvent } from 'vue-draggable-plus'
@@ -10,6 +10,8 @@ import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ISSUE_TYPE_META, ISSUE_TYPES, PRIORITIES, PRIORITY_META } from '@/constants/issue'
 import { useDevice } from '@/composables/useDevice'
@@ -45,7 +47,18 @@ const canManageSprints = computed(() => projects.canManageSprints(projectId.valu
 const canConfigure = computed(() => projects.isAdmin(projectId.value))
 const filters = ref<BoardFilterState>({ search: '', assigneeIds: [] })
 const isCompleteOpen = ref(false)
+const isFilterSheetOpen = ref(false)
 const statuses = computed(() => project.value?.statuses ?? [])
+const mobileFilterCount = computed(() => {
+  const value = filters.value
+  return (
+    value.assigneeIds.length +
+    (value.types ? 1 : 0) +
+    (value.priorities ? 1 : 0) +
+    (value.labelIds ? 1 : 0) +
+    (value.quick?.length ?? 0)
+  )
+})
 
 // --- Filtering ---------------------------------------------------------------
 const filteredIssues = computed(() => {
@@ -148,7 +161,7 @@ const shownLanes = computed(() => lanes.value.filter((lane) => view.value.groupB
 const columnIssues = (statusId: string) => filteredIssues.value.filter((issue) => issue.statusId === statusId)
 const columnPoints = (statusId: string) => columnIssues(statusId).reduce((total, issue) => total + (issue.storyPoints ?? 0), 0)
 const isCollapsed = (statusId: string) => view.value.collapsedColumns.includes(statusId)
-const gridTemplate = computed(() => statuses.value.map((status) => (isCollapsed(status.id) ? '2.75rem' : 'minmax(17rem, 1fr)')).join(' '))
+const gridTemplate = computed(() => statuses.value.map((status) => (isCollapsed(status.id) ? '2.75rem' : 'minmax(16rem, 1fr)')).join(' '))
 
 /** A task added in a cell gets its status and its swimlane's assignee, priority, type or epic. */
 function cellDefaults(lane: Lane, status: Status): Partial<CreateIssueInput> {
@@ -257,13 +270,13 @@ function moveOnMobile(issue: Issue, status: Status) {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col" :class="isDesktop ? '' : 'p-3'">
+  <div class="flex h-full min-h-0 w-full flex-col overflow-x-hidden" :class="isDesktop ? '' : 'min-h-0'">
     <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
-    <div v-if="isLoading" class="flex gap-3 p-4">
-      <Skeleton v-for="index in 4" :key="index" class="h-96 min-w-64 flex-1 rounded-xl" />
+    <div v-if="isLoading" class="flex gap-3 overflow-x-auto p-3 sm:p-4">
+      <Skeleton v-for="index in 4" :key="index" class="h-96 w-64 shrink-0 rounded-xl sm:min-w-64 sm:flex-1" />
     </div>
 
-    <EmptyState v-else-if="loadError && !project" :icon="Columns3" title="The board did not load" :description="loadError" class="py-20">
+    <EmptyState v-else-if="loadError && !project" :icon="Columns3" title="The board did not load" :description="loadError" class="px-3 py-20">
       <Button variant="outline" @click="reload">Try again</Button>
     </EmptyState>
 
@@ -272,7 +285,7 @@ function moveOnMobile(issue: Issue, status: Status) {
       :icon="CalendarCheck"
       title="No active sprint"
       description="Plan a sprint in the backlog and start it to see its board here."
-      class="py-20"
+      class="px-3 py-20"
     >
       <Button as-child>
         <RouterLink :to="{ name: 'project-backlog', params: { projectId } }">Go to backlog</RouterLink>
@@ -280,18 +293,18 @@ function moveOnMobile(issue: Issue, status: Status) {
     </EmptyState>
 
     <template v-else-if="project">
-      <p v-if="hiddenCount" class="mx-4 mt-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 dark:text-warning" role="status">
+      <p v-if="hiddenCount" class="mx-3 mt-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 sm:mx-4 dark:text-warning" role="status">
         The board shows the first {{ issues.length }} tasks; {{ hiddenCount }} more are in
         <RouterLink :to="{ name: 'project-issues', params: { projectId } }" class="font-medium underline">the task list</RouterLink>.
       </p>
 
       <!-- Desktop: the whole workflow at a glance -->
       <template v-if="isDesktop">
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-2.5">
+        <div class="flex flex-col gap-2 border-b border-border px-3 py-2.5 xl:flex-row xl:items-start xl:gap-3 xl:px-4">
           <div class="min-w-0 flex-1">
             <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" />
           </div>
-          <div class="flex shrink-0 items-center gap-3">
+          <div class="flex shrink-0 flex-wrap items-center gap-2 xl:gap-3">
             <template v-if="activeSprint">
               <div class="flex min-w-0 items-center gap-2 text-[13px]" :title="activeSprint.goal ?? undefined">
                 <span class="size-1.5 shrink-0 rounded-full bg-success" />
@@ -317,7 +330,7 @@ function moveOnMobile(issue: Issue, status: Status) {
           </div>
         </div>
 
-        <p v-if="isFiltered" class="flex items-center gap-2 border-b border-border bg-primary/[0.03] px-4 py-1.5 text-xs text-muted-foreground">
+        <p v-if="isFiltered" class="flex flex-wrap items-center gap-2 border-b border-border bg-primary/[0.03] px-3 py-1.5 text-xs text-muted-foreground xl:px-4">
           Showing <strong class="font-semibold text-foreground tabular-nums">{{ filteredIssues.length }}</strong> of {{ issues.length }} tasks
           <button type="button" class="font-medium text-primary hover:underline" @click="filters = { search: '', assigneeIds: [] }">Clear filters</button>
         </p>
@@ -325,12 +338,12 @@ function moveOnMobile(issue: Issue, status: Status) {
         <div class="min-h-0 flex-1 overflow-auto scrollbar-thin" :class="isDragging && 'select-none'">
           <!-- Without swimlanes the columns run down to the bottom of the board -->
           <div
-            class="inline-grid min-w-full gap-x-3 px-4 pb-4"
+            class="inline-grid min-w-full gap-x-2 px-3 pb-4 sm:gap-x-3 sm:px-4"
             :class="view.groupBy === 'none' && 'min-h-full'"
             :style="{ gridTemplateColumns: gridTemplate, gridTemplateRows: view.groupBy === 'none' ? 'auto 1fr' : undefined }"
           >
             <!-- Column headers stay pinned while the board scrolls -->
-            <div class="sticky top-0 z-20 col-span-full grid gap-x-3 bg-background pt-3 pb-2" :style="{ gridTemplateColumns: gridTemplate }">
+            <div class="sticky top-0 z-20 col-span-full grid gap-x-2 bg-background pt-3 pb-2 sm:gap-x-3" :style="{ gridTemplateColumns: gridTemplate }">
               <BoardColumnHeader
                 v-for="status in statuses"
                 :key="status.id"
@@ -414,19 +427,66 @@ function moveOnMobile(issue: Issue, status: Status) {
 
       <!-- Mobile: one status at a time, tap to move -->
       <template v-else>
-        <div v-if="activeSprint" class="mb-3 rounded-xl border bg-card p-3">
-          <p class="mb-2 text-sm font-semibold">{{ activeSprint.name }}</p>
-          <SprintProgress :sprint="activeSprint" :stats="sprintStats" />
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <div class="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+            <div class="relative min-w-0 flex-1">
+              <Search class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input v-model="filters.search" placeholder="Search board" class="h-9 pl-8" aria-label="Search this board" />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              class="relative shrink-0"
+              :aria-pressed="isFilterSheetOpen"
+              @click="isFilterSheetOpen = true"
+            >
+              <ListFilter class="size-4" />
+              Filters
+              <span
+                v-if="mobileFilterCount"
+                class="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground tabular-nums"
+              >
+                {{ mobileFilterCount }}
+              </span>
+            </Button>
+          </div>
+
+          <p v-if="isFiltered" class="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-primary/[0.03] px-3 py-1.5 text-xs text-muted-foreground">
+            Showing <strong class="font-semibold text-foreground tabular-nums">{{ filteredIssues.length }}</strong> of {{ issues.length }}
+            <button type="button" class="font-medium text-primary hover:underline" @click="filters = { search: '', assigneeIds: [] }">Clear</button>
+          </p>
+
+          <div v-if="activeSprint" class="shrink-0 border-b border-border px-3 py-2">
+            <div class="mb-1.5 flex items-center justify-between gap-2">
+              <p class="min-w-0 truncate text-sm font-semibold">{{ activeSprint.name }}</p>
+              <Button v-if="canManageSprints" variant="outline" size="xs" class="shrink-0" @click="isCompleteOpen = true">Complete</Button>
+            </div>
+            <SprintProgress :sprint="activeSprint" :stats="sprintStats" />
+          </div>
+
+          <MobileBoard
+            :statuses="statuses"
+            :issues="filteredIssues"
+            :project-id="projectId"
+            :sprint-id="activeSprint?.id ?? null"
+            :editable="canEdit"
+            @open="openIssue"
+            @move="moveOnMobile"
+          />
+
+          <Sheet v-model:open="isFilterSheetOpen">
+            <SheetContent side="bottom" class="gap-0">
+              <SheetHeader><SheetTitle>Board filters</SheetTitle></SheetHeader>
+              <div class="space-y-4 overflow-y-auto px-4 pb-4">
+                <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" stacked hide-search />
+                <Button class="w-full" @click="isFilterSheetOpen = false">
+                  Show {{ filteredIssues.length }} tasks
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
-        <MobileBoard
-          :statuses="statuses"
-          :issues="issues"
-          :project-id="projectId"
-          :sprint-id="activeSprint?.id ?? null"
-          :editable="canEdit"
-          @open="openIssue"
-          @move="moveOnMobile"
-        />
       </template>
 
       <CompleteSprintDialog

@@ -91,7 +91,7 @@ async function changePassword() {
 </script>
 
 <template>
-  <div class="w-full space-y-4" :class="isDesktop ? 'p-5' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <PageHeader v-if="isDesktop" title="Settings" description="Your profile, notifications and preferences." />
 
     <div class="grid items-start gap-4 xl:grid-cols-2">
@@ -135,7 +135,7 @@ async function changePassword() {
                   <SkillsInput id="profile-skills" v-model="profile.skills" />
                 </FormField>
               </div>
-              <Button type="submit" :loading="isSavingProfile">Save profile</Button>
+              <Button type="submit" class="max-sm:w-full" :loading="isSavingProfile">Save profile</Button>
             </form>
             <TimezoneField class="mt-5" />
           </CardContent>
@@ -151,7 +151,7 @@ async function changePassword() {
               <FormField label="New password" for="new-password" hint="At least 8 characters.">
                 <PasswordInput id="new-password" v-model="passwords.newPassword" autocomplete="new-password" required />
               </FormField>
-              <div class="sm:col-span-2"><Button type="submit" variant="outline" :loading="isSavingPassword">Change password</Button></div>
+              <div class="sm:col-span-2"><Button type="submit" variant="outline" class="max-sm:w-full" :loading="isSavingPassword">Change password</Button></div>
             </form>
           </CardContent>
         </Card>

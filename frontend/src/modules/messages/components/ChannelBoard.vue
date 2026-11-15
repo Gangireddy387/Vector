@@ -40,8 +40,8 @@ const openBoard = (projectId: string) => void router.push({ name: 'project-board
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col overflow-y-auto bg-sidebar/40 px-4 py-4 scrollbar-thin sm:px-[5%]">
-    <div class="mx-auto w-full max-w-3xl space-y-3">
+  <div class="flex min-h-0 flex-1 flex-col overflow-y-auto bg-sidebar/40 px-3 py-3 scrollbar-thin sm:px-[5%] sm:py-4">
+    <div class="w-full space-y-3">
       <div class="flex items-start gap-3">
         <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Kanban class="size-[18px]" /></span>
         <div class="min-w-0 flex-1">
@@ -62,7 +62,7 @@ const openBoard = (projectId: string) => void router.push({ name: 'project-board
         v-for="project in projects"
         :key="project.id"
         type="button"
-        class="flex w-full items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left shadow-soft transition-colors hover:bg-accent/40"
+        class="flex w-full min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-3 py-3 text-left shadow-soft transition-colors hover:bg-accent/40 sm:px-4"
         @click="openBoard(project.id)"
       >
         <span class="size-3 shrink-0 rounded-full" :style="{ background: project.color }" />
@@ -72,7 +72,10 @@ const openBoard = (projectId: string) => void router.push({ name: 'project-board
             {{ project.key }} · {{ project.work.todo + project.work.inProgress }} open · {{ project.work.done }} done
           </span>
         </span>
-        <Button size="sm" variant="secondary" tabindex="-1"><ExternalLink class="size-3.5" /> Open board</Button>
+        <Button size="sm" variant="secondary" class="shrink-0" tabindex="-1">
+          <ExternalLink class="size-3.5" />
+          <span class="max-sm:hidden">Open board</span>
+        </Button>
       </button>
     </div>
   </div>

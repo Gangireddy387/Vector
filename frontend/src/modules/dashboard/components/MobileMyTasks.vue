@@ -59,13 +59,13 @@ async function complete(issue: Issue) {
 </script>
 
 <template>
-  <div class="space-y-4 p-3">
-    <div class="flex items-start justify-between gap-2 px-1">
+  <div class="w-full space-y-4 sm:space-y-5 p-3">
+    <div class="flex flex-col gap-2 px-1 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <p class="text-lg font-semibold">Hi {{ auth.user?.name.split(' ')[0] }}</p>
         <p class="text-sm" :class="data?.stats.overdue ? 'text-destructive' : 'text-muted-foreground'">{{ summary }}</p>
       </div>
-      <Button variant="ghost" size="icon" aria-label="Refresh" @click="reload"><RefreshCw /></Button>
+      <Button variant="ghost" size="icon" class="self-end sm:self-start" aria-label="Refresh" @click="reload"><RefreshCw /></Button>
     </div>
 
     <SetupChecklist v-if="data" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
@@ -73,19 +73,19 @@ async function complete(issue: Issue) {
 
     <QuickCapture stacked />
 
-    <div class="grid grid-cols-4 gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Task groups">
+    <div class="grid w-full grid-cols-4 gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Task groups">
       <button
         v-for="item in SEGMENTS"
         :key="item.value"
         type="button"
         role="tab"
         :aria-selected="segment === item.value"
-        class="rounded-md py-2 text-xs font-medium transition"
+        class="min-w-0 rounded-md px-1 py-2 text-center text-[11px] font-medium transition sm:text-xs"
         :class="segment === item.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'"
         @click="segment = item.value"
       >
-        {{ item.label }}
-        <span class="ml-0.5 opacity-70">{{ bySegment[item.value].length }}</span>
+        <span class="block truncate">{{ item.label }}</span>
+        <span class="opacity-70 tabular-nums">{{ bySegment[item.value].length }}</span>
       </button>
     </div>
 

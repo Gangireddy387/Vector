@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { Plus, Sparkles, Trash2 } from 'lucide-vue-next'
+import { ChevronDown, Plus, Sparkles, Trash2 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { useConfirm } from '@/composables/useConfirm'
 import EmptyState from '@/components/common/EmptyState.vue'
 import UserAvatarStack from '@/components/common/UserAvatarStack.vue'
 import { getProjectNavigation } from '@/components/layout/projectNavigation'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage, isNotFoundError } from '@/lib/http'
@@ -19,6 +25,7 @@ import { useProjectsStore } from '../projects.store'
 
 const props = defineProps<{ projectId: string }>()
 
+const route = useRoute()
 const projects = useProjectsStore()
 const ui = useUiStore()
 const auth = useAuthStore()
@@ -30,6 +37,7 @@ const meetPreset = computed<MeetingPreset | null>(() =>
   project.value ? { title: `${project.value.name} sync`, people: project.value.members, context: { type: 'project', id: project.value.id } } : null,
 )
 const navigation = computed(() => (project.value ? getProjectNavigation(project.value, auth.hasFeature) : []))
+const activeSection = computed(() => navigation.value.find((item) => item.name === route.name) ?? navigation.value[0] ?? null)
 
 /** A failure other than "not found" (offline, server restarting) offers to try again instead. */
 const loadError = ref<string | null>(null)
@@ -94,24 +102,24 @@ async function deleteSample() {
     <Skeleton class="h-96 w-full" />
   </div>
 
-  <div v-else class="flex min-h-full flex-col" :class="isDesktop && 'h-full'">
+  <div v-else class="flex min-h-0 min-w-0 flex-col overflow-x-hidden" :class="isDesktop ? 'h-full min-h-full' : 'h-full'">
     <!-- Desktop header -->
-    <header v-if="isDesktop" class="shrink-0 border-b border-border px-4 pt-2.5">
-      <div class="flex items-center gap-3">
-        <span class="flex size-7 items-center justify-center rounded-[7px] text-[11px] font-bold text-white shadow-glow" :style="{ backgroundColor: project.color }">
+    <header v-if="isDesktop" class="shrink-0 border-b border-border px-3 pt-2.5 sm:px-4">
+      <div class="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+        <span class="flex size-7 shrink-0 items-center justify-center rounded-[7px] text-[11px] font-bold text-white shadow-glow" :style="{ backgroundColor: project.color }">
           {{ project.key.slice(0, 2) }}
         </span>
-        <div class="flex min-w-0 items-center gap-2">
+        <div class="flex min-w-0 flex-1 items-center gap-2">
           <h1 class="truncate text-[15px] font-semibold">{{ project.name }}</h1>
-          <span v-if="project.team" class="truncate text-xs text-muted-foreground">· {{ project.team.name }} team</span>
+          <span v-if="project.team" class="hidden truncate text-xs text-muted-foreground lg:inline">· {{ project.team.name }} team</span>
         </div>
-        <UserAvatarStack :users="project.members" :max="5" class="ml-2" />
-        <span class="ml-auto flex items-center gap-2">
+        <UserAvatarStack :users="project.members" :max="4" class="hidden sm:flex" />
+        <span class="ml-auto flex shrink-0 items-center gap-2">
           <MeetButton v-if="meetPreset" :preset="meetPreset" />
           <Button size="sm" @click="ui.openCreateIssue({ projectId: project.id })"><Plus /> Task</Button>
         </span>
       </div>
-      <nav class="mt-1.5 -mb-px flex gap-0.5" aria-label="Project sections">
+      <nav class="mt-1.5 -mb-px flex gap-0.5 overflow-x-auto scrollbar-none" aria-label="Project sections">
         <RouterLink
           v-for="item in navigation"
           :key="item.name"
@@ -121,51 +129,61 @@ async function deleteSample() {
         >
           <a
             :href="href"
-            class="flex h-9 items-center gap-1.5 border-b-2 px-2.5 text-[13px] font-medium transition-colors"
+            class="flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-2 text-[13px] font-medium transition-colors sm:px-2.5"
             :class="isActive ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
             :aria-current="isActive ? 'page' : undefined"
             @click="navigate"
           >
-            <component :is="item.icon" class="size-4" /> {{ item.label }}
+            <component :is="item.icon" class="size-4 shrink-0" /> {{ item.label }}
           </a>
         </RouterLink>
       </nav>
     </header>
 
-    <!-- Mobile section switcher -->
-    <nav v-else class="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 flex gap-1.5 overflow-x-auto border-b bg-background px-3 py-2 scrollbar-none" aria-label="Project sections">
-      <RouterLink
-        v-for="item in navigation"
-        :key="item.name"
-        v-slot="{ href, navigate, isActive }"
-        :to="{ name: item.name, params: { projectId: project.id } }"
-        custom
-      >
-        <a
-          :href="href"
-          class="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium"
-          :class="isActive ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'"
-          :aria-current="isActive ? 'page' : undefined"
-          @click="navigate"
-        >
-          <component :is="item.icon" class="size-4" /> {{ item.label }}
-        </a>
-      </RouterLink>
+    <!-- Mobile section switcher: dropdown (no hidden horizontal scroll) -->
+    <nav v-else class="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 shrink-0 border-b bg-background px-3 py-2" aria-label="Project sections">
+      <div class="flex items-center gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="outline" class="min-w-0 flex-1 justify-between gap-2 px-3">
+              <span class="flex min-w-0 items-center gap-2">
+                <component :is="activeSection?.icon" v-if="activeSection" class="size-4 shrink-0 text-primary" />
+                <span class="truncate font-medium">{{ activeSection?.label ?? 'Section' }}</span>
+              </span>
+              <ChevronDown class="size-4 shrink-0 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" class="w-[min(18rem,calc(100vw-1.5rem))]">
+            <DropdownMenuItem
+              v-for="item in navigation"
+              :key="item.name"
+              class="gap-2"
+              :class="item.name === activeSection?.name && 'bg-accent'"
+              @select="router.push({ name: item.name, params: { projectId: project.id } })"
+            >
+              <component :is="item.icon" class="size-4 shrink-0" />
+              {{ item.label }}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <MeetButton v-if="meetPreset" :preset="meetPreset" />
+        <Button size="sm" class="shrink-0" @click="ui.openCreateIssue({ projectId: project.id })"><Plus /> Task</Button>
+      </div>
     </nav>
 
     <!-- The sample project says what it is and can be removed, with everything in it, in one click -->
-    <div v-if="project.settings?.isSample" class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-primary/[0.05] px-4 py-2 text-[13px]">
+    <div v-if="project.settings?.isSample" class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-primary/[0.05] px-3 py-2 text-[13px] sm:px-4">
       <Sparkles class="size-4 shrink-0 text-primary" />
       <span class="min-w-0 flex-1">
         <span class="font-medium">This is a sample project.</span>
         <span class="ml-1 text-muted-foreground">Explore freely; deleting it removes all its tasks, sprints, chat and history.</span>
       </span>
-      <Button v-if="project.myRole === 'admin'" variant="outline" size="sm" class="text-destructive hover:text-destructive" :loading="isDeletingSample" @click="deleteSample">
+      <Button v-if="project.myRole === 'admin'" variant="outline" size="sm" class="max-sm:w-full text-destructive hover:text-destructive" :loading="isDeletingSample" @click="deleteSample">
         <Trash2 /> Delete sample project
       </Button>
     </div>
 
-    <div class="min-h-0 flex-1" :class="isDesktop && 'overflow-y-auto'">
+    <div class="min-h-0 min-w-0 flex-1 overflow-x-hidden" :class="isDesktop ? 'overflow-y-auto' : 'flex flex-col'">
       <RouterView />
     </div>
   </div>

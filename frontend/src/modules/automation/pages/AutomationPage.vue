@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
+import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -57,6 +58,23 @@ const canRules = computed(() => auth.hasFeature('automations'))
 const canTemplates = computed(() => auth.hasFeature('templates'))
 const canRecurring = computed(() => auth.hasFeature('recurringTasks'))
 const defaultTab = computed(() => (canRules.value ? 'rules' : canTemplates.value ? 'templates' : 'recurring'))
+const tab = ref(defaultTab.value)
+const tabOptions = computed(() => [
+  ...(canRules.value ? [{ value: 'rules', label: 'Rules', icon: Workflow }] : []),
+  ...(canTemplates.value ? [{ value: 'templates', label: 'Templates', icon: LayoutTemplate }] : []),
+  ...(canRecurring.value ? [{ value: 'recurring', label: 'Recurring', icon: Repeat }] : []),
+])
+const tabListClass = computed(() => {
+  const cols = tabOptions.value.length
+  return cols <= 1 ? 'grid w-full grid-cols-1' : cols === 2 ? 'grid w-full grid-cols-2' : 'grid w-full grid-cols-3'
+})
+watch(defaultTab, (value) => {
+  const allowed =
+    (tab.value === 'rules' && canRules.value) ||
+    (tab.value === 'templates' && canTemplates.value) ||
+    (tab.value === 'recurring' && canRecurring.value)
+  if (!allowed) tab.value = value
+})
 
 async function load() {
   await projects.fetchProject(projectId.value)
@@ -133,9 +151,10 @@ async function removeRecurring(task: RecurringTask) {
 </script>
 
 <template>
-  <div class="w-full" :class="isDesktop ? 'px-5 py-4' : 'p-3'">
-    <Tabs v-if="project" :default-value="defaultTab" class="gap-4">
-      <TabsList class="w-full sm:w-auto">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+    <Tabs v-if="project" v-model="tab" class="gap-4">
+      <MobileSectionSelect v-if="!isDesktop" v-model="tab" :options="tabOptions" aria-label="Automation sections" />
+      <TabsList v-else :class="tabListClass">
         <TabsTrigger v-if="canRules" value="rules"><Workflow /> Rules</TabsTrigger>
         <TabsTrigger v-if="canTemplates" value="templates"><LayoutTemplate /> Templates</TabsTrigger>
         <TabsTrigger v-if="canRecurring" value="recurring"><Repeat /> Recurring</TabsTrigger>
@@ -143,16 +162,16 @@ async function removeRecurring(task: RecurringTask) {
 
       <!-- Rules -->
       <TabsContent v-if="canRules" value="rules" class="space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
+        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div class="min-w-0">
             <h2 class="font-semibold">Automation rules</h2>
             <p class="text-sm text-muted-foreground">When something happens, Vector does the follow-up work for you.</p>
           </div>
-          <Button v-if="isAdmin" variant="brand" @click="openRule()"><Plus /> New rule</Button>
+          <Button v-if="isAdmin" variant="brand" class="max-sm:w-full shrink-0" @click="openRule()"><Plus /> New rule</Button>
         </div>
 
-        <ul v-if="rules.length" class="divide-y divide-border/60 overflow-hidden border border-border/70 bg-card shadow-soft">
-          <li v-for="rule in rules" :key="rule.id" class="flex gap-3 p-4 transition-colors hover:bg-accent/30">
+        <ul v-if="rules.length" class="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card shadow-soft">
+          <li v-for="rule in rules" :key="rule.id" class="flex flex-col gap-3 p-4 transition-colors hover:bg-accent/30 sm:flex-row">
             <Switch
               :model-value="rule.enabled"
               :disabled="!isAdmin"
@@ -187,7 +206,7 @@ async function removeRecurring(task: RecurringTask) {
           :icon="Workflow"
           title="No rules yet"
           description="Start from a recipe below — one click and it’s running."
-          class=" border border-dashed"
+          class="rounded-xl border border-dashed"
         />
 
         <section v-if="isAdmin" class="space-y-3">
@@ -197,7 +216,7 @@ async function removeRecurring(task: RecurringTask) {
               v-for="recipe in AUTOMATION_RECIPES"
               :key="recipe.id"
               type="button"
-              class="surface-hover flex flex-col gap-2 border border-border/70 bg-card p-4 text-left shadow-soft disabled:pointer-events-none disabled:opacity-60"
+              class="surface-hover flex min-w-0 flex-col gap-2 rounded-xl border border-border/70 bg-card p-4 text-left shadow-soft disabled:pointer-events-none disabled:opacity-60"
               :disabled="usedRecipeNames.has(recipe.name)"
               @click="useRecipe(recipe)"
             >
@@ -214,15 +233,15 @@ async function removeRecurring(task: RecurringTask) {
 
       <!-- Templates -->
       <TabsContent v-if="canTemplates" value="templates" class="space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
+        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div class="min-w-0">
             <h2 class="font-semibold">Task templates</h2>
             <p class="text-sm text-muted-foreground">Pick a template when creating a task to fill everything in at once.</p>
           </div>
-          <Button v-if="canEdit" variant="brand" @click="openTemplate()"><Plus /> New template</Button>
+          <Button v-if="canEdit" variant="brand" class="max-sm:w-full shrink-0" @click="openTemplate()"><Plus /> New template</Button>
         </div>
         <div v-if="templates.length" class="grid gap-3 sm:grid-cols-2">
-          <article v-for="template in templates" :key="template.id" class="surface-hover space-y-2 border border-border/70 bg-card p-4 shadow-soft">
+          <article v-for="template in templates" :key="template.id" class="surface-hover min-w-0 space-y-2 rounded-xl border border-border/70 bg-card p-4 shadow-soft">
             <div class="flex items-start gap-2">
               <IssueTypeIcon :type="template.issueType" size="md" />
               <div class="min-w-0 flex-1">
@@ -245,21 +264,21 @@ async function removeRecurring(task: RecurringTask) {
           :icon="LayoutTemplate"
           title="No templates"
           description="Save your team’s standard bug report or feature request format."
-          class=" border border-dashed"
+          class="rounded-xl border border-dashed"
         />
       </TabsContent>
 
       <!-- Recurring -->
       <TabsContent v-if="canRecurring" value="recurring" class="space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
+        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div class="min-w-0">
             <h2 class="font-semibold">Recurring tasks</h2>
             <p class="text-sm text-muted-foreground">Routine work creates itself — stand-up notes, releases, reviews, reports.</p>
           </div>
-          <Button v-if="canEdit" variant="brand" @click="openRecurring()"><Plus /> New recurring task</Button>
+          <Button v-if="canEdit" variant="brand" class="max-sm:w-full shrink-0" @click="openRecurring()"><Plus /> New recurring task</Button>
         </div>
-        <ul v-if="recurringTasks.length" class="divide-y divide-border/60 overflow-hidden border border-border/70 bg-card shadow-soft">
-          <li v-for="task in recurringTasks" :key="task.id" class="flex flex-wrap items-center gap-3 p-4">
+        <ul v-if="recurringTasks.length" class="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card shadow-soft">
+          <li v-for="task in recurringTasks" :key="task.id" class="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center">
             <Switch
               :model-value="task.enabled"
               :disabled="!canEdit"
@@ -274,11 +293,11 @@ async function removeRecurring(task: RecurringTask) {
               </p>
             </div>
             <UserAvatar :user="task.assignee" size="md" show-tooltip />
-            <template v-if="canEdit">
-              <Button variant="soft" size="sm" @click="runNow(task)"><Play /> Run now</Button>
+            <div v-if="canEdit" class="flex flex-wrap items-center gap-2">
+              <Button variant="soft" size="sm" class="max-sm:flex-1" @click="runNow(task)"><Play /> Run now</Button>
               <Button variant="ghost" size="icon-sm" :aria-label="`Edit ${task.title}`" @click="openRecurring(task)"><Pencil /></Button>
               <Button variant="ghost" size="icon-sm" :aria-label="`Delete ${task.title}`" @click="removeRecurring(task)"><Trash2 /></Button>
-            </template>
+            </div>
           </li>
         </ul>
         <EmptyState
@@ -286,7 +305,7 @@ async function removeRecurring(task: RecurringTask) {
           :icon="Repeat"
           title="No recurring tasks"
           description="Set it once and never forget routine work again."
-          class=" border border-dashed"
+          class="rounded-xl border border-dashed"
         />
       </TabsContent>
     </Tabs>

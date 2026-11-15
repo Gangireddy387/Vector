@@ -118,18 +118,18 @@ const daysLeft = (endDate: string | null) => {
 </script>
 
 <template>
-  <div class="w-full space-y-5 px-6 py-6 2xl:px-8">
+  <div class="w-full space-y-4 sm:space-y-5 p-4 sm:p-5 lg:p-6">
     <!-- Greeting, the day in one sentence, and the things people start most -->
-    <header class="flex flex-wrap items-end justify-between gap-4">
+    <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div class="min-w-0">
         <p class="text-xs font-medium text-muted-foreground">{{ today }}</p>
         <h1 class="mt-0.5 text-[22px] font-semibold tracking-tight">{{ greeting }}, {{ auth.user?.name.split(' ')[0] }}</h1>
         <p v-if="summary" class="mt-1 text-[13.5px] text-muted-foreground">{{ summary }}</p>
       </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <Button v-if="canSchedule" variant="outline" size="sm" @click="meetingSheet = {}"><CalendarPlus /> Schedule meeting</Button>
-        <Button variant="outline" size="sm" @click="isCreateProjectOpen = true"><FolderPlus /> New project</Button>
-        <Button size="sm" @click="newTask"><Plus /> New task</Button>
+      <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        <Button v-if="canSchedule" variant="outline" size="sm" class="max-lg:flex-1" @click="meetingSheet = {}"><CalendarPlus /> Schedule meeting</Button>
+        <Button variant="outline" size="sm" class="max-lg:flex-1" @click="isCreateProjectOpen = true"><FolderPlus /> New project</Button>
+        <Button size="sm" class="max-lg:flex-1" @click="newTask"><Plus /> New task</Button>
       </div>
     </header>
 
@@ -144,10 +144,16 @@ const daysLeft = (endDate: string | null) => {
     </EmptyState>
 
     <template v-else-if="data">
-      <div class="grid grid-cols-2 divide-x divide-border overflow-hidden rounded-xl border border-border bg-card shadow-soft lg:grid-cols-5">
-        <RouterLink v-for="stat in stats" :key="stat.label" :to="stat.to" class="group relative transition-colors hover:bg-accent/50" :title="`Open: ${stat.label}`">
-          <StatCard :label="stat.label" :value="stat.value" :icon="stat.icon" :tone="stat.tone" :hint="stat.hint" />
-          <ArrowRight class="absolute top-3.5 right-3.5 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+      <div class="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5">
+        <RouterLink
+          v-for="stat in stats"
+          :key="stat.label"
+          :to="stat.to"
+          class="group relative min-w-0"
+          :title="`Open: ${stat.label}`"
+        >
+          <StatCard variant="card" :label="stat.label" :value="stat.value" :icon="stat.icon" :tone="stat.tone" :hint="stat.hint" />
+          <ArrowRight class="pointer-events-none absolute top-3.5 right-3.5 size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
         </RouterLink>
       </div>
 
@@ -155,9 +161,9 @@ const daysLeft = (endDate: string | null) => {
         <div class="min-w-0 space-y-5">
           <!-- My work -->
           <section class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
-            <header class="flex h-12 items-center gap-3 border-b border-border px-4">
+            <header class="flex min-h-12 flex-wrap items-center gap-2 border-b border-border px-4 py-2 sm:gap-3 sm:py-0">
               <h2 class="text-sm font-semibold">My work</h2>
-              <div class="flex h-7 items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="My work">
+              <div class="flex h-7 shrink-0 items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="My work">
                 <button
                   v-for="tab in [
                     { value: 'open', label: 'Open', count: count(openGroups) },

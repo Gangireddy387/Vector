@@ -20,12 +20,14 @@ export interface BoardFilterState {
   quick?: BoardQuickFilter[]
 }
 
-const props = defineProps<{ members: UserSummary[]; labels: Label[] }>()
+const props = withDefaults(defineProps<{ members: UserSummary[]; labels: Label[]; stacked?: boolean; hideSearch?: boolean }>(), {
+  stacked: false,
+  hideSearch: false,
+})
 const filters = defineModel<BoardFilterState>({ required: true })
 
 const SELECTED_TICK_CLASS =
   'pointer-events-none absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background'
-/** More avatars than this fold into "+N". */
 const AVATAR_LIMIT = 6
 
 const QUICK_FILTERS: Array<{ value: BoardQuickFilter; label: string; icon: typeof Check }> = [
@@ -54,76 +56,92 @@ function toggleQuick(value: BoardQuickFilter) {
   const quick = filters.value.quick ?? []
   filters.value = { ...filters.value, quick: quick.includes(value) ? quick.filter((item) => item !== value) : [...quick, value] }
 }
+function clearFilters() {
+  filters.value = { search: props.hideSearch ? filters.value.search : '', assigneeIds: [] }
+}
 </script>
 
 <template>
-  <div class="flex flex-wrap items-center gap-2">
-    <div class="relative w-56">
+  <div :class="stacked ? 'space-y-4' : 'flex min-w-0 flex-wrap items-center gap-2'">
+    <div v-if="!hideSearch" class="relative" :class="stacked ? 'w-full' : 'w-56'">
       <Search class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
       <Input v-model="filters.search" placeholder="Search this board" class="h-8 pl-8" aria-label="Search this board" />
     </div>
 
-    <div class="flex items-center -space-x-1.5" role="group" aria-label="Filter by assignee">
-      <button
-        v-for="member in shownMembers"
-        :key="member.id"
-        type="button"
-        class="relative rounded-full ring-2 transition"
-        :class="filters.assigneeIds.includes(member.id) ? 'z-10 ring-primary' : 'ring-background hover:z-10 hover:-translate-y-0.5'"
-        :aria-pressed="filters.assigneeIds.includes(member.id)"
-        :aria-label="`Only ${member.name}`"
-        @click="toggleAssignee(member.id)"
-      >
-        <UserAvatar :user="member" size="md" show-tooltip />
-        <span v-if="filters.assigneeIds.includes(member.id)" :class="SELECTED_TICK_CLASS" aria-hidden="true">
-          <Check class="size-2.5" stroke-width="3.5" />
-        </span>
-      </button>
-      <span
-        v-if="hiddenMembers"
-        class="relative flex size-8 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-background"
-        :title="members.slice(AVATAR_LIMIT).map((member) => member.name).join(', ')"
-      >
-        +{{ hiddenMembers }}
-      </span>
-      <button
-        type="button"
-        class="relative rounded-full ring-2 transition"
-        :class="filters.assigneeIds.includes('unassigned') ? 'z-10 ring-primary' : 'ring-background hover:z-10 hover:-translate-y-0.5'"
-        :aria-pressed="filters.assigneeIds.includes('unassigned')"
-        aria-label="Only unassigned"
-        @click="toggleAssignee('unassigned')"
-      >
-        <UserAvatar :user="null" size="md" show-tooltip />
-        <span v-if="filters.assigneeIds.includes('unassigned')" :class="SELECTED_TICK_CLASS" aria-hidden="true">
-          <Check class="size-2.5" stroke-width="3.5" />
-        </span>
-      </button>
+    <div>
+      <p v-if="stacked" class="mb-2 text-xs font-medium text-muted-foreground">Assignee</p>
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex items-center -space-x-1.5" role="group" aria-label="Filter by assignee">
+          <button
+            v-for="member in shownMembers"
+            :key="member.id"
+            type="button"
+            class="relative rounded-full ring-2 transition"
+            :class="filters.assigneeIds.includes(member.id) ? 'z-10 ring-primary' : 'ring-background hover:z-10 hover:-translate-y-0.5'"
+            :aria-pressed="filters.assigneeIds.includes(member.id)"
+            :aria-label="`Only ${member.name}`"
+            @click="toggleAssignee(member.id)"
+          >
+            <UserAvatar :user="member" size="md" show-tooltip />
+            <span v-if="filters.assigneeIds.includes(member.id)" :class="SELECTED_TICK_CLASS" aria-hidden="true">
+              <Check class="size-2.5" stroke-width="3.5" />
+            </span>
+          </button>
+          <span
+            v-if="hiddenMembers"
+            class="relative flex size-8 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-background"
+            :title="members.slice(AVATAR_LIMIT).map((member) => member.name).join(', ')"
+          >
+            +{{ hiddenMembers }}
+          </span>
+          <button
+            type="button"
+            class="relative rounded-full ring-2 transition"
+            :class="filters.assigneeIds.includes('unassigned') ? 'z-10 ring-primary' : 'ring-background hover:z-10 hover:-translate-y-0.5'"
+            :aria-pressed="filters.assigneeIds.includes('unassigned')"
+            aria-label="Only unassigned"
+            @click="toggleAssignee('unassigned')"
+          >
+            <UserAvatar :user="null" size="md" show-tooltip />
+            <span v-if="filters.assigneeIds.includes('unassigned')" :class="SELECTED_TICK_CLASS" aria-hidden="true">
+              <Check class="size-2.5" stroke-width="3.5" />
+            </span>
+          </button>
+        </div>
+      </div>
     </div>
 
-    <span class="mx-0.5 hidden h-5 w-px bg-border lg:block" />
+    <span v-if="!stacked" class="mx-0.5 hidden h-5 w-px bg-border lg:block" />
 
-    <div class="flex flex-wrap items-center gap-1" role="group" aria-label="Quick filters">
-      <button
-        v-for="option in QUICK_FILTERS"
-        :key="option.value"
-        type="button"
-        class="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors"
-        :class="
-          filters.quick?.includes(option.value)
-            ? 'border-primary/50 bg-primary/10 text-primary'
-            : 'border-border bg-background text-muted-foreground hover:border-input hover:text-foreground'
-        "
-        :aria-pressed="filters.quick?.includes(option.value) ?? false"
-        @click="toggleQuick(option.value)"
-      >
-        <component :is="option.icon" class="size-3.5" /> {{ option.label }}
-      </button>
+    <div>
+      <p v-if="stacked" class="mb-2 text-xs font-medium text-muted-foreground">Quick filters</p>
+      <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Quick filters">
+        <button
+          v-for="option in QUICK_FILTERS"
+          :key="option.value"
+          type="button"
+          class="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors"
+          :class="
+            filters.quick?.includes(option.value)
+              ? 'border-primary/50 bg-primary/10 text-primary'
+              : 'border-border bg-background text-muted-foreground hover:border-input hover:text-foreground'
+          "
+          :aria-pressed="filters.quick?.includes(option.value) ?? false"
+          @click="toggleQuick(option.value)"
+        >
+          <component :is="option.icon" class="size-3.5" /> {{ option.label }}
+        </button>
+      </div>
     </div>
 
-    <FilterDropdown v-model="filters.types" label="Type" :options="typeOptions" />
-    <FilterDropdown v-model="filters.priorities" label="Priority" :options="priorityOptions" />
-    <FilterDropdown v-if="labelOptions.length" v-model="filters.labelIds" label="Label" :options="labelOptions" />
-    <Button v-if="hasFilters" variant="ghost" size="sm" @click="filters = { search: '', assigneeIds: [] }"><X /> Clear</Button>
+    <div>
+      <p v-if="stacked" class="mb-2 text-xs font-medium text-muted-foreground">More</p>
+      <div class="flex flex-wrap items-center gap-1.5">
+        <FilterDropdown v-model="filters.types" label="Type" :options="typeOptions" />
+        <FilterDropdown v-model="filters.priorities" label="Priority" :options="priorityOptions" />
+        <FilterDropdown v-if="labelOptions.length" v-model="filters.labelIds" label="Label" :options="labelOptions" />
+        <Button v-if="hasFilters" variant="ghost" size="sm" @click="clearFilters"><X /> Clear</Button>
+      </div>
+    </div>
   </div>
 </template>

@@ -12,9 +12,13 @@ const showTabBar = computed(() => !props.bare && !route.matched.some((record) =>
 </script>
 
 <template>
-  <div class="flex min-h-dvh flex-col bg-app">
+  <div class="flex h-dvh flex-col overflow-hidden bg-app">
     <MobileTopbar v-show="!bare" />
-    <main id="main-content" class="flex flex-1 flex-col" :class="[showTabBar && 'pb-[calc(6.5rem+env(safe-area-inset-bottom))]', bare && 'h-dvh overflow-hidden']">
+    <main
+      id="main-content"
+      class="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
+      :class="[showTabBar && 'pb-[calc(6.5rem+env(safe-area-inset-bottom))]', bare && 'overflow-hidden']"
+    >
       <slot />
     </main>
     <MobileTabBar v-if="showTabBar" />
