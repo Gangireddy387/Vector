@@ -272,7 +272,7 @@ function moveOnMobile(issue: Issue, status: Status) {
 <template>
   <div
     class="flex w-full flex-col overflow-x-hidden"
-    :class="isDesktop ? 'h-full min-h-0' : 'min-h-0 flex-1 overflow-y-auto'"
+    :class="isDesktop ? 'h-full min-h-0' : 'w-full'"
   >
     <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
     <div v-if="isLoading" class="flex gap-3 overflow-x-auto p-3 sm:p-4">
@@ -307,7 +307,7 @@ function moveOnMobile(issue: Issue, status: Status) {
           <div class="min-w-0 flex-1">
             <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" />
           </div>
-          <div class="flex shrink-0 flex-wrap items-center gap-2 lg:gap-3">
+          <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:gap-3">
             <template v-if="activeSprint">
               <div class="flex min-w-0 items-center gap-2 text-[13px]" :title="activeSprint.goal ?? undefined">
                 <span class="size-1.5 shrink-0 rounded-full bg-success" />
@@ -323,6 +323,7 @@ function moveOnMobile(issue: Issue, status: Status) {
               <span class="tabular-nums"><strong class="font-semibold text-foreground">{{ donePercent }}%</strong> done · {{ sprintStats.issueCount }} tasks</span>
             </div>
             <BoardDisplayMenu
+              class="ml-auto"
               :view="view"
               :customized="isCustomized"
               @group-by="(groupBy) => updateView({ groupBy })"
@@ -453,6 +454,14 @@ function moveOnMobile(issue: Issue, status: Status) {
                 {{ mobileFilterCount }}
               </span>
             </Button>
+            <BoardDisplayMenu
+              :view="view"
+              :customized="isCustomized"
+              @group-by="(groupBy) => updateView({ groupBy })"
+              @density="(density) => updateView({ density })"
+              @field="setField"
+              @reset="resetView"
+            />
           </div>
 
           <p v-if="isFiltered" class="flex flex-wrap items-center gap-2 border-b border-border bg-primary/[0.03] px-3 py-1.5 text-xs text-muted-foreground">

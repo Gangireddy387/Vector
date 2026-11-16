@@ -40,8 +40,15 @@ const FIELDS: Array<{ key: keyof BoardCardFields; label: string }> = [
 <template>
   <Popover>
     <PopoverTrigger as-child>
-      <Button variant="outline" size="sm" :class="customized && 'border-primary/50 bg-primary/5 text-primary'">
-        <SlidersHorizontal /> Display
+      <Button
+        variant="outline"
+        size="sm"
+        class="shrink-0"
+        :class="customized && 'border-primary/50 bg-primary/5 text-primary'"
+        aria-label="Display"
+      >
+        <SlidersHorizontal />
+        <span class="hidden sm:inline">Display</span>
       </Button>
     </PopoverTrigger>
     <PopoverContent align="end" class="w-80 p-0">

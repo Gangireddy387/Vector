@@ -15,8 +15,13 @@ const inMessageThread = computed(
 const showTabBar = computed(
   () => !props.bare && !inMessageThread.value && !route.matched.some((record) => record.meta.hideMobileTabBar),
 )
-/** Chat / messages fill the pane; other pages scroll under the tab bar. */
-const fillHeight = computed(() => route.matched.some((record) => record.meta.fillHeight))
+/**
+ * Chat / messages / inbox fill the pane. The project board opts out on phone so
+ * the whole page scrolls (nested board scroll feels hard to use).
+ */
+const fillHeight = computed(
+  () => route.name !== 'project-board' && route.matched.some((record) => record.meta.fillHeight),
+)
 </script>
 
 <template>
