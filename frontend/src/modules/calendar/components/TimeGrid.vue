@@ -102,7 +102,7 @@ watch(() => props.days[0]?.getTime(), scrollToStart)
 </script>
 
 <template>
-  <div class="flex flex-col">
+  <div class="flex h-full min-h-0 flex-1 flex-col">
     <div v-if="days.length > 1" class="grid shrink-0 border-b border-border/70" :style="gridColumns">
       <span />
       <button

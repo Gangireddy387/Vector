@@ -270,7 +270,10 @@ function moveOnMobile(issue: Issue, status: Status) {
 </script>
 
 <template>
-  <div class="flex w-full flex-col overflow-x-hidden" :class="isDesktop ? 'h-full min-h-0' : ''">
+  <div
+    class="flex w-full flex-col overflow-x-hidden"
+    :class="isDesktop ? 'h-full min-h-0' : 'min-h-0 flex-1 overflow-y-auto'"
+  >
     <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
     <div v-if="isLoading" class="flex gap-3 overflow-x-auto p-3 sm:p-4">
       <Skeleton v-for="index in 4" :key="index" class="h-96 w-64 shrink-0 rounded-xl sm:min-w-64 sm:flex-1" />

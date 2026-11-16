@@ -48,7 +48,7 @@ const percent = (row: StandupRollupItem) => (row.expected ? Math.round((row.post
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3 pb-2'">
+  <div class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3 pb-2'">
     <PageHeader
       v-if="isDesktop"
       title="Standup rollup"

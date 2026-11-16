@@ -30,7 +30,7 @@ const fillHeight = computed(() => route.matched.some((record) => record.meta.fil
         showTabBar && 'pb-mobile-tab',
       ]"
     >
-      <div class="mx-auto flex w-full min-w-0 flex-col" :class="fillHeight && 'min-h-0 flex-1'">
+      <div class="mx-auto flex w-full min-w-0 flex-col" :class="fillHeight || bare ? 'min-h-0 flex-1' : 'min-h-full'">
         <slot />
       </div>
     </main>

@@ -43,7 +43,7 @@ const isToday = (day: Date) => toDateInput(day) === props.now.date
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col">
+  <div class="flex h-full min-h-0 flex-1 flex-col">
     <div class="grid shrink-0 grid-cols-7 border-b border-border/70 bg-muted/30 text-center text-xs font-medium text-muted-foreground">
       <span v-for="weekday in WEEKDAYS" :key="weekday" class="py-2">{{ weekday }}</span>
     </div>

@@ -19,7 +19,7 @@ const fillHeight = computed(() => route.matched.some((record) => record.meta.fil
     <AppSidebar v-show="!bare" @show-shortcuts="$emit('showShortcuts')" />
     <div
       class="flex min-w-0 flex-1 flex-col overflow-hidden bg-background"
-      :class="!bare && 'mt-1.5 mr-1.5 mb-0 rounded-tl-xl rounded-tr-xl shadow-panel sm:mt-2 sm:mr-2'"
+      :class="!bare && 'mt-1.5 mr-1.5 mb-0 min-h-0 rounded-tl-xl rounded-tr-xl shadow-panel sm:mt-2 sm:mr-2'"
     >
       <DesktopTopbar v-show="!bare" />
       <main
@@ -27,7 +27,8 @@ const fillHeight = computed(() => route.matched.some((record) => record.meta.fil
         class="flex min-h-0 flex-1 flex-col"
         :class="fillHeight || bare ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto'"
       >
-        <div class="flex w-full min-w-0 flex-col" :class="fillHeight && 'min-h-0 flex-1'">
+        <!-- fillHeight pages need a flex-1 chain; scroll pages grow with content inside main. -->
+        <div class="flex w-full min-w-0 flex-col" :class="fillHeight || bare ? 'min-h-0 flex-1' : 'min-h-full'">
           <slot />
         </div>
       </main>

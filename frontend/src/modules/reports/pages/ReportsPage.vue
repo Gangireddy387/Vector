@@ -30,7 +30,7 @@ const tab = computed({
 
 <template>
   <div
-    class="w-full space-y-4 sm:space-y-5"
+    class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto sm:space-y-5"
     :class="isDesktop ? (projectId ? 'px-5 py-4' : 'p-4 sm:p-5 lg:p-6') : 'p-3'"
   >
     <PageHeader

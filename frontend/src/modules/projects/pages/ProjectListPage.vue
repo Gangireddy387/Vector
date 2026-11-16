@@ -31,7 +31,7 @@ const completion = (summary?: { total: number; done: number }) => (summary?.tota
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <div class="min-h-full w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <PageHeader
       title="Projects"
       :description="auth.isOrganizationAdmin ? 'Every project in the organization. As an admin you can open all of them.' : 'Every project you are a member of.'"

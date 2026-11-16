@@ -13,7 +13,7 @@ export const issueRoutes: RouteRecordRaw[] = [
     name: 'issue',
     component: () => import('./pages/IssueDetailPage.vue'),
     props: true,
-    meta: { title: 'Task', mobileBack: true },
+    meta: { title: 'Task', mobileBack: true, fillHeight: true },
   },
 ]
 

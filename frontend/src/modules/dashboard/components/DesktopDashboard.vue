@@ -131,7 +131,7 @@ const daysLeft = (endDate: string | null) => {
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5 p-4 sm:p-5 lg:p-6">
+  <div class="w-full space-y-3.5 p-4 sm:space-y-4 sm:p-5 lg:space-y-5 lg:p-6">
     <!-- Greeting, the day in one sentence, and the things people start most -->
     <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div class="min-w-0">

@@ -107,7 +107,7 @@ async function deleteSample() {
   <div
     v-else
     class="flex min-h-0 min-w-0 flex-col overflow-x-hidden"
-    :class="isDesktop || fillHeight ? 'h-full min-h-full' : ''"
+    :class="isDesktop || fillHeight ? 'h-full min-h-0' : 'min-h-0'"
   >
     <!-- Desktop header -->
     <header v-if="isDesktop" class="shrink-0 border-b border-border px-3 pt-2.5 sm:px-4">

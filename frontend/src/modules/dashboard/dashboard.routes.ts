@@ -6,6 +6,6 @@ export const dashboardRoutes: RouteRecordRaw[] = [
     path: 'standup-rollup',
     name: 'standup-rollup',
     component: () => import('@/modules/standup/pages/StandupRollupPage.vue'),
-    meta: { title: 'Standup rollup', requiresFeature: ['chat'], mobileBack: true },
+    meta: { title: 'Standup rollup', requiresFeature: ['chat'], mobileBack: true, fillHeight: true },
   },
 ]

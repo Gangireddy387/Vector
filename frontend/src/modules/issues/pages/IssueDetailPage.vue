@@ -7,7 +7,10 @@ const { isDesktop } = useDevice()
 </script>
 
 <template>
-  <div :class="isDesktop ? 'h-full' : ''">
-    <IssueDetailView :issue-key="issueKey" mode="page" />
+  <div
+    class="min-h-0 w-full flex-1"
+    :class="isDesktop ? 'flex h-full flex-col overflow-hidden' : 'overflow-y-auto'"
+  >
+    <IssueDetailView :issue-key="issueKey" mode="page" class="min-h-0 flex-1" />
   </div>
 </template>

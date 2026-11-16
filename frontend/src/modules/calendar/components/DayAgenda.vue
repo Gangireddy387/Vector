@@ -28,7 +28,7 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
 </script>
 
 <template>
-  <section class="flex min-h-0 flex-col overflow-hidden border border-border/80 bg-card shadow-soft" aria-live="polite">
+  <section class="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft" aria-live="polite">
     <header class="shrink-0 space-y-3 border-b border-border/70 p-4">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">

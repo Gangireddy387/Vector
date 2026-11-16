@@ -51,7 +51,7 @@ const unlocks = computed(() =>
 </script>
 
 <template>
-  <div class="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-6 p-6">
+  <div class="mx-auto flex min-h-full w-full max-w-2xl flex-1 flex-col justify-center gap-6 p-6">
     <EmptyState :icon="Lock" :title="`${title} isn’t on your plan`" :description="description" class="py-8">
       <div class="flex flex-wrap justify-center gap-2">
         <Button variant="outline" @click="router.push({ name: 'home' })">Back to Home</Button>

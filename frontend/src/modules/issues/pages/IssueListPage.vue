@@ -141,7 +141,7 @@ const showGrid = computed(() => layout.value === 'grid' || !isDesktop.value)
 
 <template>
   <div
-    class="w-full space-y-4 sm:space-y-5"
+    class="min-h-full w-full space-y-4 sm:space-y-5"
     :class="isDesktop ? (projectId ? 'px-5 py-4' : 'p-4 sm:p-5 lg:p-6') : 'p-3'"
   >
     <PageHeader
