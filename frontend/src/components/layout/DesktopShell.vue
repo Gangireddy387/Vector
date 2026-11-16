@@ -11,9 +11,12 @@ defineEmits<{ showShortcuts: [] }>()
   <!-- The sidebar sits on the canvas; the page lives on a raised panel beside it. -->
   <div class="flex h-dvh overflow-hidden bg-sidebar">
     <AppSidebar v-show="!bare" @show-shortcuts="$emit('showShortcuts')" />
-    <div class="flex min-w-0 flex-1 flex-col overflow-hidden bg-background" :class="!bare && 'my-2 mr-2 rounded-xl shadow-panel'">
+    <div
+      class="flex min-w-0 flex-1 flex-col overflow-hidden bg-background"
+      :class="!bare && 'my-1.5 mr-1.5 rounded-xl shadow-panel sm:my-2 sm:mr-2'"
+    >
       <DesktopTopbar v-show="!bare" />
-      <main id="main-content" class="min-h-0 flex-1 overflow-y-auto">
+      <main id="main-content" class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
         <slot />
       </main>
     </div>

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
 import { BarChart3, CalendarDays, ChevronRight, ChevronsLeft, ChevronsRight, House, Inbox, ListTodo, MessagesSquare, Network, Plus, UserPlus, Video } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useDevice } from '@/composables/useDevice'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useMessagesStore } from '@/modules/messages/messages.store'
 import { useNotificationsStore } from '@/modules/notifications/notifications.store'
@@ -26,8 +27,13 @@ const notifications = useNotificationsStore()
 const messages = useMessagesStore()
 const workspace = useWorkspaceStore()
 const auth = useAuthStore()
+const { isTablet } = useDevice()
 
 const isCollapsed = useStorage('vector.sidebar.collapsed', false)
+/** Tablets keep the icon rail so the page has room; the user can still expand. */
+watch(isTablet, (tablet) => {
+  if (tablet) isCollapsed.value = true
+}, { immediate: true })
 /** Which sections are folded away, remembered per device. */
 const folded = useStorage<Record<string, boolean>>('vector.sidebar.folded', {})
 const toggle = (section: string) => (folded.value = { ...folded.value, [section]: !folded.value[section] })

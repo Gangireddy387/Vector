@@ -144,7 +144,7 @@ const daysLeft = (endDate: string | null) => {
     </EmptyState>
 
     <template v-else-if="data">
-      <div class="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5">
+      <div class="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-5">
         <RouterLink
           v-for="stat in stats"
           :key="stat.label"
@@ -157,7 +157,7 @@ const daysLeft = (endDate: string | null) => {
         </RouterLink>
       </div>
 
-      <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(24rem,30rem)]">
+      <div class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] xl:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(24rem,30rem)]">
         <div class="min-w-0 space-y-5">
           <!-- My work -->
           <section class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">

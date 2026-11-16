@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { format, isThisWeek, isToday, isYesterday, parseISO } from 'date-fns'
-import { ArrowUpRight, BellOff, BellRing, CheckCheck, EllipsisVertical, Eraser, Inbox, MessageCircle, Search, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, ArrowUpRight, BellOff, BellRing, CheckCheck, EllipsisVertical, Eraser, Inbox, MessageCircle, Search, Trash2 } from 'lucide-vue-next'
 import { computed, defineAsyncComponent, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -28,7 +28,7 @@ const ProjectChatPage = defineAsyncComponent(() => import('@/modules/chat/pages/
 const notifications = useNotificationsStore()
 const auth = useAuthStore()
 const router = useRouter()
-const { isDesktop } = useDevice()
+const { isDesktop, isWide } = useDevice()
 const filter = ref<InboxFilter>('all')
 const supportChat = useTemplateRef<InstanceType<typeof SupportChatThread>>('supportChat')
 const search = ref('')
@@ -149,7 +149,7 @@ async function removeEntry(entry: Entry) {
   await Promise.all(entry.items.map((item) => notifications.remove(item)))
 }
 
-/** Desktop: show it in the reading pane (and mark it read, like opening an email). Phones: go straight to it. */
+/** Workspace shell: show it in the reading pane (and mark it read, like opening an email). Phones: go straight to it. */
 function select(entry: Entry) {
   void markEntryRead(entry)
   if (isDesktop.value) selectedKey.value = entry.key
@@ -178,23 +178,27 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
 </script>
 
 <template>
-  <!-- Desktop: filters on the list, the list and a reading pane, fitted to the window -->
+  <!-- Tablet + desktop: filters on the list, the list and a reading pane, fitted to the window -->
   <div v-if="isDesktop" class="flex h-full w-full flex-col">
-    <header class="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
-      <h1 class="flex items-center gap-2 text-[15px] font-semibold">
+    <header class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 sm:gap-3 sm:px-4">
+      <h1 class="flex min-w-0 items-center gap-2 text-[15px] font-semibold">
         Inbox
         <span v-if="notifications.unreadCount" class="rounded-full bg-primary/12 px-1.5 text-[11px] font-semibold text-primary tabular-nums dark:bg-primary/20">{{ notifications.unreadCount }}</span>
       </h1>
-      <div class="relative ml-auto w-60">
+      <div class="relative ml-auto hidden w-44 sm:block lg:w-60">
         <Search class="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input v-model="search" class="h-7 pl-8" placeholder="Search notifications" aria-label="Search notifications" />
       </div>
-      <Button variant="outline" size="sm" :disabled="!notifications.unreadCount" @click="notifications.markAllRead()"><CheckCheck /> Mark all read</Button>
+      <Button variant="outline" size="sm" class="shrink-0" :disabled="!notifications.unreadCount" @click="notifications.markAllRead()"><CheckCheck /> <span class="hidden sm:inline">Mark all read</span></Button>
     </header>
 
     <div class="flex min-h-0 flex-1 overflow-hidden">
-      <!-- The list, with its filters on top -->
-      <section class="flex w-[26rem] shrink-0 flex-col border-r border-border xl:w-[30rem]">
+      <!-- List: full width on tablet until a notification is open; side rail on wide screens -->
+      <section
+        v-show="isWide || !selected"
+        class="flex min-w-0 flex-col border-border"
+        :class="isWide ? 'w-[min(26rem,38%)] shrink-0 border-r xl:w-[30rem]' : 'w-full'"
+      >
         <div class="flex shrink-0 flex-wrap gap-1 px-2.5 pt-2.5 pb-1.5" role="tablist" aria-label="Filter notifications">
           <button
             v-for="chip in chips"
@@ -276,7 +280,8 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
 
       <!-- Reading pane: chat and tasks open right here, so you can reply without leaving the Inbox -->
       <article v-if="selected && paneMode === 'chat'" class="flex min-w-0 flex-1 flex-col">
-        <div class="flex h-12 shrink-0 items-center gap-3 border-b border-border px-4">
+        <div class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 sm:gap-3 sm:px-4">
+          <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
           <span class="flex size-9 items-center justify-center" :class="kindOf('support_message').tone"><MessageCircle class="size-4" /></span>
           <span class="min-w-0 flex-1">
             <span class="block text-sm font-semibold">Vector team</span>
@@ -311,7 +316,8 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
 
       <!-- A chat mention: the conversation itself, scrolled to the message, with the composer to answer -->
       <article v-else-if="selected && paneMode === 'project-chat'" class="flex min-w-0 flex-1 flex-col">
-        <div class="flex h-12 shrink-0 items-center gap-2.5 border-b border-border px-4">
+        <div class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 sm:gap-2.5 sm:px-4">
+          <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
           <UserAvatar v-if="selected.latest.actor" :user="selected.latest.actor" size="md" class="size-7" />
           <span class="min-w-0 flex-1">
             <span class="block truncate text-[13px] font-semibold">{{ selected.latest.title }}</span>
@@ -323,8 +329,13 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         <ProjectChatPage :key="chatTarget!.projectId" :project-id="chatTarget!.projectId" :message-id="chatTarget!.messageId" embedded class="min-h-0 flex-1" />
       </article>
 
-      <article v-else-if="selected" class="min-w-0 flex-1 overflow-hidden">
+      <article v-else-if="selected" class="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div v-if="!isWide" class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
+          <Button variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
+          <span class="truncate text-sm font-semibold">Notification</span>
+        </div>
         <NotificationDetail
+          class="min-h-0 flex-1"
           :latest="selected.latest"
           :items="selected.items"
           :unread="isUnread(selected)"
@@ -336,7 +347,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         />
       </article>
 
-      <article v-else class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+      <article v-else-if="isWide" class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
         <span class="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><BellRing class="size-6" /></span>
         <div class="space-y-1">
           <p class="text-sm font-medium">{{ notifications.unreadCount ? `${notifications.unreadCount} unread` : 'You are all caught up' }}</p>

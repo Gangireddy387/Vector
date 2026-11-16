@@ -163,8 +163,9 @@ const applySaved = (criteria: Record<string, string>) => (filters.value = readQu
       <Button v-else @click="ui.openCreateIssue({ projectId })">Create task</Button>
     </EmptyState>
 
-    <!-- Desktop: dense table -->
-    <div v-else-if="isDesktop" class="overflow-hidden border">
+    <!-- Tablet + desktop: dense table (scrolls sideways on narrower widths) -->
+    <div v-else-if="isDesktop" class="overflow-x-auto border">
+      <div class="min-w-[36rem]">
       <div class="flex h-9 items-center gap-2 border-b bg-muted/40 px-2 text-xs font-medium text-muted-foreground">
         <Checkbox :model-value="allSelected" aria-label="Select all" @update:model-value="toggleAll" />
         <span class="w-4" />
@@ -184,6 +185,7 @@ const applySaved = (criteria: Record<string, string>) => (filters.value = readQu
         @open="openIssue"
         @toggle-select="selection.toggle(issue.id)"
       />
+      </div>
     </div>
 
     <!-- Mobile: cards -->

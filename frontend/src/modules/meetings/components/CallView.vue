@@ -22,7 +22,7 @@ const emit = defineEmits<{ leave: []; end: [] }>()
 const panelOpen = defineModel<boolean>('panelOpen', { default: false })
 
 const call = useMeetingCall()
-const { isDesktop } = useDevice()
+const { isWide } = useDevice()
 const { tiles, presenter } = useCallTiles()
 const breakoutsOpen = ref(false)
 const now = useNow({ scheduler: (callback) => useIntervalFn(callback, 1000) })
@@ -178,7 +178,7 @@ const backToMain = () => call.moveToRoom(null, null).catch((error: Error) => toa
     <aside
       v-if="panelOpen"
       class="flex min-h-0 shrink-0 flex-col border-l border-white/10 text-foreground"
-      :class="isDesktop ? 'w-[340px]' : 'fixed inset-x-0 bottom-0 z-40 h-[60vh] w-full rounded-t-2xl shadow-2xl'"
+      :class="isWide ? 'w-[min(20rem,34vw)] xl:w-[340px]' : 'fixed inset-x-0 bottom-0 z-40 h-[min(60vh,28rem)] w-full rounded-t-2xl shadow-2xl'"
     >
       <slot name="panel" :open-breakouts="() => (breakoutsOpen = true)" />
     </aside>

@@ -17,7 +17,7 @@ import { type ConversationDoc, messagesApi } from '../messages.api'
 const props = defineProps<{ conversationId: string }>()
 const auth = useAuthStore()
 const confirm = useConfirm()
-const { isDesktop } = useDevice()
+const { isWide } = useDevice()
 
 const docs = ref<ConversationDoc[] | null>(null)
 const selectedId = ref<string | null>(null)
@@ -28,8 +28,8 @@ const dirty = ref(false)
 const showPreview = ref(false)
 
 const selected = computed(() => docs.value?.find((doc) => doc.id === selectedId.value) ?? null)
-const showList = computed(() => isDesktop.value || !selectedId.value)
-const showEditor = computed(() => isDesktop.value || Boolean(selectedId.value))
+const showList = computed(() => isWide.value || !selectedId.value)
+const showEditor = computed(() => isWide.value || Boolean(selectedId.value))
 
 async function load() {
   try {
@@ -137,7 +137,7 @@ const canDelete = (doc: ConversationDoc) => doc.createdById === auth.user?.id ||
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col md:flex-row">
-    <aside v-if="showList" class="flex min-h-0 w-full shrink-0 flex-col border-border bg-background md:w-64 md:border-r" :class="showEditor && isDesktop ? '' : 'flex-1'">
+    <aside v-if="showList" class="flex min-h-0 w-full shrink-0 flex-col border-border bg-background md:w-64 md:border-r" :class="showEditor && isWide ? '' : 'flex-1'">
       <div class="flex items-center gap-2 border-b border-border px-3 py-2.5">
         <p class="min-w-0 flex-1 text-[13px] font-semibold">Docs</p>
         <Button size="sm" variant="secondary" @click="createDoc"><Plus class="size-3.5" /> New</Button>
@@ -173,27 +173,27 @@ const canDelete = (doc: ConversationDoc) => doc.createdById === auth.user?.id ||
       </div>
       <template v-else>
         <div class="flex flex-wrap items-center gap-2 border-b border-border bg-background px-3 py-2 sm:px-4">
-          <Button v-if="!isDesktop" variant="ghost" size="icon-sm" aria-label="Back to docs" @click="closeEditor"><ArrowLeft /></Button>
+          <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to docs" @click="closeEditor"><ArrowLeft /></Button>
           <Input v-model="title" class="h-9 min-w-0 flex-1 font-semibold sm:max-w-md" aria-label="Doc title" @input="dirty = true" />
           <span class="hidden text-[11px] text-muted-foreground sm:inline">
             {{ selected.updatedBy?.name ?? selected.createdBy?.name ?? 'Someone' }} · {{ format(parseISO(selected.updatedAt), 'd MMM, HH:mm') }}
           </span>
           <div class="ml-auto flex items-center gap-1 sm:ml-0">
-            <Button v-if="!isDesktop" size="sm" variant="ghost" @click="showPreview = !showPreview">{{ showPreview ? 'Edit' : 'Preview' }}</Button>
+            <Button v-if="!isWide" size="sm" variant="ghost" @click="showPreview = !showPreview">{{ showPreview ? 'Edit' : 'Preview' }}</Button>
             <Button size="sm" :disabled="!dirty || saving" :loading="saving" @click="save">Save</Button>
             <Button v-if="canDelete(selected)" size="icon-sm" variant="ghost" title="Delete doc" @click="removeDoc(selected)"><Trash2 /></Button>
           </div>
         </div>
         <div class="grid min-h-0 flex-1 gap-0 lg:grid-cols-2">
           <textarea
-            v-show="isDesktop || !showPreview"
+            v-show="isWide || !showPreview"
             v-model="body"
             class="min-h-[12rem] w-full flex-1 resize-none border-border bg-background p-3 text-[14px] leading-6 outline-none sm:min-h-0 sm:p-4 lg:border-r"
             placeholder="Write in markdown…"
             aria-label="Doc body"
             @input="dirty = true"
           />
-          <div v-show="isDesktop || showPreview" class="min-h-0 overflow-y-auto p-3 scrollbar-thin sm:p-4">
+          <div v-show="isWide || showPreview" class="min-h-0 overflow-y-auto p-3 scrollbar-thin sm:p-4">
             <p class="mb-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Preview</p>
             <MarkdownContent v-if="body.trim()" :source="body" class="text-[14px]" />
             <p v-else class="text-sm text-muted-foreground italic">Nothing to preview yet.</p>

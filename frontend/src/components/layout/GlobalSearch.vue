@@ -192,7 +192,7 @@ function clearQuery() {
 </script>
 
 <template>
-  <div ref="root" class="relative w-full max-w-md">
+  <div ref="root" class="relative w-full min-w-0 max-w-sm flex-1 lg:max-w-md">
     <div
       class="flex h-8 items-center gap-2 rounded-md border px-2.5 text-[13px] transition-all"
       :class="ui.isSearchOpen ? 'border-ring/70 bg-card ring-[3px] ring-ring/20' : 'border-transparent bg-muted/80 hover:bg-muted'"

@@ -73,7 +73,7 @@ const auth = useAuthStore()
 const store = useMessagesStore()
 const presenceStore = usePresenceStore()
 const confirm = useConfirm()
-const { isDesktop } = useDevice()
+const { isDesktop, isWide } = useDevice()
 const search = ref('')
 const thread = useTemplateRef<InstanceType<typeof ConversationThread>>('thread')
 
@@ -359,11 +359,11 @@ async function leaveChannel(conversation: ConversationSummary) {
 <template>
   <div class="flex w-full flex-col" :class="isDesktop ? 'h-full' : 'h-[calc(100dvh-10rem-1px-env(safe-area-inset-top)-env(safe-area-inset-bottom))]'">
     <div class="flex min-h-0 flex-1 overflow-hidden bg-background">
-      <!-- Conversation list -->
+      <!-- Conversation list: full width on phone/tablet until a chat is open -->
       <aside
-        v-if="isDesktop || !selected"
-        class="flex min-h-0 flex-col border-r border-border"
-        :class="isDesktop ? 'w-[22rem] shrink-0 xl:w-[26rem]' : 'w-full'"
+        v-if="isWide || !selected"
+        class="flex min-h-0 flex-col border-border"
+        :class="isWide ? 'w-[min(22rem,36%)] shrink-0 border-r xl:w-[26rem]' : 'w-full'"
       >
         <header class="flex h-12 shrink-0 items-center gap-1 px-4">
           <h1 class="flex-1 text-[15px] font-semibold">{{ tab === 'chat' ? 'Chat' : 'Teams' }}</h1>
@@ -547,7 +547,7 @@ async function leaveChannel(conversation: ConversationSummary) {
       <!-- Open conversation -->
       <section v-if="selected" class="flex min-w-0 flex-1 flex-col">
         <header class="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-background px-4">
-          <Button v-if="!isDesktop" variant="ghost" size="icon-sm" aria-label="Back to the list" @click="router.push({ name: 'messages' })"><ArrowLeft /></Button>
+          <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to the list" @click="router.push({ name: 'messages' })"><ArrowLeft /></Button>
           <UserAvatar v-if="selected.kind === 'direct'" :user="selected.person" size="md" class="size-8" />
           <span v-else-if="selected.kind === 'department'" class="flex size-8 items-center justify-center rounded-md bg-violet-500 text-white"><Building2 class="size-5" /></span>
           <span v-else class="flex size-8 items-center justify-center rounded-md bg-sky-500/15 text-sky-600 dark:text-sky-300">
@@ -648,7 +648,7 @@ async function leaveChannel(conversation: ConversationSummary) {
         />
       </section>
 
-      <section v-else-if="isDesktop" class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+      <section v-else-if="isWide" class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
         <span class="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <MessagesSquare v-if="tab === 'chat'" class="size-6" />
           <UsersRound v-else class="size-6" />

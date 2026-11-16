@@ -56,7 +56,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const projects = useProjectsStore()
 const actions = useIssueActions()
-const { isDesktop } = useDevice()
+const { isDesktop, isWide } = useDevice()
 
 const issue = ref<IssueDetail | null>(null)
 const sprints = ref<Sprint[]>([])
@@ -224,17 +224,17 @@ function startLinking() {
       <Button v-if="mode === 'panel'" variant="ghost" size="icon-sm" aria-label="Close" @click="emit('close')"><X /></Button>
     </header>
 
-    <div class="min-h-0 flex-1" :class="isDesktop ? 'grid grid-cols-[minmax(0,1fr)_340px] overflow-hidden' : ''">
+    <div class="min-h-0 flex-1" :class="isWide ? 'grid grid-cols-[minmax(0,1fr)_minmax(15rem,18rem)] overflow-hidden xl:grid-cols-[minmax(0,1fr)_340px]' : ''">
       <!-- Main column -->
-      <div class="overflow-y-auto" :class="isDesktop ? 'px-8 py-6' : 'p-4 pb-8'">
+      <div class="overflow-y-auto" :class="isWide ? 'px-6 py-5 xl:px-8 xl:py-6' : 'p-4 pb-8 sm:p-5'">
         <div class="mx-auto max-w-3xl space-y-6">
         <div class="space-y-3">
           <IssueTitleEditor :title="issue.title" :editable="canEdit" :done="isDone" @save="(title) => update({ title })" />
 
-          <!-- Task-focused quick actions (primary on mobile) -->
+          <!-- Task-focused quick actions (primary when there is no side rail) -->
           <div class="flex flex-wrap items-center gap-2">
             <StatusSelect
-              v-if="!isDesktop"
+              v-if="!isWide"
               :model-value="issue.statusId"
               :statuses="project.statuses"
               :disabled="!canEdit"
@@ -261,8 +261,8 @@ function startLinking() {
 
         <IssueAiSummary v-if="canUseAi" ref="summaryRef" :issue-id="issue.id" />
 
-        <!-- On phones, key fields come before long-form content -->
-        <details v-if="!isDesktop" class="group border bg-card" open>
+        <!-- Phone and tablet: key fields before long-form content (side rail only on wide screens) -->
+        <details v-if="!isWide" class="group border bg-card" open>
           <summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold">
             Details <ChevronRight class="size-4 transition-transform group-open:rotate-90" />
           </summary>
@@ -305,8 +305,8 @@ function startLinking() {
         </div>
       </div>
 
-      <!-- Desktop side panel with every field visible at once -->
-      <aside v-if="isDesktop" class="ghost-fields overflow-y-auto border-l border-border bg-sidebar/40 px-4 py-4 dark:bg-sidebar/50">
+      <!-- Wide screens: side panel with every field visible at once -->
+      <aside v-if="isWide" class="ghost-fields overflow-y-auto border-l border-border bg-sidebar/40 px-4 py-4 dark:bg-sidebar/50">
         <IssueFieldsPanel :issue="issue" :project="project" :sprints="sprints" :editable="canEdit" @update="update" />
       </aside>
     </div>
