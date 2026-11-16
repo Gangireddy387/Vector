@@ -202,47 +202,50 @@ const discussedTasks = computed(() => {
   <div class="flex min-h-0 w-full flex-1">
     <section class="flex min-w-0 flex-1 flex-col">
       <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-3">
-        <div v-if="isLoading" class="space-y-4 p-4">
-          <div v-for="index in 5" :key="index" class="flex gap-3">
-            <Skeleton class="size-9 shrink-0" />
-            <div class="flex-1 space-y-2"><Skeleton class="h-3 w-40" /><Skeleton class="h-4 w-3/4" /></div>
-          </div>
-        </div>
-
-        <EmptyState
-          v-else-if="!messages.length"
-          :icon="MessagesSquare"
-          title="Start the conversation"
-          description="Talk about the work here. Mention a task like VEC-12 and the message is recorded on that task, so follow-ups are never lost. Type / to ask the assistant."
-          class="h-full"
-        >
-          <Button variant="outline" size="sm" @click="useCommand({ name: 'help', usage: '/help', description: '' })"><Bot /> What can the assistant do?</Button>
-        </EmptyState>
-
-        <template v-else>
-          <div class="flex justify-center py-3">
-            <Button v-if="hasMore" variant="ghost" size="sm" :loading="isLoadingOlder" @click="loadOlder">Load earlier messages</Button>
-            <p v-else class="text-xs text-muted-foreground">This is the beginning of the {{ project?.name }} chat.</p>
-          </div>
-          <template v-for="row in rows" :key="row.message.id">
-            <div v-if="row.day" class="relative my-3 flex items-center px-4" role="separator">
-              <span class="h-px flex-1 bg-border" />
-              <span class="mx-3 text-xs font-medium text-muted-foreground">{{ row.day }}</span>
-              <span class="h-px flex-1 bg-border" />
+        <!-- Stick the thread to the bottom so a short chat sits above the composer, not under a tall empty gap. -->
+        <div class="flex min-h-full flex-col justify-end">
+          <div v-if="isLoading" class="space-y-4 p-4">
+            <div v-for="index in 5" :key="index" class="flex gap-3">
+              <Skeleton class="size-9 shrink-0" />
+              <div class="flex-1 space-y-2"><Skeleton class="h-3 w-40" /><Skeleton class="h-4 w-3/4" /></div>
             </div>
-            <ChatMessageItem
-              :message="row.message"
-              :project-id="projectId"
-              :grouped="row.grouped"
-              :highlighted="highlightedId === row.message.id"
-              :can-edit="row.message.kind === 'user' && row.message.authorId === auth.user?.id"
-              :can-delete="(row.message.kind === 'user' && row.message.authorId === auth.user?.id) || isAdmin"
-              @edit="(body) => edit(row.message, body)"
-              @remove="remove(row.message)"
-              @use-command="useCommand"
-            />
+          </div>
+
+          <EmptyState
+            v-else-if="!messages.length"
+            :icon="MessagesSquare"
+            title="Start the conversation"
+            description="Talk about the work here. Mention a task like VEC-12 and the message is recorded on that task, so follow-ups are never lost. Type / to ask the assistant."
+            class="py-10"
+          >
+            <Button variant="outline" size="sm" @click="useCommand({ name: 'help', usage: '/help', description: '' })"><Bot /> What can the assistant do?</Button>
+          </EmptyState>
+
+          <template v-else>
+            <div class="flex justify-center py-3">
+              <Button v-if="hasMore" variant="ghost" size="sm" :loading="isLoadingOlder" @click="loadOlder">Load earlier messages</Button>
+              <p v-else class="text-xs text-muted-foreground">This is the beginning of the {{ project?.name }} chat.</p>
+            </div>
+            <template v-for="row in rows" :key="row.message.id">
+              <div v-if="row.day" class="relative my-3 flex items-center px-4" role="separator">
+                <span class="h-px flex-1 bg-border" />
+                <span class="mx-3 text-xs font-medium text-muted-foreground">{{ row.day }}</span>
+                <span class="h-px flex-1 bg-border" />
+              </div>
+              <ChatMessageItem
+                :message="row.message"
+                :project-id="projectId"
+                :grouped="row.grouped"
+                :highlighted="highlightedId === row.message.id"
+                :can-edit="row.message.kind === 'user' && row.message.authorId === auth.user?.id"
+                :can-delete="(row.message.kind === 'user' && row.message.authorId === auth.user?.id) || isAdmin"
+                @edit="(body) => edit(row.message, body)"
+                @remove="remove(row.message)"
+                @use-command="useCommand"
+              />
+            </template>
           </template>
-        </template>
+        </div>
       </div>
 
       <div class="shrink-0 border-t bg-background px-4 pt-3 pb-3">

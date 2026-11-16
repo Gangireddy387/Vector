@@ -192,10 +192,10 @@ async function deleteSample() {
     <div
       class="min-w-0 overflow-x-hidden"
       :class="
-        isDesktop
-          ? 'min-h-0 flex-1 overflow-y-auto'
-          : fillHeight
-            ? 'flex min-h-0 flex-1 flex-col'
+        fillHeight
+          ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
+          : isDesktop
+            ? 'min-h-0 flex-1 overflow-y-auto'
             : 'w-full'
       "
     >
