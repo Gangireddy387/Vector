@@ -87,22 +87,23 @@ async function openMeetingActions(userId, organizationId) {
 }
 
 /**
- * Cross-project standup rollup for project admins: who posted today, who has blockers.
+ * Cross-project standup rollup for project admins and project leads: who posted today, who is missing, blockers.
  */
 async function standupRollupFor(userId, projects) {
-  const adminProjects = [];
+  const leadProjects = [];
   for (const project of projects) {
     if (!(await projectHasFeature(project.id, 'chat'))) continue;
-    const membership = await ProjectMember.findOne({ where: { projectId: project.id, userId, role: 'admin' }, attributes: ['id'] });
-    if (membership) adminProjects.push(project);
+    const isLead = project.leadId === userId;
+    const membership = await ProjectMember.findOne({ where: { projectId: project.id, userId }, attributes: ['role'] });
+    if (isLead || membership?.role === 'admin') leadProjects.push(project);
   }
-  if (!adminProjects.length) return [];
+  if (!leadProjects.length) return [];
 
   const user = await User.findByPk(userId, { attributes: ['timezone'] });
   const today = localDateTime(user?.timezone ?? 'UTC').date;
 
   const rollup = [];
-  for (const project of adminProjects) {
+  for (const project of leadProjects) {
     const [members, updates] = await Promise.all([
       ProjectMember.findAll({
         where: { projectId: project.id, role: { [Op.ne]: 'viewer' } },
@@ -115,22 +116,32 @@ async function standupRollupFor(userId, projects) {
     ]);
     const active = members.filter((row) => row.user && row.user.status !== 'disabled');
     const postedIds = new Set(updates.map((row) => row.userId));
-    const blockers = updates.filter((row) => (row.blockers ?? '').trim()).map((row) => ({
-      user: row.user?.toJSON?.() ?? row.user,
-      blockers: row.blockers,
-    }));
+    const blockers = updates
+      .filter((row) => (row.blockers ?? '').trim())
+      .map((row) => ({
+        user: row.user?.toJSON?.() ?? row.user,
+        blockers: row.blockers,
+      }));
+    const postedPeople = updates
+      .filter((row) => row.user)
+      .map((row) => row.user.toJSON?.() ?? row.user);
     rollup.push({
       projectId: project.id,
       projectName: project.name,
+      projectKey: project.key,
       projectColor: project.color,
       date: today,
       posted: postedIds.size,
       expected: active.length,
       missing: active.filter((row) => !postedIds.has(row.userId)).map((row) => row.user.toJSON()),
+      postedPeople,
       blockers,
     });
   }
-  return rollup;
+  // Needs attention first, then by how incomplete.
+  return rollup.sort(
+    (a, b) => b.blockers.length - a.blockers.length || b.missing.length - a.missing.length || a.projectName.localeCompare(b.projectName),
+  );
 }
 
 export async function getDashboard(userId) {

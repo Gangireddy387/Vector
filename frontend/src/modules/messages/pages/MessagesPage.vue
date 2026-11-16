@@ -49,6 +49,7 @@ import PresenceBadge from '@/components/common/PresenceBadge.vue'
 import { PRESENCE_LOOK } from '@/lib/presence'
 import { usePresenceStore } from '@/stores/presence.store'
 import type { UserSummary } from '@/types/models'
+import PushPrompt from '@/modules/meetings/components/PushPrompt.vue'
 import ChannelDialog from '../components/ChannelDialog.vue'
 import ChannelFiles from '../components/ChannelFiles.vue'
 import ChannelBoard from '../components/ChannelBoard.vue'
@@ -373,6 +374,11 @@ async function leaveChannel(conversation: ConversationSummary) {
           </Button>
         </header>
 
+        <p class="shrink-0 px-4 pb-2 text-[11.5px] leading-snug text-muted-foreground">
+          People and teams — not project task talk. That lives in each project’s <span class="font-medium text-foreground/80">Work chat</span>.
+        </p>
+        <div class="shrink-0 px-3 pb-2"><PushPrompt context="messages" /></div>
+
         <div v-if="canDirect && canGroup" class="shrink-0 px-3 pb-2">
           <div class="grid grid-cols-2 rounded-md bg-muted p-0.5" role="tablist">
             <button
@@ -410,7 +416,7 @@ async function leaveChannel(conversation: ConversationSummary) {
             <div v-if="!directChats.length" class="flex flex-col items-center gap-3 px-6 py-12 text-center">
               <span class="flex size-12 items-center justify-center bg-primary/10 text-primary"><MessagesSquare class="size-6" /></span>
               <p class="text-sm font-medium">{{ search ? `No chats match “${search}”` : 'No chats yet' }}</p>
-              <p class="text-xs text-muted-foreground">Private DMs live here. Project task talk belongs in each project’s Work chat.</p>
+              <p class="max-w-[16rem] text-xs text-muted-foreground">Private one-to-one chats. For tasks and standups, open a project’s Work chat instead.</p>
               <Button v-if="!search" variant="brand" size="sm" @click="openPicker"><MessageCirclePlus /> New chat</Button>
             </div>
             <button

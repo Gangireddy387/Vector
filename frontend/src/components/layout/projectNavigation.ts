@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, Columns3, Kanban, ListTodo, MessagesSquare, Settings, TrendingUp, Workflow } from 'lucide-vue-next'
+import { BarChart3, ClipboardList, Columns3, Hash, Kanban, ListTodo, Settings, TrendingUp, Workflow } from 'lucide-vue-next'
 import type { Component } from 'vue'
 import type { PlanFeatureKey } from '@/lib/plan-features'
 import type { Project } from '@/types/models'
@@ -20,7 +20,7 @@ export function getProjectNavigation(project: Pick<Project, 'type' | 'myRole'>, 
     { name: 'project-issues', label: 'Tasks', icon: ListTodo },
     ...(hasFeature('chat')
       ? [
-          { name: 'project-chat', label: 'Work chat', icon: MessagesSquare },
+          { name: 'project-chat', label: 'Work chat', icon: Hash },
           { name: 'project-standup', label: 'Standup', icon: ClipboardList },
         ]
       : []),

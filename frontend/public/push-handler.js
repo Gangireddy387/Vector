@@ -1,5 +1,5 @@
-/* Loaded into the service worker: shows Vector's push notifications (calls ringing, guests waiting) and opens the
-   right page when one is tapped, also when the app is closed. */
+/* Loaded into the service worker: shows Vector push notifications (calls, DMs, mentions, standups)
+   and opens the right page when one is tapped, also when the app is closed. */
 
 self.addEventListener('push', (event) => {
   let payload = {}
@@ -8,8 +8,23 @@ self.addEventListener('push', (event) => {
   } catch {
     payload = { title: 'Vector', body: event.data ? event.data.text() : '' }
   }
-  const isCall = payload.kind === 'call'
-  const url = payload.url ? `${payload.url}${isCall ? (payload.url.includes('?') ? '&' : '?') + 'join=1' : ''}` : '/'
+  const kind = payload.kind || ''
+  const isCall = kind === 'call'
+  const isMessage = ['direct_message', 'chat_mention', 'channel_reply'].includes(kind)
+  const isStandup = kind.startsWith('standup_')
+  const url = payload.url
+    ? `${payload.url}${isCall ? (payload.url.includes('?') ? '&' : '?') + 'join=1' : ''}`
+    : '/'
+
+  const actions = isCall
+    ? [
+        { action: 'join', title: 'Join' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ]
+    : isMessage || isStandup
+      ? [{ action: 'open', title: 'Open' }]
+      : []
+
   event.waitUntil(
     self.registration.showNotification(payload.title || 'Vector', {
       body: payload.body || '',
@@ -18,14 +33,9 @@ self.addEventListener('push', (event) => {
       requireInteraction: isCall,
       icon: '/pwa-192x192.png',
       badge: '/pwa-64x64.png',
-      vibrate: isCall ? [400, 200, 400, 200, 400, 200, 400] : [200],
-      data: { url },
-      actions: isCall
-        ? [
-            { action: 'join', title: 'Join' },
-            { action: 'dismiss', title: 'Dismiss' },
-          ]
-        : [],
+      vibrate: isCall ? [400, 200, 400, 200, 400, 200, 400] : isStandup ? [180, 100, 180] : [200],
+      data: { url, kind },
+      actions,
     }),
   )
 })

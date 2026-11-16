@@ -21,11 +21,13 @@ export interface MeetingActionHomeItem {
 export interface StandupRollupItem {
   projectId: string
   projectName: string
+  projectKey?: string
   projectColor: string
   date: string
   posted: number
   expected: number
   missing: UserSummary[]
+  postedPeople?: UserSummary[]
   blockers: Array<{ user: UserSummary; blockers: string }>
 }
 

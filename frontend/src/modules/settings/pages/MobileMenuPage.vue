@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, Building2, CalendarDays, Check, ChevronRight, Crown, Download, FolderKanban, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck, Video } from 'lucide-vue-next'
+import { BarChart3, Building2, CalendarDays, Check, ChevronRight, ClipboardList, Crown, Download, FolderKanban, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck, Video } from 'lucide-vue-next'
 import { computed } from 'vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { usePwaInstall } from '@/composables/usePwaInstall'
@@ -21,6 +21,9 @@ const LINKS = computed(() => [
   { to: { name: 'settings' }, label: 'Settings', icon: Settings },
   { to: { name: 'departments' }, label: 'Departments', icon: Building2 },
   ...(auth.hasFeature('calendar') ? [{ to: { name: 'calendar' }, label: 'Calendar', icon: CalendarDays }] : []),
+  ...(auth.hasFeature('chat') && projects.joinedProjects.some((project) => project.myRole === 'admin' || project.leadId === auth.user?.id)
+    ? [{ to: { name: 'standup-rollup' }, label: 'Standup rollup', icon: ClipboardList }]
+    : []),
   // Messages lives on the tab bar when available; keep Projects easy to reach from More.
   { to: { name: 'projects' }, label: 'Projects', icon: FolderKanban },
   ...(auth.hasFeature('meetings') ? [{ to: { name: 'meetings' }, label: 'Meetings', icon: Video }] : []),

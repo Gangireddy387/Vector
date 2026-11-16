@@ -15,6 +15,7 @@ import { type ThemePreference, useTheme } from '@/composables/useTheme'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import PasswordInput from '@/modules/auth/components/PasswordInput.vue'
+import PushPrompt from '@/modules/meetings/components/PushPrompt.vue'
 import CalendarConnectionsCard from '../components/CalendarConnectionsCard.vue'
 import ProfilePhotoField from '../components/ProfilePhotoField.vue'
 import SoundSettingsCard from '../components/SoundSettingsCard.vue'
@@ -182,6 +183,8 @@ async function changePassword() {
         </Card>
 
         <SoundSettingsCard />
+
+        <PushPrompt context="settings" />
 
         <CalendarConnectionsCard />
 

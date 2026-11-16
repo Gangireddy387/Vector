@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { BarChart3, CalendarDays, ChevronRight, ChevronsLeft, ChevronsRight, House, Inbox, ListTodo, MessagesSquare, Network, Plus, UserPlus, Video } from 'lucide-vue-next'
+import { BarChart3, CalendarDays, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, House, Inbox, ListTodo, MessageCircle, Network, Plus, UserPlus, Video } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
@@ -57,7 +57,14 @@ const visibleProjects = computed(() => {
 })
 const hiddenProjectCount = computed(() => projects.joinedProjects.length - visibleProjects.value.length)
 
+const showStandupRollup = computed(
+  () =>
+    auth.hasFeature('chat') &&
+    projects.joinedProjects.some((project) => project.myRole === 'admin' || project.leadId === auth.user?.id),
+)
+
 const workspaceLinks = computed(() => [
+  { name: 'standup-rollup', label: 'Standup rollup', icon: ClipboardList, show: showStandupRollup.value },
   { name: 'calendar', label: 'Calendar', icon: CalendarDays, show: auth.hasFeature('calendar') },
   { name: 'meetings', label: 'Meetings', icon: Video, show: auth.hasFeature('meetings') },
   { name: 'reports', label: 'Reports', icon: BarChart3, show: auth.hasFeature('reports'), shortcut: 'G R', exact: true },
@@ -104,7 +111,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
       <SidebarLink :to="{ name: 'home' }" label="Home" :icon="House" shortcut="G H" :collapsed="isCollapsed" exact />
       <SidebarLink :to="{ name: 'inbox' }" label="Inbox" :icon="Inbox" shortcut="G I" :badge="notifications.unreadCount" :collapsed="isCollapsed" />
       <SidebarLink :to="{ name: 'issues' }" label="Tasks" :icon="ListTodo" shortcut="G A" :collapsed="isCollapsed" />
-      <SidebarLink v-if="messages.isAvailable" :to="{ name: 'messages' }" label="Messages" :icon="MessagesSquare" :badge="messages.unreadTotal" :collapsed="isCollapsed" />
+      <SidebarLink v-if="messages.isAvailable" :to="{ name: 'messages' }" label="Messages" :icon="MessageCircle" :badge="messages.unreadTotal" :collapsed="isCollapsed" />
 
       <!-- Workspace: planning, people and insight -->
       <button

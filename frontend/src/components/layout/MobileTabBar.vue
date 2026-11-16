@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CircleCheck, FolderKanban, Inbox, Menu, MessagesSquare, Plus } from 'lucide-vue-next'
+import { CircleCheck, FolderKanban, Inbox, Menu, MessageCircle, Plus } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMessagesStore } from '@/modules/messages/messages.store'
@@ -14,7 +14,7 @@ const messages = useMessagesStore()
 /** Messages takes the second slot when chat is on the plan; otherwise Projects stays there. */
 const TABS = computed(() => {
   const second = messages.isAvailable
-    ? { name: 'messages', label: 'Messages', icon: MessagesSquare }
+    ? { name: 'messages', label: 'Messages', icon: MessageCircle }
     : { name: 'projects', label: 'Projects', icon: FolderKanban }
   return [
     { name: 'home', label: 'My tasks', icon: CircleCheck },

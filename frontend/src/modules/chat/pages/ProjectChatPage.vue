@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { format, isToday, isYesterday } from 'date-fns'
-import { ArrowRight, Bot, ClipboardList, MessagesSquare } from 'lucide-vue-next'
+import { ArrowRight, Bot, ClipboardList, Hash, MessageCircle } from 'lucide-vue-next'
 import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -213,12 +213,22 @@ const discussedTasks = computed(() => {
 
           <EmptyState
             v-else-if="!messages.length"
-            :icon="MessagesSquare"
+            :icon="Hash"
             title="Start the work chat"
-            description="This is the project room — not Messages. Talk about tasks here; mention a key like VEC-12 and it lands on that task. DMs and team chats live under Messages. Type / for the assistant."
+            description="Talk about this project’s tasks here. Mention a key like VEC-12 and it lands on that task. Private DMs and team channels live under Messages — a separate place."
             class="py-10"
           >
-            <Button variant="outline" size="sm" @click="useCommand({ name: 'help', usage: '/help', description: '' })"><Bot /> What can the assistant do?</Button>
+            <div class="flex flex-wrap justify-center gap-2">
+              <Button variant="outline" size="sm" @click="useCommand({ name: 'help', usage: '/help', description: '' })"><Bot /> What can the assistant do?</Button>
+              <Button
+                v-if="auth.hasFeature('directMessages') || auth.hasFeature('teamChat')"
+                variant="ghost"
+                size="sm"
+                as-child
+              >
+                <RouterLink :to="{ name: 'messages' }"><MessageCircle /> Open Messages</RouterLink>
+              </Button>
+            </div>
           </EmptyState>
 
           <template v-else>

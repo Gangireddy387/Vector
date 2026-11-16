@@ -4,7 +4,6 @@ import { localDateTime } from '../../shared/utils/timezone.js';
 import { notifyUsers } from '../notifications/notification.service.js';
 import { projectHasFeature } from '../plans/plan.service.js';
 import { DEFAULT_PROJECT_SETTINGS } from '../projects/project.model.js';
-import { pushToUsers } from '../push/push.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 
 const settingsOf = (project) => ({ ...DEFAULT_PROJECT_SETTINGS, ...(project.settings ?? {}) });
@@ -78,6 +77,7 @@ export async function sendStandupDigests(now = new Date()) {
       const body = parts.join(' · ');
       const link = `/projects/${project.id}/standup?date=${today}`;
 
+      // notifyUsers also rings device push for standup_digest.
       await notifyUsers({
         userIds: [manager.id],
         type: 'standup_digest',
@@ -87,11 +87,6 @@ export async function sendStandupDigests(now = new Date()) {
         projectId: project.id,
         email: false,
       });
-      await pushToUsers(
-        [manager.id],
-        { kind: 'standup_digest', title, body, url: link, tag: `standup-digest-${project.id}-${today}` },
-        { ttlSeconds: 60 * 60 * 12 },
-      );
       sent += 1;
     }
   }

@@ -4,7 +4,6 @@ import { localDateTime } from '../../shared/utils/timezone.js';
 import { notifyUsers } from '../notifications/notification.service.js';
 import { projectHasFeature } from '../plans/plan.service.js';
 import { DEFAULT_PROJECT_SETTINGS } from '../projects/project.model.js';
-import { pushToUsers } from '../push/push.service.js';
 
 const settingsOf = (project) => ({ ...DEFAULT_PROJECT_SETTINGS, ...(project.settings ?? {}) });
 
@@ -62,6 +61,7 @@ export async function sendStandupReminders(now = new Date()) {
         : `Still needed in ${first.name}${extra ? ` and ${extra} more` : ''}.`;
     const link = `/projects/${first.id}/standup?date=${today}`;
 
+    // notifyUsers also rings device push for standup_reminder.
     await notifyUsers({
       userIds: [user.id],
       type: 'standup_reminder',
@@ -71,11 +71,6 @@ export async function sendStandupReminders(now = new Date()) {
       projectId: first.id,
       email: false,
     });
-    await pushToUsers(
-      [user.id],
-      { kind: 'standup_reminder', title, body, url: link, tag: `standup-${today}` },
-      { ttlSeconds: 60 * 60 * 8 },
-    );
     sent += 1;
   }
   return sent;
