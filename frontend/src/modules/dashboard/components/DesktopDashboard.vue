@@ -41,6 +41,7 @@ import { useTodayAgenda } from '../composables/useTodayAgenda'
 import { groupMyWork } from '../my-work'
 import { copyShareWorkday } from '../share-workday'
 import DailyBriefingCard from './DailyBriefingCard.vue'
+import HabitCoachCard from './HabitCoachCard.vue'
 import HabitNudgeBanner from './HabitNudgeBanner.vue'
 import HomeDayLoop from './HomeDayLoop.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
@@ -160,6 +161,7 @@ const daysLeft = (endDate: string | null) => {
     </header>
 
     <SetupChecklist v-if="data" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
+    <HabitCoachCard v-if="data" :data="data" @create-project="isCreateProjectOpen = true" />
     <HabitNudgeBanner v-if="data?.habitNudge" :nudge="data.habitNudge" />
     <TeamDensityCard v-if="data" :data="data" />
 

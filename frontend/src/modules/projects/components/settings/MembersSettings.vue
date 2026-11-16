@@ -43,7 +43,12 @@ async function invite() {
   seatLimitHit.value = false
   try {
     const member = await projectsApi.addMember(props.project.id, { email: email.value.trim(), role: role.value })
-    if (member.inviteLink) await shareInviteLink(member.email, member.inviteLink)
+    if (member.inviteLink) {
+      const slug = auth.organization?.slug
+      await shareInviteLink(member.email, member.inviteLink, {
+        previewUrl: slug ? `${window.location.origin}/invite/${slug}` : `${window.location.origin}/workday`,
+      })
+    }
     else toast.success(member.invited ? `Invitation sent to ${member.email}` : `${member.name} added to the project`)
     email.value = ''
     await refresh()

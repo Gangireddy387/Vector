@@ -6,6 +6,8 @@ const escapeHtml = (value) =>
 export const appUrl = (path = '/') => `${config.clientUrl.split(',')[0].replace(/\/$/, '')}${path}`;
 /** Where a newly invited person sets up their account; also shown to admins when the plan leaves invitation emails out. */
 export const inviteLinkFor = (token) => appUrl(`/accept-invite?token=${token}`);
+/** Public workday / invite preview — see the loop without accepting yet. */
+export const workdayPreviewLinkFor = (slug) => (slug ? appUrl(`/invite/${slug}`) : appUrl('/workday'));
 
 /** Mail clients fetch images through their own servers, so images on a local address would show as broken. */
 const canLoadImages = () => !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(appUrl());
@@ -67,11 +69,33 @@ function actionButton(label, url) {
   <p style="margin:16px 0 0;font-size:12px;line-height:1.6;color:#71717a">Button not working? Paste this link into your browser:<br /><a href="${url}" style="color:${BRAND};word-break:break-all">${escapeHtml(url)}</a></p>`;
 }
 
+function secondaryLink(label, url) {
+  if (!url || !label) return '';
+  return `<p style="margin:18px 0 0;font-size:13px;line-height:1.6;color:#3f3f46">
+    Prefer a peek first?
+    <a href="${url}" style="color:${BRAND};font-weight:600;text-decoration:underline">${escapeHtml(label)}</a>
+    — standup → tasks → meetings → messages, no signup required.
+  </p>`;
+}
+
 /**
  * Shared email shell: a brand header (the organization when there is one), an optional eyebrow and details card,
  * one call to action and a footer. `intro`, `note` and detail values are trusted HTML; everything else is escaped.
  */
-function renderLayout({ preheader, brand, eyebrow, heading, intro, details, actionLabel, actionUrl, note, footer }) {
+function renderLayout({
+  preheader,
+  brand,
+  eyebrow,
+  heading,
+  intro,
+  details,
+  actionLabel,
+  actionUrl,
+  secondaryLabel,
+  secondaryUrl,
+  note,
+  footer,
+}) {
   const header = brand ?? { name: 'Vector', logoUrl: '/pwa-64x64.png', initials: 'V', color: BRAND };
   const subtitle = brand?.slug ? addressOf(brand.slug) : brand ? 'on Vector' : 'Work management';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" /><meta name="color-scheme" content="light" /><title>${escapeHtml(heading)}</title></head>
@@ -96,6 +120,7 @@ function renderLayout({ preheader, brand, eyebrow, heading, intro, details, acti
           <div style="font-size:15px;line-height:1.65;color:#3f3f46">${intro}</div>
           ${detailsCard(details)}
           ${actionButton(actionLabel, actionUrl)}
+          ${secondaryLink(secondaryLabel, secondaryUrl)}
           ${note ? `<div style="margin:28px 0 0;padding:14px 16px;border-radius:10px;background:#eef2ff;font-size:13px;line-height:1.6;color:#3730a3">${note}</div>` : ''}
         </td></tr></table>
       </td></tr>
@@ -142,6 +167,8 @@ export const inviteEmail = ({ inviterName, inviterEmail, organization, project, 
     ],
     actionLabel: 'Accept & Start my day',
     actionUrl: inviteLinkFor(token),
+    secondaryLabel: `Preview ${organization.name}’s workday`,
+    secondaryUrl: workdayPreviewLinkFor(organization.slug),
     note: `<strong>What happens next?</strong> One click sets up your account. You’ll land on Home to <strong>Start my day</strong> — standup, tasks, meetings and messages. You get a temporary password (also by email) and choose your own when you first sign in.`,
     footer: invitationFooter(email, inviterName),
   }),
@@ -163,6 +190,8 @@ export const organizationInviteEmail = ({ inviterName, inviterEmail, organizatio
     ],
     actionLabel: 'Accept & Start my day',
     actionUrl: inviteLinkFor(token),
+    secondaryLabel: `Preview ${organization.name}’s workday`,
+    secondaryUrl: workdayPreviewLinkFor(organization.slug),
     note: `<strong>What happens next?</strong> One click sets up your account. You’ll land on Home to <strong>Start my day</strong> — standup, tasks, meetings and messages. You get a temporary password (also by email) and choose your own when you first sign in.`,
     footer: invitationFooter(email, inviterName),
   }),
@@ -356,6 +385,8 @@ export const meetingEmail = ({ kind, title, when, duration, hostName, organizati
       ],
       actionLabel: copy.action,
       actionUrl: copy.action && link ? appUrl(link) : null,
+      secondaryLabel: kind === 'invite' && organization?.slug ? `Preview ${organization.name}’s workday` : null,
+      secondaryUrl: kind === 'invite' && organization?.slug ? workdayPreviewLinkFor(organization.slug) : null,
       note: kind === 'cancel' ? null : 'The attached calendar file adds the meeting to Outlook, Google Calendar or Apple Calendar.',
       footer: 'You received this email because you were invited to a meeting in Vector. Manage email notifications in Settings → Notifications.',
     }),

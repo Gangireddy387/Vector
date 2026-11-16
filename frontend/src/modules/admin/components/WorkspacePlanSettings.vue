@@ -22,6 +22,7 @@ const emptyNudgeStats = {
   sent: 0,
   opened: 0,
   openRate: 0,
+  readWithoutClick: 0,
   byDay: {
     '2': { sent: 0, opened: 0, openRate: 0 },
     '7': { sent: 0, opened: 0, openRate: 0 },
@@ -133,7 +134,7 @@ const usageRows = computed(() => {
       <CardHeader>
         <CardTitle class="flex items-center gap-2"><Sunrise class="size-4 text-primary" /> Workday nudges</CardTitle>
         <CardDescription>
-          Day 2 and day 7 habit reminders. Open rate is in-app notifications marked read — not email opens.
+          Day 2 and day 7 habit reminders. Open rate counts real opens (Open / navigate) — not “mark all read.”
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -164,6 +165,9 @@ const usageRows = computed(() => {
           </ul>
           <p v-if="(nudgeStats?.sent ?? 0) === 0" class="text-xs text-muted-foreground">
             No day-2/day-7 nudges sent yet for this org. Numbers fill in after those reminders go out.
+          </p>
+          <p v-else-if="(nudgeStats?.readWithoutClick ?? 0) > 0" class="text-xs text-muted-foreground">
+            {{ nudgeStats?.readWithoutClick }} marked read without opening — those do not count toward open rate.
           </p>
         </div>
       </CardContent>

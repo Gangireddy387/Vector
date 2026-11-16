@@ -74,13 +74,20 @@ export async function listNotifications(userId, { unreadOnly, limit }) {
 
 export const countUnread = (userId) => Notification.count({ where: { userId, readAt: null } });
 
-export async function markRead(userId, notificationId) {
+/**
+ * Marks a notification read. Pass `{ clicked: true }` when the person opens/navigates it
+ * (bell Open, inbox link, toast). Mark-all-read must never set clickedAt.
+ */
+export async function markRead(userId, notificationId, { clicked = false } = {}) {
   const notification = await Notification.findOne({ where: { id: notificationId, userId } });
   if (!notification) throw ApiError.notFound('Notification not found');
-  if (!notification.readAt) {
-    await notification.update({ readAt: new Date() });
-    if (notification.type === 'workday_nudge') {
-      console.info(`[nudge] opened workday_nudge ${notification.id} user=${userId}`);
+  const patch = {};
+  if (!notification.readAt) patch.readAt = new Date();
+  if (clicked && !notification.clickedAt) patch.clickedAt = new Date();
+  if (Object.keys(patch).length) {
+    await notification.update(patch);
+    if (clicked && notification.type === 'workday_nudge') {
+      console.info(`[nudge] clicked workday_nudge ${notification.id} user=${userId}`);
     }
   }
   return notification;

@@ -143,7 +143,12 @@ function selectNotification(id: string) {
 }
 
 const isUnread = (entry: Entry) => entry.items.some((item) => !item.readAt)
-const markEntryRead = (entry: Entry) => Promise.all(entry.items.filter((item) => !item.readAt).map((item) => notifications.markRead(item)))
+const markEntryRead = (entry: Entry, clicked = false) =>
+  Promise.all(
+    entry.items
+      .filter((item) => !item.readAt || (clicked && !item.clickedAt))
+      .map((item) => (clicked ? notifications.openNotification(item) : notifications.markRead(item))),
+  )
 async function removeEntry(entry: Entry) {
   if (selectedKey.value === entry.key) selectedKey.value = null
   await Promise.all(entry.items.map((item) => notifications.remove(item)))
@@ -151,12 +156,13 @@ async function removeEntry(entry: Entry) {
 
 /** Workspace shell: show it in the reading pane (and mark it read, like opening an email). Phones: go straight to it. */
 function select(entry: Entry) {
-  void markEntryRead(entry)
+  const navigates = !isDesktop.value && Boolean(entry.latest.link)
+  void markEntryRead(entry, navigates)
   if (isDesktop.value) selectedKey.value = entry.key
   else if (entry.latest.link) void router.push(entry.latest.link)
 }
 function openLink(entry: Entry) {
-  void markEntryRead(entry)
+  void markEntryRead(entry, true)
   if (entry.latest.link) void router.push(entry.latest.link)
 }
 

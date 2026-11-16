@@ -6,7 +6,11 @@ export const list = async (req, res) =>
 export const unreadCount = async (req, res) => res.json({ count: await notificationService.countUnread(req.user.id) });
 
 export const markRead = async (req, res) =>
-  res.json({ notification: await notificationService.markRead(req.user.id, req.params.notificationId) });
+  res.json({
+    notification: await notificationService.markRead(req.user.id, req.params.notificationId, {
+      clicked: Boolean(req.body?.clicked),
+    }),
+  });
 
 export const markAllRead = async (req, res) => {
   await notificationService.markAllRead(req.user.id);

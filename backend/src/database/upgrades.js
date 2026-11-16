@@ -66,6 +66,8 @@ const ADDED_COLUMNS = [
   { table: 'conversation_messages', column: 'important', definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false } },
   { table: 'conversation_members', column: 'muted_at', definition: { type: DataTypes.DATE, allowNull: true } },
   { table: 'conversation_members', column: 'notify_level', definition: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'all' } },
+  /** Real open for retention metrics (workday nudges); mark-all-read must not set this. */
+  { table: 'notifications', column: 'clicked_at', definition: { type: DataTypes.DATE, allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

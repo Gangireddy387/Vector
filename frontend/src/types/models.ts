@@ -368,6 +368,8 @@ export interface AppNotification {
   body: string | null
   link: string | null
   readAt: string | null
+  /** Set when opened/navigated — not on mark-all-read. Used for workday nudge open rate. */
+  clickedAt?: string | null
   createdAt: string
   actor: UserSummary | null
 }

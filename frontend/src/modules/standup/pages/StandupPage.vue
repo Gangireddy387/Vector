@@ -229,9 +229,22 @@ async function copySummary() {
         v-if="!day.members.length"
         :icon="ClipboardList"
         title="No one to stand up with yet"
-        description="Add members to the project and each of them can post a daily update here."
+        description="Invite teammates to this project — standup only works when people post together."
         class="border bg-card py-12"
-      />
+      >
+        <Button
+          v-if="project?.myRole === 'admin' || auth.isOrganizationAdmin"
+          variant="brand"
+          as-child
+        >
+          <RouterLink :to="{ name: 'project-settings', params: { projectId }, query: { tab: 'members' } }">
+            <Users /> Invite people
+          </RouterLink>
+        </Button>
+        <Button v-else variant="outline" as-child>
+          <RouterLink :to="{ name: 'home', query: { startDay: '1' } }">Back to Start my day</RouterLink>
+        </Button>
+      </EmptyState>
       <div v-else class="grid items-start gap-3 md:grid-cols-2 2xl:grid-cols-3">
         <StandupMemberCard
           v-for="member in teammates"

@@ -123,7 +123,12 @@ async function resend(member: WorkspaceMember) {
   resendingId.value = member.id
   try {
     const result = await workspaceApi.resendInvitation(member.id)
-    if (result.inviteLink) await shareInviteLink(member.email, result.inviteLink)
+    if (result.inviteLink) {
+      const slug = auth.organization?.slug
+      await shareInviteLink(member.email, result.inviteLink, {
+        previewUrl: slug ? `${window.location.origin}/invite/${slug}` : `${window.location.origin}/workday`,
+      })
+    }
     else toast.success(`New invitation sent to ${member.email}`, { description: 'Earlier invitation links no longer work; they should use the newest email.' })
   } catch (error) {
     toast.error(getErrorMessage(error))
@@ -144,7 +149,12 @@ async function sendInvite() {
   isInviting.value = true
   try {
     const member = await workspaceApi.invite({ email: invite.value.email.trim(), role: invite.value.role })
-    if (member.inviteLink) await shareInviteLink(member.email, member.inviteLink)
+    if (member.inviteLink) {
+      const slug = auth.organization?.slug
+      await shareInviteLink(member.email, member.inviteLink, {
+        previewUrl: slug ? `${window.location.origin}/invite/${slug}` : `${window.location.origin}/workday`,
+      })
+    }
     else
       toast.success(member.invited ? `Invitation sent to ${member.email}` : `${member.name} added to ${organizationName.value}`, {
         description: member.invited

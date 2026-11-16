@@ -40,7 +40,7 @@ const callFullscreen = useCallFullscreen()
 useTimezoneSync()
 
 function openNotification(notification: AppNotification) {
-  void notifications.markRead(notification)
+  void notifications.openNotification(notification)
   if (notification.link) void router.push(notification.link)
 }
 

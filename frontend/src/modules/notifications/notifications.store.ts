@@ -26,11 +26,20 @@ export const useNotificationsStore = defineStore('notifications', () => {
     unreadCount.value = await notificationsApi.unreadCount()
   }
 
-  async function markRead(notification: AppNotification) {
-    if (notification.readAt) return
-    notification.readAt = new Date().toISOString()
-    unreadCount.value = Math.max(0, unreadCount.value - 1)
-    await notificationsApi.markRead(notification.id)
+  async function markRead(notification: AppNotification, options?: { clicked?: boolean }) {
+    const clicked = Boolean(options?.clicked)
+    if (notification.readAt && (!clicked || notification.clickedAt)) return
+    if (!notification.readAt) {
+      notification.readAt = new Date().toISOString()
+      unreadCount.value = Math.max(0, unreadCount.value - 1)
+    }
+    if (clicked) notification.clickedAt = notification.clickedAt ?? new Date().toISOString()
+    await notificationsApi.markRead(notification.id, { clicked })
+  }
+
+  /** Open / navigate — counts as a real click for nudge open-rate. */
+  async function openNotification(notification: AppNotification) {
+    await markRead(notification, { clicked: true })
   }
 
   async function markAllRead() {
@@ -89,5 +98,17 @@ export const useNotificationsStore = defineStore('notifications', () => {
     unbind = null
   }
 
-  return { items, unreadCount, isLoading, fetchNotifications, refreshUnreadCount, markRead, markAllRead, remove, bindRealtime, reset }
+  return {
+    items,
+    unreadCount,
+    isLoading,
+    fetchNotifications,
+    refreshUnreadCount,
+    markRead,
+    openNotification,
+    markAllRead,
+    remove,
+    bindRealtime,
+    reset,
+  }
 })

@@ -72,6 +72,7 @@ export const workspaceApi = {
         sent: number
         opened: number
         openRate: number
+        readWithoutClick?: number
         byDay: Record<string, { sent: number; opened: number; openRate: number }>
       }>('/workspace/metrics/workday-nudges')
       .then((r) => r.data),

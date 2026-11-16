@@ -16,6 +16,7 @@ import { bucketOf } from '../my-work'
 import { copyShareWorkday } from '../share-workday'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import DailyBriefingCard from './DailyBriefingCard.vue'
+import HabitCoachCard from './HabitCoachCard.vue'
 import HabitNudgeBanner from './HabitNudgeBanner.vue'
 import HomeDayLoop from './HomeDayLoop.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
@@ -95,6 +96,7 @@ async function complete(issue: Issue) {
     </div>
 
     <SetupChecklist v-if="data" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
+    <HabitCoachCard v-if="data" :data="data" @create-project="isCreateProjectOpen = true" />
     <HabitNudgeBanner v-if="data?.habitNudge" :nudge="data.habitNudge" />
     <TeamDensityCard v-if="data" :data="data" />
     <CreateProjectDialog v-model:open="isCreateProjectOpen" />

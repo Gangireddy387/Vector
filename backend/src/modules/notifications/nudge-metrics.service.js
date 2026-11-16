@@ -4,7 +4,7 @@ import { WORKDAY_NUDGE_DAYS } from './workday-nudge.constants.js';
 
 /**
  * Day-2 / day-7 workday nudge open rates for an organization.
- * Open ≈ in-app notification marked read (`readAt`). Email opens are not tracked.
+ * Open = clickedAt (navigated / Open action) — not mark-all-read / readAt alone.
  */
 export async function getWorkdayNudgeStats(organizationId) {
   const members = await OrganizationMember.findAll({
@@ -19,7 +19,7 @@ export async function getWorkdayNudgeStats(organizationId) {
 
   const rows = await Notification.findAll({
     where: { type: 'workday_nudge', userId: { [Op.in]: userIds } },
-    attributes: ['title', 'readAt', 'createdAt'],
+    attributes: ['title', 'readAt', 'clickedAt', 'createdAt'],
     raw: true,
   });
 
@@ -30,7 +30,7 @@ export async function getWorkdayNudgeStats(organizationId) {
     const bucket = day != null ? byDay[String(day)] : null;
     if (bucket) {
       bucket.sent += 1;
-      if (row.readAt) bucket.opened += 1;
+      if (row.clickedAt) bucket.opened += 1;
     }
   }
 
@@ -39,11 +39,13 @@ export async function getWorkdayNudgeStats(organizationId) {
   }
 
   const sent = rows.length;
-  const opened = rows.filter((row) => row.readAt).length;
+  const opened = rows.filter((row) => row.clickedAt).length;
+  const readOnly = rows.filter((row) => row.readAt && !row.clickedAt).length;
   return {
     sent,
     opened,
     openRate: rate(opened, sent),
+    readWithoutClick: readOnly,
     byDay,
   };
 }
@@ -53,6 +55,7 @@ function emptyStats() {
     sent: 0,
     opened: 0,
     openRate: 0,
+    readWithoutClick: 0,
     byDay: Object.fromEntries(WORKDAY_NUDGE_DAYS.map((day) => [String(day), { sent: 0, opened: 0, openRate: 0 }])),
   };
 }

@@ -1,6 +1,20 @@
 <script setup lang="ts">
 import { format, parseISO } from 'date-fns'
-import { ArrowRight, Building2, CalendarDays, DoorOpen, LoaderCircle, Mic, MicOff, Sparkles, Video, VideoOff } from 'lucide-vue-next'
+import {
+  ArrowRight,
+  Building2,
+  CalendarDays,
+  ClipboardList,
+  DoorOpen,
+  ListTodo,
+  LoaderCircle,
+  MessageCircle,
+  Mic,
+  MicOff,
+  Sparkles,
+  Video,
+  VideoOff,
+} from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -149,14 +163,21 @@ const startsLabel = computed(() => (info.value ? format(parseISO(info.value.meet
 
 /** Guests who aren’t on this org: turn meeting traffic into a new Vector workspace. */
 const showSignupCta = computed(() => !memberOf.value)
+/** After leave / host-end — primary growth moment (demo → signup). */
+const afterCall = computed(() => Boolean(ended.value) && showSignupCta.value)
 const signupTo = computed(() => {
-  if (auth.isAuthenticated && !auth.organization) return { name: 'organization-create' as const }
-  if (auth.isAuthenticated) return { name: 'organization-create' as const }
-  return { name: 'register' as const, query: { from: 'guest' } }
+  if (auth.isAuthenticated) return { name: 'organization-create' as const, query: { from: 'guest-call' } }
+  return { name: 'register' as const, query: { from: 'guest-call' } }
 })
 const signupLabel = computed(() =>
-  auth.isAuthenticated && !memberOf.value ? 'Create your own Vector team' : 'Start your own Vector team — free',
+  auth.isAuthenticated ? 'Create your own Vector team' : 'Start your Vector team — free',
 )
+const LOOP = [
+  { icon: ClipboardList, label: 'Standup' },
+  { icon: ListTodo, label: 'Tasks' },
+  { icon: Video, label: 'Meetings' },
+  { icon: MessageCircle, label: 'Messages' },
+]
 </script>
 
 <template>
@@ -260,8 +281,42 @@ const signupLabel = computed(() =>
             </div>
 
             <template v-else>
-              <p v-if="ended" class="border border-border/70 bg-muted/40 px-3 py-2 text-sm">{{ ended }}</p>
-              <div v-if="memberOf && auth.user" class="space-y-2">
+              <!-- Post-call: demo → signup is the primary action -->
+              <div v-if="afterCall" class="space-y-4">
+                <div class="rounded-lg border border-primary/25 bg-primary/[0.06] px-3 py-2.5 text-sm">
+                  <p class="font-medium">{{ ended }}</p>
+                  <p class="mt-0.5 text-xs text-muted-foreground">
+                    You just used Vector meetings. Run the full workday for your own team — standup, tasks, meetings, messages.
+                  </p>
+                </div>
+                <ol class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <li v-for="(step, index) in LOOP" :key="step.label" class="rounded-lg border border-border/70 bg-muted/30 px-2 py-2 text-center">
+                    <span class="mx-auto flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <component :is="step.icon" class="size-3.5" />
+                    </span>
+                    <p class="mt-1 text-[10px] font-medium tabular-nums text-muted-foreground">{{ index + 1 }}</p>
+                    <p class="text-[11px] font-semibold">{{ step.label }}</p>
+                  </li>
+                </ol>
+                <Button variant="brand" class="w-full" size="lg" as-child>
+                  <RouterLink :to="signupTo"><Building2 /> {{ signupLabel }} <ArrowRight /></RouterLink>
+                </Button>
+                <Button variant="outline" class="w-full" as-child>
+                  <RouterLink :to="{ name: 'workday-preview', query: { from: 'guest-call' } }">Preview the workday loop</RouterLink>
+                </Button>
+                <details class="rounded-lg border border-dashed border-border/80 px-3 py-2">
+                  <summary class="cursor-pointer text-xs font-medium text-muted-foreground">Rejoin this meeting</summary>
+                  <form class="mt-3 space-y-3" @submit.prevent="ask">
+                    <label class="grid gap-1.5 text-sm font-medium" for="guest-name-again">
+                      Your name
+                      <Input id="guest-name-again" v-model="name" maxlength="60" placeholder="How others will see you" autocomplete="name" />
+                    </label>
+                    <Button type="submit" variant="outline" class="w-full" :loading="isAsking"><DoorOpen /> Ask to join again</Button>
+                  </form>
+                </details>
+              </div>
+
+              <div v-else-if="memberOf && auth.user" class="space-y-2">
                 <p class="text-sm text-muted-foreground">You are a member of {{ info.organization.name }}.</p>
                 <Button variant="brand" class="w-full" @click="auth.switchOrganization(memberOf.id, `/meetings/${info.meeting.id}?join=1`)">
                   <Video /> Join as {{ auth.user.name }}
@@ -272,13 +327,13 @@ const signupLabel = computed(() =>
                   Your name
                   <Input id="guest-name" v-model="name" maxlength="60" placeholder="How others will see you" autocomplete="name" />
                 </label>
-                <Button type="submit" variant="brand" class="w-full" :loading="isAsking"><DoorOpen /> {{ ended ? 'Ask to join again' : 'Ask to join' }}</Button>
+                <Button type="submit" variant="brand" class="w-full" :loading="isAsking"><DoorOpen /> Ask to join</Button>
                 <p class="text-xs text-muted-foreground">You join as a guest. Check your camera and microphone in the preview before you ask.</p>
               </form>
             </template>
 
             <div
-              v-if="showSignupCta"
+              v-if="showSignupCta && !afterCall"
               class="space-y-2 border-t border-dashed border-border pt-4"
             >
               <p class="text-[13px] font-medium">Like how this works?</p>

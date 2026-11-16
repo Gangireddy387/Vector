@@ -15,6 +15,8 @@ Notification.init(
     body: { type: DataTypes.TEXT, allowNull: true },
     link: { type: DataTypes.STRING(255), allowNull: true },
     readAt: { type: DataTypes.DATE, allowNull: true },
+    /** Set when the person opens/navigates the notification — not on mark-all-read. */
+    clickedAt: { type: DataTypes.DATE, allowNull: true },
   },
   {
     sequelize,
