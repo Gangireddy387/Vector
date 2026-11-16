@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, Building2, CalendarDays, MessagesSquare, Check, ChevronRight, Crown, Download, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck, Video } from 'lucide-vue-next'
+import { BarChart3, Building2, CalendarDays, Check, ChevronRight, Crown, Download, FolderKanban, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck, Video } from 'lucide-vue-next'
 import { computed } from 'vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { usePwaInstall } from '@/composables/usePwaInstall'
@@ -20,8 +20,9 @@ const LINKS = computed(() => [
   { to: { name: 'search' }, label: 'Search', icon: Search },
   { to: { name: 'settings' }, label: 'Settings', icon: Settings },
   { to: { name: 'departments' }, label: 'Departments', icon: Building2 },
-  { to: { name: 'calendar' }, label: 'Calendar', icon: CalendarDays },
-  ...(auth.hasFeature('directMessages') || auth.hasFeature('teamChat') ? [{ to: { name: 'messages' }, label: 'Messages', icon: MessagesSquare }] : []),
+  ...(auth.hasFeature('calendar') ? [{ to: { name: 'calendar' }, label: 'Calendar', icon: CalendarDays }] : []),
+  // Messages lives on the tab bar when available; keep Projects easy to reach from More.
+  { to: { name: 'projects' }, label: 'Projects', icon: FolderKanban },
   ...(auth.hasFeature('meetings') ? [{ to: { name: 'meetings' }, label: 'Meetings', icon: Video }] : []),
   ...(auth.isOrganizationAdmin ? [{ to: { name: 'workspace-admin' }, label: 'Organization settings', icon: ShieldCheck }] : []),
   ...(auth.isSuperAdmin ? [{ to: { name: 'super-admin' }, label: 'Super admin', icon: Crown }] : []),

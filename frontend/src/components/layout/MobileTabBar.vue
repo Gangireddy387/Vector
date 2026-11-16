@@ -1,22 +1,40 @@
 <script setup lang="ts">
-import { CircleCheck, FolderKanban, Inbox, Menu, Plus } from 'lucide-vue-next'
+import { CircleCheck, FolderKanban, Inbox, Menu, MessagesSquare, Plus } from 'lucide-vue-next'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import { useMessagesStore } from '@/modules/messages/messages.store'
 import { useNotificationsStore } from '@/modules/notifications/notifications.store'
 import { useUiStore } from '@/stores/ui.store'
 
 const route = useRoute()
 const ui = useUiStore()
 const notifications = useNotificationsStore()
+const messages = useMessagesStore()
 
-const TABS = [
-  { name: 'home', label: 'My tasks', icon: CircleCheck },
-  { name: 'projects', label: 'Projects', icon: FolderKanban },
-  { name: 'inbox', label: 'Inbox', icon: Inbox },
-  { name: 'more', label: 'More', icon: Menu },
-] as const
+/** Messages takes the second slot when chat is on the plan; otherwise Projects stays there. */
+const TABS = computed(() => {
+  const second = messages.isAvailable
+    ? { name: 'messages', label: 'Messages', icon: MessagesSquare }
+    : { name: 'projects', label: 'Projects', icon: FolderKanban }
+  return [
+    { name: 'home', label: 'My tasks', icon: CircleCheck },
+    second,
+    { name: 'inbox', label: 'Inbox', icon: Inbox },
+    { name: 'more', label: 'More', icon: Menu },
+  ] as const
+})
 
-const isActive = (name: string) =>
-  name === 'projects' ? route.path.startsWith('/projects') : route.name === name
+const isActive = (name: string) => {
+  if (name === 'projects') return route.path.startsWith('/projects')
+  if (name === 'messages') return route.path.startsWith('/messages')
+  return route.name === name
+}
+
+const badgeFor = (name: string) => {
+  if (name === 'inbox') return notifications.unreadCount
+  if (name === 'messages') return messages.unreadTotal
+  return 0
+}
 
 const openCreateIssue = () =>
   ui.openCreateIssue({ projectId: typeof route.params.projectId === 'string' ? route.params.projectId : undefined })
@@ -51,10 +69,10 @@ const openCreateIssue = () =>
             </span>
             {{ tab.label }}
             <span
-              v-if="tab.name === 'inbox' && notifications.unreadCount"
+              v-if="badgeFor(tab.name)"
               class="absolute top-0.5 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-none font-semibold text-white tabular-nums ring-2 ring-card"
             >
-              {{ notifications.unreadCount > 9 ? '9+' : notifications.unreadCount }}
+              {{ badgeFor(tab.name) > 9 ? '9+' : badgeFor(tab.name) }}
             </span>
           </RouterLink>
         </li>

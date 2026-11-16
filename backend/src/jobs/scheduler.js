@@ -8,6 +8,8 @@ import { sendMeetingReminders } from '../modules/meetings/meeting.notify.js';
 import { purgeOldTranscripts } from '../modules/meetings/meeting.search.js';
 import { continueMeetingSeries, syncFromCalendars } from '../modules/meetings/meeting.service.js';
 import { settleIdleMeetings } from '../modules/meetings/meeting.signaling.js';
+import { sendStandupDigests } from '../modules/standups/standup-digest.job.js';
+import { sendStandupReminders } from '../modules/standups/standup-reminder.job.js';
 import { purgeExpiredMessages } from '../modules/support/support.service.js';
 
 const JOBS = [
@@ -15,6 +17,10 @@ const JOBS = [
   { name: 'due-reminders', schedule: '*/15 * * * *', run: sendDueReminders },
   // Hourly: each user receives it at 8:00 in their own time zone.
   { name: 'daily-digest', schedule: '0 * * * *', run: () => sendDailyDigests() },
+  // Hourly: standup nudge at each project's reminder hour in the person's zone (weekdays).
+  { name: 'standup-reminders', schedule: '0 * * * *', run: () => sendStandupReminders() },
+  // Hourly: manager standup rollup at each project's digest hour.
+  { name: 'standup-digests', schedule: '0 * * * *', run: () => sendStandupDigests() },
   { name: 'expired-support-messages', schedule: '*/5 * * * *', run: purgeExpiredMessages },
   { name: 'idle-meetings', schedule: '*/2 * * * *', run: settleIdleMeetings },
   { name: 'meeting-series', schedule: '* * * * *', run: continueMeetingSeries },

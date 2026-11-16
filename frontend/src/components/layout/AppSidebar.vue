@@ -58,7 +58,7 @@ const visibleProjects = computed(() => {
 const hiddenProjectCount = computed(() => projects.joinedProjects.length - visibleProjects.value.length)
 
 const workspaceLinks = computed(() => [
-  { name: 'calendar', label: 'Calendar', icon: CalendarDays, show: true },
+  { name: 'calendar', label: 'Calendar', icon: CalendarDays, show: auth.hasFeature('calendar') },
   { name: 'meetings', label: 'Meetings', icon: Video, show: auth.hasFeature('meetings') },
   { name: 'reports', label: 'Reports', icon: BarChart3, show: auth.hasFeature('reports'), shortcut: 'G R', exact: true },
   { name: 'departments', label: 'Departments', icon: Network, show: true },

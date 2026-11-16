@@ -6,10 +6,22 @@ import { sendEmail } from '../../shared/services/email.service.js';
 import { notificationEmail } from '../../shared/services/email-templates.js';
 import { projectHasFeature } from '../plans/plan.service.js';
 import { projectRoleOf } from '../projects/project-access.js';
+import { pushToUsers } from '../push/push.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 
 /** Which plan switch allows the email copy of a notification; everything else counts as a work notification. */
 const EMAIL_FEATURE_BY_TYPE = { due_soon: 'emailReminders' };
+
+/** Types that also ring a device push when Vector is closed (DMs, mentions, standups, blockers). */
+const PUSH_TYPES = new Set([
+  'chat_mention',
+  'channel_reply',
+  'direct_message',
+  'standup_reminder',
+  'standup_digest',
+  'standup_blocker',
+  'due_soon',
+]);
 
 /**
  * Creates in-app notifications (pushed live over websockets) and mirrors them by email
@@ -28,6 +40,14 @@ export async function notifyUsers({ userIds, actorId = null, type, title, body =
     recipients.map((userId) => ({ userId, actorId, type, title, body, link, issueId, projectId })),
   );
   notifications.forEach((notification) => emitToUser(notification.userId, 'notification:created', notification.toJSON()));
+
+  if (PUSH_TYPES.has(type)) {
+    await pushToUsers(
+      recipients,
+      { kind: type, title, body: body ?? '', url: link ?? '/', tag: `${type}-${notifications[0]?.id ?? Date.now()}` },
+      { ttlSeconds: 60 * 60 * 12 },
+    ).catch((error) => console.warn(`[push] notifyUsers ${type}:`, error.message));
+  }
 
   if (email && (!projectId || (await projectHasFeature(projectId, EMAIL_FEATURE_BY_TYPE[type] ?? 'emailNotifications')))) {
     const users = await User.findAll({ where: { id: recipients, status: 'active' } });

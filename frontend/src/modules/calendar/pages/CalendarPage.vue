@@ -130,9 +130,14 @@ const eventsByDay = computed(() => {
   for (const list of map.values()) list.sort((a, b) => sortKey(a) - sortKey(b))
   return map
 })
+/** Tasks already mirrored as calendar events (issueId) stay out of the overlay so they are not shown twice. */
+const syncedIssueIds = computed(() => new Set(events.value.map((event) => event.issueId).filter(Boolean)))
 const tasksByDay = computed(() => {
   const map = new Map<string, Issue[]>()
-  for (const task of tasks.value) if (task.dueDate) map.set(task.dueDate, [...(map.get(task.dueDate) ?? []), task])
+  for (const task of tasks.value) {
+    if (!task.dueDate || syncedIssueIds.value.has(task.id)) continue
+    map.set(task.dueDate, [...(map.get(task.dueDate) ?? []), task])
+  }
   return map
 })
 

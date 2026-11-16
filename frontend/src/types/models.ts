@@ -190,6 +190,10 @@ export interface ProjectSettings {
   carryOverIncomplete: boolean
   sprintLengthDays: number
   dueReminderHours: number
+  /** Weekday standup ritual (hours are each member’s local clock). */
+  standupEnabled?: boolean
+  standupReminderHour?: number
+  standupDigestHour?: number
   /** The ready-made sample project (offered to new organizations); it can be deleted in one click. */
   isSample?: boolean
 }

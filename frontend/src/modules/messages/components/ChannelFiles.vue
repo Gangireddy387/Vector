@@ -72,7 +72,7 @@ async function copyLink(file: SharedFile) {
 
 <template>
   <div class="flex min-h-0 flex-col">
-    <div class="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5 sm:px-[5%]">
+    <div class="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
       <div class="relative max-w-xs flex-1">
         <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input v-model="search" class="h-8 pl-9" placeholder="Search files" aria-label="Search files" />

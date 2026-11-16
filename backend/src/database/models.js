@@ -181,6 +181,8 @@ StandupUpdate.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 Organization.hasMany(CalendarEvent, { as: 'calendarEvents', foreignKey: 'organizationId', ...cascade });
 User.hasMany(CalendarEvent, { as: 'calendarEvents', foreignKey: 'ownerId', ...cascade });
 CalendarEvent.belongsTo(Project, { as: 'project', foreignKey: 'projectId', constraints: false });
+CalendarEvent.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId', constraints: false });
+Issue.hasMany(CalendarEvent, { as: 'calendarEvents', foreignKey: 'issueId', constraints: false });
 
 // Support chat between the super admin and each organization's admins
 Organization.hasMany(SupportMessage, { as: 'supportMessages', foreignKey: 'organizationId', ...cascade });

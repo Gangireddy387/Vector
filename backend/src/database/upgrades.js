@@ -31,6 +31,7 @@ const ADDED_COLUMNS = [
   { table: 'organizations', column: 'support_cleared_at', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'organizations', column: 'brand_color', definition: { type: DataTypes.STRING(20), allowNull: true } },
   { table: 'calendar_events', column: 'meeting_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'calendar_events', column: 'issue_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'meetings', column: 'context_type', definition: { type: DataTypes.STRING(12), allowNull: true } },
   { table: 'meetings', column: 'context_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'meetings', column: 'recurrence', definition: { type: DataTypes.STRING(10), allowNull: true } },

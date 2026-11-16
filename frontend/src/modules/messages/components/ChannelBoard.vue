@@ -40,7 +40,7 @@ const openBoard = (projectId: string) => void router.push({ name: 'project-board
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col overflow-y-auto bg-sidebar/40 px-3 py-3 scrollbar-thin sm:px-[5%] sm:py-4">
+  <div class="flex min-h-0 flex-1 flex-col overflow-y-auto bg-sidebar/40 px-3 py-3 scrollbar-thin sm:px-4 sm:py-4">
     <div class="w-full space-y-3">
       <div class="flex items-start gap-3">
         <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Kanban class="size-[18px]" /></span>

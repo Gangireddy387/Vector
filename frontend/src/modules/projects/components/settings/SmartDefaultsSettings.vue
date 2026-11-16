@@ -14,17 +14,27 @@ import { useProjectsStore } from '../../projects.store'
 const props = defineProps<{ project: ProjectDetail }>()
 
 const projects = useProjectsStore()
-const settings = reactive<ProjectSettings>({ ...props.project.settings })
+const withStandupDefaults = (value: ProjectSettings): ProjectSettings => ({
+  ...value,
+  standupEnabled: value.standupEnabled !== false,
+  standupReminderHour: value.standupReminderHour ?? 9,
+  standupDigestHour: value.standupDigestHour ?? 11,
+})
+const settings = reactive<ProjectSettings>(withStandupDefaults(props.project.settings))
 const sprintLengthDays = ref(String(props.project.settings.sprintLengthDays))
 const dueReminderHours = ref(String(props.project.settings.dueReminderHours))
+const reminderHour = ref(String(props.project.settings.standupReminderHour ?? 9))
+const digestHour = ref(String(props.project.settings.standupDigestHour ?? 11))
 const isSaving = ref(false)
 
 watch(
   () => props.project.settings,
   (value) => {
-    Object.assign(settings, value)
+    Object.assign(settings, withStandupDefaults(value))
     sprintLengthDays.value = String(value.sprintLengthDays)
     dueReminderHours.value = String(value.dueReminderHours)
+    reminderHour.value = String(value.standupReminderHour ?? 9)
+    digestHour.value = String(value.standupDigestHour ?? 11)
   },
 )
 
@@ -52,6 +62,9 @@ async function save() {
         carryOverIncomplete: settings.carryOverIncomplete,
         sprintLengthDays: Number(sprintLengthDays.value),
         dueReminderHours: Number(dueReminderHours.value),
+        standupEnabled: settings.standupEnabled !== false,
+        standupReminderHour: Number(reminderHour.value),
+        standupDigestHour: Number(digestHour.value),
       },
     })
     toast.success('Smart defaults saved')
@@ -101,6 +114,24 @@ async function save() {
           <FormField label="Due date reminder (hours before)" for="reminder-hours" hint="Assignees get an in-app and email reminder.">
             <NumberField id="reminder-hours" v-model="dueReminderHours" :min="1" :max="168" suffix="hours" />
           </FormField>
+        </div>
+
+        <div class="space-y-4 rounded-lg border border-border p-3">
+          <div class="flex items-start justify-between gap-4">
+            <span>
+              <span class="block text-sm font-medium">Daily standup ritual</span>
+              <span class="block text-xs text-muted-foreground">Remind the team, then send a manager digest. Hours use each person’s local clock.</span>
+            </span>
+            <Switch v-model="settings.standupEnabled" aria-label="Daily standup ritual" />
+          </div>
+          <div v-if="settings.standupEnabled" class="grid gap-4 sm:grid-cols-2">
+            <FormField label="Reminder hour" for="standup-reminder" hint="Nudge people who have not posted.">
+              <NumberField id="standup-reminder" v-model="reminderHour" :min="0" :max="23" suffix=":00" />
+            </FormField>
+            <FormField label="Manager digest hour" for="standup-digest" hint="Rollup of posted, missing and blockers.">
+              <NumberField id="standup-digest" v-model="digestHour" :min="0" :max="23" suffix=":00" />
+            </FormField>
+          </div>
         </div>
 
         <Button type="submit" :loading="isSaving">Save smart defaults</Button>

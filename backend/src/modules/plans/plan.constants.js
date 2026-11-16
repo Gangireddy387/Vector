@@ -9,6 +9,7 @@ export const PLAN_FEATURES = [
   { key: 'directMessages', label: 'Direct messages' },
   { key: 'teamChat', label: 'Team & department chat' },
   { key: 'meetings', label: 'Meetings & video calls' },
+  { key: 'calendar', label: 'Calendar & due-date sync' }, // personal calendar + assignee due events
   { key: 'attachments', label: 'File attachments' },
   { key: 'timeTracking', label: 'Time tracking' },
   { key: 'customSounds', label: 'Custom ringtones & sounds' },
@@ -45,7 +46,7 @@ export const DEFAULT_PLANS = [
     priceLabel: '₹999 / month',
     maxMembers: 25,
     maxProjects: 20,
-    features: features('automations', 'recurringTasks', 'templates', 'reports', 'chat', 'directMessages', 'teamChat', 'meetings', 'attachments', 'timeTracking', 'customSounds', ...EMAIL_FEATURE_KEYS),
+    features: features('automations', 'recurringTasks', 'templates', 'reports', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar', 'attachments', 'timeTracking', 'customSounds', ...EMAIL_FEATURE_KEYS),
     isDefault: false,
     position: 1,
   },

@@ -410,7 +410,7 @@ async function leaveChannel(conversation: ConversationSummary) {
             <div v-if="!directChats.length" class="flex flex-col items-center gap-3 px-6 py-12 text-center">
               <span class="flex size-12 items-center justify-center bg-primary/10 text-primary"><MessagesSquare class="size-6" /></span>
               <p class="text-sm font-medium">{{ search ? `No chats match “${search}”` : 'No chats yet' }}</p>
-              <p class="text-xs text-muted-foreground">Start a private chat with anyone in your organization.</p>
+              <p class="text-xs text-muted-foreground">Private DMs live here. Project task talk belongs in each project’s Work chat.</p>
               <Button v-if="!search" variant="brand" size="sm" @click="openPicker"><MessageCirclePlus /> New chat</Button>
             </div>
             <button

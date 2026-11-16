@@ -12,6 +12,10 @@ export const DEFAULT_PROJECT_SETTINGS = Object.freeze({
   sprintLengthDays: 14,
   dueReminderHours: 24,
   lastRoundRobinUserId: null,
+  /** Weekday standup ritual (hours are each member’s local clock). */
+  standupEnabled: true,
+  standupReminderHour: 9,
+  standupDigestHour: 11,
 });
 
 export class Project extends Model {}

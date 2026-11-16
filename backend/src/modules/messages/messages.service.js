@@ -411,6 +411,21 @@ export async function sendMessage(viewer, conversationId, { body = '', parentId 
   if (isGroup(conversation)) {
     const mentioned = await notifyMentions(viewer, conversation, message, people);
     if (parent) await notifyThread(viewer, conversation, parent, message, people, mentioned);
+  } else {
+    // Direct chats: nudge people who are not looking at Vector right now.
+    const recipients = people.filter((userId) => userId !== viewer.id && !isUserOnline(userId));
+    const alertable = await filterByNotifyLevel(conversation.id, recipients, { allowMentions: false });
+    if (alertable.length) {
+      await notifyUsers({
+        userIds: alertable,
+        actorId: viewer.id,
+        type: 'direct_message',
+        title: viewer.name ?? 'New message',
+        body: preview(message.body) || 'Sent an attachment',
+        link: `/messages/${conversation.id}`,
+        email: false,
+      });
+    }
   }
   return message;
 }

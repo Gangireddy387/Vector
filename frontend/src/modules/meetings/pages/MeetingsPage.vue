@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
-import { CalendarClock, CalendarX2, Clock3, Ellipsis, History, Info, Link2, PencilLine, Plus, Radio, Repeat, Trash2, Video, XCircle } from 'lucide-vue-next'
+import { CalendarClock, CalendarX2, Clock3, Ellipsis, History, Info, Link2, ListTodo, PencilLine, Plus, Radio, Repeat, Trash2, Video, XCircle } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -68,6 +68,7 @@ const groups = computed(() => {
 })
 
 const peopleOf = (meeting: Meeting) => [...(meeting.host ? [meeting.host] : []), ...meeting.participants.filter((person) => person.id !== meeting.host?.id)]
+const openActionCount = (meeting: Meeting) => (meeting.summary?.actionItems ?? []).filter((item) => item.text && !item.issue).length
 
 const open = (meeting: Meeting) => router.push({ name: 'meeting-room', params: { meetingId: meeting.id } })
 
@@ -261,6 +262,9 @@ onMounted(async () => {
                 </DropdownMenu>
               </div>
               <Button v-if="isJoinable(meeting, now)" size="sm" variant="outline" class="max-sm:min-w-[5.5rem]" @click="open(meeting)"><Video /> Join</Button>
+              <Button v-else-if="scope === 'past' && openActionCount(meeting)" size="sm" variant="outline" class="max-sm:min-w-[5.5rem]" @click="open(meeting)">
+                <ListTodo /> {{ openActionCount(meeting) }} to tasks
+              </Button>
               <Button v-else size="sm" variant="ghost" @click="open(meeting)">Updates & notes</Button>
             </div>
           </article>

@@ -28,11 +28,17 @@ CalendarEvent.init(
     seriesId: { type: DataTypes.UUID, allowNull: true },
     /** Added by a meeting invitation; it moves or disappears with the meeting. */
     meetingId: { type: DataTypes.UUID, allowNull: true },
+    /** Mirrored from a task due date; moves or disappears with the task. */
+    issueId: { type: DataTypes.UUID, allowNull: true },
   },
   {
     sequelize,
     modelName: 'CalendarEvent',
     tableName: 'calendar_events',
-    indexes: [{ fields: ['organization_id', 'owner_id', 'date'] }, { fields: ['series_id'] }],
+    indexes: [
+      { fields: ['organization_id', 'owner_id', 'date'] },
+      { fields: ['series_id'] },
+      { fields: ['issue_id'] },
+    ],
   },
 );

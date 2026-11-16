@@ -39,6 +39,7 @@ export interface StandupDay {
   issues: Record<string, StandupIssue>
   stats: { posted: number; expected: number; blockers: number; completed: number }
   recentDays: Array<{ date: string; count: number }>
+  ritual?: { enabled: boolean; reminderHour: number; digestHour: number }
 }
 
 export interface StandupDraft {

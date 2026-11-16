@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Sparkles, Trash2 } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,8 @@ const props = defineProps<{ projectId: string; date: string; previousDate: strin
 const emit = defineEmits<{ saved: []; cancel: [] }>()
 
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 const confirm = useConfirm()
 const form = ref({ yesterday: '', today: '', blockers: '' })
 const isSaving = ref(false)
@@ -53,6 +56,16 @@ async function draftFromActivity() {
     isDrafting.value = false
   }
 }
+
+onMounted(() => {
+  if (route.query.draft === '1' && isEmpty.value) {
+    void draftFromActivity().finally(() => {
+      const query = { ...route.query }
+      delete query.draft
+      void router.replace({ query })
+    })
+  }
+})
 
 async function save() {
   isSaving.value = true

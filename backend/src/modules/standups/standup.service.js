@@ -7,6 +7,7 @@ import { addDaysToDate } from '../../shared/utils/timezone.js';
 import { toDateOnly } from '../../shared/utils/query.js';
 import { completeJson, isAiEnabled } from '../ai/openai.client.js';
 import { notifyUsers } from '../notifications/notification.service.js';
+import { DEFAULT_PROJECT_SETTINGS } from '../projects/project.model.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 
 const ISSUE_SUMMARY = ['id', 'key', 'title', 'type', 'priority', 'statusId', 'assigneeId', 'dueDate', 'completedAt', 'projectId', 'sprintId'];
@@ -54,7 +55,8 @@ const describeIssue = (issue, statusById) => {
  */
 export async function getStandupDay(projectId, date) {
   const previousDate = previousWorkday(date);
-  const [memberships, updates, { byId: statusById, idsIn }, recentDays] = await Promise.all([
+  const [project, memberships, updates, { byId: statusById, idsIn }, recentDays] = await Promise.all([
+    Project.findByPk(projectId, { attributes: ['id', 'settings'] }),
     ProjectMember.findAll({ where: { projectId }, include: [{ model: User, as: 'user', attributes: [...USER_SUMMARY_ATTRIBUTES, 'status'] }] }),
     StandupUpdate.findAll({ where: { projectId, date }, include: [{ model: User, as: 'user', attributes: USER_SUMMARY_ATTRIBUTES }] }),
     loadStatuses(projectId),
@@ -67,6 +69,7 @@ export async function getStandupDay(projectId, date) {
       raw: true,
     }),
   ]);
+  const settings = { ...DEFAULT_PROJECT_SETTINGS, ...(project?.settings ?? {}) };
 
   const people = memberships.filter((membership) => membership.user && membership.user.status !== 'disabled' && (membership.role !== 'viewer' || updates.some((update) => update.userId === membership.userId)));
   const userIds = people.map((membership) => membership.userId);
@@ -109,6 +112,11 @@ export async function getStandupDay(projectId, date) {
       completed: completed.length,
     },
     recentDays: recentDays.map((row) => ({ date: typeof row.date === 'string' ? row.date : toDateOnly(new Date(row.date)), count: Number(row.count) })),
+    ritual: {
+      enabled: Boolean(settings.standupEnabled),
+      reminderHour: Number(settings.standupReminderHour),
+      digestHour: Number(settings.standupDigestHour),
+    },
   };
 }
 

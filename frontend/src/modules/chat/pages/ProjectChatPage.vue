@@ -214,8 +214,8 @@ const discussedTasks = computed(() => {
           <EmptyState
             v-else-if="!messages.length"
             :icon="MessagesSquare"
-            title="Start the conversation"
-            description="Talk about the work here. Mention a task like VEC-12 and the message is recorded on that task, so follow-ups are never lost. Type / to ask the assistant."
+            title="Start the work chat"
+            description="This is the project room — not Messages. Talk about tasks here; mention a key like VEC-12 and it lands on that task. DMs and team chats live under Messages. Type / for the assistant."
             class="py-10"
           >
             <Button variant="outline" size="sm" @click="useCommand({ name: 'help', usage: '/help', description: '' })"><Bot /> What can the assistant do?</Button>

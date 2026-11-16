@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import { toast } from 'vue-sonner'
 import { adminRoutes } from '@/modules/admin/admin.routes'
 import { authRoutes } from '@/modules/auth/auth.routes'
 import { automationRoutes } from '@/modules/automation/automation.routes'
@@ -20,9 +19,10 @@ import { searchRoutes } from '@/modules/search/search.routes'
 import { settingsRoutes } from '@/modules/settings/settings.routes'
 import { superAdminRoutes } from '@/modules/super-admin/super-admin.routes'
 import { supportCallRoutes } from '@/modules/support/support.routes'
-import { featureLabel, type PlanFeatureKey } from '@/lib/plan-features'
+import type { PlanFeatureKey } from '@/lib/plan-features'
 import { organizationsApi } from '@/modules/auth/auth.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { toast } from 'vue-sonner'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -129,6 +129,12 @@ const routes: RouteRecordRaw[] = [
       ...calendarRoutes,
       ...messageRoutes,
       ...meetingRoutes,
+      {
+        path: 'upgrade',
+        name: 'feature-locked',
+        component: () => import('@/layouts/FeatureLockedPage.vue'),
+        meta: { title: 'Upgrade', mobileBack: true },
+      },
     ],
   },
   ...legalRoutes,
@@ -164,8 +170,7 @@ router.beforeEach((to) => {
   if (to.name === 'organization-pending' && !auth.isOrganizationBlocked) return { name: 'home' }
   const requiredFeatures = to.meta.requiresFeature
   if (requiredFeatures?.length && !requiredFeatures.some(auth.hasFeature)) {
-    toast.info(`Your plan does not include ${featureLabel(requiredFeatures[0]!).toLowerCase()}`, { description: 'Ask the portal administrator to upgrade.' })
-    return { name: 'home' }
+    return { name: 'feature-locked', query: { feature: requiredFeatures } }
   }
   if (to.meta.requiresWorkspaceAdmin && !auth.isOrganizationAdmin) return { name: 'home' }
   if (to.name === 'organization-create' && auth.isSuperAdmin) return { name: 'super-admin' }

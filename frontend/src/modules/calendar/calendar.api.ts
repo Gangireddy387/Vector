@@ -21,6 +21,9 @@ export interface CalendarEvent {
   status: EventStatus
   completedAt: string | null
   seriesId: string | null
+  /** Present when this event mirrors a task due date. */
+  issueId?: string | null
+  meetingId?: string | null
   createdAt: string
   updatedAt: string
 }

@@ -20,7 +20,7 @@ export function getProjectNavigation(project: Pick<Project, 'type' | 'myRole'>, 
     { name: 'project-issues', label: 'Tasks', icon: ListTodo },
     ...(hasFeature('chat')
       ? [
-          { name: 'project-chat', label: 'Chat', icon: MessagesSquare },
+          { name: 'project-chat', label: 'Work chat', icon: MessagesSquare },
           { name: 'project-standup', label: 'Standup', icon: ClipboardList },
         ]
       : []),

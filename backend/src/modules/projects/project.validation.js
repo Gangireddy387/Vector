@@ -33,6 +33,9 @@ export const updateProjectSchema = z.object({
       carryOverIncomplete: z.boolean().optional(),
       sprintLengthDays: z.number().int().min(1).max(60).optional(),
       dueReminderHours: z.number().int().min(1).max(168).optional(),
+      standupEnabled: z.boolean().optional(),
+      standupReminderHour: z.number().int().min(0).max(23).optional(),
+      standupDigestHour: z.number().int().min(0).max(23).optional(),
     })
     .optional(),
 });

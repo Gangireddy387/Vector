@@ -20,6 +20,7 @@ import { DomainEvents, eventBus } from '../../shared/events/event-bus.js';
 import { toDateOnly, toList } from '../../shared/utils/query.js';
 import { logActivity } from '../activity/activity.service.js';
 import { deleteStoredFile } from '../attachments/attachment.storage.js';
+import { removeIssueCalendarEvents, syncIssueDueToCalendar } from '../calendar/issue-calendar.sync.js';
 import { assertProjectRole, getMemberProjectIds, loadIssueWithAccess } from '../projects/project-access.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAssignee } from './issue-assignment.js';
@@ -395,6 +396,7 @@ export async function createIssue(rawInput, actor, context = {}) {
   }
 
   eventBus.publish(DomainEvents.ISSUE_CREATED, { issue: await loadEventIssue(issue.id), actorId: actor?.id ?? null, context });
+  await syncIssueDueToCalendar(issue.id).catch((error) => console.warn(`[calendar] issue due sync failed: ${error.message}`));
   return issue;
 }
 
@@ -458,6 +460,9 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
       context,
     });
   }
+  if (diff.dueDate || diff.assigneeId || diff.statusId) {
+    await syncIssueDueToCalendar(issue.id).catch((error) => console.warn(`[calendar] issue due sync failed: ${error.message}`));
+  }
   return issue;
 }
 
@@ -473,6 +478,7 @@ export async function deleteIssue(issueId, actor) {
     await issue.destroy({ transaction });
   });
   await Promise.all(attachments.map((attachment) => deleteStoredFile(attachment.storageKey)));
+  await removeIssueCalendarEvents(issueId).catch(() => undefined);
   await logActivity({ projectId: snapshot.projectId, actorId: actor?.id ?? null, action: 'deleted', toValue: `${snapshot.key} ${snapshot.title}` });
   eventBus.publish(DomainEvents.ISSUE_DELETED, { issue: snapshot, actorId: actor?.id ?? null });
 }

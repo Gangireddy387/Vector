@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BellRing,
+  CalendarDays,
   Clock,
   LayoutTemplate,
   Mail,
@@ -30,6 +31,7 @@ export type PlanFeatureKey =
   | 'directMessages'
   | 'teamChat'
   | 'meetings'
+  | 'calendar'
   | 'attachments'
   | 'timeTracking'
   | 'customSounds'
@@ -69,6 +71,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
   { key: 'directMessages', label: 'Direct messages', description: 'Private one-to-one chats between people', icon: MessageCircle, group: 'app' },
   { key: 'teamChat', label: 'Team & department chat', description: 'A group chat for every team and department', icon: UsersRound, group: 'app' },
   { key: 'meetings', label: 'Meetings & video calls', description: 'Schedule meetings, video call in the browser and share updates', icon: Video, group: 'app' },
+  {
+    key: 'calendar',
+    label: 'Calendar & due-date sync',
+    description: 'Personal calendar, and task due dates that appear as all-day events for assignees',
+    icon: CalendarDays,
+    group: 'app',
+  },
   { key: 'attachments', label: 'File attachments', description: 'Upload files to tasks', icon: Paperclip, group: 'app' },
   { key: 'timeTracking', label: 'Time tracking', description: 'Log work time on tasks', icon: Clock, group: 'app' },
   {

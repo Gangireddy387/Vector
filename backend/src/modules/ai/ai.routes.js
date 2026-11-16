@@ -11,6 +11,7 @@ const aiLimiter = rateLimit({ windowMs: 60 * 1000, limit: 20, standardHeaders: t
 const aiFeature = requireFeature('aiAssistant');
 
 router.get('/ai/status', controller.status);
+router.get('/ai/daily-briefing', aiFeature, aiLimiter, controller.dailyBriefing);
 router.post('/ai/draft-issue', aiFeature, aiLimiter, validate({ body: draftIssueSchema }), controller.draftIssue);
 router.post('/ai/issues/:issueId/summary', aiFeature, aiLimiter, controller.summarize);
 router.post('/ai/issues/:issueId/breakdown', aiFeature, aiLimiter, controller.breakdown);

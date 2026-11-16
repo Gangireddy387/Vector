@@ -16,7 +16,13 @@ export function useDashboardData() {
 
   async function load() {
     try {
-      data.value = await dashboardApi.get()
+      const payload = await dashboardApi.get()
+      data.value = {
+        ...payload,
+        standupPending: payload.standupPending ?? [],
+        meetingActions: payload.meetingActions ?? [],
+        standupRollup: payload.standupRollup ?? [],
+      }
       error.value = null
     } catch (problem) {
       error.value = getErrorMessage(problem)

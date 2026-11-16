@@ -33,7 +33,7 @@ export function useTodayAgenda() {
   async function load() {
     const today = toDateInput(new Date())
     const [events, meetings] = await Promise.all([
-      calendarApi.list(today, today).catch(() => []),
+      auth.hasFeature('calendar') ? calendarApi.list(today, today).catch(() => []) : Promise.resolve([]),
       auth.hasFeature('meetings') ? meetingsApi.list('upcoming').catch(() => []) : Promise.resolve([]),
     ])
     const fromMeetings: AgendaItem[] = meetings

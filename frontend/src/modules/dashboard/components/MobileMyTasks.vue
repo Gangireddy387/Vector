@@ -12,6 +12,8 @@ import type { Issue } from '@/types/models'
 import { useDashboardData } from '../composables/useDashboardData'
 import { bucketOf } from '../my-work'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
+import DailyBriefingCard from './DailyBriefingCard.vue'
+import HomeFocusCards from './HomeFocusCards.vue'
 import QuickCapture from './QuickCapture.vue'
 import SetupChecklist from './SetupChecklist.vue'
 
@@ -72,6 +74,9 @@ async function complete(issue: Issue) {
     <CreateProjectDialog v-model:open="isCreateProjectOpen" />
 
     <QuickCapture stacked />
+
+    <HomeFocusCards v-if="data" :data="data" />
+    <DailyBriefingCard />
 
     <div class="grid w-full grid-cols-4 gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Task groups">
       <button

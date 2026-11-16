@@ -36,6 +36,8 @@ import { useUiStore } from '@/stores/ui.store'
 import { useDashboardData } from '../composables/useDashboardData'
 import { useTodayAgenda } from '../composables/useTodayAgenda'
 import { groupMyWork } from '../my-work'
+import DailyBriefingCard from './DailyBriefingCard.vue'
+import HomeFocusCards from './HomeFocusCards.vue'
 import QuickCapture from './QuickCapture.vue'
 import SetupChecklist from './SetupChecklist.vue'
 
@@ -136,6 +138,9 @@ const daysLeft = (endDate: string | null) => {
     <SetupChecklist v-if="data" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
 
     <QuickCapture />
+
+    <HomeFocusCards v-if="data" :data="data" />
+    <DailyBriefingCard />
 
     <Skeleton v-if="isLoading" class="h-[86px] w-full rounded-xl" />
 

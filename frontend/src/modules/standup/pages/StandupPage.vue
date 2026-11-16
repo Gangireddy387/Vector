@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { addDays, format, isValid, parseISO } from 'date-fns'
-import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, ClipboardCopy, ClipboardList, Users } from 'lucide-vue-next'
+import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, ClipboardCopy, ClipboardList, Clock3, Users } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -85,6 +85,13 @@ const recentDays = computed(() => {
 })
 
 const dateTitle = computed(() => (date.value === today ? 'Today' : format(parseISO(date.value), 'EEEE')))
+const ritualLabel = computed(() => {
+  const ritual = day.value?.ritual
+  if (!ritual?.enabled) return null
+  const pad = (hour: number) => `${String(hour).padStart(2, '0')}:00`
+  return `Window ${pad(ritual.reminderHour)} → digest ${pad(ritual.digestHour)} (each person’s local time)`
+})
+const missingNames = computed(() => (day.value?.members ?? []).filter((row) => !row.update).map((row) => row.user.name))
 
 async function copySummary() {
   if (!day.value) return
@@ -161,6 +168,7 @@ async function copySummary() {
         <div class="min-w-0">
           <h1 class="text-base font-semibold">{{ dateTitle }}'s standup</h1>
           <p class="text-xs text-muted-foreground">{{ formatDate(date, 'd MMMM yyyy') }} · covers work since {{ formatDate(day.previousDate, 'EEEE d MMM') }}</p>
+          <p v-if="ritualLabel" class="mt-1 flex items-center gap-1.5 text-[11.5px] text-muted-foreground"><Clock3 class="size-3.5" /> {{ ritualLabel }}</p>
         </div>
         <div class="flex min-w-0 w-full items-center gap-3 sm:min-w-48 sm:w-auto sm:flex-1">
           <Users class="size-4 text-muted-foreground" />
@@ -172,6 +180,13 @@ async function copySummary() {
           <CircleAlert class="size-4" /> <span class="font-semibold tabular-nums">{{ day.stats.blockers }}</span> blocker{{ day.stats.blockers === 1 ? '' : 's' }}
         </span>
       </section>
+
+      <p
+        v-if="date === today && missingNames.length && (project?.myRole === 'admin' || project?.lead?.id === auth.user?.id)"
+        class="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[12.5px] text-amber-900 dark:text-amber-200"
+      >
+        Manager view · still waiting on {{ missingNames.slice(0, 6).join(', ') }}{{ missingNames.length > 6 ? ` and ${missingNames.length - 6} more` : '' }}.
+      </p>
 
       <StandupEditor
         v-if="showEditor"
