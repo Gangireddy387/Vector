@@ -31,6 +31,9 @@ function continueToOrganization() {
   if (form.name.trim().length < 2) errors.name = 'Name must be at least 2 characters'
   if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) errors.email = 'Enter a valid email address'
   if (form.password.length < 8) errors.password = 'Password must be at least 8 characters'
+  else if (!/[A-Za-z]/.test(form.password) || !/\d/.test(form.password)) {
+    errors.password = 'Use at least one letter and one number'
+  }
   fieldErrors.value = errors
   errorMessage.value = ''
   if (Object.keys(errors).length) return
@@ -94,8 +97,8 @@ async function submit() {
     <FormField label="Work email" for="email" :error="fieldErrors.email">
       <Input id="email" v-model="form.email" type="email" autocomplete="email" placeholder="you@company.com" required />
     </FormField>
-    <FormField label="Password" for="password" :error="fieldErrors.password" hint="At least 8 characters.">
-      <PasswordInput id="password" v-model="form.password" autocomplete="new-password" required />
+    <FormField label="Password" for="password" :error="fieldErrors.password" hint="At least 8 characters with a letter and a number.">
+      <PasswordInput id="password" v-model="form.password" autocomplete="new-password" required show-strength />
     </FormField>
     <p v-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
     <Button type="submit" variant="brand" class="w-full" size="lg">Continue</Button>

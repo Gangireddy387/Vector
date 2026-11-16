@@ -50,6 +50,14 @@ const THEMES: Array<{ value: ThemePreference; label: string; icon: typeof Sun }>
   { value: 'auto', label: 'System', icon: Monitor },
 ]
 
+const PAGE_SECTIONS = [
+  { id: 'profile', label: 'Profile' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'sounds', label: 'Sounds' },
+  { id: 'calendar', label: 'Calendar' },
+  { id: 'appearance', label: 'Appearance' },
+] as const
+
 async function saveProfile() {
   isSavingProfile.value = true
   try {
@@ -95,9 +103,25 @@ async function changePassword() {
   <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <PageHeader v-if="isDesktop" title="Settings" description="Your profile, notifications and preferences." />
 
-    <div class="grid items-start gap-4 xl:grid-cols-2">
-      <div class="space-y-4">
-        <Card>
+    <div class="grid items-start gap-4 xl:grid-cols-[12rem_minmax(0,1fr)]">
+      <nav
+        class="sticky top-4 z-10 -mx-1 flex gap-1 overflow-x-auto px-1 scrollbar-none xl:mx-0 xl:flex-col xl:overflow-visible xl:px-0"
+        aria-label="On this page"
+      >
+        <p class="mb-1 hidden px-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase xl:block">On this page</p>
+        <a
+          v-for="section in PAGE_SECTIONS"
+          :key="section.id"
+          :href="`#${section.id}`"
+          class="shrink-0 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground xl:block"
+        >
+          {{ section.label }}
+        </a>
+      </nav>
+
+      <div class="grid min-w-0 items-start gap-4 xl:grid-cols-2">
+        <div class="space-y-4">
+        <Card id="profile" class="scroll-mt-20">
           <CardHeader>
             <CardTitle>Profile</CardTitle>
             <CardDescription>How teammates see you.</CardDescription>
@@ -159,7 +183,7 @@ async function changePassword() {
       </div>
 
       <div class="space-y-4">
-        <Card>
+        <Card id="notifications" class="scroll-mt-20">
           <CardHeader>
             <CardTitle>Notifications</CardTitle>
             <CardDescription>In-app notifications are always on. Choose what also reaches your email.</CardDescription>
@@ -188,7 +212,7 @@ async function changePassword() {
 
         <CalendarConnectionsCard />
 
-        <Card>
+        <Card id="appearance" class="scroll-mt-20">
           <CardHeader>
             <CardTitle>Appearance</CardTitle>
             <CardDescription>Light, dark, or follow your device. Saved on this device and kept even when your organization changes its default.</CardDescription>
@@ -230,6 +254,7 @@ async function changePassword() {
             <Button @click="install"><Download /> Install Vector</Button>
           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   </div>

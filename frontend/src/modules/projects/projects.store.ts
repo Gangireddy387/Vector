@@ -15,9 +15,9 @@ export const useProjectsStore = defineStore('projects', () => {
   /** Projects the person has joined (organization admins can also see the rest). */
   const joinedProjects = computed(() => activeProjects.value.filter((project) => project.isMember !== false))
 
-  async function fetchProjects(force = false) {
-    if (isLoaded.value && !force) return projects.value
-    projects.value = await projectsApi.list()
+  async function fetchProjects(force = false, includeArchived = false) {
+    if (isLoaded.value && !force && !includeArchived) return projects.value
+    projects.value = await projectsApi.list(includeArchived)
     isLoaded.value = true
     return projects.value
   }

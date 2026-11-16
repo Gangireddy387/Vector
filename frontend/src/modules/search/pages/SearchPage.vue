@@ -12,7 +12,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
+import { getErrorMessage } from '@/lib/http'
 import { latestRequest } from '@/lib/latest'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import { matchFieldLabel } from '@/modules/issues/lib/saved-filter-criteria'
 import { type SearchResults, type SearchScope, searchApi } from '../search.api'
 import { clearRecentSearches, readRecentSearches, rememberSearch } from '../search-recent'
@@ -25,6 +27,7 @@ const SCOPES: Array<{ value: SearchScope; label: string }> = [
 ]
 
 const { isDesktop } = useDevice()
+const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -36,6 +39,7 @@ const scope = ref<SearchScope>(
 )
 const results = ref<SearchResults | null>(null)
 const isSearching = ref(false)
+const searchError = ref<string | null>(null)
 const recent = ref(readRecentSearches())
 
 const latest = latestRequest()
@@ -43,6 +47,12 @@ const totalHits = computed(() => {
   if (!results.value) return 0
   return results.value.issues.length + results.value.projects.length + results.value.people.length
 })
+
+function personTo(personId: string) {
+  return auth.isOrganizationAdmin
+    ? { name: 'member-profile' as const, params: { userId: personId } }
+    : { name: 'issues' as const, query: { assigneeId: personId } }
+}
 
 function syncUrl() {
   const next = {
@@ -55,31 +65,34 @@ function syncUrl() {
 
 watch([query, scope], syncUrl)
 
-watchDebounced(
-  [query, scope],
-  async ([value]) => {
-    const term = String(value ?? '').trim()
-    if (!term) {
-      latest.start()
+async function runSearch() {
+  const term = query.value.trim()
+  if (!term) {
+    latest.start()
+    results.value = null
+    searchError.value = null
+    isSearching.value = false
+    return
+  }
+  const ticket = latest.start()
+  isSearching.value = true
+  searchError.value = null
+  try {
+    const found = await searchApi.search(term, 20, scope.value)
+    if (!latest.isCurrent(ticket)) return
+    results.value = found
+    recent.value = rememberSearch(term)
+  } catch (problem) {
+    if (latest.isCurrent(ticket)) {
       results.value = null
-      isSearching.value = false
-      return
+      searchError.value = getErrorMessage(problem)
     }
-    const ticket = latest.start()
-    isSearching.value = true
-    try {
-      const found = await searchApi.search(term, 20, scope.value)
-      if (!latest.isCurrent(ticket)) return
-      results.value = found
-      recent.value = rememberSearch(term)
-    } catch {
-      if (latest.isCurrent(ticket)) results.value = null
-    } finally {
-      if (latest.isCurrent(ticket)) isSearching.value = false
-    }
-  },
-  { debounce: 250 },
-)
+  } finally {
+    if (latest.isCurrent(ticket)) isSearching.value = false
+  }
+}
+
+watchDebounced([query, scope], () => void runSearch(), { debounce: 250 })
 
 onMounted(() => {
   if (query.value.trim()) recent.value = rememberSearch(query.value)
@@ -150,6 +163,16 @@ const rowClass =
       <Skeleton v-for="index in 5" :key="index" class="h-14 w-full rounded-xl" />
     </div>
 
+    <EmptyState
+      v-else-if="searchError"
+      :icon="Search"
+      title="Search did not load"
+      :description="searchError"
+      class="rounded-xl border border-dashed border-border/80 bg-card/60 py-12"
+    >
+      <Button variant="outline" @click="runSearch">Try again</Button>
+    </EmptyState>
+
     <template v-else-if="results">
       <p class="px-1 text-xs text-muted-foreground">
         {{ isSearching ? 'Updating…' : `${totalHits} result${totalHits === 1 ? '' : 's'}` }}
@@ -201,7 +224,7 @@ const rowClass =
         <h2 class="px-1 text-xs font-medium text-muted-foreground">People</h2>
         <ul class="min-w-0 divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card shadow-soft">
           <li v-for="person in results.people" :key="person.id">
-            <RouterLink :to="{ name: 'issues', query: { assigneeId: person.id } }" :class="rowClass">
+            <RouterLink :to="personTo(person.id)" :class="rowClass">
               <UserAvatar :user="person" size="md" />
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-sm font-medium">{{ person.name }}</span>

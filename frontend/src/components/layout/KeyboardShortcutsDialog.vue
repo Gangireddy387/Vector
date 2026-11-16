@@ -63,8 +63,10 @@ const GROUPS: Group[] = [
     title: 'Lists, menus and search',
     icon: ListChecks,
     shortcuts: [
-      { label: 'Move up and down', combo: ['↑', '↓'] },
+      { label: 'Move up and down', combo: ['↑', '↓'], or: 'J K' },
       { label: 'Open or choose', combo: ['Enter'] },
+      { label: 'Toggle select on focused task', combo: ['X'] },
+      { label: 'Clear selection / focus', combo: ['Esc'] },
       { label: 'Jump to first / last', combo: ['Home', 'End'] },
     ],
   },

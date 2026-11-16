@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { getErrorMessage } from '@/lib/http'
 import { bindSocketEvents } from '@/lib/socket-events'
 import { playSound } from '@/lib/sounds'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -9,6 +10,8 @@ import { type ChatMessage, type ConversationSummary, messagesApi, notifyLevelOf 
 export const useMessagesStore = defineStore('messages', () => {
   const auth = useAuthStore()
   const conversations = ref<ConversationSummary[] | null>(null)
+  /** Why the conversation list could not load (shown with retry), or null. */
+  const loadError = ref<string | null>(null)
   /** The conversation open on screen; its new messages are read right away, so they never count as unread. */
   const openId = ref<string | null>(null)
   let isBound = false
@@ -19,8 +22,17 @@ export const useMessagesStore = defineStore('messages', () => {
   )
 
   async function load() {
-    if (!isAvailable.value) return (conversations.value = [])
-    conversations.value = await messagesApi.list()
+    loadError.value = null
+    if (!isAvailable.value) {
+      conversations.value = []
+      return
+    }
+    try {
+      conversations.value = await messagesApi.list()
+    } catch (problem) {
+      loadError.value = getErrorMessage(problem)
+      throw problem
+    }
   }
 
   function upsert(summary: ConversationSummary) {
@@ -104,5 +116,16 @@ export const useMessagesStore = defineStore('messages', () => {
     )
   }
 
-  return { conversations, openId, isAvailable, unreadTotal, load, upsert, remove: (conversationId: string) => onRemoved({ conversationId }), markReadLocally, bindRealtime }
+  return {
+    conversations,
+    loadError,
+    openId,
+    isAvailable,
+    unreadTotal,
+    load,
+    upsert,
+    remove: (conversationId: string) => onRemoved({ conversationId }),
+    markReadLocally,
+    bindRealtime,
+  }
 })

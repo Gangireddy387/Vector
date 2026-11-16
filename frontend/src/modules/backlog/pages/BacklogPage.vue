@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Ellipsis, Plus, Zap } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import type { SortableEvent } from 'vue-draggable-plus'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -72,6 +72,13 @@ const startingSprint = ref<Sprint | null>(null)
 const completingSprint = ref<Sprint | null>(null)
 
 const openSprints = computed(() => sprints.value.filter((sprint) => sprint.state !== 'completed'))
+const completedSprints = computed(() =>
+  sprints.value
+    .filter((sprint) => sprint.state === 'completed')
+    .slice()
+    .sort((a, b) => (b.endDate ?? b.startDate ?? '').localeCompare(a.endDate ?? a.startDate ?? '')),
+)
+const showCompletedSprints = ref(false)
 const hasActiveSprint = computed(() => sprints.value.some((sprint) => sprint.state === 'active'))
 const moveTargets = computed(() => [
   ...openSprints.value.map((sprint) => ({ key: sprint.id, label: sprint.name })),
@@ -261,6 +268,30 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
         @drag-end="onDragEnd"
         @move-to="moveTo"
       />
+
+      <section v-if="completedSprints.length" class="rounded-xl border border-dashed border-border bg-card/60 px-3 py-3 sm:px-4">
+        <button
+          type="button"
+          class="flex w-full items-center justify-between gap-2 text-left text-sm font-medium"
+          :aria-expanded="showCompletedSprints"
+          @click="showCompletedSprints = !showCompletedSprints"
+        >
+          <span>Completed sprints <span class="font-normal text-muted-foreground tabular-nums">({{ completedSprints.length }})</span></span>
+          <span class="text-xs text-muted-foreground">{{ showCompletedSprints ? 'Hide' : 'Show' }}</span>
+        </button>
+        <ul v-if="showCompletedSprints" class="mt-3 divide-y divide-border/70 border-t border-border/70">
+          <li v-for="sprint in completedSprints" :key="sprint.id" class="flex flex-wrap items-center gap-2 py-2.5 text-[13px]">
+            <span class="min-w-0 flex-1 truncate font-medium">{{ sprint.name }}</span>
+            <span class="text-xs text-muted-foreground tabular-nums">
+              {{ (sprint.stats ?? sprint.summary)?.doneCount ?? 0 }}/{{ (sprint.stats ?? sprint.summary)?.issueCount ?? 0 }} done
+              <template v-if="sprint.endDate"> · ended {{ sprint.endDate }}</template>
+            </span>
+            <Button size="xs" variant="ghost" as-child>
+              <RouterLink :to="{ name: 'project-reports', params: { projectId }, query: { sprintId: sprint.id } }">Reports</RouterLink>
+            </Button>
+          </li>
+        </ul>
+      </section>
 
       <BulkActionBar
         :count="selection.count.value"

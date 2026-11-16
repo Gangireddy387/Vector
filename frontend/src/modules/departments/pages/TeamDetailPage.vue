@@ -32,8 +32,18 @@ const route = useRoute()
 const router = useRouter()
 const confirm = useConfirm()
 const { isDesktop } = useDevice()
+const loadError = ref('')
 
-onMounted(() => structure.load().catch((error) => toast.error(getErrorMessage(error))))
+async function load() {
+  loadError.value = ''
+  try {
+    await structure.load()
+  } catch (error) {
+    loadError.value = getErrorMessage(error)
+    toast.error(loadError.value)
+  }
+}
+onMounted(load)
 
 const team = computed(() => structure.team(props.teamId))
 const department = computed(() => (team.value ? structure.department(team.value.departmentId) : null))
@@ -101,7 +111,17 @@ async function remove() {
 
 <template>
   <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
-    <div v-if="structure.departments === null" class="space-y-4">
+    <EmptyState
+      v-if="loadError && structure.departments === null"
+      :icon="UsersRound"
+      title="Couldn’t load team"
+      :description="loadError"
+      class="border border-dashed py-16"
+    >
+      <Button variant="outline" @click="load">Retry</Button>
+    </EmptyState>
+
+    <div v-else-if="structure.departments === null" class="space-y-4">
       <Skeleton class="h-36 w-full" />
       <Skeleton class="h-72 w-full" />
     </div>

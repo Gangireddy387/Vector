@@ -79,7 +79,7 @@ async function disconnect(item: CalendarConnectionInfo) {
 </script>
 
 <template>
-  <Card id="calendar">
+  <Card id="calendar" class="scroll-mt-20">
     <CardHeader>
       <CardTitle class="flex items-center gap-2"><CalendarSync class="size-4" /> Connected calendars</CardTitle>
       <CardDescription>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
 import { CalendarDays, Flag, Hash, History, LayoutGrid, List, ListTodo, SlidersHorizontal, Sparkles } from 'lucide-vue-next'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { type LocationQuery, useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useDevice } from '@/composables/useDevice'
+import { useHotkeys } from '@/composables/useHotkeys'
 import { useProjectRealtime } from '@/composables/useProjectRealtime'
 import { getErrorMessage } from '@/lib/http'
 import { latestRequest } from '@/lib/latest'
@@ -161,6 +162,42 @@ const applySaved = (criteria: Record<string, string>) => {
 
 const showList = computed(() => layout.value === 'list' && isDesktop.value)
 const showGrid = computed(() => layout.value === 'grid' || !isDesktop.value)
+
+/** Keyboard focus index for j/k and arrow navigation on the loaded page. */
+const focusedIndex = ref(-1)
+watch(issues, () => {
+  if (!issues.value.length) focusedIndex.value = -1
+  else if (focusedIndex.value >= issues.value.length) focusedIndex.value = issues.value.length - 1
+})
+
+function moveFocus(delta: number) {
+  if (!issues.value.length) return
+  const next = focusedIndex.value < 0 ? (delta > 0 ? 0 : issues.value.length - 1) : focusedIndex.value + delta
+  focusedIndex.value = Math.max(0, Math.min(issues.value.length - 1, next))
+  void nextTick(() => {
+    const id = issues.value[focusedIndex.value]?.id
+    if (id) document.querySelector(`[data-issue-id="${id}"]`)?.scrollIntoView({ block: 'nearest' })
+  })
+}
+
+useHotkeys({
+  j: () => moveFocus(1),
+  k: () => moveFocus(-1),
+  arrowdown: () => moveFocus(1),
+  arrowup: () => moveFocus(-1),
+  x: () => {
+    const issue = issues.value[focusedIndex.value]
+    if (issue) selection.toggle(issue.id)
+  },
+  enter: () => {
+    const issue = issues.value[focusedIndex.value]
+    if (issue) openIssue(issue)
+  },
+  escape: () => {
+    if (selection.count.value) selection.clear()
+    else focusedIndex.value = -1
+  },
+})
 </script>
 
 <template>
@@ -274,11 +311,12 @@ const showGrid = computed(() => layout.value === 'grid' || !isDesktop.value)
           <span class="w-6" />
         </div>
         <IssueRow
-          v-for="issue in issues"
+          v-for="(issue, index) in issues"
           :key="issue.id"
           :issue="issue"
           selectable
           :selected="selection.isSelected(issue.id)"
+          :focused="focusedIndex === index"
           @open="openIssue"
           @toggle-select="selection.toggle(issue.id)"
         />

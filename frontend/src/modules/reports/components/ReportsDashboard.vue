@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { AlarmClock, CircleCheck, CirclePlus, Gauge, ListTodo, Timer } from 'lucide-vue-next'
+import { AlarmClock, CircleCheck, CirclePlus, Download, Gauge, ListTodo, Timer } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DonutChart from '@/components/common/charts/DonutChart.vue'
 import HorizontalBarList from '@/components/common/charts/HorizontalBarList.vue'
 import LineChart from '@/components/common/charts/LineChart.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ISSUE_TYPE_META, PRIORITY_META, STATUS_CATEGORY_META } from '@/constants/issue'
@@ -105,19 +106,63 @@ const typeBars = computed(() =>
 )
 
 const focusProject = (projectId: string) => (filters.value = { ...filters.value, projectId })
+
+function exportCsv() {
+  if (!report.value) return
+  const header = ['Project', 'Key', 'Total', 'Open', 'Done', 'Overdue', 'Completed in period', 'Completion %', 'Avg cycle days']
+  const projectLines = report.value.byProject.map((row) => [
+    row.project.name,
+    row.project.key,
+    row.total,
+    row.open,
+    row.done,
+    row.overdue,
+    row.completedInPeriod,
+    row.completionRate,
+    row.averageCycleDays ?? '',
+  ])
+  const totals = report.value.totals
+  const kpiLines = [
+    [],
+    ['KPI summary'],
+    ['Open work', totals.open],
+    ['Completed in period', totals.completedInPeriod],
+    ['Created in period', totals.createdInPeriod],
+    ['Overdue', totals.overdue],
+    ['Completion %', totals.completionRate],
+    ['Avg cycle days', totals.averageCycleDays ?? ''],
+  ]
+  const escape = (value: string | number) => {
+    const text = String(value)
+    return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+  }
+  const csv = [header, ...projectLines, ...kpiLines].map((line) => line.map(escape).join(',')).join('\n')
+  const scope = report.value.projects.length === 1 ? report.value.projects[0]!.key : 'all-projects'
+  const link = document.createElement('a')
+  link.href = URL.createObjectURL(new Blob([`\ufeff${csv}`], { type: 'text/csv;charset=utf-8' }))
+  link.download = `reports-${scope}-${report.value.period.from}-to-${report.value.period.to}.csv`
+  link.click()
+  URL.revokeObjectURL(link.href)
+}
 </script>
 
 <template>
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <ReportFilterBar v-model="filters" :projects="projects.activeProjects" :members="members" :lock-project="Boolean(lockedProjectId)" />
-      <p v-if="report" class="text-xs text-muted-foreground">
-        {{ formatDate(report.period.from, 'd MMM') }} – {{ formatDate(report.period.to, 'd MMM yyyy') }}
-        · {{ report.projects.length === 1 ? report.projects[0]!.name : `${report.projects.length} projects` }}
-      </p>
+      <div class="flex flex-wrap items-center gap-2">
+        <p v-if="report" class="text-xs text-muted-foreground">
+          {{ formatDate(report.period.from, 'd MMM') }} – {{ formatDate(report.period.to, 'd MMM yyyy') }}
+          · {{ report.projects.length === 1 ? report.projects[0]!.name : `${report.projects.length} projects` }}
+        </p>
+        <Button variant="outline" size="sm" :disabled="!report" @click="exportCsv"><Download /> Export CSV</Button>
+      </div>
     </div>
 
-    <p v-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
+    <div v-if="errorMessage" class="flex flex-wrap items-center justify-between gap-2 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+      <p>{{ errorMessage }}</p>
+      <Button variant="outline" size="sm" @click="load">Retry</Button>
+    </div>
 
     <div v-if="isLoading && !report" class="space-y-4">
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">

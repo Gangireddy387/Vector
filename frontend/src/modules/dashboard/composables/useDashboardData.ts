@@ -1,6 +1,7 @@
 import { useDebounceFn } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { onMounted, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/lib/http'
 import { useSocketEvents } from '@/lib/socket-events'
 import { useUiStore } from '@/stores/ui.store'
@@ -15,6 +16,8 @@ export function useDashboardData() {
   const { issuesVersion } = storeToRefs(useUiStore())
 
   async function load() {
+    const hadData = Boolean(data.value)
+    if (!hadData) isLoading.value = true
     try {
       const payload = await dashboardApi.get()
       data.value = {
@@ -25,7 +28,9 @@ export function useDashboardData() {
       }
       error.value = null
     } catch (problem) {
-      error.value = getErrorMessage(problem)
+      const message = getErrorMessage(problem)
+      error.value = message
+      if (hadData) toast.error('Could not refresh Home', { description: message })
     } finally {
       isLoading.value = false
     }

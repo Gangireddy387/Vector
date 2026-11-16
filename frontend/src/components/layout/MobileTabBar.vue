@@ -17,7 +17,7 @@ const TABS = computed(() => {
     ? { name: 'messages', label: 'Messages', icon: MessageCircle }
     : { name: 'projects', label: 'Projects', icon: FolderKanban }
   return [
-    { name: 'home', label: 'My tasks', icon: CircleCheck },
+    { name: 'home', label: 'Home', icon: CircleCheck },
     second,
     { name: 'inbox', label: 'Inbox', icon: Inbox },
     { name: 'more', label: 'More', icon: Menu },

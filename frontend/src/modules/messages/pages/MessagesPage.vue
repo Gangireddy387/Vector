@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { format, isToday, isYesterday, parseISO } from 'date-fns'
 import {
   ArrowLeft,
   AtSign,
@@ -31,6 +30,7 @@ import {
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import EmptyState from '@/components/common/EmptyState.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -58,6 +58,7 @@ import ChannelMembersDialog from '../components/ChannelMembersDialog.vue'
 import ChannelThread from '../components/ChannelThread.vue'
 import ConversationThread from '../components/ConversationThread.vue'
 import SavedMessagesDialog from '../components/SavedMessagesDialog.vue'
+import { conversationMatches, conversationPreview, listTime } from '../lib/conversation-list'
 import { type ConversationSummary, type NotifyLevel, channelsApi, messagesApi, notifyLevelOf } from '../messages.api'
 import { useMessagesStore } from '../messages.store'
 
@@ -81,7 +82,14 @@ const canDirect = computed(() => auth.hasFeature('directMessages'))
 const canGroup = computed(() => auth.hasFeature('teamChat'))
 const tab = ref<'chat' | 'teams'>(canDirect.value ? 'chat' : 'teams')
 
-onMounted(() => store.load().catch((error) => toast.error(getErrorMessage(error))))
+async function loadConversations() {
+  try {
+    await store.load()
+  } catch {
+    /* loadError is set on the store for inline retry */
+  }
+}
+onMounted(() => void loadConversations())
 
 const selected = computed(() => store.conversations?.find((conversation) => conversation.id === props.conversationId) ?? null)
 watch(
@@ -189,10 +197,7 @@ const meetPreset = computed<MeetingPreset | null>(() => {
   return { title, people: conversationPeople.value, context: { type: 'team', id: conversation.team.id } }
 })
 
-const matches = (conversation: ConversationSummary) => {
-  const term = search.value.trim().toLowerCase()
-  return !term || `${conversation.title} ${conversation.subtitle} ${conversation.team?.name ?? ''}`.toLowerCase().includes(term)
-}
+const matches = (conversation: ConversationSummary) => conversationMatches(conversation, search.value)
 const all = computed(() => store.conversations ?? [])
 const directChats = computed(() => all.value.filter((conversation) => conversation.kind === 'direct' && matches(conversation)))
 
@@ -232,17 +237,7 @@ const toggleTeam = (teamId: string) => {
 }
 
 const open = (conversation: ConversationSummary) => router.push({ name: 'messages', params: { conversationId: conversation.id } })
-
-const listTime = (value: string) => {
-  const date = parseISO(value)
-  return isToday(date) ? format(date, 'HH:mm') : isYesterday(date) ? 'Yesterday' : format(date, 'd/M/yy')
-}
-const preview = (conversation: ConversationSummary) => {
-  const last = conversation.lastMessage
-  if (!last) return 'Say hello 👋'
-  if (last.deleted) return 'This message was deleted'
-  return last.author?.id === auth.user?.id ? `You: ${last.body}` : last.body
-}
+const preview = (conversation: ConversationSummary) => conversationPreview(conversation, auth.user?.id)
 /** Live, like Teams: "Available", "In a call", "Offline · last seen 5 minutes ago"… */
 const presence = (conversation: ConversationSummary) => {
   if (conversation.kind === 'channel' || conversation.kind === 'team' || conversation.kind === 'department') {
@@ -407,9 +402,18 @@ async function leaveChannel(conversation: ConversationSummary) {
         </div>
 
         <div class="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-          <div v-if="store.conversations === null" class="space-y-2 p-3">
+          <div v-if="store.conversations === null && !store.loadError" class="space-y-2 p-3">
             <Skeleton v-for="index in 6" :key="index" class="h-14 w-full" />
           </div>
+          <EmptyState
+            v-else-if="store.loadError && store.conversations === null"
+            :icon="MessagesSquare"
+            title="Messages did not load"
+            :description="store.loadError"
+            class="px-4 py-12"
+          >
+            <Button variant="outline" @click="loadConversations">Try again</Button>
+          </EmptyState>
 
           <!-- Chat: direct messages -->
           <template v-else-if="tab === 'chat'">

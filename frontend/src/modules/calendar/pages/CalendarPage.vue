@@ -18,11 +18,13 @@ import { CalendarCheck2, CalendarDays, CalendarRange, ChevronLeft, ChevronRight,
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import EmptyState from '@/components/common/EmptyState.vue'
 import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { useDevice } from '@/composables/useDevice'
 import { useHotkeys } from '@/composables/useHotkeys'
@@ -66,6 +68,7 @@ const sheetTarget = ref<EventSheetTarget | null>(null)
 const events = ref<CalendarEvent[]>([])
 const tasks = ref<Issue[]>([])
 const isLoading = ref(true)
+const loadError = ref('')
 
 const days = computed(() => {
   switch (view.value) {
@@ -105,6 +108,7 @@ let request = 0
 async function load() {
   const current = ++request
   isLoading.value = true
+  loadError.value = ''
   try {
     const [loadedEvents, loadedTasks] = await Promise.all([
       calendarApi.list(from.value, to.value),
@@ -116,7 +120,10 @@ async function load() {
     events.value = loadedEvents
     tasks.value = loadedTasks
   } catch (error) {
-    if (current === request) toast.error(getErrorMessage(error))
+    if (current === request) {
+      loadError.value = getErrorMessage(error)
+      toast.error(loadError.value)
+    }
   } finally {
     if (current === request) isLoading.value = false
   }
@@ -281,6 +288,23 @@ useHotkeys({
     <div class="grid min-h-0 gap-4 sm:gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <section class="relative flex min-h-[28rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft lg:min-h-0">
         <div v-if="isLoading" class="absolute inset-x-0 top-0 z-30 h-0.5 animate-pulse bg-brand" aria-hidden="true" />
+        <div
+          v-if="isLoading && !events.length"
+          class="absolute inset-0 z-20 flex flex-col gap-3 bg-card/80 p-4 backdrop-blur-[1px]"
+          aria-hidden="true"
+        >
+          <Skeleton class="h-8 w-48" />
+          <Skeleton class="min-h-0 flex-1 w-full" />
+        </div>
+
+        <EmptyState
+          v-if="loadError && !events.length && !isLoading"
+          title="Couldn’t load the calendar"
+          :description="loadError"
+          class="absolute inset-0 z-20 bg-card py-12"
+        >
+          <Button variant="outline" @click="load">Try again</Button>
+        </EmptyState>
 
         <div class="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center">
           <div class="flex min-w-0 flex-wrap items-center gap-2">

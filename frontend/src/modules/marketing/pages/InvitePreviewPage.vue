@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ArrowRight, ClipboardList, ListTodo, LoaderCircle, MessageCircle, Video } from 'lucide-vue-next'
+import { ArrowRight, Copy, LoaderCircle, Mail } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { toast } from 'vue-sonner'
 import BrandMark from '@/components/layout/BrandMark.vue'
 import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
 import ThemeSwitch from '@/components/layout/ThemeSwitch.vue'
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { assetUrl, getErrorMessage } from '@/lib/http'
 import { organizationsApi } from '@/modules/auth/auth.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import WorkdayLoopDemo from '../components/WorkdayLoopDemo.vue'
 
 /**
  * Viral invite surface: branded org + workday loop without requiring a token or signup.
@@ -16,13 +18,6 @@ import { useAuthStore } from '@/modules/auth/auth.store'
  */
 const auth = useAuthStore()
 const route = useRoute()
-
-const LOOP = [
-  { icon: ClipboardList, label: 'Standup' },
-  { icon: ListTodo, label: 'Tasks' },
-  { icon: Video, label: 'Meetings' },
-  { icon: MessageCircle, label: 'Messages' },
-]
 
 const slug = computed(() => String(route.params.slug ?? '').toLowerCase())
 const org = ref<{ name: string; slug: string; logoUrl?: string | null; brandColor?: string | null } | null>(null)
@@ -51,6 +46,21 @@ const registerTo = computed(() => ({
   name: 'register' as const,
   query: { from: 'invite-preview', org: slug.value },
 }))
+const askInviteMailto = computed(() => {
+  const name = org.value?.name ?? 'the workspace'
+  return `mailto:?subject=${encodeURIComponent(`Invite me to ${name} on Vector`)}&body=${encodeURIComponent(
+    `Hi,\n\nCould you invite me to ${name} on Vector?\n\nThanks!`,
+  )}`
+})
+
+async function copyWorkspaceLink() {
+  try {
+    await navigator.clipboard.writeText(window.location.href)
+    toast.success('Workspace link copied')
+  } catch {
+    toast.error('Could not copy link')
+  }
+}
 </script>
 
 <template>
@@ -58,6 +68,7 @@ const registerTo = computed(() => ({
     <div
       class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background"
       aria-hidden="true"
+      :style="org?.brandColor ? { backgroundImage: `radial-gradient(ellipse at top, ${org.brandColor}22, transparent 60%)` } : undefined"
     />
     <div class="relative mx-auto flex min-h-svh w-full max-w-lg flex-col px-4 py-6 sm:px-6 sm:py-10">
       <header class="flex items-center justify-between gap-3">
@@ -80,31 +91,24 @@ const registerTo = computed(() => ({
             <BrandMark v-else class="mx-auto size-12" />
             <h1 class="text-2xl font-semibold tracking-tight">{{ org.name }} runs on Vector</h1>
             <p class="text-sm text-muted-foreground">
-              See the daily workday loop — standup, tasks, meetings, messages — then ask an admin for an invite to join.
+              Try the daily workday loop below, then ask an admin for an invite to join.
             </p>
           </div>
 
-          <section class="rounded-2xl border border-primary/20 bg-primary/[0.04] p-4">
-            <p class="text-sm font-semibold">Workday loop</p>
-            <p class="mt-0.5 text-xs text-muted-foreground">What your team does every morning inside Vector.</p>
-            <ol class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <li v-for="(step, index) in LOOP" :key="step.label" class="rounded-lg border border-border/70 bg-card px-2.5 py-2 text-center">
-                <span class="mx-auto flex size-7 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <component :is="step.icon" class="size-3.5" />
-                </span>
-                <p class="mt-1.5 text-[11px] font-medium tabular-nums text-muted-foreground">{{ index + 1 }}</p>
-                <p class="text-[12px] font-semibold">{{ step.label }}</p>
-              </li>
-            </ol>
-          </section>
+          <WorkdayLoopDemo
+            :cta-to="registerTo"
+            cta-label="Create your own workspace"
+            :brand-color="org.brandColor"
+          />
 
           <div class="space-y-2">
             <Button variant="brand" class="w-full" size="lg" as-child>
               <RouterLink :to="registerTo">Create your own workspace <ArrowRight /></RouterLink>
             </Button>
             <Button variant="outline" class="w-full" as-child>
-              <RouterLink :to="{ name: 'workday-preview', query: { org: org.slug } }">Preview the full workday</RouterLink>
+              <a :href="askInviteMailto"><Mail /> Ask admin for an invite</a>
             </Button>
+            <Button variant="ghost" class="w-full" @click="copyWorkspaceLink"><Copy /> Copy workspace link</Button>
             <p class="text-center text-xs text-muted-foreground">
               Already invited?
               <RouterLink class="font-medium text-foreground underline-offset-2 hover:underline" :to="{ name: 'login' }">Sign in</RouterLink>

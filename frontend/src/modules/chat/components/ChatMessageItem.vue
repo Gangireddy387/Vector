@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { format } from 'date-fns'
-import { Bot, Pencil, Trash2 } from 'lucide-vue-next'
+import { Bot, Copy, Pencil, Quote, Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import RichText from '@/components/common/RichText.vue'
@@ -11,7 +11,7 @@ import type { AssistantCommand, ChatMessage } from '../chat.api'
 import AssistantCard from './AssistantCard.vue'
 
 const props = defineProps<{ message: ChatMessage; projectId: string; canEdit: boolean; canDelete: boolean; grouped: boolean; highlighted: boolean }>()
-const emit = defineEmits<{ edit: [body: string]; remove: []; useCommand: [command: AssistantCommand] }>()
+const emit = defineEmits<{ edit: [body: string]; remove: []; useCommand: [command: AssistantCommand]; quote: []; copyLink: [] }>()
 
 const isBot = computed(() => props.message.kind === 'bot')
 const issueKeys = computed(() => props.message.issues.map((issue) => issue.key))
@@ -90,7 +90,9 @@ function saveEdit() {
       </template>
     </div>
 
-    <div v-if="!isEditing && (canEdit || canDelete)" class="absolute top-1 right-3 hidden border bg-card shadow-soft group-focus-within:flex group-hover:flex">
+    <div v-if="!isEditing" class="absolute top-1 right-3 hidden border bg-card shadow-soft group-focus-within:flex group-hover:flex">
+      <Button variant="ghost" size="icon-sm" aria-label="Quote message" @click="emit('quote')"><Quote /></Button>
+      <Button variant="ghost" size="icon-sm" aria-label="Copy message link" @click="emit('copyLink')"><Copy /></Button>
       <Button v-if="canEdit" variant="ghost" size="icon-sm" aria-label="Edit message" @click="startEditing"><Pencil /></Button>
       <Button v-if="canDelete" variant="ghost" size="icon-sm" aria-label="Delete message" class="text-destructive" @click="emit('remove')"><Trash2 /></Button>
     </div>

@@ -297,7 +297,7 @@ function moveOnMobile(issue: Issue, status: Status) {
 
     <template v-else-if="project">
       <p v-if="hiddenCount" class="mx-3 mt-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 sm:mx-4 dark:text-warning" role="status">
-        The board shows the first {{ issues.length }} tasks; {{ hiddenCount }} more are in
+        The board shows the first {{ issues.length }} of {{ issues.length + hiddenCount }} tasks for speed; {{ hiddenCount }} more are in
         <RouterLink :to="{ name: 'project-issues', params: { projectId } }" class="font-medium underline">the task list</RouterLink>.
       </p>
 

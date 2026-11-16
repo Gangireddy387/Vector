@@ -40,8 +40,12 @@ const commands = ref<AssistantCommand[]>([])
 const members = ref<UserSummary[]>([])
 const hasMore = ref(false)
 const isLoading = ref(true)
+const loadError = ref<string | null>(null)
 const isLoadingOlder = ref(false)
 const isSending = ref(false)
+const failedSend = ref<string | null>(null)
+const threadSearch = ref('')
+const quoteDraft = ref<string | null>(null)
 const highlightedId = ref<string | null>(null)
 const scroller = ref<HTMLElement | null>(null)
 const composer = ref<InstanceType<typeof ChatComposer> | null>(null)
@@ -66,6 +70,7 @@ async function focusMessage(id: string) {
 
 async function load() {
   isLoading.value = true
+  loadError.value = null
   if (props.embedded) void projects.fetchProject(projectId.value).catch(() => {})
   try {
     const [page, people] = await Promise.all([chatApi.list(projectId.value), usersApi.search({ projectId: projectId.value })])
@@ -74,13 +79,13 @@ async function load() {
     commands.value = page.commands
     members.value = people.filter((person) => person.id !== auth.user?.id)
   } catch (error) {
-    toast.error(getErrorMessage(error))
+    loadError.value = getErrorMessage(error)
   } finally {
     isLoading.value = false
   }
   const target = targetMessage.value
   if (target && messages.value.some((message) => message.id === target)) await focusMessage(target)
-  else await scrollToBottom()
+  else if (!loadError.value) await scrollToBottom()
 }
 watch(projectId, load, { immediate: true })
 watch(targetMessage, (id) => {
@@ -115,15 +120,43 @@ function upsert(message: ChatMessage) {
 
 async function send(body: string) {
   isSending.value = true
+  failedSend.value = null
   try {
     const { message, reply } = await chatApi.send(projectId.value, body)
     upsert(message)
     if (reply) upsert(reply)
+    quoteDraft.value = null
     await scrollToBottom(true)
   } catch (error) {
+    failedSend.value = body
     toast.error(getErrorMessage(error))
   } finally {
     isSending.value = false
+  }
+}
+
+function retryFailedSend() {
+  if (!failedSend.value) return
+  const body = failedSend.value
+  failedSend.value = null
+  void send(body)
+}
+
+function quoteMessage(message: ChatMessage) {
+  const author = message.author?.name ?? (message.kind === 'bot' ? 'Assistant' : 'Someone')
+  const snippet = message.body.split('\n')[0].slice(0, 160)
+  quoteDraft.value = `> ${author}: ${snippet}\n\n`
+  composer.value?.setText(quoteDraft.value)
+}
+
+async function copyMessageLink(message: ChatMessage) {
+  const url = new URL(window.location.href)
+  url.searchParams.set('message', message.id)
+  try {
+    await navigator.clipboard.writeText(url.toString())
+    toast.success('Message link copied')
+  } catch {
+    toast.error('Could not copy link')
   }
 }
 
@@ -166,9 +199,18 @@ useSocketEvents({ 'chat:message': here(onIncoming), 'chat:updated': here(upsert)
 
 // Day separators and consecutive-message grouping.
 const dayLabel = (date: Date) => (isToday(date) ? 'Today' : isYesterday(date) ? 'Yesterday' : format(date, 'EEEE, d MMMM yyyy'))
+const filteredMessages = computed(() => {
+  const term = threadSearch.value.trim().toLowerCase()
+  if (!term) return messages.value
+  return messages.value.filter((message) => {
+    const author = message.author?.name ?? ''
+    return `${message.body} ${author}`.toLowerCase().includes(term)
+  })
+})
+
 const rows = computed(() =>
-  messages.value.map((message, index) => {
-    const previous = messages.value[index - 1]
+  filteredMessages.value.map((message, index) => {
+    const previous = filteredMessages.value[index - 1]
     const at = new Date(message.createdAt)
     const newDay = !previous || new Date(previous.createdAt).toDateString() !== at.toDateString()
     const grouped =
@@ -212,6 +254,16 @@ const discussedTasks = computed(() => {
           </div>
 
           <EmptyState
+            v-else-if="loadError"
+            :icon="Hash"
+            title="Work chat did not load"
+            :description="loadError"
+            class="py-10"
+          >
+            <Button variant="outline" @click="load">Try again</Button>
+          </EmptyState>
+
+          <EmptyState
             v-else-if="!messages.length"
             :icon="Hash"
             title="Start the work chat"
@@ -235,9 +287,19 @@ const discussedTasks = computed(() => {
           </EmptyState>
 
           <template v-else>
+            <div v-if="!embedded" class="sticky top-0 z-10 border-b border-border/70 bg-background/95 px-4 py-2 backdrop-blur">
+              <input
+                v-model="threadSearch"
+                type="search"
+                class="h-8 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                placeholder="Search in this chat"
+                aria-label="Search in this chat"
+              />
+            </div>
             <div class="flex justify-center py-3">
-              <Button v-if="hasMore" variant="ghost" size="sm" :loading="isLoadingOlder" @click="loadOlder">Load earlier messages</Button>
-              <p v-else class="text-xs text-muted-foreground">This is the beginning of the {{ project?.name }} chat.</p>
+              <Button v-if="hasMore && !threadSearch" variant="ghost" size="sm" :loading="isLoadingOlder" @click="loadOlder">Load earlier messages</Button>
+              <p v-else-if="!threadSearch" class="text-xs text-muted-foreground">This is the beginning of the {{ project?.name }} chat.</p>
+              <p v-else-if="!rows.length" class="text-xs text-muted-foreground">No messages match “{{ threadSearch }}”.</p>
             </div>
             <template v-for="row in rows" :key="row.message.id">
               <div v-if="row.day" class="relative my-3 flex items-center px-4" role="separator">
@@ -255,6 +317,8 @@ const discussedTasks = computed(() => {
                 @edit="(body) => edit(row.message, body)"
                 @remove="remove(row.message)"
                 @use-command="useCommand"
+                @quote="quoteMessage(row.message)"
+                @copy-link="copyMessageLink(row.message)"
               />
             </template>
           </template>
@@ -262,6 +326,11 @@ const discussedTasks = computed(() => {
       </div>
 
       <div class="shrink-0 border-t bg-background px-4 pt-3 pb-3">
+        <div v-if="failedSend" class="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <span class="min-w-0 flex-1">Last message didn’t send.</span>
+          <Button size="sm" variant="outline" @click="retryFailedSend">Retry</Button>
+          <Button size="sm" variant="ghost" @click="failedSend = null">Dismiss</Button>
+        </div>
         <ChatComposer ref="composer" :project-id="projectId" :members="members" :commands="commands" :disabled="isSending" @submit="send" />
       </div>
     </section>

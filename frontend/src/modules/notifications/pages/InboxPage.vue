@@ -34,7 +34,15 @@ const supportChat = useTemplateRef<InstanceType<typeof SupportChatThread>>('supp
 const search = ref('')
 const selectedKey = ref<string | null>(null)
 
-onMounted(() => notifications.fetchNotifications())
+onMounted(() => void notifications.fetchNotifications().catch(() => undefined))
+
+async function retryLoad() {
+  try {
+    await notifications.fetchNotifications()
+  } catch {
+    /* loadError is set on the store */
+  }
+}
 
 const counts = computed(() =>
   Object.fromEntries(INBOX_FILTERS.map((item) => [item.value, notifications.items.filter((notification) => matchesFilter(notification, item.value)).length])),
@@ -234,6 +242,15 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
             <Skeleton v-for="index in 7" :key="index" class="h-14 w-full" />
           </div>
           <EmptyState
+            v-else-if="notifications.loadError && !notifications.items.length"
+            :icon="Inbox"
+            title="Inbox did not load"
+            :description="notifications.loadError"
+            class="py-14"
+          >
+            <Button variant="outline" @click="retryLoad">Try again</Button>
+          </EmptyState>
+          <EmptyState
             v-else-if="!entries.length"
             :icon="search ? Search : filter === 'unread' ? Inbox : BellOff"
             :title="search ? `Nothing matches “${search}”` : EMPTY[filter].title"
@@ -374,14 +391,26 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
       <Input v-model="search" class="pl-9" placeholder="Search notifications" aria-label="Search notifications" />
     </div>
     <MobileSectionSelect v-model="filter" :options="chipOptions" aria-label="Filter notifications" />
+    <div v-if="notifications.isLoading && !notifications.items.length" class="space-y-2">
+      <Skeleton v-for="index in 6" :key="index" class="h-16 w-full rounded-xl" />
+    </div>
     <EmptyState
-      v-if="!entries.length && !(notifications.isLoading && !notifications.items.length)"
+      v-else-if="notifications.loadError && !notifications.items.length"
+      :icon="Inbox"
+      title="Inbox did not load"
+      :description="notifications.loadError"
+      class="border border-dashed bg-card/60 py-12"
+    >
+      <Button variant="outline" @click="retryLoad">Try again</Button>
+    </EmptyState>
+    <EmptyState
+      v-else-if="!entries.length"
       :icon="filter === 'unread' ? Inbox : BellOff"
       :title="search ? `Nothing matches “${search}”` : EMPTY[filter].title"
       :description="search ? 'Try other words or another filter.' : EMPTY[filter].description"
       class="border border-dashed bg-card/60 py-12"
     />
-    <section v-for="section in sections" :key="section.label" class="space-y-1.5">
+    <section v-for="section in sections" v-else :key="section.label" class="space-y-1.5">
       <h2 class="px-1 text-xs font-medium text-muted-foreground">{{ section.label }}</h2>
       <ul class="min-w-0 divide-y divide-border/60 overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft">
         <li v-for="entry in section.entries" :key="entry.key">

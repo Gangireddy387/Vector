@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Ellipsis, LayoutTemplate, Pencil, Play, Plus, Repeat, Trash2, TriangleAlert, Workflow } from 'lucide-vue-next'
+import { ChevronDown, Ellipsis, LayoutTemplate, Pencil, Play, Plus, Repeat, Trash2, TriangleAlert, Workflow } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -15,6 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useConfirm } from '@/composables/useConfirm'
@@ -45,6 +46,9 @@ const canEdit = computed(() => projects.canEdit(projectId.value))
 const rules = ref<AutomationRule[]>([])
 const templates = ref<IssueTemplate[]>([])
 const recurringTasks = ref<RecurringTask[]>([])
+const isLoading = ref(true)
+const loadError = ref<string | null>(null)
+const expandedRuleId = ref<string | null>(null)
 
 const isRuleDialogOpen = ref(false)
 const editingRule = ref<AutomationRule | null>(null)
@@ -77,16 +81,32 @@ watch(defaultTab, (value) => {
 })
 
 async function load() {
-  await projects.fetchProject(projectId.value)
-  ;[rules.value, templates.value, recurringTasks.value] = await Promise.all([
-    canRules.value ? automationApi.listRules(projectId.value) : [],
-    canTemplates.value ? templatesApi.list(projectId.value) : [],
-    canRecurring.value ? recurringTasksApi.list(projectId.value) : [],
-  ])
+  isLoading.value = true
+  loadError.value = null
+  try {
+    await projects.fetchProject(projectId.value)
+    ;[rules.value, templates.value, recurringTasks.value] = await Promise.all([
+      canRules.value ? automationApi.listRules(projectId.value) : [],
+      canTemplates.value ? templatesApi.list(projectId.value) : [],
+      canRecurring.value ? recurringTasksApi.list(projectId.value) : [],
+    ])
+  } catch (error) {
+    loadError.value = getErrorMessage(error)
+  } finally {
+    isLoading.value = false
+  }
 }
 watch(projectId, load, { immediate: true })
 
 const usedRecipeNames = computed(() => new Set(rules.value.map((rule) => rule.name)))
+const sortedRules = computed(() =>
+  [...rules.value].sort((a, b) => {
+    const aErr = a.lastError ? 0 : 1
+    const bErr = b.lastError ? 0 : 1
+    if (aErr !== bErr) return aErr - bErr
+    return a.name.localeCompare(b.name)
+  }),
+)
 
 function openRule(rule: AutomationRule | null = null, draft: RuleInput | null = null) {
   editingRule.value = rule
@@ -152,7 +172,22 @@ async function removeRecurring(task: RecurringTask) {
 
 <template>
   <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
-    <Tabs v-if="project" v-model="tab" class="gap-4">
+    <div v-if="isLoading" class="space-y-3">
+      <Skeleton class="h-10 w-full max-w-md" />
+      <Skeleton v-for="index in 4" :key="index" class="h-20 w-full rounded-xl" />
+    </div>
+
+    <EmptyState
+      v-else-if="loadError"
+      :icon="Workflow"
+      title="Automation did not load"
+      :description="loadError"
+      class="rounded-xl border border-dashed py-12"
+    >
+      <Button variant="outline" @click="load">Try again</Button>
+    </EmptyState>
+
+    <Tabs v-else-if="project" v-model="tab" class="gap-4">
       <MobileSectionSelect v-if="!isDesktop" v-model="tab" :options="tabOptions" aria-label="Automation sections" />
       <TabsList v-else :class="tabListClass">
         <TabsTrigger v-if="canRules" value="rules"><Workflow /> Rules</TabsTrigger>
@@ -170,8 +205,8 @@ async function removeRecurring(task: RecurringTask) {
           <Button v-if="isAdmin" variant="brand" class="max-sm:w-full shrink-0" @click="openRule()"><Plus /> New rule</Button>
         </div>
 
-        <ul v-if="rules.length" class="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card shadow-soft">
-          <li v-for="rule in rules" :key="rule.id" class="flex flex-col gap-3 p-4 transition-colors hover:bg-accent/30 sm:flex-row">
+        <ul v-if="sortedRules.length" class="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card shadow-soft">
+          <li v-for="rule in sortedRules" :key="rule.id" class="flex flex-col gap-3 p-4 transition-colors hover:bg-accent/30 sm:flex-row">
             <Switch
               :model-value="rule.enabled"
               :disabled="!isAdmin"
@@ -183,12 +218,37 @@ async function removeRecurring(task: RecurringTask) {
               <p class="flex flex-wrap items-center gap-2 font-medium">
                 {{ rule.name }}
                 <Badge v-if="!rule.enabled" variant="outline">Off</Badge>
+                <Badge v-if="rule.lastError" variant="destructive">Error</Badge>
               </p>
               <p class="text-sm text-muted-foreground">{{ describeRule(rule, project) }}</p>
               <p class="text-xs text-muted-foreground">
                 Ran {{ rule.runCount }} time{{ rule.runCount === 1 ? '' : 's' }}<template v-if="rule.lastRunAt"> · last {{ timeAgo(rule.lastRunAt) }}</template>
               </p>
-              <p v-if="rule.lastError" class="flex items-center gap-1 text-xs text-destructive"><TriangleAlert class="size-3.5" /> {{ rule.lastError }}</p>
+              <p v-if="rule.lastError" class="flex items-start gap-1 text-xs text-destructive">
+                <TriangleAlert class="mt-0.5 size-3.5 shrink-0" />
+                <span>{{ rule.lastError }} — clears on the next successful run.</span>
+              </p>
+              <button
+                type="button"
+                class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                @click="expandedRuleId = expandedRuleId === rule.id ? null : rule.id"
+              >
+                Run details
+                <ChevronDown class="size-3.5 transition-transform" :class="expandedRuleId === rule.id && 'rotate-180'" />
+              </button>
+              <div v-if="expandedRuleId === rule.id" class="rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                <p>Total runs: <span class="font-medium text-foreground tabular-nums">{{ rule.runCount }}</span></p>
+                <p>
+                  Last run:
+                  <span class="font-medium text-foreground">{{ rule.lastRunAt ? formatDateTime(rule.lastRunAt) : 'Never' }}</span>
+                </p>
+                <p>
+                  Status:
+                  <span class="font-medium" :class="rule.lastError ? 'text-destructive' : 'text-foreground'">
+                    {{ rule.lastError ? 'Last run failed' : rule.enabled ? 'Ready' : 'Paused' }}
+                  </span>
+                </p>
+              </div>
             </div>
             <DropdownMenu v-if="isAdmin">
               <DropdownMenuTrigger as-child>
@@ -310,7 +370,7 @@ async function removeRecurring(task: RecurringTask) {
       </TabsContent>
     </Tabs>
 
-    <template v-if="project">
+    <template v-if="project && !isLoading && !loadError">
       <RuleEditorDialog v-model:open="isRuleDialogOpen" :project="project" :rule="editingRule" :draft="ruleDraft" @saved="load" />
       <TemplateEditorDialog v-model:open="isTemplateDialogOpen" :project="project" :template="editingTemplate" @saved="load" />
       <RecurringTaskDialog v-model:open="isRecurringDialogOpen" :project="project" :task="editingTask" @saved="load" />

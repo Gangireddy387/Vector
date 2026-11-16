@@ -204,7 +204,10 @@ function exportCsv() {
       </div>
     </div>
 
-    <p v-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
+    <div v-if="errorMessage" class="flex flex-wrap items-center justify-between gap-2 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+      <p>{{ errorMessage }}</p>
+      <Button variant="outline" size="sm" @click="load">Retry</Button>
+    </div>
 
     <div v-if="isLoading && !report" class="space-y-4">
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">

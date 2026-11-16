@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, Headset, Mic, MicOff, Sparkles, Video, VideoOff } from 'lucide-vue-next'
+import { ArrowLeft, Copy, Headset, Mic, MicOff, Sparkles, Video, VideoOff } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -40,8 +40,18 @@ const isJoining = ref(false)
 const panelOpen = ref(isDesktop.value)
 const backgroundsOpen = ref(false)
 const ended = ref<string | null>(null)
+const callErrorBanner = ref<string | null>(null)
 
 const inCall = computed(() => call.inCall.value && call.meetingId.value === props.meetingId)
+
+async function copyCallLink() {
+  try {
+    await navigator.clipboard.writeText(window.location.href)
+    toast.success('Call link copied')
+  } catch {
+    toast.error('Could not copy the call link')
+  }
+}
 const withWhom = computed(() => (info.value?.side === 'portal' ? `${info.value.organization.name}’s admins` : 'the Vector team'))
 const startedLabel = computed(() => (info.value ? format(parseISO(info.value.call.startsAt), 'EEEE d MMMM, HH:mm') : ''))
 
@@ -106,6 +116,7 @@ watch(
   () => call.callError.value,
   (message) => {
     if (!message) return
+    callErrorBanner.value = message
     toast.error(message)
     call.callError.value = null
   },
@@ -221,13 +232,44 @@ onBeforeUnmount(() => {
               </p>
             </div>
 
+            <p
+              v-if="callErrorBanner"
+              class="flex flex-wrap items-center justify-between gap-2 border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              role="alert"
+            >
+              <span>{{ callErrorBanner }}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                @click="
+                  callErrorBanner = null;
+                  join()
+                "
+              >
+                Reconnect
+              </Button>
+            </p>
             <p v-if="!info.joinable" class="border border-border/70 bg-muted/40 px-3 py-2 text-sm">{{ ended ?? info.reason }}</p>
             <template v-else>
               <p v-if="ended" class="border border-border/70 bg-muted/40 px-3 py-2 text-sm">{{ ended }}</p>
-              <Button variant="brand" class="w-full" size="lg" :loading="isJoining || call.status.value === 'joining'" @click="join"><Video /> Join call</Button>
+              <Button
+                variant="brand"
+                class="w-full"
+                size="lg"
+                :loading="isJoining || call.status.value === 'joining'"
+                @click="
+                  callErrorBanner = null;
+                  join()
+                "
+              >
+                <Video /> {{ callErrorBanner ? 'Try joining again' : 'Join call' }}
+              </Button>
               <p class="text-xs text-muted-foreground">Only {{ withWhom }} and you can join. Check your camera and microphone in the preview first.</p>
             </template>
-            <Button variant="ghost" class="w-full" @click="back"><ArrowLeft /> Back to the support chat</Button>
+            <div class="flex flex-col gap-2">
+              <Button variant="outline" class="w-full" @click="copyCallLink"><Copy /> Copy call link</Button>
+              <Button variant="ghost" class="w-full" @click="back"><ArrowLeft /> Back to the support chat</Button>
+            </div>
           </section>
         </template>
       </main>

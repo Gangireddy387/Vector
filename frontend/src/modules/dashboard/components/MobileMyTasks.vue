@@ -4,7 +4,6 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import IssueCard from '@/modules/issues/components/IssueCard.vue'
 import { useIssueActions } from '@/modules/issues/composables/useIssueActions'
@@ -20,6 +19,7 @@ import HabitCoachCard from './HabitCoachCard.vue'
 import HabitNudgeBanner from './HabitNudgeBanner.vue'
 import HomeDayLoop from './HomeDayLoop.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
+import HomeLoadingShell from './HomeLoadingShell.vue'
 import HomeTodayPanel from './HomeTodayPanel.vue'
 import PlanUnlocksCard from './PlanUnlocksCard.vue'
 import QuickCapture from './QuickCapture.vue'
@@ -107,41 +107,42 @@ async function complete(issue: Issue) {
     <HomeFocusCards v-if="data" :data="data" @changed="reload" />
     <PlanUnlocksCard />
     <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
-    <WeeklyPulseCard v-if="data" :data="data" />
-    <DailyBriefingCard />
 
-    <div class="grid w-full grid-cols-4 gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Task groups">
-      <button
-        v-for="item in SEGMENTS"
-        :key="item.value"
-        type="button"
-        role="tab"
-        :aria-selected="segment === item.value"
-        class="min-w-0 rounded-md px-1 py-2 text-center text-[11px] font-medium transition sm:text-xs"
-        :class="segment === item.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'"
-        @click="segment = item.value"
-      >
-        <span class="block truncate">{{ item.label }}</span>
-        <span class="opacity-70 tabular-nums">{{ bySegment[item.value].length }}</span>
-      </button>
-    </div>
-
-    <div v-if="isLoading" class="space-y-2">
-      <Skeleton v-for="index in 4" :key="index" class="h-20 w-full" />
-    </div>
+    <HomeLoadingShell v-if="isLoading && !data" variant="mobile" />
     <EmptyState v-else-if="error && !data" :icon="RefreshCw" title="Your tasks did not load" :description="error">
       <Button variant="outline" @click="reload">Try again</Button>
     </EmptyState>
-    <EmptyState
-      v-else-if="!visible.length"
-      :icon="PartyPopper"
-      :title="segment === 'done' ? 'Nothing completed yet this week' : 'All clear here'"
-      :description="segment === 'today' ? 'No overdue or urgent work. Capture something above or check Upcoming.' : undefined"
-    />
-    <ul v-else class="space-y-2">
-      <li v-for="issue in visible" :key="issue.id">
-        <IssueCard :issue="issue" show-project completable @open="openIssue" @complete="complete" />
-      </li>
-    </ul>
+    <template v-else-if="data">
+      <WeeklyPulseCard :data="data" />
+      <DailyBriefingCard />
+
+      <div class="grid w-full grid-cols-4 gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Task groups">
+        <button
+          v-for="item in SEGMENTS"
+          :key="item.value"
+          type="button"
+          role="tab"
+          :aria-selected="segment === item.value"
+          class="min-w-0 rounded-md px-1 py-2 text-center text-[11px] font-medium transition sm:text-xs"
+          :class="segment === item.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'"
+          @click="segment = item.value"
+        >
+          <span class="block truncate">{{ item.label }}</span>
+          <span class="opacity-70 tabular-nums">{{ bySegment[item.value].length }}</span>
+        </button>
+      </div>
+
+      <EmptyState
+        v-if="!visible.length"
+        :icon="PartyPopper"
+        :title="segment === 'done' ? 'Nothing completed yet this week' : 'All clear here'"
+        :description="segment === 'today' ? 'No overdue or urgent work. Capture something above or check Upcoming.' : undefined"
+      />
+      <ul v-else class="space-y-2">
+        <li v-for="issue in visible" :key="issue.id">
+          <IssueCard :issue="issue" show-project completable @open="openIssue" @complete="complete" />
+        </li>
+      </ul>
+    </template>
   </div>
 </template>

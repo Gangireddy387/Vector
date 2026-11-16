@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { format } from 'date-fns'
 import { Trash2, X } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,6 +20,8 @@ withDefaults(
   { statuses: () => [], sprints: () => [], labels: () => [], busy: false },
 )
 const emit = defineEmits<{ apply: [changes: BulkChanges]; delete: []; clear: [] }>()
+
+const todayIso = () => format(new Date(), 'yyyy-MM-dd')
 </script>
 
 <template>
@@ -79,6 +82,15 @@ const emit = defineEmits<{ apply: [changes: BulkChanges]; delete: []; clear: [] 
         <DropdownMenuItem v-for="label in labels" :key="label.id" @select="emit('apply', { addLabelIds: [label.id] })">
           <span class="size-2 rounded-full" :style="{ backgroundColor: label.color }" /> {{ label.name }}
         </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+
+    <!-- Works on global Tasks too (status/sprint/labels need a project context). -->
+    <DropdownMenu>
+      <DropdownMenuTrigger as-child><Button size="sm" variant="outline" :disabled="busy">Due date</Button></DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuItem @select="emit('apply', { dueDate: todayIso() })">Today</DropdownMenuItem>
+        <DropdownMenuItem @select="emit('apply', { dueDate: null })">Clear due date</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
 

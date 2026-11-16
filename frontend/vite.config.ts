@@ -37,7 +37,7 @@ export default defineConfig(({ command, mode }) => ({
           { src: 'maskable-icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
         shortcuts: [
-          { name: 'My tasks', url: '/' },
+          { name: 'Home', url: '/' },
           { name: 'Create issue', url: '/issues/new' },
           { name: 'Inbox', url: '/inbox' },
         ],

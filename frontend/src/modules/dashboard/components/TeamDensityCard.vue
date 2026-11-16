@@ -1,20 +1,23 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
 import { UserPlus, UsersRound, X } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, toRef } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { useOnboarding } from '../composables/useOnboarding'
 import type { DashboardData } from '../dashboard.api'
 
 const props = defineProps<{ data: DashboardData }>()
 const auth = useAuthStore()
+const { isVisible: setupVisible } = useOnboarding(toRef(props, 'data'))
 const dismissed = useStorage<Record<string, string[]>>('vector.density.dismissed', {})
 const scope = computed(() => `${auth.organization?.id ?? 'none'}.${auth.user?.id ?? 'none'}`)
 const dismissedIds = computed(() => new Set(dismissed.value[scope.value] ?? []))
 
 const hints = computed(() => (props.data.densityHints ?? []).filter((hint) => !dismissedIds.value.has(hint.projectId)))
-const show = computed(() => hints.value.length > 0)
+/** One coaching surface at a time: hide while the setup checklist is still open. */
+const show = computed(() => !setupVisible.value && hints.value.length > 0)
 
 function dismiss(projectId: string) {
   const current = dismissed.value[scope.value] ?? []

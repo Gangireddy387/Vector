@@ -24,7 +24,6 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Skeleton } from '@/components/ui/skeleton'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import ActivityList from '@/modules/issues/components/ActivityList.vue'
 import IssueRow from '@/modules/issues/components/IssueRow.vue'
@@ -45,6 +44,7 @@ import HabitCoachCard from './HabitCoachCard.vue'
 import HabitNudgeBanner from './HabitNudgeBanner.vue'
 import HomeDayLoop from './HomeDayLoop.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
+import HomeLoadingShell from './HomeLoadingShell.vue'
 import HomeTodayPanel from './HomeTodayPanel.vue'
 import PlanUnlocksCard from './PlanUnlocksCard.vue'
 import QuickCapture from './QuickCapture.vue'
@@ -167,14 +167,13 @@ const daysLeft = (endDate: string | null) => {
 
     <QuickCapture />
 
+    <!-- Primary: day loop → focus → today. Secondary lists load below. -->
     <HomeDayLoop v-if="data" :data="data" :highlight="startDay" />
     <HomeFocusCards v-if="data" :data="data" @changed="reload" />
     <PlanUnlocksCard />
     <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
-    <WeeklyPulseCard v-if="data" :data="data" />
-    <DailyBriefingCard />
 
-    <Skeleton v-if="isLoading" class="h-[86px] w-full rounded-xl" />
+    <HomeLoadingShell v-if="isLoading && !data" />
 
     <EmptyState v-else-if="error && !data" :icon="Inbox" title="Your dashboard did not load" :description="error">
       <Button variant="outline" @click="reload">Try again</Button>
@@ -368,8 +367,13 @@ const daysLeft = (endDate: string | null) => {
               </div>
             </template>
           </section>
+
+          <!-- Pulse sits below the fold with activity, not competing with Day loop -->
+          <WeeklyPulseCard :data="data" />
         </div>
       </div>
+
+      <DailyBriefingCard />
     </template>
 
     <CreateProjectDialog v-model:open="isCreateProjectOpen" />

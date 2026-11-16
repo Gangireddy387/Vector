@@ -22,6 +22,14 @@ const hasOrganization = computed(() => Boolean(auth.organization))
 async function submit() {
   errorMessage.value = ''
   fieldErrors.value = {}
+  if (form.name.trim().length < 2) {
+    fieldErrors.value = { name: 'Name must be at least 2 characters' }
+    return
+  }
+  if (!slugAvailable.value) {
+    fieldErrors.value = { slug: 'Choose an available workspace URL' }
+    return
+  }
   isSubmitting.value = true
   try {
     await auth.createOrganization({ name: form.name.trim(), slug: form.slug })
@@ -49,6 +57,9 @@ function signOut() {
   <form class="space-y-4 short:space-y-3" novalidate @submit.prevent="submit">
     <OrganizationFields v-model:name="form.name" v-model:slug="form.slug" v-model:available="slugAvailable" :errors="fieldErrors" autofocus />
     <p v-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
+    <p v-if="slugAvailable && form.name.trim().length >= 2" class="text-xs text-muted-foreground">
+      You’ll be the admin — invite people and start the workday loop next.
+    </p>
     <Button type="submit" variant="brand" class="w-full" size="lg" :loading="isSubmitting" :disabled="form.name.trim().length < 2 || !slugAvailable">
       Create organization
     </Button>

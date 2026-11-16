@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
+import { getErrorMessage } from '@/lib/http'
 import { bindSocketEvents } from '@/lib/socket-events'
 import { playSound } from '@/lib/sounds'
 import type { AppNotification } from '@/types/models'
@@ -10,13 +11,19 @@ export const useNotificationsStore = defineStore('notifications', () => {
   const items = ref<AppNotification[]>([])
   const unreadCount = ref(0)
   const isLoading = ref(false)
+  /** Why the inbox list could not load (shown with retry), or null. */
+  const loadError = ref<string | null>(null)
   let unbind: (() => void) | null = null
 
   async function fetchNotifications() {
     isLoading.value = true
+    loadError.value = null
     try {
       items.value = await notificationsApi.list()
       unreadCount.value = items.value.filter((item) => !item.readAt).length
+    } catch (problem) {
+      loadError.value = getErrorMessage(problem)
+      throw problem
     } finally {
       isLoading.value = false
     }
@@ -94,6 +101,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
   function reset() {
     items.value = []
     unreadCount.value = 0
+    loadError.value = null
     unbind?.()
     unbind = null
   }
@@ -102,6 +110,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     items,
     unreadCount,
     isLoading,
+    loadError,
     fetchNotifications,
     refreshUnreadCount,
     markRead,

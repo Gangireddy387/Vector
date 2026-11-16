@@ -137,22 +137,38 @@ async function copySummary() {
         <Button variant="outline" size="icon-sm" aria-label="Next day" :disabled="date >= today" @click="shift(1)"><ChevronRight /></Button>
         <Button v-if="date !== today" variant="ghost" size="sm" @click="date = today">Today</Button>
       </div>
-      <div class="-mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1 scrollbar-none sm:flex-wrap sm:overflow-visible" aria-label="Recent standups">
-        <button
-          v-for="entry in recentDays"
-          :key="entry.date"
-          type="button"
-          class="flex shrink-0 flex-col items-center rounded-lg border px-2.5 py-1.5 text-[11px] leading-tight transition-colors"
-          :class="entry.date === date ? 'border-primary bg-primary/10 text-primary' : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted'"
-          :title="`${formatDate(entry.date, 'EEE, d MMM')}: ${entry.count} update${entry.count === 1 ? '' : 's'}`"
-          @click="date = entry.date"
-        >
-          <span class="font-semibold">{{ formatDate(entry.date, 'EEE') }}</span>
-          <span class="flex items-center gap-1 tabular-nums">
-            {{ formatDate(entry.date, 'd') }}
-            <span class="size-1.5 rounded-full" :class="entry.count ? 'bg-success' : 'bg-muted-foreground/30'" />
-          </span>
-        </button>
+      <div class="min-w-0 flex-1 space-y-1.5">
+        <div class="-mx-1 flex min-w-0 gap-1 overflow-x-auto px-1 scrollbar-none sm:flex-wrap sm:overflow-visible" aria-label="Recent standups">
+          <button
+            v-for="entry in recentDays"
+            :key="entry.date"
+            type="button"
+            class="flex shrink-0 flex-col items-center rounded-lg border px-2.5 py-1.5 text-[11px] leading-tight transition-colors"
+            :class="entry.date === date ? 'border-primary bg-primary/10 text-primary' : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted'"
+            :title="`${formatDate(entry.date, 'EEE, d MMM')}: ${entry.count} update${entry.count === 1 ? '' : 's'}`"
+            @click="date = entry.date"
+          >
+            <span class="font-semibold">{{ formatDate(entry.date, 'EEE') }}</span>
+            <span class="flex items-center gap-1 tabular-nums">
+              {{ formatDate(entry.date, 'd') }}
+              <span class="size-1.5 rounded-full" :class="entry.count ? 'bg-success' : 'bg-muted-foreground/30'" />
+            </span>
+          </button>
+        </div>
+        <div class="flex items-end gap-1 px-1" aria-label="7-day posting trend" role="img">
+          <div
+            v-for="entry in recentDays"
+            :key="`trend-${entry.date}`"
+            class="flex h-5 min-w-0 flex-1 flex-col items-center justify-end"
+            :title="`${formatDate(entry.date, 'EEE')}: ${entry.count}`"
+          >
+            <span
+              class="w-full max-w-3 rounded-sm transition-colors"
+              :class="entry.count ? 'bg-success/80' : 'bg-muted-foreground/20'"
+              :style="{ height: entry.count ? `${Math.min(4 + entry.count * 3, 20)}px` : '3px' }"
+            />
+          </div>
+        </div>
       </div>
       <Button variant="outline" size="sm" class="max-sm:w-full sm:ml-auto" :disabled="!day?.stats.posted" @click="copySummary"><ClipboardCopy /> Copy summary</Button>
     </div>

@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import LineChart from '@/components/common/charts/LineChart.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
+import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -97,7 +98,10 @@ const burnupTooltips = computed(
       </TabsList>
     </Tabs>
 
-    <p v-if="errorMessage" class="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
+    <div v-if="errorMessage" class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+      <p>{{ errorMessage }}</p>
+      <Button variant="outline" size="sm" @click="load">Retry</Button>
+    </div>
 
     <template v-if="view === 'overview'">
       <div v-if="!progress && !errorMessage" class="space-y-4">

@@ -8,7 +8,8 @@ import { sprintsApi } from '@/modules/sprints/sprints.api'
 import type { Issue, Sprint } from '@/types/models'
 
 /** The most tasks a board shows at once; beyond it the board says so and points to the list. */
-export const BOARD_LIMIT = 1000
+/** Soft cap so the board stays responsive; banner links to the full task list when exceeded. */
+export const BOARD_LIMIT = 2000
 
 /** Loads everything a board needs: project workflow, the active sprint (scrum) and its issues. */
 export function useBoardData(projectId: Ref<string>) {

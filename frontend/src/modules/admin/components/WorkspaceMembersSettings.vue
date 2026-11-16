@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
 import { useConfirm } from '@/composables/useConfirm'
 import { timeAgo } from '@/lib/format'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
@@ -138,35 +139,81 @@ async function resend(member: WorkspaceMember) {
 }
 
 // --- Invite -----------------------------------------------------------------
-const invite = ref({ email: '', role: 'member' as WorkspaceRole })
+const invite = ref({ emails: '', role: 'member' as WorkspaceRole })
 const inviteError = ref('')
 const isInviting = ref(false)
 const seatLimitHit = ref(false)
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function parseInviteEmails(raw: string) {
+  const seen = new Set<string>()
+  const emails: string[] = []
+  for (const part of raw.split(/[\s,;]+/)) {
+    const email = part.trim().toLowerCase()
+    if (!email || seen.has(email)) continue
+    seen.add(email)
+    emails.push(email)
+  }
+  return emails
+}
+const inviteEmails = computed(() => parseInviteEmails(invite.value.emails))
 
 async function sendInvite() {
   inviteError.value = ''
   seatLimitHit.value = false
+  const emails = inviteEmails.value
+  if (!emails.length) {
+    inviteError.value = 'Enter at least one email address'
+    return
+  }
+  const invalid = emails.find((email) => !EMAIL_PATTERN.test(email))
+  if (invalid) {
+    inviteError.value = `“${invalid}” does not look like an email address`
+    return
+  }
   isInviting.value = true
+  const progress = emails.length > 1 ? toast.loading(`Inviting 0 of ${emails.length}…`) : null
+  let sent = 0
+  const failures: string[] = []
   try {
-    const member = await workspaceApi.invite({ email: invite.value.email.trim(), role: invite.value.role })
-    if (member.inviteLink) {
-      const slug = auth.organization?.slug
-      await shareInviteLink(member.email, member.inviteLink, {
-        previewUrl: slug ? `${window.location.origin}/invite/${slug}` : `${window.location.origin}/workday`,
-      })
+    for (const email of emails) {
+      try {
+        const member = await workspaceApi.invite({ email, role: invite.value.role })
+        sent += 1
+        if (progress) toast.loading(`Inviting ${sent} of ${emails.length}…`, { id: progress })
+        if (emails.length === 1) {
+          if (member.inviteLink) {
+            const slug = auth.organization?.slug
+            await shareInviteLink(member.email, member.inviteLink, {
+              previewUrl: slug ? `${window.location.origin}/invite/${slug}` : `${window.location.origin}/workday`,
+            })
+          } else {
+            toast.success(member.invited ? `Invitation sent to ${member.email}` : `${member.name} added to ${organizationName.value}`, {
+              description: member.invited
+                ? 'They land on Home to Start my day after accepting.'
+                : 'They already had a Vector account and can switch to this organization now.',
+            })
+          }
+        }
+      } catch (error) {
+        seatLimitHit.value = seatLimitHit.value || Boolean(getPlanLimitKind(error))
+        failures.push(`${email}: ${getFieldErrors(error).email ?? getErrorMessage(error)}`)
+        if (getPlanLimitKind(error)) break
+      }
     }
-    else
-      toast.success(member.invited ? `Invitation sent to ${member.email}` : `${member.name} added to ${organizationName.value}`, {
-        description: member.invited
-          ? 'They land on Home to Start my day after accepting.'
-          : 'They already had a Vector account and can switch to this organization now.',
-      })
-    invite.value = { email: '', role: 'member' }
-    await load()
-  } catch (error) {
-    seatLimitHit.value = Boolean(getPlanLimitKind(error))
-    inviteError.value = getFieldErrors(error).email ?? getErrorMessage(error)
+    if (emails.length > 1) {
+      if (progress) toast.dismiss(progress)
+      if (sent) toast.success(`Invited ${sent} of ${emails.length}`, { description: failures.length ? failures.slice(0, 3).join(' · ') : undefined })
+      else if (failures.length) inviteError.value = failures[0]!
+    } else if (failures.length) {
+      inviteError.value = failures[0]!.replace(/^[^:]+:\s*/, '')
+    }
+    if (sent) {
+      invite.value = { emails: '', role: 'member' }
+      await load()
+    }
   } finally {
+    if (progress) toast.dismiss(progress)
     isInviting.value = false
   }
 }
@@ -191,11 +238,23 @@ async function sendInvite() {
         </div>
         <form class="flex flex-col gap-2 sm:flex-row sm:items-start" @submit.prevent="sendInvite">
           <div class="flex-1 space-y-1">
-            <Input v-model="invite.email" type="email" placeholder="colleague@company.com" aria-label="Email address" autocomplete="off" required />
+            <Textarea
+              v-model="invite.emails"
+              rows="3"
+              placeholder="colleague@company.com&#10;or paste several, separated by commas or new lines"
+              aria-label="Email addresses"
+              autocomplete="off"
+              required
+            />
+            <p class="text-xs text-muted-foreground">
+              {{ inviteEmails.length ? `${inviteEmails.length} email${inviteEmails.length === 1 ? '' : 's'}` : 'One or more emails' }}
+            </p>
             <p v-if="inviteError" class="text-xs text-destructive" role="alert">{{ inviteError }}</p>
           </div>
           <SelectField v-model="invite.role" :options="ROLE_OPTIONS" class="w-full sm:w-36" content-class="w-72" align="end" aria-label="Role" />
-          <Button type="submit" class="max-sm:w-full" :loading="isInviting" :disabled="!invite.email.trim()"><UserPlus /> Invite</Button>
+          <Button type="submit" class="max-sm:w-full" :loading="isInviting" :disabled="!inviteEmails.length">
+            <UserPlus /> {{ inviteEmails.length > 1 ? `Invite ${inviteEmails.length}` : 'Invite' }}
+          </Button>
         </form>
       </CardContent>
     </Card>

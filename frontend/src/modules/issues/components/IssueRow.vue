@@ -9,18 +9,22 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { Issue } from '@/types/models'
 
-withDefaults(defineProps<{ issue: Issue; selectable?: boolean; selected?: boolean; draggable?: boolean }>(), {
-  selectable: false,
-  selected: false,
-  draggable: false,
-})
+withDefaults(
+  defineProps<{ issue: Issue; selectable?: boolean; selected?: boolean; focused?: boolean; draggable?: boolean }>(),
+  {
+    selectable: false,
+    selected: false,
+    focused: false,
+    draggable: false,
+  },
+)
 const emit = defineEmits<{ open: [issue: Issue]; toggleSelect: [issue: Issue] }>()
 </script>
 
 <template>
   <div
     class="group flex h-10 items-center gap-2 border-b border-border/70 bg-card px-3 text-[13px] transition-colors last:border-b-0 hover:bg-accent/60"
-    :class="selected && 'bg-accent hover:bg-accent'"
+    :class="[selected && 'bg-accent hover:bg-accent', focused && 'bg-accent/80 ring-1 ring-inset ring-primary/40']"
     :data-issue-id="issue.id"
   >
     <GripVertical v-if="draggable" class="drag-handle size-4 shrink-0 cursor-grab text-muted-foreground/50 opacity-0 group-hover:opacity-100" />

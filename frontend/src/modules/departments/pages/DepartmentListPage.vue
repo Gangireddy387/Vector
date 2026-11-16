@@ -20,8 +20,18 @@ const auth = useAuthStore()
 const isAdmin = computed(() => auth.isOrganizationAdmin)
 const { isDesktop } = useDevice()
 const search = ref('')
+const loadError = ref('')
 
-onMounted(() => structure.load().catch((error) => toast.error(getErrorMessage(error))))
+async function load() {
+  loadError.value = ''
+  try {
+    await structure.load()
+  } catch (error) {
+    loadError.value = getErrorMessage(error)
+    toast.error(loadError.value)
+  }
+}
+onMounted(load)
 
 const visible = computed(() => {
   const term = search.value.trim().toLowerCase()
@@ -79,7 +89,17 @@ const STATS = computed(() => [
       <Input v-model="search" class="pl-9" placeholder="Search departments or teams…" aria-label="Search departments or teams" />
     </div>
 
-    <div v-if="structure.departments === null" class="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <EmptyState
+      v-if="loadError && structure.departments === null"
+      :icon="Building2"
+      title="Couldn’t load departments"
+      :description="loadError"
+      class="border border-dashed bg-card/60 py-12 sm:py-16"
+    >
+      <Button variant="outline" @click="load">Retry</Button>
+    </EmptyState>
+
+    <div v-else-if="structure.departments === null" class="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">
       <Skeleton v-for="index in 3" :key="index" class="h-52 w-full sm:h-56" />
     </div>
 

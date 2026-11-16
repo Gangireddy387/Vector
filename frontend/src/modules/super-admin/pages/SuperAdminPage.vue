@@ -24,7 +24,7 @@ import {
 } from 'lucide-vue-next'
 import { useDebounceFn } from '@vueuse/core'
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import FormField from '@/components/common/FormField.vue'
@@ -57,6 +57,7 @@ import SuperAdminProfile from '../components/SuperAdminProfile.vue'
 import { type Plan, type ReviewedOrganization, superAdminApi } from '../super-admin.api'
 
 const auth = useAuthStore()
+const route = useRoute()
 const router = useRouter()
 /** Full sidebar from 1024px up; phone and tablet use the top section bar. */
 const { isWide } = useDevice()
@@ -68,7 +69,13 @@ const themeLabel = computed(() => ({ light: 'Light', dim: 'Dim', dark: 'Dark', a
 const themeIcon = computed(() => ({ light: Sun, dim: SunDim, dark: Moon, auto: Monitor })[preference.value])
 const cycleTheme = () => (preference.value = THEME_CYCLE[preference.value])
 
-const section = ref<'organizations' | 'plans' | 'profile'>('organizations')
+const SECTION_VALUES = ['organizations', 'plans', 'profile'] as const
+type SuperAdminSection = (typeof SECTION_VALUES)[number]
+/** The open section lives in the address (?section=plans) so links land on it. */
+const section = computed<SuperAdminSection>({
+  get: () => (SECTION_VALUES.includes(route.query.section as SuperAdminSection) ? (route.query.section as SuperAdminSection) : 'organizations'),
+  set: (value) => void router.replace({ query: { ...route.query, section: value === 'organizations' ? undefined : value } }),
+})
 const organizations = ref<ReviewedOrganization[] | null>(null)
 const plans = ref<Plan[] | null>(null)
 const isLoading = ref(false)

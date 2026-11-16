@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ArrowRight } from 'lucide-vue-next'
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import FormField from '@/components/common/FormField.vue'
 import { Button } from '@/components/ui/button'
@@ -16,11 +16,45 @@ const route = useRoute()
 const router = useRouter()
 
 const form = reactive({ email: '', password: '' })
+const fieldErrors = ref<Record<string, string>>({})
 const errorMessage = ref('')
 const isSubmitting = ref(false)
 
+const EMAIL_RE = /^\S+@\S+\.\S+$/
+
+function validate() {
+  const errors: Record<string, string> = {}
+  if (!form.email.trim()) errors.email = 'Enter your email'
+  else if (!EMAIL_RE.test(form.email.trim())) errors.email = 'Enter a valid email address'
+  if (!form.password) errors.password = 'Enter your password'
+  fieldErrors.value = errors
+  return !Object.keys(errors).length
+}
+
+const canSubmit = computed(() => EMAIL_RE.test(form.email.trim()) && form.password.length > 0 && !isSubmitting.value)
+
+watch(
+  () => form.email,
+  () => {
+    if (fieldErrors.value.email) {
+      const { email: _, ...rest } = fieldErrors.value
+      fieldErrors.value = rest
+    }
+  },
+)
+watch(
+  () => form.password,
+  () => {
+    if (fieldErrors.value.password) {
+      const { password: _, ...rest } = fieldErrors.value
+      fieldErrors.value = rest
+    }
+  },
+)
+
 async function submit() {
   errorMessage.value = ''
+  if (!validate()) return
   isSubmitting.value = true
   try {
     await auth.login(form)
@@ -29,7 +63,10 @@ async function submit() {
     if (auth.isSuperAdmin && !isSuperAdminPath(window.location.pathname) && !isSuperAdminPath(redirect)) return window.location.replace('/super-admin')
     await router.replace(redirect)
   } catch (error) {
-    errorMessage.value = getErrorMessage(error)
+    const message = getErrorMessage(error)
+    errorMessage.value = /invalid|credential|password|email/i.test(message)
+      ? 'Those credentials didn’t match. Check your email and password, or reset your password.'
+      : message
   } finally {
     isSubmitting.value = false
   }
@@ -54,7 +91,7 @@ if (redirectSlug) {
   />
 
   <form class="space-y-4 short:space-y-3" novalidate @submit.prevent="submit">
-    <FormField label="Email" for="email">
+    <FormField label="Email" for="email" :error="fieldErrors.email">
       <Input id="email" v-model="form.email" type="email" autocomplete="email" placeholder="you@company.com" class="h-11 short:h-10" required />
     </FormField>
     <div class="grid gap-1.5">
@@ -62,10 +99,11 @@ if (redirectSlug) {
         <label for="password" class="text-sm font-medium">Password</label>
         <RouterLink :to="{ name: 'forgot-password' }" class="text-xs font-medium text-primary hover:underline">Forgot password?</RouterLink>
       </div>
-      <PasswordInput id="password" v-model="form.password" autocomplete="current-password" class="h-11 short:h-10" required />
+      <PasswordInput id="password" v-model="form.password" autocomplete="current-password" class="h-11 short:h-10" required :aria-invalid="Boolean(fieldErrors.password)" />
+      <p v-if="fieldErrors.password" class="text-xs text-destructive">{{ fieldErrors.password }}</p>
     </div>
     <p v-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
-    <Button type="submit" variant="brand" class="group w-full" size="lg" :loading="isSubmitting">
+    <Button type="submit" variant="brand" class="group w-full" size="lg" :loading="isSubmitting" :disabled="!canSubmit">
       Sign in <ArrowRight class="transition-transform group-hover:translate-x-0.5" />
     </Button>
   </form>

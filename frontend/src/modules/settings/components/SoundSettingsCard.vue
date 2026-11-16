@@ -114,7 +114,7 @@ const SOUND_GROUPS: Array<{ kind: SoundKind; title: string; hint: string; option
 </script>
 
 <template>
-  <Card>
+  <Card id="sounds" class="scroll-mt-20">
     <CardHeader>
       <CardTitle>Sounds &amp; ringtone</CardTitle>
       <CardDescription>How calls, messages and notifications sound for you. Your choices follow you on every device.</CardDescription>

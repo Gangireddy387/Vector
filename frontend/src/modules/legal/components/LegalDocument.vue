@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft } from 'lucide-vue-next'
+import { ArrowLeft, ChevronDown } from 'lucide-vue-next'
 import { computed } from 'vue'
 import AppLogo from '@/components/layout/AppLogo.vue'
 import { LEGAL } from '@/constants/legal'
@@ -10,11 +10,16 @@ export interface LegalSection {
   title: string
 }
 
-defineProps<{ title: string; summary: string; sections: LegalSection[] }>()
+const props = defineProps<{ title: string; summary: string; sections: LegalSection[] }>()
 
 const auth = useAuthStore()
 const backTo = computed(() => (auth.isAuthenticated ? { name: 'home' } : { name: 'login' }))
 const year = new Date().getFullYear()
+
+function goToSection(id: string) {
+  if (!id) return
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 </script>
 
 <template>
@@ -29,6 +34,22 @@ const year = new Date().getFullYear()
     </header>
 
     <div class="mx-auto grid max-w-6xl gap-10 px-5 py-10 lg:grid-cols-[14rem_minmax(0,1fr)]">
+      <div class="lg:hidden">
+        <label class="mb-1.5 block text-xs font-semibold tracking-wider text-muted-foreground uppercase" for="legal-toc">On this page</label>
+        <div class="relative">
+          <select
+            id="legal-toc"
+            class="h-10 w-full appearance-none rounded-md border border-border bg-card px-3 pr-9 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+            :value="''"
+            @change="goToSection(($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
+          >
+            <option value="" disabled>Jump to a section…</option>
+            <option v-for="section in props.sections" :key="section.id" :value="section.id">{{ section.title }}</option>
+          </select>
+          <ChevronDown class="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        </div>
+      </div>
+
       <nav class="hidden lg:block" aria-label="On this page">
         <div class="sticky top-24 space-y-1 text-sm">
           <p class="mb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">On this page</p>
