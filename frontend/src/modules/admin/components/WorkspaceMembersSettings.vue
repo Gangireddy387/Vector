@@ -16,8 +16,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
 import { timeAgo } from '@/lib/format'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
+import { getPlanLimitKind } from '@/lib/plan-limit'
 import { shareInviteLink } from '@/lib/invite-link'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import RequestUpgradeButton from './RequestUpgradeButton.vue'
 import MeetButton from '@/modules/meetings/components/MeetButton.vue'
 import { useDirectMessage } from '@/modules/messages/useDirectMessage'
 import { usePresenceStore } from '@/stores/presence.store'
@@ -134,20 +136,25 @@ async function resend(member: WorkspaceMember) {
 const invite = ref({ email: '', role: 'member' as WorkspaceRole })
 const inviteError = ref('')
 const isInviting = ref(false)
+const seatLimitHit = ref(false)
 
 async function sendInvite() {
   inviteError.value = ''
+  seatLimitHit.value = false
   isInviting.value = true
   try {
     const member = await workspaceApi.invite({ email: invite.value.email.trim(), role: invite.value.role })
     if (member.inviteLink) await shareInviteLink(member.email, member.inviteLink)
     else
       toast.success(member.invited ? `Invitation sent to ${member.email}` : `${member.name} added to ${organizationName.value}`, {
-        description: member.invited ? 'They can join once they accept the email.' : 'They already had a Vector account and can switch to this organization now.',
+        description: member.invited
+          ? 'They land on Home to Start my day after accepting.'
+          : 'They already had a Vector account and can switch to this organization now.',
       })
     invite.value = { email: '', role: 'member' }
     await load()
   } catch (error) {
+    seatLimitHit.value = Boolean(getPlanLimitKind(error))
     inviteError.value = getFieldErrors(error).email ?? getErrorMessage(error)
   } finally {
     isInviting.value = false
@@ -160,9 +167,18 @@ async function sendInvite() {
     <Card>
       <CardHeader>
         <CardTitle>Invite people</CardTitle>
-        <CardDescription>They join {{ organizationName }} and can then be added to projects. New people get an email to set up their account.</CardDescription>
+        <CardDescription>
+          They join {{ organizationName }} and land on Start my day. New people get an email to set up their account.
+        </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent class="space-y-3">
+        <div
+          v-if="seatLimitHit"
+          class="flex flex-col gap-2 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/10 px-3 py-2.5 sm:flex-row sm:items-center"
+        >
+          <p class="min-w-0 flex-1 text-xs text-amber-900 dark:text-amber-200">People limit reached. Request more seats from the portal admin.</p>
+          <RequestUpgradeButton target="seats" size="sm" variant="outline" />
+        </div>
         <form class="flex flex-col gap-2 sm:flex-row sm:items-start" @submit.prevent="sendInvite">
           <div class="flex-1 space-y-1">
             <Input v-model="invite.email" type="email" placeholder="colleague@company.com" aria-label="Email address" autocomplete="off" required />

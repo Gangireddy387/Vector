@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { getErrorMessage, getFieldErrors } from '@/lib/http'
+import { getFieldErrors } from '@/lib/http'
+import { toastPlanLimit } from '@/lib/plan-limit'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import type { ProjectDetail, ProjectType } from '@/types/models'
 import { useProjectsStore } from '../projects.store'
 
@@ -19,6 +21,7 @@ const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ created: [project: ProjectDetail] }>()
 
 const router = useRouter()
+const auth = useAuthStore()
 const projects = useProjectsStore()
 
 const form = reactive({ name: '', key: '', description: '', type: 'scrum' as ProjectType, color: '#6366f1' })
@@ -60,7 +63,9 @@ async function create() {
     if (!props.teamId) await router.push({ name: 'project-board', params: { projectId: project.id } })
   } catch (error) {
     fieldErrors.value = getFieldErrors(error)
-    if (!Object.keys(fieldErrors.value).length) toast.error(getErrorMessage(error))
+    if (!Object.keys(fieldErrors.value).length) {
+      toastPlanLimit(error, { router, isAdmin: auth.isOrganizationAdmin })
+    }
   } finally {
     isSaving.value = false
   }

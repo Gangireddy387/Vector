@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ArrowLeft, Building2, UserRound } from 'lucide-vue-next'
-import { reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import FormField from '@/components/common/FormField.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +12,9 @@ import OrganizationFields from '../components/OrganizationFields.vue'
 import PasswordInput from '../components/PasswordInput.vue'
 
 const auth = useAuthStore()
+const route = useRoute()
 const router = useRouter()
+const fromGuest = computed(() => route.query.from === 'guest')
 
 const step = ref<1 | 2>(1)
 const form = reactive({ name: '', email: '', password: '', organizationName: '', organizationSlug: '' })
@@ -60,8 +62,14 @@ async function submit() {
 
 <template>
   <AuthHeading
-    :title="step === 1 ? 'Create your account' : 'Set up your organization'"
-    :description="step === 1 ? 'Start free. You will set up your organization next.' : 'Your team’s own space in Vector, with its own address. You can invite people right after.'"
+    :title="step === 1 ? (fromGuest ? 'Start your Vector team' : 'Create your account') : 'Set up your organization'"
+    :description="
+      step === 1
+        ? fromGuest
+          ? 'You joined a meeting as a guest. Create a free workspace for your own team next.'
+          : 'Start free. You will set up your organization next.'
+        : 'Your team’s own space in Vector, with its own address. Invite people and Start my day right after.'
+    "
   />
 
   <ol class="mb-5 grid grid-cols-2 gap-2 text-xs short:mb-3" aria-label="Signup steps">

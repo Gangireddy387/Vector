@@ -1,23 +1,30 @@
 <script setup lang="ts">
 import { Check, FolderKanban, Gem, Minus, Users } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PLAN_FEATURES } from '@/lib/plan-features'
 import { useAuthStore } from '@/modules/auth/auth.store'
-import { workspaceApi } from '../admin.api'
+import { type UpgradeTarget, workspaceApi } from '../admin.api'
 import RequestUpgradeButton from './RequestUpgradeButton.vue'
 
 /** The organization's plan as the super admin set it: limits with current usage, and included features. */
 const auth = useAuthStore()
+const route = useRoute()
 const overview = ref<Awaited<ReturnType<typeof workspaceApi.plan>> | null>(null)
 
 const load = async () => (overview.value = await workspaceApi.plan())
 onMounted(load)
 watch(() => auth.organization?.entitlements, load, { deep: true })
+
+/** Deep-link from plan-limit toasts (?request=seats|projects|pro). */
+const focusRequest = computed<UpgradeTarget | null>(() => {
+  const raw = route.query.request
+  return raw === 'seats' || raw === 'projects' || raw === 'pro' ? raw : null
+})
 
 const planName = computed(() => overview.value?.entitlements.planName ?? 'Full access')
 const isFreeLike = computed(() => {
@@ -66,7 +73,11 @@ const usageRows = computed(() => {
               class="h-1.5"
               :indicator-class="row.percent >= 100 ? 'bg-destructive' : row.percent >= 80 ? 'bg-warning' : 'bg-primary'"
             />
-            <div v-if="row.limit && row.percent >= 80" class="flex flex-wrap items-center gap-2">
+            <div
+              v-if="row.limit && (row.percent >= 80 || focusRequest === row.key)"
+              class="flex flex-wrap items-center gap-2 rounded-md"
+              :class="focusRequest === row.key && 'ring-2 ring-primary/30 ring-offset-2 ring-offset-background'"
+            >
               <p class="flex-1 text-xs" :class="row.percent >= 100 ? 'text-destructive' : 'text-amber-700 dark:text-amber-400'">
                 {{ row.percent >= 100 ? 'Limit reached.' : 'Nearing the limit.' }} Request more from the portal.
               </p>
@@ -76,8 +87,9 @@ const usageRows = computed(() => {
         </div>
 
         <div
-          v-if="overview && (isFreeLike || pending)"
+          v-if="overview && (isFreeLike || pending || focusRequest === 'pro')"
           class="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center"
+          :class="focusRequest === 'pro' && 'ring-2 ring-primary/30'"
         >
           <div class="min-w-0 flex-1">
             <p class="text-sm font-medium">{{ pending ? 'Upgrade request pending' : 'Need collaboration features?' }}</p>

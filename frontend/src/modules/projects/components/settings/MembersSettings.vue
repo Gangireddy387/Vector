@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Mail, Trash2 } from 'lucide-vue-next'
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Badge } from '@/components/ui/badge'
@@ -10,7 +11,9 @@ import { Input } from '@/components/ui/input'
 import { SelectField } from '@/components/forms'
 import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
+import { getPlanLimitKind, toastPlanLimit } from '@/lib/plan-limit'
 import { shareInviteLink } from '@/lib/invite-link'
+import RequestUpgradeButton from '@/modules/admin/components/RequestUpgradeButton.vue'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import type { ProjectDetail, ProjectMember, ProjectRole } from '@/types/models'
 import { projectsApi } from '../../projects.api'
@@ -25,16 +28,19 @@ const ROLES: Array<{ value: ProjectRole; label: string; description: string }> =
 ]
 
 const auth = useAuthStore()
+const router = useRouter()
 const projects = useProjectsStore()
 const confirm = useConfirm()
 const email = ref('')
 const role = ref<ProjectRole>('member')
 const isInviting = ref(false)
+const seatLimitHit = ref(false)
 
 const refresh = () => projects.fetchProject(props.project.id, true)
 
 async function invite() {
   isInviting.value = true
+  seatLimitHit.value = false
   try {
     const member = await projectsApi.addMember(props.project.id, { email: email.value.trim(), role: role.value })
     if (member.inviteLink) await shareInviteLink(member.email, member.inviteLink)
@@ -42,7 +48,8 @@ async function invite() {
     email.value = ''
     await refresh()
   } catch (error) {
-    toast.error(getErrorMessage(error))
+    seatLimitHit.value = Boolean(getPlanLimitKind(error))
+    toastPlanLimit(error, { router, isAdmin: auth.isOrganizationAdmin })
   } finally {
     isInviting.value = false
   }
@@ -78,9 +85,16 @@ async function remove(member: ProjectMember) {
   <Card>
     <CardHeader>
       <CardTitle>Members</CardTitle>
-      <CardDescription>Invite people by email. New users receive an invitation link.</CardDescription>
+      <CardDescription>Invite by email. New people land on Home to Start my day after they accept.</CardDescription>
     </CardHeader>
     <CardContent class="space-y-5">
+      <div
+        v-if="seatLimitHit && auth.isOrganizationAdmin"
+        class="flex flex-col gap-2 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/10 px-3 py-2.5 sm:flex-row sm:items-center"
+      >
+        <p class="min-w-0 flex-1 text-xs text-amber-900 dark:text-amber-200">People limit reached on your plan. Request more seats from the portal.</p>
+        <RequestUpgradeButton target="seats" size="sm" variant="outline" />
+      </div>
       <form class="flex flex-col gap-2 sm:flex-row" @submit.prevent="invite">
         <Input v-model="email" type="email" placeholder="name@company.com" class="flex-1" required aria-label="Email address" />
         <SelectField

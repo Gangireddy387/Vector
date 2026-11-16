@@ -33,7 +33,7 @@ async function save() {
   try {
     if (form.name.trim() !== auth.user?.name) await auth.updateProfile({ name: form.name.trim() })
     await auth.changePassword({ newPassword: form.password })
-    toast.success('You are all set', { description: 'Sign in with your new password from now on.' })
+    toast.success('You’re all set', { description: 'Hit Start my day on Home — your workday loop is ready.' })
   } catch (error) {
     errors.value = getFieldErrors(error)
     if (!Object.keys(errors.value).length) toast.error(getErrorMessage(error))
@@ -49,7 +49,9 @@ async function save() {
       <DialogHeader>
         <span class="mb-1 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><KeyRound class="size-5" /></span>
         <DialogTitle>Choose your own password</DialogTitle>
-        <DialogDescription>You are signed in with a temporary password. Pick your own to finish setting up your account.</DialogDescription>
+        <DialogDescription>
+          You’re signed in with a temporary password. Pick your own, then Start my day on Home — standup, tasks, meetings, messages.
+        </DialogDescription>
       </DialogHeader>
       <form class="space-y-4" novalidate @submit.prevent="save">
         <FormField label="Your name" for="own-name" :error="errors.name" hint="How your teammates see you.">
@@ -61,7 +63,7 @@ async function save() {
         <FormField label="Repeat new password" for="own-password-confirm" :error="errors.confirm">
           <PasswordInput id="own-password-confirm" v-model="form.confirm" autocomplete="new-password" />
         </FormField>
-        <Button type="submit" variant="brand" class="w-full" size="lg" :loading="isSaving">Save and continue</Button>
+        <Button type="submit" variant="brand" class="w-full" size="lg" :loading="isSaving">Save and Start my day</Button>
         <button type="button" class="w-full text-center text-xs text-muted-foreground underline-offset-2 hover:underline" @click="auth.logout()">Sign out instead</button>
       </form>
     </DialogContent>

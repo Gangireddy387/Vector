@@ -140,9 +140,9 @@ export const inviteEmail = ({ inviterName, inviterEmail, organization, project, 
       roleRow(PROJECT_ROLE_DETAILS, role),
       { label: 'Invited by', value: inviterLine({ inviterName, inviterEmail }) },
     ],
-    actionLabel: 'Accept invitation',
+    actionLabel: 'Accept & Start my day',
     actionUrl: inviteLinkFor(token),
-    note: `<strong>What happens next?</strong> One click sets up your account. You’ll land on Home to Start my day — standup, tasks, meetings and messages. You get a temporary password (also by email) and choose your own when you first sign in.`,
+    note: `<strong>What happens next?</strong> One click sets up your account. You’ll land on Home to <strong>Start my day</strong> — standup, tasks, meetings and messages. You get a temporary password (also by email) and choose your own when you first sign in.`,
     footer: invitationFooter(email, inviterName),
   }),
 });
@@ -161,9 +161,9 @@ export const organizationInviteEmail = ({ inviterName, inviterEmail, organizatio
       roleRow(ORGANIZATION_ROLE_DETAILS, role),
       { label: 'Invited by', value: inviterLine({ inviterName, inviterEmail }) },
     ],
-    actionLabel: 'Accept invitation',
+    actionLabel: 'Accept & Start my day',
     actionUrl: inviteLinkFor(token),
-    note: `<strong>What happens next?</strong> One click sets up your account. You’ll land on Home to Start my day — standup, tasks, meetings and messages. You get a temporary password (also by email) and choose your own when you first sign in.`,
+    note: `<strong>What happens next?</strong> One click sets up your account. You’ll land on Home to <strong>Start my day</strong> — standup, tasks, meetings and messages. You get a temporary password (also by email) and choose your own when you first sign in.`,
     footer: invitationFooter(email, inviterName),
   }),
 });
@@ -172,17 +172,17 @@ export const organizationInviteEmail = ({ inviterName, inviterEmail, organizatio
 export const accountReadyEmail = ({ name, email, temporaryPassword, organization }) => ({
   subject: organization ? `Your Vector account for ${organization.name} is ready` : 'Your Vector account is ready',
   html: renderLayout({
-    preheader: 'Your account is set up. Keep this email until you choose your own password.',
+    preheader: 'Account ready — Start my day on Home after you choose your password.',
     brand: organization ?? null,
     eyebrow: 'Account ready',
     heading: `Welcome to Vector, ${name}`,
-    intro: `<p style="margin:0">Your account is set up${organization ? ` and you are in <strong>${escapeHtml(organization.name)}</strong>` : ''}. Sign in with these details until you choose your own password, which Vector asks for the first time you sign in.</p>`,
+    intro: `<p style="margin:0">Your account is set up${organization ? ` and you are in <strong>${escapeHtml(organization.name)}</strong>` : ''}. After you choose your own password, open Home and <strong>Start my day</strong> — standup, tasks, meetings and messages.</p>`,
     details: [
       { label: 'Email', value: escapeHtml(email) },
       { label: 'Temporary password', value: `<span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:15px;font-weight:700;letter-spacing:1px">${escapeHtml(temporaryPassword)}</span>` },
     ],
-    actionLabel: 'Sign in to Vector',
-    actionUrl: appUrl(organization?.slug ? `/login?redirect=${encodeURIComponent(`/${organization.slug}`)}` : '/login'),
+    actionLabel: 'Start my day',
+    actionUrl: appUrl('/?startDay=1'),
     note: 'For your security this password only works until you set your own. Never share it with anyone.',
     footer: `This email was sent to ${email} because an invitation to Vector was accepted. If that was not you, reset your password from the sign-in page.`,
   }),
@@ -192,18 +192,18 @@ export const accountReadyEmail = ({ name, email, temporaryPassword, organization
 export const addedToOrganizationEmail = ({ inviterName, inviterEmail, organization, role = 'member' }) => ({
   subject: `You were added to ${organization.name} on Vector`,
   html: renderLayout({
-    preheader: `${inviterName} gave you access to ${organization.name}.`,
+    preheader: `${inviterName} added you to ${organization.name} — Start my day on Home.`,
     brand: organization,
     eyebrow: 'New organization',
     heading: `You now have access to ${organization.name}`,
-    intro: `<p style="margin:0"><strong>${escapeHtml(inviterName)}</strong> added you to the <strong>${escapeHtml(organization.name)}</strong> organization. You can switch to it any time from the organization menu in Vector.</p>`,
+    intro: `<p style="margin:0"><strong>${escapeHtml(inviterName)}</strong> added you to the <strong>${escapeHtml(organization.name)}</strong> organization. Open Home and <strong>Start my day</strong> — standup, tasks, meetings and messages.</p>`,
     details: [
       { label: 'Organization', value: organizationLine(organization) },
       roleRow(ORGANIZATION_ROLE_DETAILS, role),
       { label: 'Added by', value: inviterLine({ inviterName, inviterEmail }) },
     ],
-    actionLabel: `Open ${organization.name}`,
-    actionUrl: appUrl(`/${organization.slug}`),
+    actionLabel: 'Start my day',
+    actionUrl: appUrl('/?startDay=1'),
   }),
 });
 

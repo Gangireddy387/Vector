@@ -80,10 +80,11 @@ export async function assertWithinLimit(organizationId, kind) {
   const usage = await usageFor(organizationId);
   if (usage[kind] < limit) return;
   const noun = kind === 'members' ? (limit === 1 ? 'person' : 'people') : limit === 1 ? 'project' : 'projects';
-  throw new ApiError(403, `The ${planName} plan allows up to ${limit} ${noun}. Ask the portal administrator to upgrade.`, {
-    code: 'plan_limit',
-    limit: kind,
-  });
+  throw new ApiError(
+    403,
+    `The ${planName} plan allows up to ${limit} ${noun}. Request an upgrade from Organization settings → Plan.`,
+    { code: 'plan_limit', limit: kind },
+  );
 }
 
 export async function getDefaultPlan() {

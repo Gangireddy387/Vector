@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { format, parseISO } from 'date-fns'
-import { CalendarDays, DoorOpen, LoaderCircle, Mic, MicOff, Sparkles, Video, VideoOff } from 'lucide-vue-next'
+import { ArrowRight, Building2, CalendarDays, DoorOpen, LoaderCircle, Mic, MicOff, Sparkles, Video, VideoOff } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
 import BrandMark from '@/components/layout/BrandMark.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -145,6 +146,17 @@ onBeforeUnmount(() => {
 })
 
 const startsLabel = computed(() => (info.value ? format(parseISO(info.value.meeting.startsAt), 'EEEE d MMMM, HH:mm') : ''))
+
+/** Guests who aren’t on this org: turn meeting traffic into a new Vector workspace. */
+const showSignupCta = computed(() => !memberOf.value)
+const signupTo = computed(() => {
+  if (auth.isAuthenticated && !auth.organization) return { name: 'organization-create' as const }
+  if (auth.isAuthenticated) return { name: 'organization-create' as const }
+  return { name: 'register' as const, query: { from: 'guest' } }
+})
+const signupLabel = computed(() =>
+  auth.isAuthenticated && !memberOf.value ? 'Create your own Vector team' : 'Start your own Vector team — free',
+)
 </script>
 
 <template>
@@ -173,9 +185,16 @@ const startsLabel = computed(() => (info.value ? format(parseISO(info.value.meet
           <Skeleton class="h-64 w-full" />
         </template>
 
-        <div v-else-if="problem" class="col-span-full flex flex-col items-center gap-2 py-16 text-center">
+        <div v-else-if="problem" class="col-span-full flex flex-col items-center gap-4 py-16 text-center">
           <span class="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground"><VideoOff class="size-6" /></span>
           <p class="font-semibold">{{ problem }}</p>
+          <div class="max-w-sm space-y-2 rounded-xl border border-dashed border-border bg-card px-4 py-3 text-left shadow-soft">
+            <p class="text-sm font-medium">Run your team on Vector</p>
+            <p class="text-xs text-muted-foreground">Standup → tasks → meetings → messages. Create a free workspace in a few minutes.</p>
+            <Button variant="brand" class="w-full" as-child>
+              <RouterLink :to="signupTo"><Building2 /> {{ signupLabel }} <ArrowRight /></RouterLink>
+            </Button>
+          </div>
         </div>
 
         <template v-else-if="info">
@@ -257,6 +276,19 @@ const startsLabel = computed(() => (info.value ? format(parseISO(info.value.meet
                 <p class="text-xs text-muted-foreground">You join as a guest. Check your camera and microphone in the preview before you ask.</p>
               </form>
             </template>
+
+            <div
+              v-if="showSignupCta"
+              class="space-y-2 border-t border-dashed border-border pt-4"
+            >
+              <p class="text-[13px] font-medium">Like how this works?</p>
+              <p class="text-xs text-muted-foreground">
+                Start a free Vector workspace for your own team — same workday loop: standup, tasks, meetings, messages.
+              </p>
+              <Button variant="outline" class="w-full" as-child>
+                <RouterLink :to="signupTo"><Building2 /> {{ signupLabel }} <ArrowRight /></RouterLink>
+              </Button>
+            </div>
           </section>
         </template>
       </main>
