@@ -15,12 +15,15 @@ import { consumeStartDayQuery } from '../composables/useStartDayHighlight'
 import { bucketOf } from '../my-work'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import DailyBriefingCard from './DailyBriefingCard.vue'
+import HabitNudgeBanner from './HabitNudgeBanner.vue'
 import HomeDayLoop from './HomeDayLoop.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
 import HomeTodayPanel from './HomeTodayPanel.vue'
 import PlanUnlocksCard from './PlanUnlocksCard.vue'
 import QuickCapture from './QuickCapture.vue'
 import SetupChecklist from './SetupChecklist.vue'
+import TeamDensityCard from './TeamDensityCard.vue'
+import WeeklyPulseCard from './WeeklyPulseCard.vue'
 
 type Segment = 'today' | 'upcoming' | 'anytime' | 'done'
 
@@ -81,13 +84,17 @@ async function complete(issue: Issue) {
     </div>
 
     <SetupChecklist v-if="data" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
+    <HabitNudgeBanner v-if="data?.habitNudge" :nudge="data.habitNudge" />
+    <TeamDensityCard v-if="data" :data="data" />
     <CreateProjectDialog v-model:open="isCreateProjectOpen" />
 
     <QuickCapture stacked />
 
     <HomeDayLoop v-if="data" :data="data" :highlight="startDay" />
+    <PlanUnlocksCard />
     <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
     <HomeFocusCards v-if="data" :data="data" />
+    <WeeklyPulseCard v-if="data" :data="data" />
     <DailyBriefingCard />
 
     <div class="grid w-full grid-cols-4 gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Task groups">
@@ -123,7 +130,5 @@ async function complete(issue: Issue) {
         <IssueCard :issue="issue" show-project completable @open="openIssue" @complete="complete" />
       </li>
     </ul>
-
-    <PlanUnlocksCard />
   </div>
 </template>

@@ -24,9 +24,15 @@ const keys = computed(() => {
 const primary = computed(() => keys.value[0] ?? null)
 const title = computed(() => (primary.value ? featureLabel(primary.value) : 'This feature'))
 const plan = computed(() => auth.organization?.entitlements?.planName ?? 'current plan')
+const fromLoop = computed(() => route.query.from === 'loop')
+const loopStep = computed(() => (typeof route.query.step === 'string' ? route.query.step : null))
 
 const description = computed(() => {
   const detail = PLAN_FEATURES.find((feature) => feature.key === primary.value)?.description
+  if (fromLoop.value) {
+    const step = loopStep.value ? ` for ${loopStep.value}` : ''
+    return `This step${step} is part of Vector’s workday loop. Upgrade unlocks it for everyone in ${auth.organization?.name ?? 'your organization'}.`
+  }
   if (keys.value.length > 1) {
     return `Your ${plan.value} plan does not include ${keys.value.map(featureLabel).join(' or ')}. Upgrade to unlock collaboration for the whole organization.`
   }
@@ -54,7 +60,9 @@ const unlocks = computed(() =>
   <div class="mx-auto flex min-h-full w-full max-w-2xl flex-1 flex-col justify-center gap-6 p-6">
     <EmptyState :icon="Lock" :title="`${title} isn’t on your plan`" :description="description" class="py-8">
       <div class="flex flex-wrap justify-center gap-2">
-        <Button variant="outline" @click="router.push({ name: 'home' })">Back to Home</Button>
+        <Button variant="outline" @click="router.push(fromLoop ? { name: 'home', query: { startDay: '1' } } : { name: 'home' })">
+          {{ fromLoop ? 'Back to workday loop' : 'Back to Home' }}
+        </Button>
         <Button v-if="auth.isOrganizationAdmin" as-child>
           <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'plan' } }"><Sparkles /> View plan</RouterLink>
         </Button>

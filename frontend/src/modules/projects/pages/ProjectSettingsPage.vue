@@ -24,7 +24,8 @@ const SECTIONS: SettingsSection[] = [
   { value: 'labels', label: 'Labels', icon: Tags },
   { value: 'smart-defaults', label: 'Smart defaults', icon: Wand2 },
 ]
-const activeSection = ref('general')
+const tab = typeof route.query.tab === 'string' ? route.query.tab : ''
+const activeSection = ref(SECTIONS.some((section) => section.value === tab) ? tab : 'general')
 </script>
 
 <template>

@@ -21,6 +21,7 @@ const PUSH_TYPES = new Set([
   'standup_digest',
   'standup_blocker',
   'due_soon',
+  'workday_nudge',
 ]);
 
 /**

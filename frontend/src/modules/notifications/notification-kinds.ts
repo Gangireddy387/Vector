@@ -10,6 +10,7 @@ import {
   MessageSquare,
   MessagesSquare,
   Rocket,
+  Sunrise,
   UserPlus,
   Video,
   VideoOff,
@@ -44,6 +45,9 @@ const KINDS: Record<string, KindStyle> = {
   meeting_invite: { label: 'Meeting', icon: Video, tone: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },
   meeting_cancelled: { label: 'Meeting cancelled', icon: VideoOff, tone: 'bg-slate-500/15 text-slate-600 dark:text-slate-300' },
   meeting_reminder: { label: 'Meeting soon', icon: AlarmClock, tone: 'bg-rose-500/15 text-rose-600 dark:text-rose-400' },
+  standup_reminder: { label: 'Standup', icon: Sunrise, tone: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+  standup_digest: { label: 'Standup rollup', icon: Sunrise, tone: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
+  workday_nudge: { label: 'Workday', icon: Sunrise, tone: 'bg-primary/15 text-primary' },
 }
 const FALLBACK: KindStyle = { label: 'Update', icon: Bell, tone: 'bg-primary/10 text-primary' }
 
@@ -63,7 +67,12 @@ export const INBOX_FILTERS: Array<{ value: InboxFilter; label: string; icon: Com
     icon: CircleCheck,
     types: ['status_changed', 'commented', 'sprint_started', 'sprint_completed', 'member_added', 'automation', 'chat_task', 'meeting_invite', 'meeting_cancelled'],
   },
-  { value: 'reminders', label: 'Reminders', icon: AlarmClock, types: ['due_soon', 'standup_blocker', 'meeting_reminder'] },
+  {
+    value: 'reminders',
+    label: 'Reminders',
+    icon: AlarmClock,
+    types: ['due_soon', 'standup_blocker', 'meeting_reminder', 'standup_reminder', 'standup_digest', 'workday_nudge'],
+  },
   { value: 'support', label: 'Vector team', icon: MessageCircle, types: ['support_message'] },
 ]
 

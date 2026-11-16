@@ -1,9 +1,20 @@
 import { Op } from 'sequelize';
-import { Issue, Meeting, MeetingParticipant, ProjectMember, Sprint, StandupUpdate, Status, User } from '../../database/models.js';
+import {
+  Issue,
+  Meeting,
+  MeetingParticipant,
+  OrganizationMember,
+  ProjectMember,
+  Sprint,
+  StandupUpdate,
+  Status,
+  User,
+} from '../../database/models.js';
 import { addDays, toDateOnly } from '../../shared/utils/query.js';
-import { localDateTime } from '../../shared/utils/timezone.js';
+import { addDaysToDate, localDateTime } from '../../shared/utils/timezone.js';
 import { listProjectsActivity } from '../activity/activity.service.js';
 import { listMyWork } from '../issues/issue.service.js';
+import { WORKDAY_NUDGE_DAYS } from '../notifications/workday-nudge.constants.js';
 import { projectHasFeature } from '../plans/plan.service.js';
 import { getMemberProjectIds } from '../projects/project-access.js';
 import { listProjects } from '../projects/project.service.js';
@@ -31,7 +42,7 @@ async function activeSprintProgress(projectIds) {
 }
 
 /** Projects where the person still needs to post today's standup (chat on the plan). */
-async function standupPendingFor(userId, projects) {
+export async function standupPendingFor(userId, projects) {
   if (!projects.length) return [];
   const user = await User.findByPk(userId, { attributes: ['timezone'] });
   const today = localDateTime(user?.timezone ?? 'UTC').date;
@@ -86,6 +97,17 @@ async function openMeetingActions(userId, organizationId) {
     .slice(0, 8);
 }
 
+/** Projects the person leads or admins (for rollup / pulse / density). */
+async function leadProjectsFor(userId, projects) {
+  const leadProjects = [];
+  for (const project of projects) {
+    const isLead = project.leadId === userId;
+    const membership = await ProjectMember.findOne({ where: { projectId: project.id, userId }, attributes: ['role'] });
+    if (isLead || membership?.role === 'admin') leadProjects.push(project);
+  }
+  return leadProjects;
+}
+
 /**
  * Cross-project standup rollup for project admins and project leads: who posted today, who is missing, blockers.
  */
@@ -122,9 +144,7 @@ async function standupRollupFor(userId, projects) {
         user: row.user?.toJSON?.() ?? row.user,
         blockers: row.blockers,
       }));
-    const postedPeople = updates
-      .filter((row) => row.user)
-      .map((row) => row.user.toJSON?.() ?? row.user);
+    const postedPeople = updates.filter((row) => row.user).map((row) => row.user.toJSON?.() ?? row.user);
     rollup.push({
       projectId: project.id,
       projectName: project.name,
@@ -138,10 +158,125 @@ async function standupRollupFor(userId, projects) {
       blockers,
     });
   }
-  // Needs attention first, then by how incomplete.
   return rollup.sort(
     (a, b) => b.blockers.length - a.blockers.length || b.missing.length - a.missing.length || a.projectName.localeCompare(b.projectName),
   );
+}
+
+/** Thin projects (< 3 members) the person can invite into. */
+async function densityHintsFor(userId, projects) {
+  const leadProjects = await leadProjectsFor(userId, projects);
+  return leadProjects
+    .filter((project) => (project.memberCount ?? 0) < 3)
+    .map((project) => ({
+      projectId: project.id,
+      projectName: project.name,
+      projectColor: project.color,
+      memberCount: project.memberCount ?? 0,
+    }))
+    .slice(0, 4);
+}
+
+/** Last N weekdays ending at `today` (YYYY-MM-DD). */
+function recentWeekdays(today, count = 5) {
+  const dates = [];
+  let cursor = today;
+  while (dates.length < count) {
+    const day = new Date(`${cursor}T12:00:00Z`).getUTCDay();
+    if (day !== 0 && day !== 6) dates.push(cursor);
+    cursor = addDaysToDate(cursor, -1);
+  }
+  return dates;
+}
+
+/**
+ * Weekly team pulse for leads/admins: standup completion %, tasks closed, open meeting actions.
+ */
+async function weeklyPulseFor(userId, projects, meetingActions) {
+  const leadProjects = await leadProjectsFor(userId, projects);
+  if (!leadProjects.length) return null;
+
+  const user = await User.findByPk(userId, { attributes: ['timezone'] });
+  const today = localDateTime(user?.timezone ?? 'UTC').date;
+  const weekdays = recentWeekdays(today, 5);
+  const weekStart = weekdays[weekdays.length - 1];
+  const weekAgo = addDays(new Date(`${today}T12:00:00Z`), -7);
+  const projectIds = leadProjects.map((project) => project.id);
+
+  let standupPosted = 0;
+  let standupExpected = 0;
+  for (const project of leadProjects) {
+    if (!(await projectHasFeature(project.id, 'chat'))) continue;
+    const members = await ProjectMember.findAll({
+      where: { projectId: project.id, role: { [Op.ne]: 'viewer' } },
+      include: [{ model: User, as: 'user', attributes: ['id', 'status'] }],
+    });
+    const active = members.filter((row) => row.user && row.user.status !== 'disabled');
+    const updates = await StandupUpdate.findAll({
+      where: { projectId: project.id, date: { [Op.in]: weekdays } },
+      attributes: ['userId', 'date'],
+    });
+    const postedPairs = new Set(updates.map((row) => `${row.userId}:${row.date}`));
+    standupExpected += active.length * weekdays.length;
+    for (const member of active) {
+      for (const date of weekdays) {
+        if (postedPairs.has(`${member.userId}:${date}`)) standupPosted += 1;
+      }
+    }
+  }
+
+  const closed = await Issue.count({
+    where: {
+      projectId: projectIds,
+      completedAt: { [Op.gte]: weekAgo },
+    },
+  });
+
+  const meetingActionsOpen = meetingActions.reduce((sum, item) => sum + item.openCount, 0);
+  const standupPct = standupExpected ? Math.round((standupPosted / standupExpected) * 100) : null;
+
+  return {
+    weekStart,
+    weekEnd: today,
+    standupPct,
+    standupPosted,
+    standupExpected,
+    tasksClosed: closed,
+    meetingActionsOpen,
+    projectCount: leadProjects.length,
+  };
+}
+
+/** In-app habit banner when the person is on membership day 2 or 7 and still has workday work. */
+async function habitNudgeFor(userId, standupPending, stats) {
+  const user = await User.findByPk(userId, { attributes: ['timezone', 'preferences'] });
+  if (!user) return null;
+  const local = localDateTime(user.timezone);
+  const membership = await OrganizationMember.findOne({
+    where: { userId, status: 'active' },
+    order: [['createdAt', 'ASC']],
+    attributes: ['createdAt'],
+  });
+  if (!membership) return null;
+  const joinedOn = localDateTime(user.timezone, membership.createdAt).date;
+  const day =
+    Math.round(
+      (new Date(`${local.date}T12:00:00Z`).getTime() - new Date(`${joinedOn}T12:00:00Z`).getTime()) / 86_400_000,
+    );
+  if (!WORKDAY_NUDGE_DAYS.includes(day)) return null;
+
+  const reasons = [];
+  if (standupPending.length) reasons.push('standup');
+  if (stats.overdue) reasons.push('overdue');
+  if (stats.dueToday) reasons.push('dueToday');
+  if (!reasons.length) return null;
+
+  return {
+    day,
+    title: day === 2 ? 'Day 2 — Start my day' : 'Day 7 — Keep the loop going',
+    reasons,
+    standupPending: standupPending.slice(0, 1),
+  };
 }
 
 export async function getDashboard(userId) {
@@ -165,15 +300,23 @@ export async function getDashboard(userId) {
     standupRollupFor(userId, projects),
   ]);
 
+  const stats = {
+    open: open.length,
+    inProgress: open.filter((issue) => issue.status.category === 'in_progress').length,
+    overdue: open.filter((issue) => issue.dueDate && issue.dueDate < today).length,
+    dueToday: open.filter((issue) => issue.dueDate === today).length,
+    dueThisWeek: open.filter((issue) => issue.dueDate && issue.dueDate >= today && issue.dueDate <= weekEnd).length,
+    completedThisWeek: myWork.filter((issue) => issue.completedAt && new Date(issue.completedAt) >= weekAgo).length,
+  };
+
+  const [densityHints, weeklyPulse, habitNudge] = await Promise.all([
+    densityHintsFor(userId, projects),
+    weeklyPulseFor(userId, projects, meetingActions),
+    habitNudgeFor(userId, standupPending, stats),
+  ]);
+
   return {
-    stats: {
-      open: open.length,
-      inProgress: open.filter((issue) => issue.status.category === 'in_progress').length,
-      overdue: open.filter((issue) => issue.dueDate && issue.dueDate < today).length,
-      dueToday: open.filter((issue) => issue.dueDate === today).length,
-      dueThisWeek: open.filter((issue) => issue.dueDate && issue.dueDate >= today && issue.dueDate <= weekEnd).length,
-      completedThisWeek: myWork.filter((issue) => issue.completedAt && new Date(issue.completedAt) >= weekAgo).length,
-    },
+    stats,
     myWork,
     projects,
     activeSprints: sprints.map((sprint) => ({ ...sprint, project: projects.find((project) => project.id === sprint.projectId) ?? null })),
@@ -181,5 +324,8 @@ export async function getDashboard(userId) {
     standupPending,
     meetingActions,
     standupRollup,
+    densityHints,
+    weeklyPulse,
+    habitNudge,
   };
 }

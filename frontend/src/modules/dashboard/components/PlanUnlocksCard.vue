@@ -27,7 +27,7 @@ const show = computed(() => lockedCore.value.length >= 1)
     </header>
     <div class="space-y-3 px-4 py-3">
       <p class="text-[12.5px] text-muted-foreground">
-        Vector’s workday loop needs chat, standup, Messages and meetings. What’s locked below isn’t missing — it’s gated until an admin upgrades.
+        Mid-loop gates aren’t dead ends — standup, Messages and meetings unlock on Pro so the whole org can run the same workday.
       </p>
       <CollabGuide dense />
       <div class="flex flex-wrap gap-2">

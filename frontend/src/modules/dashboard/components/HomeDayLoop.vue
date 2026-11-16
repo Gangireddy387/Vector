@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ClipboardList, ListTodo, MessageCircle, Play, Video } from 'lucide-vue-next'
+import { ClipboardList, Gem, Lock, ListTodo, MessageCircle, Play, Video } from 'lucide-vue-next'
 import { computed, onMounted, useTemplateRef } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import { Button } from '@/components/ui/button'
+import { featureLabel, type PlanFeatureKey } from '@/lib/plan-features'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useMessagesStore } from '@/modules/messages/messages.store'
 import type { DashboardData } from '../dashboard.api'
@@ -37,6 +38,8 @@ type Step = {
   done: boolean
   urgent: boolean
   show: boolean
+  locked?: boolean
+  unlockFeature?: PlanFeatureKey | PlanFeatureKey[]
 }
 
 const steps = computed<Step[]>(() => {
@@ -70,10 +73,12 @@ const steps = computed<Step[]>(() => {
         ? { name: 'project-standup', params: { projectId: firstStandup.projectId }, query: { date: firstStandup.date } }
         : showStandup.value
           ? { name: 'home' }
-          : { name: 'feature-locked', query: { feature: 'chat' } },
+          : { name: 'feature-locked', query: { feature: 'chat', from: 'loop', step: 'standup' } },
       done: showStandup.value && !standupDue,
       urgent: standupDue,
       show: true,
+      locked: !showStandup.value,
+      unlockFeature: 'chat',
     },
     {
       key: 'tasks',
@@ -95,13 +100,15 @@ const steps = computed<Step[]>(() => {
           : 'On Pro',
       icon: Video,
       to: !showMeetings.value
-        ? { name: 'feature-locked', query: { feature: 'meetings' } }
+        ? { name: 'feature-locked', query: { feature: 'meetings', from: 'loop', step: 'meetings' } }
         : openActions && meetingActions.value[0]
           ? { name: 'meeting-room', params: { meetingId: meetingActions.value[0].meetingId }, query: { focus: 'actions' } }
           : { name: 'meetings' },
       done: showMeetings.value && openActions === 0,
       urgent: openActions > 0,
       show: true,
+      locked: !showMeetings.value,
+      unlockFeature: 'meetings',
     },
     {
       key: 'messages',
@@ -110,10 +117,12 @@ const steps = computed<Step[]>(() => {
       icon: MessageCircle,
       to: showMessages.value
         ? { name: 'messages' }
-        : { name: 'feature-locked', query: { feature: ['directMessages', 'teamChat'] } },
+        : { name: 'feature-locked', query: { feature: ['directMessages', 'teamChat'], from: 'loop', step: 'messages' } },
       done: showMessages.value && unread.value === 0,
       urgent: unread.value > 0,
       show: true,
+      locked: !showMessages.value,
+      unlockFeature: ['directMessages', 'teamChat'],
     },
   ]
 })
@@ -121,6 +130,17 @@ const steps = computed<Step[]>(() => {
 const next = computed(() => steps.value.find((step) => step.urgent) ?? steps.value.find((step) => !step.done) ?? null)
 const doneCount = computed(() => steps.value.filter((step) => step.done).length)
 const allDone = computed(() => doneCount.value === steps.value.length)
+const lockedSteps = computed(() => steps.value.filter((step) => step.locked))
+const unlockLabel = computed(() => {
+  const features = lockedSteps.value.flatMap((step) => {
+    const key = step.unlockFeature
+    return Array.isArray(key) ? key : key ? [key] : []
+  })
+  const unique = [...new Set(features)]
+  if (!unique.length) return ''
+  if (unique.length === 1) return featureLabel(unique[0]!)
+  return unique.map(featureLabel).join(' · ')
+})
 const ctaLabel = computed(() => {
   if (allDone.value) return 'Workday clear'
   if (!next.value) return 'Start my day'
@@ -190,7 +210,13 @@ const ctaLabel = computed(() => {
             <span class="text-[11px] font-medium text-muted-foreground tabular-nums">{{ index + 1 }}</span>
             <span class="text-[13px] font-semibold">{{ step.label }}</span>
             <span
-              v-if="step.urgent"
+              v-if="step.locked"
+              class="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground"
+            >
+              <Lock class="mr-0.5 inline size-2.5" /> Pro
+            </span>
+            <span
+              v-else-if="step.urgent"
               class="ml-auto rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary"
             >
               Now
@@ -206,5 +232,24 @@ const ctaLabel = computed(() => {
         </RouterLink>
       </li>
     </ol>
+
+    <div
+      v-if="lockedSteps.length"
+      class="flex flex-col gap-2 border-t border-dashed border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center"
+    >
+      <p class="min-w-0 flex-1 text-[12px] text-muted-foreground">
+        <Lock class="mr-1 inline size-3 align-text-bottom" />
+        Unlock {{ unlockLabel }} to complete the full workday loop
+        {{ auth.isOrganizationAdmin ? ' — upgrade once for the whole org.' : ' — ask an admin to upgrade.' }}
+      </p>
+      <Button v-if="auth.isOrganizationAdmin" size="sm" class="shrink-0" as-child>
+        <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'plan' } }"><Gem /> Upgrade plan</RouterLink>
+      </Button>
+      <Button v-else size="sm" variant="outline" class="shrink-0" as-child>
+        <RouterLink :to="{ name: 'feature-locked', query: { feature: lockedSteps[0]?.unlockFeature, from: 'loop' } }">
+          What’s locked
+        </RouterLink>
+      </Button>
+    </div>
   </section>
 </template>

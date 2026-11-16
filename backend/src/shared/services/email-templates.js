@@ -395,3 +395,17 @@ export const dailyDigestEmail = ({ name, sections }) => ({
     footer: 'Turn off the daily digest in Settings → Notifications.',
   }),
 });
+
+/** Day-2 / day-7 habit nudge: get them back into the workday loop. */
+export const workdayNudgeEmail = ({ name, day, reasons, link }) => ({
+  subject: day === 2 ? 'Day 2 on Vector — Start my day' : 'Day 7 on Vector — Keep the workday loop going',
+  html: renderLayout({
+    preheader: reasons.join(' · '),
+    eyebrow: day === 2 ? 'Day 2' : 'Day 7',
+    heading: `${name}, your workday loop is waiting`,
+    intro: `<p style="margin:0">Teams that run standup → tasks → meetings → messages stick with Vector. Right now: <strong>${escapeHtml(reasons.join(' · '))}</strong>.</p>`,
+    actionLabel: 'Start my day',
+    actionUrl: appUrl(link || '/?startDay=1'),
+    footer: 'You’re getting this because you’re building a habit in Vector. Manage email notifications in Settings → Notifications.',
+  }),
+});

@@ -39,12 +39,15 @@ import { consumeStartDayQuery } from '../composables/useStartDayHighlight'
 import { useTodayAgenda } from '../composables/useTodayAgenda'
 import { groupMyWork } from '../my-work'
 import DailyBriefingCard from './DailyBriefingCard.vue'
+import HabitNudgeBanner from './HabitNudgeBanner.vue'
 import HomeDayLoop from './HomeDayLoop.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
 import HomeTodayPanel from './HomeTodayPanel.vue'
 import PlanUnlocksCard from './PlanUnlocksCard.vue'
 import QuickCapture from './QuickCapture.vue'
 import SetupChecklist from './SetupChecklist.vue'
+import TeamDensityCard from './TeamDensityCard.vue'
+import WeeklyPulseCard from './WeeklyPulseCard.vue'
 
 const auth = useAuthStore()
 const ui = useUiStore()
@@ -152,12 +155,16 @@ const daysLeft = (endDate: string | null) => {
     </header>
 
     <SetupChecklist v-if="data" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
+    <HabitNudgeBanner v-if="data?.habitNudge" :nudge="data.habitNudge" />
+    <TeamDensityCard v-if="data" :data="data" />
 
     <QuickCapture />
 
     <HomeDayLoop v-if="data" :data="data" :highlight="startDay" />
+    <PlanUnlocksCard />
     <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
     <HomeFocusCards v-if="data" :data="data" />
+    <WeeklyPulseCard v-if="data" :data="data" />
     <DailyBriefingCard />
 
     <Skeleton v-if="isLoading" class="h-[86px] w-full rounded-xl" />
@@ -357,8 +364,6 @@ const daysLeft = (endDate: string | null) => {
         </div>
       </div>
     </template>
-
-    <PlanUnlocksCard />
 
     <CreateProjectDialog v-model:open="isCreateProjectOpen" />
     <ScheduleMeetingSheet v-if="canSchedule" v-model:target="meetingSheet" @saved="agenda.reload()" />

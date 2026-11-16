@@ -31,6 +31,31 @@ export interface StandupRollupItem {
   blockers: Array<{ user: UserSummary; blockers: string }>
 }
 
+export interface DensityHint {
+  projectId: string
+  projectName: string
+  projectColor: string
+  memberCount: number
+}
+
+export interface WeeklyPulse {
+  weekStart: string
+  weekEnd: string
+  standupPct: number | null
+  standupPosted: number
+  standupExpected: number
+  tasksClosed: number
+  meetingActionsOpen: number
+  projectCount: number
+}
+
+export interface HabitNudge {
+  day: 2 | 7
+  title: string
+  reasons: string[]
+  standupPending: StandupPendingItem[]
+}
+
 export interface DashboardData {
   stats: { open: number; inProgress: number; overdue: number; dueToday: number; dueThisWeek: number; completedThisWeek: number }
   myWork: Issue[]
@@ -40,6 +65,9 @@ export interface DashboardData {
   standupPending: StandupPendingItem[]
   meetingActions: MeetingActionHomeItem[]
   standupRollup: StandupRollupItem[]
+  densityHints?: DensityHint[]
+  weeklyPulse?: WeeklyPulse | null
+  habitNudge?: HabitNudge | null
 }
 
 export const dashboardApi = {
