@@ -77,7 +77,12 @@ export const countUnread = (userId) => Notification.count({ where: { userId, rea
 export async function markRead(userId, notificationId) {
   const notification = await Notification.findOne({ where: { id: notificationId, userId } });
   if (!notification) throw ApiError.notFound('Notification not found');
-  if (!notification.readAt) await notification.update({ readAt: new Date() });
+  if (!notification.readAt) {
+    await notification.update({ readAt: new Date() });
+    if (notification.type === 'workday_nudge') {
+      console.info(`[nudge] opened workday_nudge ${notification.id} user=${userId}`);
+    }
+  }
   return notification;
 }
 

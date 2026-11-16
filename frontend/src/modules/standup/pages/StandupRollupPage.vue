@@ -12,6 +12,7 @@ import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type DashboardData, type StandupRollupItem, dashboardApi } from '@/modules/dashboard/dashboard.api'
+import BlockerPersonActions from '../components/BlockerPersonActions.vue'
 
 const auth = useAuthStore()
 const { isDesktop } = useDevice()
@@ -128,9 +129,15 @@ const percent = (row: StandupRollupItem) => (row.expected ? Math.round((row.post
             <div v-if="row.blockers.length">
               <p class="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-destructive"><AlertTriangle class="size-3.5" /> Blockers</p>
               <ul class="space-y-2">
-                <li v-for="(item, index) in row.blockers" :key="`${row.projectId}-${index}`" class="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2">
+                <li v-for="(item, index) in row.blockers" :key="`${row.projectId}-${index}`" class="space-y-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2">
                   <p class="flex items-center gap-2 text-[12.5px] font-medium"><UserAvatar :user="item.user" size="xs" /> {{ item.user.name }}</p>
-                  <p class="mt-1 whitespace-pre-wrap text-[12.5px] text-muted-foreground">{{ item.blockers }}</p>
+                  <p class="whitespace-pre-wrap text-[12.5px] text-muted-foreground">{{ item.blockers }}</p>
+                  <BlockerPersonActions
+                    v-if="item.user.id !== auth.user?.id"
+                    :user="item.user"
+                    :project-id="row.projectId"
+                    :blocker-text="item.blockers"
+                  />
                 </li>
               </ul>
             </div>

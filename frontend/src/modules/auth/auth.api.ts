@@ -71,7 +71,14 @@ export const authApi = {
 export const organizationsApi = {
   checkSlug: (slug: string) => http.get<SlugCheck>('/organizations/check-slug', { params: { slug } }).then((r) => r.data),
   publicInfo: (slug: string) =>
-    http.get<{ organization: Required<Pick<WorkspaceSettings, 'name' | 'slug' | 'defaultMode'>> }>(`/organizations/by-slug/${slug}`).then((r) => r.data.organization),
+    http
+      .get<{
+        organization: Required<Pick<WorkspaceSettings, 'name' | 'slug' | 'defaultMode'>> & {
+          brandColor?: string | null
+          logoUrl?: string | null
+        }
+      }>(`/organizations/by-slug/${slug}`)
+      .then((r) => r.data.organization),
   create: (payload: { name: string; slug: string }) => http.post<SessionState>('/organizations', payload).then((r) => r.data),
   switchTo: (organizationId: string) => http.post<SessionState>(`/organizations/${organizationId}/switch`).then((r) => r.data),
 }

@@ -288,6 +288,9 @@ const signupLabel = computed(() =>
               <Button variant="outline" class="w-full" as-child>
                 <RouterLink :to="signupTo"><Building2 /> {{ signupLabel }} <ArrowRight /></RouterLink>
               </Button>
+              <Button variant="ghost" class="w-full" size="sm" as-child>
+                <RouterLink :to="{ name: 'workday-preview' }">See the workday loop</RouterLink>
+              </Button>
             </div>
           </section>
         </template>

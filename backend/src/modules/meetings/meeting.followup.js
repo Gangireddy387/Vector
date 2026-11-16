@@ -36,7 +36,9 @@ function chatRecap(meeting, summary, link) {
     summary?.text ?? 'The notes from the meeting are ready.',
     summary?.decisions?.length ? `**Decisions**\n${summary.decisions.map((text) => `- ${text}`).join('\n')}` : '',
     summary?.actionItems?.length ? `**Action items**\n${summary.actionItems.map(bullet).join('\n')}` : '',
-    `[Open the meeting](${link})`,
+    summary?.actionItems?.some((item) => item?.text && !item.issue)
+      ? `[Turn action items into tasks](${link}?focus=actions)`
+      : `[Open the meeting](${link})`,
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -59,7 +61,7 @@ export async function sendRecap(meetingId) {
     type: 'meeting_recap',
     title: `Recap: “${meeting.title}”`,
     body: summary?.text?.slice(0, 200) || (recordings ? 'The recording and notes are ready.' : 'The notes from the meeting are ready.'),
-    link: `/meetings/${meeting.id}`,
+    link: `/meetings/${meeting.id}?focus=actions`,
     email: false,
   });
 
@@ -79,7 +81,7 @@ export async function sendRecap(meetingId) {
               mine: items.filter((item) => item.ownerId === person.id),
               others: items.filter((item) => item.ownerId !== person.id),
               recordings,
-              link: appUrl(path),
+              link: appUrl(`${path}?focus=actions`),
             }),
           }).catch((error) => console.warn('[meetings] could not email a recap:', error.message)),
         ),

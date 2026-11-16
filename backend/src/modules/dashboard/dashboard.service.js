@@ -61,36 +61,47 @@ export async function standupPendingFor(userId, projects) {
 }
 
 /**
- * Recent ended meetings with open action items (not yet turned into tasks) the person was in.
- * Used on Home so follow-ups do not die in the recap.
+ * Recent ended meetings with open action items (not yet turned into tasks).
+ * Hosts and participants both see them on Home so “Meeting → tasks” is one click.
  */
 async function openMeetingActions(userId, organizationId) {
   const participated = await MeetingParticipant.findAll({ where: { userId }, attributes: ['meetingId'], raw: true });
-  const ids = participated.map((row) => row.meetingId);
-  if (!ids.length) return [];
+  const participantIds = participated.map((row) => row.meetingId);
   const meetings = await Meeting.findAll({
     where: {
-      id: ids,
       organizationId,
       status: 'ended',
       summary: { [Op.ne]: null },
+      [Op.or]: [{ hostId: userId }, ...(participantIds.length ? [{ id: participantIds }] : [])],
     },
-    attributes: ['id', 'title', 'endedAt', 'summary', 'contextType', 'contextId'],
+    attributes: ['id', 'title', 'endedAt', 'summary', 'contextType', 'contextId', 'hostId'],
     order: [['endedAt', 'DESC']],
     limit: 40,
   });
   return meetings
     .map((meeting) => {
-      const items = (meeting.summary?.actionItems ?? []).filter((item) => item?.text && !item.issue);
-      if (!items.length) return null;
+      const all = meeting.summary?.actionItems ?? [];
+      const open = all
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => item?.text && !item.issue);
+      if (!open.length) return null;
       return {
         meetingId: meeting.id,
         title: meeting.title,
         endedAt: meeting.endedAt,
-        openCount: items.length,
-        preview: items.slice(0, 3).map((item) => item.text),
+        openCount: open.length,
+        preview: open.slice(0, 3).map(({ item }) => item.text),
         contextType: meeting.contextType,
         contextId: meeting.contextId,
+        /** Enough for Home to create tasks without opening the room. */
+        items: open.map(({ item, index }) => ({
+          index,
+          text: item.text,
+          owner: item.owner ?? null,
+          ownerId: item.ownerId ?? null,
+          due: item.due ?? null,
+          priority: item.priority ?? null,
+        })),
       };
     })
     .filter(Boolean)

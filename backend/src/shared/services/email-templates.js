@@ -387,9 +387,11 @@ export const meetingRecapEmail = ({ title, when, organization, summary, mine = [
       heading: title,
       intro,
       details: [{ label: 'When', value: escapeHtml(when) }, ...(recordings ? [{ label: 'Recording', value: `${recordings} ${recordings === 1 ? 'recording' : 'recordings'} to watch` }] : [])],
-      actionLabel: 'Open the meeting',
+      actionLabel: mine.length || others.length ? 'Turn into tasks' : 'Open the meeting',
       actionUrl: link,
-      note: summary ? 'Written by the AI assistant from what was said and shared in the meeting. Check it before acting on it.' : null,
+      note: summary
+        ? 'Written by the AI assistant from what was said and shared in the meeting. Check it, then turn action items into owned tasks on Home or in the meeting.'
+        : null,
       footer: 'You received this recap because you were invited to this meeting. Manage email notifications in Settings → Notifications.',
     }),
   };

@@ -32,6 +32,7 @@ import { slugify } from '../../shared/utils/ids.js';
 import { removeFromStructure } from '../departments/department.service.js';
 import { assertWithinLimit, entitlementsFor, getDefaultPlan, usageFor } from '../plans/plan.service.js';
 import { createOneTimeToken } from '../auth/token.js';
+import { getWorkdayNudgeStats } from '../notifications/nudge-metrics.service.js';
 import { notifyUsers } from '../notifications/notification.service.js';
 import { sendMessage, superAdminIds } from '../support/support.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
@@ -50,6 +51,7 @@ const RESERVED_SLUGS = new Set([
   'board', 'backlog', 'chat', 'standup', 'progress', 'automation', 'team', 'teams', 'workspace', 'about', 'pricing', 'blog',
   'support-call', 'super-admin', 'superadmin', 'join', 'meetings', 'calendar', 'messages', 'departments',
   'super-admin', 'superadmin', 'pending-approval', 'calendar', 'messages', 'meetings',
+  'workday', 'preview',
 ]);
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
 
@@ -162,7 +164,13 @@ export async function switchOrganization(user, memberships, organizationId) {
 export async function getPublicOrganization(slug) {
   const organization = await Organization.findOne({ where: { slug: slugify(slug) } });
   if (!organization) throw ApiError.notFound('Organization not found');
-  return { name: organization.name, slug: organization.slug, defaultMode: organization.defaultMode, brandColor: organization.brandColor ?? null };
+  return {
+    name: organization.name,
+    slug: organization.slug,
+    defaultMode: organization.defaultMode,
+    brandColor: organization.brandColor ?? null,
+    logoUrl: organization.logoUrl ?? null,
+  };
 }
 
 // --- Settings & people of the current organization ---------------------------
@@ -196,6 +204,9 @@ export async function getPlanOverview(organization) {
     upgradeRequest: publicUpgradeRequest(organization),
   };
 }
+
+/** Retention ops: day-2 / day-7 workday nudge send vs open (readAt). */
+export const getWorkdayNudgeMetrics = (organizationId) => getWorkdayNudgeStats(organizationId);
 
 /**
  * Org admin requests Pro / more seats / more projects. Posts to Vector support, emails the portal,

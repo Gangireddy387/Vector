@@ -8,6 +8,15 @@ export interface StandupPendingItem {
   date: string
 }
 
+export interface MeetingActionHomeOpenItem {
+  index: number
+  text: string
+  owner: string | null
+  ownerId: string | null
+  due: string | null
+  priority: 'lowest' | 'low' | 'medium' | 'high' | 'highest' | null
+}
+
 export interface MeetingActionHomeItem {
   meetingId: string
   title: string
@@ -16,6 +25,8 @@ export interface MeetingActionHomeItem {
   preview: string[]
   contextType: string | null
   contextId: string | null
+  /** Open action items for one-click create from Home. */
+  items?: MeetingActionHomeOpenItem[]
 }
 
 export interface StandupRollupItem {

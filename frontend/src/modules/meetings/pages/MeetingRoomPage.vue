@@ -147,6 +147,8 @@ const searchFocus = computed(() => {
   return { at, in: route.query.in === 'chat' ? ('chat' as const) : ('transcript' as const) }
 })
 
+const highlightActions = computed(() => route.query.focus === 'actions')
+
 /** Home / list “Create tasks” deep-links with ?focus=actions. */
 watch(
   () => [meeting.value?.id, route.query.focus, isLoading.value] as const,
@@ -508,6 +510,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
             :recordings="recordings"
             :attendance="attendance"
             :focus="searchFocus"
+            :highlight-actions="highlightActions"
             :can-summarize="Boolean(capabilities?.summaries)"
             @summary="onSummary"
             @changed="load"

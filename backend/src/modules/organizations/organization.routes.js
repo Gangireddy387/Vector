@@ -30,6 +30,7 @@ organizationAdminRoutes.delete('/workspace', requireOrganizationAdmin, validate(
 organizationAdminRoutes.post('/workspace/logo', requireOrganizationAdmin, logoUpload, controller.uploadLogo);
 organizationAdminRoutes.delete('/workspace/logo', requireOrganizationAdmin, controller.removeLogo);
 organizationAdminRoutes.get('/workspace/plan', requireOrganization, controller.showPlan);
+organizationAdminRoutes.get('/workspace/metrics/workday-nudges', requireOrganizationAdmin, controller.showWorkdayNudgeMetrics);
 organizationAdminRoutes.post(
   '/workspace/plan/upgrade-request',
   requireOrganizationAdmin,

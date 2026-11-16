@@ -240,6 +240,7 @@ async function copySummary() {
           :issue-keys="issueKeys"
           :previous-date="day.previousDate"
           :is-me="member.user.id === auth.user?.id"
+          :project-id="projectId"
           @edit="editing = true"
         />
       </div>

@@ -95,7 +95,7 @@ const steps = computed<Step[]>(() => {
       key: 'meetings',
       label: 'Meetings',
       detail: openActions
-        ? `${openActions} action item${openActions === 1 ? '' : 's'} → tasks`
+        ? `${openActions} open → create tasks`
         : showMeetings.value
           ? 'No open follow-ups'
           : 'On Pro',

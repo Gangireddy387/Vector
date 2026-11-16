@@ -7,8 +7,15 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { formatDate } from '@/lib/format'
 import type { StandupIssue, StandupMember } from '../standup.api'
+import BlockerPersonActions from './BlockerPersonActions.vue'
 
-const props = defineProps<{ member: StandupMember; issueKeys: string[]; previousDate: string; isMe: boolean }>()
+const props = defineProps<{
+  member: StandupMember
+  issueKeys: string[]
+  previousDate: string
+  isMe: boolean
+  projectId: string
+}>()
 const emit = defineEmits<{ edit: [] }>()
 
 const update = computed(() => props.member.update)
@@ -48,9 +55,15 @@ const hasSignals = computed(() => Boolean(props.member.signals.completed.length 
           <p class="mb-1 text-xs font-medium text-muted-foreground">{{ section.label }}</p>
           <RichText :source="section.text" :issue-keys="issueKeys" compact />
         </div>
-        <div v-if="update.blockers" class="border border-destructive/30 bg-destructive/8 px-3 py-2">
-          <p class="mb-1 flex items-center gap-1.5 text-xs font-medium text-destructive"><CircleAlert class="size-3.5" /> Blocker</p>
+        <div v-if="update.blockers" class="space-y-2 border border-destructive/30 bg-destructive/8 px-3 py-2">
+          <p class="flex items-center gap-1.5 text-xs font-medium text-destructive"><CircleAlert class="size-3.5" /> Blocker</p>
           <RichText :source="update.blockers" :issue-keys="issueKeys" compact />
+          <BlockerPersonActions
+            v-if="!isMe"
+            :user="member.user"
+            :project-id="projectId"
+            :blocker-text="update.blockers"
+          />
         </div>
       </template>
       <p v-else class="text-sm text-muted-foreground">

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CircleCheck, ListTodo, SquareArrowOutUpRight } from 'lucide-vue-next'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { DatePicker, SelectField, type SelectFieldOption } from '@/components/forms'
 import { Button } from '@/components/ui/button'
@@ -8,16 +9,30 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { getErrorMessage } from '@/lib/http'
 import { useProjectsStore } from '@/modules/projects/projects.store'
+import { useUiStore } from '@/stores/ui.store'
 import { type Meeting, type MeetingActionItem, type MeetingSummary, meetingsApi } from '../meetings.api'
 
 /**
  * The summary's action items, ready to become tasks: pick which, check the title, owner and due date, choose the
  * project, and create them in one go. Items that already became tasks link to them.
  */
-const props = defineProps<{ meeting: Meeting; summary: MeetingSummary }>()
+const props = defineProps<{ meeting: Meeting; summary: MeetingSummary; /** Pulse Create when deep-linked from Home */ highlight?: boolean }>()
 const emit = defineEmits<{ summary: [summary: MeetingSummary] }>()
 const projects = useProjectsStore()
+const ui = useUiStore()
 const NOBODY = 'nobody'
+
+/** Two weekdays ahead when the AI left no due date. */
+function defaultDueDate() {
+  const d = new Date()
+  let added = 0
+  while (added < 2) {
+    d.setDate(d.getDate() + 1)
+    const day = d.getDay()
+    if (day !== 0 && day !== 6) added += 1
+  }
+  return d.toISOString().slice(0, 10)
+}
 
 interface Row {
   chosen: boolean
@@ -31,9 +46,15 @@ const projectId = ref<string | null>(props.meeting.context?.type === 'project' ?
 const isCreating = ref(false)
 
 function prepare() {
+  const fallbackDue = defaultDueDate()
   props.summary.actionItems.forEach((item, index) => {
     if (rows[index]) return
-    rows[index] = { chosen: !item.issue, title: item.text, assigneeId: item.ownerId ?? NOBODY, dueDate: item.due ?? '' }
+    rows[index] = {
+      chosen: !item.issue,
+      title: item.text,
+      assigneeId: item.ownerId ?? NOBODY,
+      dueDate: item.due ?? fallbackDue,
+    }
   })
 }
 watch(() => props.summary, prepare, { immediate: true })
@@ -67,8 +88,14 @@ async function create() {
   try {
     const result = await meetingsApi.createTasks(props.meeting.id, { projectId: projectId.value, items })
     emit('summary', result.summary)
+    ui.notifyIssuesChanged()
     toast.success(`Created ${result.created.length} ${result.created.length === 1 ? 'task' : 'tasks'}`, {
-      description: [result.created.map((task) => task.key).join(', '), result.unassigned.length ? 'Some owners are not in that project, so those tasks are unassigned.' : ''].filter(Boolean).join(' · '),
+      description: [
+        result.created.map((task) => task.key).join(', '),
+        result.unassigned.length ? 'Some owners are not in that project, so those tasks are unassigned.' : 'Owners and due dates applied.',
+      ]
+        .filter(Boolean)
+        .join(' · '),
     })
   } catch (error) {
     toast.error(getErrorMessage(error))
@@ -91,7 +118,12 @@ async function create() {
       </li>
     </ul>
 
-    <div v-if="open.length" class="space-y-2 border border-border/70 bg-muted/20 p-3">
+    <div
+      v-if="open.length"
+      class="space-y-2 border bg-muted/20 p-3"
+      :class="highlight ? 'border-primary ring-2 ring-primary/20' : 'border-border/70'"
+    >
+      <p v-if="highlight" class="text-xs font-medium text-primary">Turn these into owned tasks — review, then create.</p>
       <div v-for="{ item, index } in open" :key="index" class="grid gap-2 sm:grid-cols-[auto_1fr_10rem_9.5rem] sm:items-center">
         <Checkbox v-if="rows[index]" v-model="rows[index].chosen" :aria-label="`Create a task for ${item.text}`" />
         <Input v-if="rows[index]" v-model="rows[index].title" class="h-8 text-sm" maxlength="255" :disabled="!rows[index].chosen" :aria-label="`Title for ${item.text}`" />
@@ -116,7 +148,15 @@ async function create() {
           placeholder="Choose a project"
           @update:model-value="(value) => (projectId = value ?? null)"
         />
-        <Button variant="brand" size="sm" class="ml-auto" :loading="isCreating" :disabled="!chosenCount || !projectId" @click="create">
+        <Button
+          variant="brand"
+          size="sm"
+          class="ml-auto"
+          :class="highlight && 'ring-2 ring-primary/40'"
+          :loading="isCreating"
+          :disabled="!chosenCount || !projectId"
+          @click="create"
+        >
           <ListTodo /> Create {{ chosenCount }} {{ chosenCount === 1 ? 'task' : 'tasks' }}
         </Button>
       </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, FolderKanban, Gem, Minus, Users } from 'lucide-vue-next'
+import { Check, FolderKanban, Gem, Minus, Sunrise, Users } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
@@ -15,8 +15,25 @@ import RequestUpgradeButton from './RequestUpgradeButton.vue'
 const auth = useAuthStore()
 const route = useRoute()
 const overview = ref<Awaited<ReturnType<typeof workspaceApi.plan>> | null>(null)
+const nudgeStats = ref<Awaited<ReturnType<typeof workspaceApi.workdayNudgeMetrics>> | null>(null)
+const nudgeLoading = ref(true)
 
-const load = async () => (overview.value = await workspaceApi.plan())
+const emptyNudgeStats = {
+  sent: 0,
+  opened: 0,
+  openRate: 0,
+  byDay: {
+    '2': { sent: 0, opened: 0, openRate: 0 },
+    '7': { sent: 0, opened: 0, openRate: 0 },
+  },
+}
+
+const load = async () => {
+  overview.value = await workspaceApi.plan()
+  nudgeLoading.value = true
+  nudgeStats.value = await workspaceApi.workdayNudgeMetrics().catch(() => emptyNudgeStats)
+  nudgeLoading.value = false
+}
 onMounted(load)
 watch(() => auth.organization?.entitlements, load, { deep: true })
 
@@ -108,6 +125,46 @@ const usageRows = computed(() => {
               <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'support' } }">Open support</RouterLink>
             </Button>
           </div>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2"><Sunrise class="size-4 text-primary" /> Workday nudges</CardTitle>
+        <CardDescription>
+          Day 2 and day 7 habit reminders. Open rate is in-app notifications marked read — not email opens.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div v-if="nudgeLoading && !nudgeStats" class="grid gap-3 sm:grid-cols-3"><Skeleton v-for="index in 3" :key="index" class="h-16" /></div>
+        <div v-else class="space-y-3">
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div class="border border-border/70 p-3">
+              <p class="text-xs text-muted-foreground">Sent</p>
+              <p class="mt-1 text-xl font-semibold tabular-nums">{{ nudgeStats?.sent ?? 0 }}</p>
+            </div>
+            <div class="border border-border/70 p-3">
+              <p class="text-xs text-muted-foreground">Opened</p>
+              <p class="mt-1 text-xl font-semibold tabular-nums">{{ nudgeStats?.opened ?? 0 }}</p>
+            </div>
+            <div class="border border-border/70 p-3">
+              <p class="text-xs text-muted-foreground">Open rate</p>
+              <p class="mt-1 text-xl font-semibold tabular-nums">{{ nudgeStats?.openRate ?? 0 }}%</p>
+            </div>
+          </div>
+          <ul class="grid gap-2 sm:grid-cols-2">
+            <li v-for="day in ['2', '7']" :key="day" class="flex items-center justify-between border border-border/70 px-3 py-2 text-sm">
+              <span class="font-medium">Day {{ day }}</span>
+              <span class="tabular-nums text-muted-foreground">
+                {{ nudgeStats?.byDay[day]?.opened ?? 0 }}/{{ nudgeStats?.byDay[day]?.sent ?? 0 }}
+                · {{ nudgeStats?.byDay[day]?.openRate ?? 0 }}%
+              </span>
+            </li>
+          </ul>
+          <p v-if="(nudgeStats?.sent ?? 0) === 0" class="text-xs text-muted-foreground">
+            No day-2/day-7 nudges sent yet for this org. Numbers fill in after those reminders go out.
+          </p>
         </div>
       </CardContent>
     </Card>

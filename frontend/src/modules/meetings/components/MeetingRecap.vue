@@ -36,8 +36,10 @@ const props = withDefaults(
     attendance?: AttendanceEntry[] | null
     /** A moment to show (from search): the transcript or chat scrolls to it and it is highlighted. */
     focus?: { at: string; in: 'transcript' | 'chat' } | null
+    /** Deep-link from Home “Meeting → tasks” (?focus=actions). */
+    highlightActions?: boolean
   }>(),
-  { attendance: null, focus: null },
+  { attendance: null, focus: null, highlightActions: false },
 )
 const emit = defineEmits<{ summary: [summary: MeetingSummary]; changed: [] }>()
 const confirm = useConfirm()
@@ -69,6 +71,13 @@ watch(
   sections,
   (list) => {
     if (list.length && !list.some((item) => item.value === section.value)) section.value = list[0]!.value
+  },
+  { immediate: true },
+)
+watch(
+  () => props.highlightActions,
+  (on) => {
+    if (on && sections.value.some((item) => item.value === 'summary')) section.value = 'summary'
   },
   { immediate: true },
 )
@@ -207,7 +216,13 @@ function downloadTranscript() {
             <li v-for="(decision, index) in meeting.summary.decisions" :key="index">{{ decision }}</li>
           </ul>
         </div>
-        <ActionItemsTasks v-if="meeting.summary.actionItems.length && meeting.status !== 'cancelled'" :meeting="meeting" :summary="meeting.summary" @summary="(value) => emit('summary', value)" />
+        <ActionItemsTasks
+          v-if="meeting.summary.actionItems.length && meeting.status !== 'cancelled'"
+          :meeting="meeting"
+          :summary="meeting.summary"
+          :highlight="highlightActions"
+          @summary="(value) => emit('summary', value)"
+        />
         <div v-if="chapters.length" class="space-y-1.5">
           <h3 class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><ListOrdered class="size-3.5" /> Chapters</h3>
           <ol class="space-y-1 text-sm">

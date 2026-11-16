@@ -10,6 +10,7 @@ import { dashboardRoutes } from '@/modules/dashboard/dashboard.routes'
 import { departmentRoutes } from '@/modules/departments/departments.routes'
 import { issueRoutes, projectIssueRoutes } from '@/modules/issues/issues.routes'
 import { legalRoutes } from '@/modules/legal/legal.routes'
+import { marketingRoutes } from '@/modules/marketing/marketing.routes'
 import { meetingGuestRoutes, meetingRoutes } from '@/modules/meetings/meetings.routes'
 import { messageRoutes } from '@/modules/messages/messages.routes'
 import { notificationRoutes } from '@/modules/notifications/notifications.routes'
@@ -138,6 +139,7 @@ const routes: RouteRecordRaw[] = [
     ],
   },
   ...legalRoutes,
+  ...marketingRoutes,
   ...meetingGuestRoutes,
   ...superAdminRoutes,
   ...supportCallRoutes,

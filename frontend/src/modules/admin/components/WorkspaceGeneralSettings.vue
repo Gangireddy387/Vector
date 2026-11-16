@@ -61,6 +61,15 @@ async function copyLink() {
   toast.success('Organization link copied')
 }
 
+/** Public viral preview — workday loop + org name, no private data. */
+async function copyInvitePreview() {
+  if (!workspace.settings.slug) return
+  await navigator.clipboard.writeText(`${window.location.origin}/invite/${workspace.settings.slug}`)
+  toast.success('Invite preview link copied', {
+    description: 'Share this to show your workday loop. People still need a real invite to join.',
+  })
+}
+
 // --- Danger zone ---------------------------------------------------------------
 const isDeleteOpen = ref(false)
 const confirmName = ref('')
@@ -106,6 +115,9 @@ async function deleteOrganization() {
           <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <Button type="submit" class="max-sm:w-full" :loading="isSaving" :disabled="!isDirty || form.name.trim().length < 2 || !slugAvailable">Save</Button>
             <Button type="button" variant="ghost" class="max-sm:w-full" :disabled="!workspace.settings.slug" @click="copyLink"><Copy /> Copy link</Button>
+            <Button type="button" variant="outline" class="max-sm:w-full" :disabled="!workspace.settings.slug" @click="copyInvitePreview">
+              <Copy /> Copy invite preview
+            </Button>
             <span v-if="form.slug !== workspace.settings.slug" class="text-xs text-muted-foreground">Old links that use the previous address stop working.</span>
           </div>
         </form>

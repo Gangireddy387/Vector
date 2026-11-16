@@ -65,6 +65,16 @@ export const workspaceApi = {
     http
       .post<{ upgradeRequest: UpgradeRequest; alreadyPending: boolean }>('/workspace/plan/upgrade-request', payload)
       .then((r) => r.data),
+  /** Day-2 / day-7 workday nudge open rates (in-app readAt). */
+  workdayNudgeMetrics: () =>
+    http
+      .get<{
+        sent: number
+        opened: number
+        openRate: number
+        byDay: Record<string, { sent: number; opened: number; openRate: number }>
+      }>('/workspace/metrics/workday-nudges')
+      .then((r) => r.data),
   uploadLogo: (image: Blob, fileName: string) => {
     const form = new FormData()
     form.append('logo', image, fileName)

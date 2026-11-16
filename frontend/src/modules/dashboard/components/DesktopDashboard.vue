@@ -163,7 +163,7 @@ const daysLeft = (endDate: string | null) => {
     <HomeDayLoop v-if="data" :data="data" :highlight="startDay" />
     <PlanUnlocksCard />
     <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
-    <HomeFocusCards v-if="data" :data="data" />
+    <HomeFocusCards v-if="data" :data="data" @changed="reload" />
     <WeeklyPulseCard v-if="data" :data="data" />
     <DailyBriefingCard />
 

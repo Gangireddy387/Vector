@@ -473,6 +473,24 @@ export async function writeSummary(viewer, meetingId) {
  * Turns action items from the summary into tasks in a project (anyone invited who may create tasks there). `items`:
  * [{ index, title, assigneeId, dueDate, priority }]; each action item becomes one task, once.
  */
+/** Two weekdays after a date (YYYY-MM-DD), skipping Sat/Sun — default due when AI left none. */
+function businessDaysAfter(from, days = 2) {
+  const d = new Date(`${toDateOnly(from)}T12:00:00Z`);
+  let added = 0;
+  while (added < days) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    const weekday = d.getUTCDay();
+    if (weekday !== 0 && weekday !== 6) added += 1;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+function toDateOnly(value) {
+  if (!value) return new Date().toISOString().slice(0, 10);
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  return new Date(value).toISOString().slice(0, 10);
+}
+
 export async function createActionItemTasks(viewer, meetingId, { projectId, items }) {
   const meeting = await loadMeeting(viewer, meetingId);
   const actionItems = meeting.summary?.actionItems ?? [];
@@ -480,25 +498,28 @@ export async function createActionItemTasks(viewer, meetingId, { projectId, item
   await assertProjectRole(projectId, viewer.id, 'member');
   const actor = await User.findByPk(viewer.id);
   const link = appUrl(await meetingUrl(meeting));
-  const day = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(meeting.startedAt ?? meeting.startsAt));
+  const anchor = meeting.startedAt ?? meeting.startsAt ?? meeting.endedAt ?? new Date();
+  const day = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(anchor));
+  const defaultDue = businessDaysAfter(anchor, 2);
   const created = [];
   const skipped = [];
   for (const item of items) {
     const target = actionItems[item.index];
     if (!target || target.issue) continue;
-    let assigneeId = item.assigneeId ?? null;
+    let assigneeId = item.assigneeId !== undefined ? item.assigneeId : (target.ownerId ?? null);
     if (assigneeId && !(await projectRoleOf(projectId, assigneeId))) {
-      skipped.push(item.title);
+      skipped.push(item.title || target.text);
       assigneeId = null;
     }
+    const dueDate = item.dueDate || target.due || defaultDue;
     const issue = await createIssue(
       {
         projectId,
-        title: item.title.trim().slice(0, 255) || target.text,
-        description: `From the meeting “${meeting.title}” on ${day}.\n\n[Open the meeting](${link})`,
+        title: (item.title ?? target.text).trim().slice(0, 255) || target.text,
+        description: `From the meeting “${meeting.title}” on ${day}.\n\n[Open the meeting](${link}?focus=actions)`,
         assigneeId,
-        dueDate: item.dueDate ?? null,
-        priority: item.priority ?? 'medium',
+        dueDate,
+        priority: item.priority ?? target.priority ?? 'medium',
       },
       actor,
       { source: 'meeting' },
