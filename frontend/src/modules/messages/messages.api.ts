@@ -183,9 +183,18 @@ export interface ChannelInput {
 export const messagesApi = {
   list: () => http.get<{ conversations: ConversationSummary[] }>('/conversations').then((r) => r.data.conversations),
   openDirect: (userId: string) => http.post<{ conversation: ConversationSummary }>('/conversations/direct', { userId }).then((r) => r.data.conversation),
-  /** `savedIds`: which of these messages you saved. */
-  get: (conversationId: string) =>
-    http.get<{ conversation: ConversationSummary; messages: ChatMessage[]; savedIds?: string[] }>(`/conversations/${conversationId}`).then((r) => r.data),
+  /** `savedIds`: which of these messages you saved. `before` loads older than that ISO time. */
+  get: (conversationId: string, options: { before?: string; limit?: number } = {}) =>
+    http
+      .get<{ conversation: ConversationSummary; messages: ChatMessage[]; savedIds?: string[]; hasMore?: boolean }>(`/conversations/${conversationId}`, {
+        params: options,
+      })
+      .then((r) => r.data),
+  /** Search message bodies inside one conversation this person can open. */
+  search: (conversationId: string, q: string, limit = 25) =>
+    http
+      .get<{ conversation: ConversationSummary; messages: ChatMessage[] }>(`/conversations/${conversationId}/messages/search`, { params: { q, limit } })
+      .then((r) => r.data),
   /** `parentId`: a reply to that post; `subject` / `important`: for a post (team chats and channels); `fileIds`: uploaded files to share. */
   send: (conversationId: string, body: string, options: { parentId?: string | null; subject?: string | null; important?: boolean; fileIds?: string[] } = {}) =>
     http

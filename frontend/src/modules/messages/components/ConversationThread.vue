@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useIntervalFn } from '@vueuse/core'
 import { differenceInMinutes, format, isSameDay, isToday, isYesterday, parseISO } from 'date-fns'
 import { Ban, Check, CheckCheck, Copy, Lock, Pencil, SendHorizontal, Trash2, X } from 'lucide-vue-next'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
@@ -10,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
+import { getSocket } from '@/lib/realtime'
 import { useSocketEvents } from '@/lib/socket-events'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type ChatMessage, type ConversationSummary, messagesApi } from '../messages.api'
@@ -23,6 +25,8 @@ const store = useMessagesStore()
 const confirm = useConfirm()
 const messages = ref<ChatMessage[] | null>(null)
 const otherLastReadAt = ref<string | null>(props.conversation.otherLastReadAt ?? null)
+const hasMore = ref(false)
+const isLoadingOlder = ref(false)
 const draft = ref('')
 const isSending = ref(false)
 /** Your message whose text the composer is changing, or null when writing a new one. */
@@ -56,18 +60,40 @@ async function markRead() {
 
 async function load() {
   messages.value = null
+  hasMore.value = false
   const conversationId = props.conversation.id
   try {
-    const thread = await messagesApi.get(conversationId)
+    const thread = await messagesApi.get(conversationId, { limit: 100 })
     // Another chat was opened meanwhile: its own load fills the thread.
     if (conversationId !== props.conversation.id) return
     messages.value = thread.messages
+    hasMore.value = Boolean(thread.hasMore)
     otherLastReadAt.value = thread.conversation.otherLastReadAt ?? null
     await scrollToEnd()
     await markRead()
   } catch (error) {
     messages.value = []
     toast.error(getErrorMessage(error))
+  }
+}
+
+async function loadOlder() {
+  if (!messages.value?.length || isLoadingOlder.value || !hasMore.value) return
+  const oldest = messages.value[0]
+  isLoadingOlder.value = true
+  const previousHeight = scroller.value?.scrollHeight ?? 0
+  try {
+    const thread = await messagesApi.get(props.conversation.id, { before: oldest.createdAt, limit: 50 })
+    const existing = new Set(messages.value.map((item) => item.id))
+    const older = thread.messages.filter((item) => !existing.has(item.id))
+    messages.value = [...older, ...messages.value]
+    hasMore.value = Boolean(thread.hasMore)
+    await nextTick()
+    if (scroller.value) scroller.value.scrollTop = scroller.value.scrollHeight - previousHeight
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isLoadingOlder.value = false
   }
 }
 
@@ -97,6 +123,30 @@ function onHidden(event: { conversationId: string; messageId: string }) {
   if (editing.value?.id === event.messageId) cancelEdit()
 }
 
+/** Who is typing (direct chats broadcast the same socket event as channels). */
+const typers = ref(new Map<string, { name: string; until: number }>())
+function onTyping(event: { conversationId: string; userId: string; name: string }) {
+  if (event.conversationId !== props.conversation.id || event.userId === auth.user?.id) return
+  typers.value = new Map(typers.value).set(event.userId, { name: event.name, until: Date.now() + 5000 })
+}
+useIntervalFn(() => {
+  const now = Date.now()
+  if ([...typers.value.values()].some((typer) => typer.until < now)) {
+    typers.value = new Map([...typers.value].filter(([, typer]) => typer.until >= now))
+  }
+}, 1000)
+const typingLine = computed(() => {
+  const names = [...typers.value.values()].map((typer) => typer.name.split(' ')[0])
+  if (!names.length) return ''
+  return names.length === 1 ? `${names[0]} is typing…` : names.length === 2 ? `${names[0]} and ${names[1]} are typing…` : 'Several people are typing…'
+})
+let typingSentAt = 0
+function sendTyping() {
+  if (!draft.value.trim() || Date.now() - typingSentAt < 3000) return
+  typingSentAt = Date.now()
+  getSocket()?.emit('conversation:typing', { conversationId: props.conversation.id })
+}
+
 let connectedBefore = false
 useSocketEvents(
   {
@@ -105,6 +155,7 @@ useSocketEvents(
     'conversation:read': onRead,
     'conversation:cleared': onCleared,
     'conversation:hidden': onHidden,
+    'conversation:typing': onTyping,
   },
   {
     // Messages sent while the connection was down are fetched again.
@@ -296,7 +347,12 @@ const notice = computed(() =>
         <Skeleton v-for="index in 4" :key="index" class="mb-2 h-10 rounded-lg" :class="index % 2 ? 'mr-auto w-1/2' : 'ml-auto w-2/5'" />
       </template>
 
-      <template v-for="{ message, showDay, startsGroup } in entries" v-else :key="message.id">
+      <template v-else>
+      <div v-if="hasMore" class="mb-3 flex justify-center">
+        <Button type="button" variant="ghost" size="sm" :loading="isLoadingOlder" @click="loadOlder">Load older messages</Button>
+      </div>
+
+      <template v-for="{ message, showDay, startsGroup } in entries" :key="message.id">
         <div v-if="showDay" class="sticky top-0 z-10 flex justify-center py-2">
           <span class="rounded-full border border-border bg-card px-3 py-0.5 text-[11px] font-medium text-muted-foreground shadow-soft">
             {{ dayLabel(message.createdAt) }}
@@ -367,8 +423,11 @@ const notice = computed(() =>
         </div>
       </template>
 
-      <p v-if="messages && !messages.length" class="mt-6 text-center text-xs text-muted-foreground">No messages yet. Say hello 👋</p>
+      <p v-if="!messages.length" class="mt-6 text-center text-xs text-muted-foreground">No messages yet. Say hello.</p>
+      </template>
     </div>
+
+    <p v-if="typingLine" class="shrink-0 px-4 py-1 text-[11.5px] text-muted-foreground italic" aria-live="polite">{{ typingLine }}</p>
 
     <div v-if="editing" class="flex shrink-0 items-center gap-3 border-t border-border bg-background px-4 pt-2.5">
       <div class="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg border-l-4 border-[#00a884] bg-card px-3 py-2">
@@ -399,7 +458,7 @@ const notice = computed(() =>
           placeholder="Type a message"
           aria-label="Message"
           title="Enter to send · Shift + Enter for a new line"
-          @input="autosize"
+          @input="autosize(); sendTyping()"
           @keydown="onKeydown"
         />
       </div>

@@ -1,4 +1,5 @@
 import { Op } from 'sequelize';
+import { likeOperator } from '../../database/connection.js';
 import {
   Channel,
   ChannelMember,
@@ -29,6 +30,7 @@ import { participantIds } from './membership.js';
 const THREAD_LIMIT = 300;
 /** Group chats load their latest posts, each with all of its replies. */
 const POST_LIMIT = 100;
+const sanitizeLike = (q) => String(q).replace(/[%_]/g, ' ').trim();
 const authorInclude = [{ model: User, as: 'author', attributes: USER_SUMMARY_ATTRIBUTES }];
 /** Which plan switch a kind of conversation needs. */
 const FEATURE_FOR = { direct: 'directMessages', team: 'teamChat', department: 'teamChat', channel: 'teamChat' };
@@ -287,24 +289,50 @@ export async function conversationSummary(viewer, conversationId) {
 /**
  * The conversation with its latest messages, oldest first. Group chats are posts with replies (like Teams): their
  * latest posts come with every reply, so a thread is never cut in half.
+ * `before` + `limit`: page older messages (DMs) or older top-level posts (channels).
  */
-export async function getConversation(viewer, conversationId) {
+export async function getConversation(viewer, conversationId, { before, limit } = {}) {
   const { conversation, people } = await loadConversation(viewer, conversationId);
   const membership = await ConversationMember.findOne({ where: { conversationId, userId: viewer.id } });
   const visible = await visibleTo(viewer, conversationId, membership);
+  const olderThan = before ? { createdAt: { [Op.lt]: new Date(before) } } : {};
   let messages;
+  let hasMore = false;
   if (conversation.kind === 'direct') {
-    messages = (await ConversationMessage.findAll({ where: { conversationId, ...visible }, include: authorInclude, order: [['createdAt', 'DESC']], limit: THREAD_LIMIT })).reverse();
+    const pageSize = Math.min(limit ?? THREAD_LIMIT, THREAD_LIMIT);
+    const rows = await ConversationMessage.findAll({
+      where: { conversationId, ...visible, ...olderThan },
+      include: authorInclude,
+      order: [['createdAt', 'DESC']],
+      limit: pageSize + 1,
+    });
+    hasMore = rows.length > pageSize;
+    messages = rows.slice(0, pageSize).reverse();
   } else {
+    const pageSize = Math.min(limit ?? POST_LIMIT, POST_LIMIT);
     const posts = (
-      await ConversationMessage.findAll({ where: { conversationId, parentId: null, ...visible }, include: authorInclude, order: [['createdAt', 'DESC']], limit: POST_LIMIT })
-    ).reverse();
-    // Pinned posts stay reachable even when they are older than the latest posts.
-    const loaded = new Set(posts.map((post) => post.id));
-    const pinned = (
-      await ConversationMessage.findAll({ where: { conversationId, parentId: null, pinnedAt: { [Op.ne]: null }, ...visible }, include: authorInclude, order: [['createdAt', 'ASC']] })
-    ).filter((post) => !loaded.has(post.id));
-    const threadPosts = [...pinned, ...posts];
+      await ConversationMessage.findAll({
+        where: { conversationId, parentId: null, ...visible, ...olderThan },
+        include: authorInclude,
+        order: [['createdAt', 'DESC']],
+        limit: pageSize + 1,
+      })
+    );
+    hasMore = posts.length > pageSize;
+    const pagePosts = posts.slice(0, pageSize).reverse();
+    // Pinned posts stay reachable even when they are older than the latest posts (first page only).
+    const loaded = new Set(pagePosts.map((post) => post.id));
+    const pinned =
+      before
+        ? []
+        : (
+            await ConversationMessage.findAll({
+              where: { conversationId, parentId: null, pinnedAt: { [Op.ne]: null }, ...visible },
+              include: authorInclude,
+              order: [['createdAt', 'ASC']],
+            })
+          ).filter((post) => !loaded.has(post.id));
+    const threadPosts = [...pinned, ...pagePosts];
     const replies = threadPosts.length
       ? await ConversationMessage.findAll({ where: { conversationId, parentId: threadPosts.map((post) => post.id), ...visible }, include: authorInclude, order: [['createdAt', 'ASC']] })
       : [];
@@ -315,7 +343,33 @@ export async function getConversation(viewer, conversationId) {
         (row) => row.messageId,
       )
     : [];
-  return { conversation: await describe(viewer, conversation, people), messages: await decorate(messages, viewer.id), savedIds };
+  return {
+    conversation: await describe(viewer, conversation, people),
+    messages: await decorate(messages, viewer.id),
+    savedIds,
+    hasMore,
+  };
+}
+
+/** Search visible message bodies in one conversation this person can open. */
+export async function searchMessages(viewer, conversationId, { q, limit = 25 }) {
+  const { conversation, people } = await loadConversation(viewer, conversationId);
+  const membership = await ConversationMember.findOne({ where: { conversationId, userId: viewer.id } });
+  const visible = await visibleTo(viewer, conversationId, membership);
+  const term = `%${sanitizeLike(q)}%`;
+  if (term === '%%') return { conversation: await describe(viewer, conversation, people), messages: [] };
+  const rows = await ConversationMessage.findAll({
+    where: {
+      conversationId,
+      deletedAt: null,
+      body: { [likeOperator]: term },
+      ...visible,
+    },
+    include: authorInclude,
+    order: [['createdAt', 'DESC']],
+    limit,
+  });
+  return { conversation: await describe(viewer, conversation, people), messages: await decorate(rows, viewer.id) };
 }
 
 /** Everyone who can read the conversation (for @mentions and calls). */
@@ -562,9 +616,13 @@ export async function editMessage(viewer, conversationId, messageId, { body, sub
   if (!message) throw ApiError.notFound('Message not found');
   if (message.authorId !== viewer.id) throw ApiError.forbidden('You can only edit your own messages');
   if (message.deletedAt) throw ApiError.badRequest('This message was deleted');
+  const nextBody = typeof body === 'string' ? body.trim() : '';
+  const fileCount = await ConversationFile.count({ where: { messageId: message.id } });
+  if (!nextBody && !fileCount) throw ApiError.badRequest('Write a message');
+  // Replies never keep a subject; only top-level posts in group chats do.
   const nextSubject = subject === undefined || message.parentId || !isGroup(conversation) ? message.subject : subject || null;
   const alreadyMentioned = new Set(extractMentionIds(message.body));
-  if (message.body !== body || message.subject !== nextSubject) {
+  if (message.body !== nextBody || message.subject !== nextSubject) {
     await ConversationMessageRevision.create({
       messageId: message.id,
       conversationId,
@@ -572,9 +630,9 @@ export async function editMessage(viewer, conversationId, messageId, { body, sub
       body: message.body,
       subject: message.subject,
     });
-    await message.update({ body, subject: nextSubject, editedAt: new Date() });
+    await message.update({ body: nextBody, subject: nextSubject, editedAt: new Date() });
   }
-  const updated = await loadMessage(message.id);
+  const updated = await loadMessage(message.id, viewer.id);
   broadcast(people, 'conversation:updated', updated);
   if (isGroup(conversation)) await notifyMentions(viewer, conversation, updated, people, alreadyMentioned);
   return updated;
@@ -629,13 +687,13 @@ export async function forwardMessage(viewer, conversationId, messageId, { target
   return sendMessage(viewer, targetConversationId, { body });
 }
 
-/** "Delete for me": anyone can remove any message from their own view; everyone else still sees it. */
+/** "Delete for me": anyone can remove any message from their own view; everyone else still sees it. Idempotent. */
 export async function hideMessage(viewer, conversationId, messageId) {
   const { conversation, people } = await loadConversation(viewer, conversationId);
   const message = await ConversationMessage.findOne({ where: { id: messageId, conversationId }, attributes: ['id'] });
   if (!message) throw ApiError.notFound('Message not found');
-  await ConversationHiddenMessage.findOrCreate({ where: { messageId, userId: viewer.id }, defaults: { conversationId } });
-  emitToUser(viewer.id, 'conversation:hidden', { conversationId, messageId });
+  const [, created] = await ConversationHiddenMessage.findOrCreate({ where: { messageId, userId: viewer.id }, defaults: { conversationId } });
+  if (created) emitToUser(viewer.id, 'conversation:hidden', { conversationId, messageId });
   return describe(viewer, conversation, people);
 }
 
