@@ -187,7 +187,12 @@ export async function setOrganizationPlan(organizationId, planId) {
   const [organization, plan] = await Promise.all([Organization.findByPk(organizationId), Plan.findByPk(planId)]);
   if (!organization) throw ApiError.notFound('Organization not found');
   if (!plan) throw ApiError.notFound('Plan not found');
-  await organization.update({ planId, featureOverrides: cleanOverrides(organization.featureOverrides, plan) });
+  // Fulfilling a plan change also clears any pending upgrade request from the org.
+  await organization.update({
+    planId,
+    featureOverrides: cleanOverrides(organization.featureOverrides, plan),
+    upgradeRequest: null,
+  });
   return loadOrganization(organizationId);
 }
 

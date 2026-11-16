@@ -246,6 +246,26 @@ export const organizationReviewRequestEmail = ({ organization, creator }) => ({
   }),
 });
 
+/** Org admin asked the portal to upgrade plan / raise limits. */
+export const planUpgradeRequestEmail = ({ organization, requester, targetLabel, note }) => ({
+  subject: `Plan request: ${organization.name} wants ${targetLabel}`,
+  html: renderLayout({
+    preheader: `${requester.name} requested ${targetLabel} for ${organization.name}.`,
+    eyebrow: 'Plan request',
+    heading: `${organization.name} requested ${targetLabel}`,
+    intro: `<p style="margin:0"><strong>${escapeHtml(requester.name)}</strong> asked to ${escapeHtml(targetLabel.toLowerCase())} for <strong>${escapeHtml(organization.name)}</strong>. Change their plan in Super Admin to fulfill it.</p>`,
+    details: [
+      { label: 'Organization', value: organizationLine(organization) },
+      { label: 'Requested by', value: inviterLine({ inviterName: requester.name, inviterEmail: requester.email }) },
+      { label: 'Request', value: targetLabel },
+      ...(note ? [{ label: 'Note', value: note }] : []),
+    ],
+    actionLabel: 'Open Super Admin',
+    actionUrl: appUrl('/super-admin'),
+    footer: 'You received this email because you are the super admin of this Vector portal.',
+  }),
+});
+
 /** To the organization's creator: the super admin approved it. */
 export const organizationApprovedEmail = ({ organization, name }) => ({
   subject: `${organization.name} is approved — welcome to Vector`,

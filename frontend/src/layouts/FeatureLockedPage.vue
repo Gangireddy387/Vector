@@ -6,6 +6,7 @@ import CollabGuide from '@/components/common/CollabGuide.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { featureLabel, PLAN_FEATURES, type PlanFeatureKey } from '@/lib/plan-features'
+import RequestUpgradeButton from '@/modules/admin/components/RequestUpgradeButton.vue'
 import { useAuthStore } from '@/modules/auth/auth.store'
 
 /** Collab unlocks people feel missing on Free — listed so the gate explains the product, not a dead end. */
@@ -63,8 +64,12 @@ const unlocks = computed(() =>
         <Button variant="outline" @click="router.push(fromLoop ? { name: 'home', query: { startDay: '1' } } : { name: 'home' })">
           {{ fromLoop ? 'Back to workday loop' : 'Back to Home' }}
         </Button>
-        <Button v-if="auth.isOrganizationAdmin" as-child>
+        <RequestUpgradeButton v-if="auth.isOrganizationAdmin" target="pro" size="default" />
+        <Button v-if="auth.isOrganizationAdmin" variant="outline" as-child>
           <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'plan' } }"><Sparkles /> View plan</RouterLink>
+        </Button>
+        <Button v-else variant="outline" as-child>
+          <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'plan' } }">See plan</RouterLink>
         </Button>
       </div>
     </EmptyState>

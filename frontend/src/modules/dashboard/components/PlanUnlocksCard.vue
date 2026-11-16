@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { Gem, Lock } from 'lucide-vue-next'
+import { Lock } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import CollabGuide from '@/components/common/CollabGuide.vue'
 import { Button } from '@/components/ui/button'
 import { type PlanFeatureKey } from '@/lib/plan-features'
+import RequestUpgradeButton from '@/modules/admin/components/RequestUpgradeButton.vue'
 import { useAuthStore } from '@/modules/auth/auth.store'
 
 /** Free (and thin) plans: explain collab gates so Home never feels broken or empty. */
@@ -31,8 +32,9 @@ const show = computed(() => lockedCore.value.length >= 1)
       </p>
       <CollabGuide dense />
       <div class="flex flex-wrap gap-2">
-        <Button v-if="auth.isOrganizationAdmin" size="sm" as-child>
-          <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'plan' } }"><Gem /> Upgrade plan</RouterLink>
+        <RequestUpgradeButton v-if="auth.isOrganizationAdmin" target="pro" />
+        <Button v-else size="sm" variant="outline" as-child>
+          <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'plan' } }">Ask admin to upgrade</RouterLink>
         </Button>
         <Button size="sm" variant="outline" as-child>
           <RouterLink :to="{ name: 'feature-locked', query: { feature: lockedCore } }">See what’s gated</RouterLink>

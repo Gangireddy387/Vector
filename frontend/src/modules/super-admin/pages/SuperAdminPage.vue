@@ -346,6 +346,13 @@ function signOut() {
           </span>
           <span class="min-w-0 flex-1 truncate">{{ organization.name }}</span>
           <span
+            v-if="organization.upgradeRequest"
+            class="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200"
+            title="Pending plan request"
+          >
+            Plan
+          </span>
+          <span
             v-if="unread[organization.id]"
             class="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground tabular-nums"
             :title="`${unread[organization.id]} unread message${unread[organization.id] === 1 ? '' : 's'}`"
@@ -534,9 +541,12 @@ function signOut() {
               <span class="min-w-0 flex-1">
                 <span class="flex items-start justify-between gap-2">
                   <span class="truncate text-[15px] font-semibold tracking-tight">{{ organization.name }}</span>
-                  <Badge :variant="STATUS[organization.status].variant" class="shrink-0">
-                    <component :is="STATUS[organization.status].icon" /> {{ STATUS[organization.status].label }}
-                  </Badge>
+                  <span class="flex shrink-0 flex-wrap justify-end gap-1">
+                    <Badge v-if="organization.upgradeRequest" variant="warning">Plan request</Badge>
+                    <Badge :variant="STATUS[organization.status].variant">
+                      <component :is="STATUS[organization.status].icon" /> {{ STATUS[organization.status].label }}
+                    </Badge>
+                  </span>
                 </span>
                 <span class="mt-0.5 block truncate text-xs text-muted-foreground">{{ organizationAddress(organization.slug) }}</span>
               </span>
@@ -679,10 +689,11 @@ function signOut() {
               </button>
               <span v-else class="text-xs text-muted-foreground">No admin</span>
 
-              <div>
+              <div class="flex flex-col items-start gap-1">
                 <Badge :variant="STATUS[organization.status].variant">
                   <component :is="STATUS[organization.status].icon" /> {{ STATUS[organization.status].label }}
                 </Badge>
+                <Badge v-if="organization.upgradeRequest" variant="warning">Plan request</Badge>
               </div>
 
               <div class="min-w-0 space-y-1">
@@ -704,6 +715,16 @@ function signOut() {
                 >
                   + {{ organization.customFeatureCount }} custom feature{{ organization.customFeatureCount === 1 ? '' : 's' }}
                 </button>
+                <p v-if="organization.upgradeRequest" class="text-[11px] text-amber-800 dark:text-amber-200">
+                  Wants
+                  {{
+                    organization.upgradeRequest.target === 'pro'
+                      ? 'Pro'
+                      : organization.upgradeRequest.target === 'seats'
+                        ? 'more people'
+                        : 'more projects'
+                  }}
+                </p>
               </div>
 
               <div class="flex flex-col gap-0.5 text-xs text-muted-foreground">

@@ -32,6 +32,8 @@ export const showLogo = (req, res) => {
   res.sendFile(organizationService.resolveLogoFile(req.params.fileName));
 };
 export const showPlan = async (req, res) => res.json(await organizationService.getPlanOverview(req.organization));
+export const requestUpgrade = async (req, res) =>
+  res.json(await organizationService.requestPlanUpgrade(req.organization, req.user, req.body));
 export const listMembers = async (req, res) => res.json({ members: await organizationService.listMembers(req.organization.id) });
 export const showMemberProfile = async (req, res) => res.json(await getMemberProfile(req.organization.id, req.params.userId));
 export const updateMember = async (req, res) =>

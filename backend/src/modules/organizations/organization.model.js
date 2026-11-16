@@ -29,6 +29,11 @@ Organization.init(
     planId: { type: DataTypes.UUID, allowNull: true },
     /** Features the super admin turned on or off for this organization only, e.g. `{ reports: true }`; they win over the plan. */
     featureOverrides: { type: DataTypes.JSON, allowNull: true },
+    /**
+     * Pending plan request from an org admin: `{ target, note, requestedById, requestedByName, createdAt, status }`.
+     * Cleared when the portal admin changes the plan.
+     */
+    upgradeRequest: { type: DataTypes.JSON, allowNull: true },
     /** Support chat with the super admin: new messages disappear after this many hours (null = kept). */
     supportDisappearHours: { type: DataTypes.INTEGER, allowNull: true },
     /** Support chat: when each person cleared it for themselves, `{ [userId]: ISO date }`; they only see newer messages. */

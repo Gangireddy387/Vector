@@ -30,6 +30,17 @@ organizationAdminRoutes.delete('/workspace', requireOrganizationAdmin, validate(
 organizationAdminRoutes.post('/workspace/logo', requireOrganizationAdmin, logoUpload, controller.uploadLogo);
 organizationAdminRoutes.delete('/workspace/logo', requireOrganizationAdmin, controller.removeLogo);
 organizationAdminRoutes.get('/workspace/plan', requireOrganization, controller.showPlan);
+organizationAdminRoutes.post(
+  '/workspace/plan/upgrade-request',
+  requireOrganizationAdmin,
+  validate({
+    body: z.object({
+      target: z.enum(['pro', 'seats', 'projects']),
+      note: z.string().trim().max(500).optional(),
+    }),
+  }),
+  controller.requestUpgrade,
+);
 organizationAdminRoutes.get('/workspace/members', requireOrganizationAdmin, controller.listMembers);
 organizationAdminRoutes.post('/workspace/invitations', requireOrganizationAdmin, validate({ body: inviteMemberSchema }), controller.invite);
 /** Support chat with the portal's super admin; one conversation per organization, shared by its admins. */

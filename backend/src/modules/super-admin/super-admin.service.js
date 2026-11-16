@@ -6,7 +6,7 @@ import { ApiError } from '../../shared/errors/api-error.js';
 import { isUserOnline } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { organizationApprovedEmail, organizationRejectedEmail } from '../../shared/services/email-templates.js';
-import { broadcastOrganization, purgeOrganization, toPublicOrganization } from '../organizations/organization.service.js';
+import { broadcastOrganization, publicUpgradeRequest, purgeOrganization, toPublicOrganization } from '../organizations/organization.service.js';
 import { entitlementsFor, featureSettingsFor, setOrganizationFeatures, setOrganizationPlan, withPlan } from '../plans/plan.service.js';
 import { isUuid } from '../../shared/utils/ids.js';
 import { forgetMeetingAiAccess } from '../meetings/meeting.ai-access.js';
@@ -51,6 +51,7 @@ export async function listOrganizations() {
     rejectionReason: organization.rejectionReason ?? null,
     plan: organization.plan ? { id: organization.plan.id, name: organization.plan.name } : null,
     customFeatureCount: entitlementsFor(organization).customFeatures.length,
+    upgradeRequest: publicUpgradeRequest(organization),
     createdAt: organization.createdAt,
     reviewedAt: organization.reviewedAt,
     creator: creators.find((creator) => creator.id === organization.createdById) ?? null,

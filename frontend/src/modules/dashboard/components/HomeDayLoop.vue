@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ClipboardList, Gem, Lock, ListTodo, MessageCircle, Play, Video } from 'lucide-vue-next'
+import { ClipboardList, Lock, ListTodo, MessageCircle, Play, Video } from 'lucide-vue-next'
 import { computed, onMounted, useTemplateRef } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { featureLabel, type PlanFeatureKey } from '@/lib/plan-features'
+import RequestUpgradeButton from '@/modules/admin/components/RequestUpgradeButton.vue'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useMessagesStore } from '@/modules/messages/messages.store'
 import type { DashboardData } from '../dashboard.api'
@@ -242,9 +243,7 @@ const ctaLabel = computed(() => {
         Unlock {{ unlockLabel }} to complete the full workday loop
         {{ auth.isOrganizationAdmin ? ' — upgrade once for the whole org.' : ' — ask an admin to upgrade.' }}
       </p>
-      <Button v-if="auth.isOrganizationAdmin" size="sm" class="shrink-0" as-child>
-        <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'plan' } }"><Gem /> Upgrade plan</RouterLink>
-      </Button>
+      <RequestUpgradeButton v-if="auth.isOrganizationAdmin" target="pro" class="shrink-0" />
       <Button v-else size="sm" variant="outline" class="shrink-0" as-child>
         <RouterLink :to="{ name: 'feature-locked', query: { feature: lockedSteps[0]?.unlockFeature, from: 'loop' } }">
           What’s locked

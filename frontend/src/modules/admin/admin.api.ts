@@ -3,6 +3,16 @@ import type { Activity, Entitlements, ProjectRole, UserSummary, WorkspaceMember,
 
 type ProjectBadge = { id: string; name: string; key: string; color: string }
 
+export type UpgradeTarget = 'pro' | 'seats' | 'projects'
+
+export interface UpgradeRequest {
+  target: UpgradeTarget
+  note: string | null
+  requestedByName: string | null
+  createdAt: string
+  status: 'pending'
+}
+
 /** What an organization admin sees on someone's profile page. */
 export interface MemberProfile {
   person: UserSummary & {
@@ -42,7 +52,19 @@ export const workspaceApi = {
   update: (changes: Partial<Omit<WorkspaceSettings, 'updatedAt'>>) =>
     http.patch<{ settings: WorkspaceSettings & { id: string } }>('/workspace', changes).then((r) => r.data.settings),
   remove: (confirmName: string) => http.delete('/workspace', { data: { confirmName } }),
-  plan: () => http.get<{ entitlements: Entitlements; usage: { members: number; projects: number } }>('/workspace/plan').then((r) => r.data),
+  plan: () =>
+    http
+      .get<{
+        entitlements: Entitlements
+        usage: { members: number; projects: number }
+        upgradeRequest: UpgradeRequest | null
+      }>('/workspace/plan')
+      .then((r) => r.data),
+  /** Ask the portal admin to upgrade Pro / raise seat or project limits. */
+  requestUpgrade: (payload: { target: UpgradeTarget; note?: string }) =>
+    http
+      .post<{ upgradeRequest: UpgradeRequest; alreadyPending: boolean }>('/workspace/plan/upgrade-request', payload)
+      .then((r) => r.data),
   uploadLogo: (image: Blob, fileName: string) => {
     const form = new FormData()
     form.append('logo', image, fileName)

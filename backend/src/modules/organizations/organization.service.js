@@ -26,14 +26,20 @@ import { forgetBoard } from '../meetings/meeting.collab.js';
 import { releaseDialIn } from '../meetings/meeting.phone.js';
 import { closeCall } from '../meetings/meeting.signaling.js';
 import { sendEmail } from '../../shared/services/email.service.js';
-import { addedToOrganizationEmail, inviteLinkFor, organizationInviteEmail, organizationReviewRequestEmail } from '../../shared/services/email-templates.js';
+import { addedToOrganizationEmail, inviteLinkFor, organizationInviteEmail, organizationReviewRequestEmail, planUpgradeRequestEmail } from '../../shared/services/email-templates.js';
 import { createImageStore } from '../../shared/services/image-store.js';
 import { slugify } from '../../shared/utils/ids.js';
 import { removeFromStructure } from '../departments/department.service.js';
 import { assertWithinLimit, entitlementsFor, getDefaultPlan, usageFor } from '../plans/plan.service.js';
 import { createOneTimeToken } from '../auth/token.js';
+import { notifyUsers } from '../notifications/notification.service.js';
+import { sendMessage, superAdminIds } from '../support/support.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
+
+/** What an org admin can request from the portal. */
+export const UPGRADE_TARGETS = ['pro', 'seats', 'projects'];
+const UPGRADE_LABELS = { pro: 'Pro', seats: 'more people', projects: 'more projects' };
 
 /** Organization addresses sit right after the domain (example.com/acme), so they must never shadow an app page or look official. */
 const RESERVED_SLUGS = new Set([
@@ -169,9 +175,89 @@ export async function updateOrganization(organization, actor, changes) {
   return broadcastOrganization(organization);
 }
 
+/** Pending upgrade request shape returned to clients (or null). */
+export function publicUpgradeRequest(organization) {
+  const request = organization.upgradeRequest;
+  if (!request || request.status !== 'pending') return null;
+  return {
+    target: request.target,
+    note: request.note ?? null,
+    requestedByName: request.requestedByName ?? null,
+    createdAt: request.createdAt,
+    status: 'pending',
+  };
+}
+
 /** The current organization's plan and how much of it is used, for its settings page. */
 export async function getPlanOverview(organization) {
-  return { entitlements: entitlementsFor(organization), usage: await usageFor(organization.id) };
+  return {
+    entitlements: entitlementsFor(organization),
+    usage: await usageFor(organization.id),
+    upgradeRequest: publicUpgradeRequest(organization),
+  };
+}
+
+/**
+ * Org admin requests Pro / more seats / more projects. Posts to Vector support, emails the portal,
+ * and stores a pending flag the super admin sees until they change the plan.
+ */
+export async function requestPlanUpgrade(organization, actor, { target, note } = {}) {
+  if (!UPGRADE_TARGETS.includes(target)) throw ApiError.badRequest('Choose what you need: Pro, more people, or more projects');
+  const trimmedNote = typeof note === 'string' ? note.trim().slice(0, 500) : '';
+  const existing = publicUpgradeRequest(organization);
+  if (existing && existing.target === target) {
+    return { upgradeRequest: existing, alreadyPending: true };
+  }
+
+  const upgradeRequest = {
+    target,
+    note: trimmedNote || null,
+    requestedById: actor.id,
+    requestedByName: actor.name,
+    createdAt: new Date().toISOString(),
+    status: 'pending',
+  };
+  await organization.update({ upgradeRequest });
+
+  const label = UPGRADE_LABELS[target] ?? target;
+  const body = [
+    `Plan request: ${actor.name} asked for ${label} for ${organization.name}.`,
+    trimmedNote ? `Note: ${trimmedNote}` : null,
+    'Fulfill this in Super Admin by changing their plan (that clears the request).',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+
+  await sendMessage(organization.id, actor, 'organization', body).catch((error) =>
+    console.warn(`[plan] upgrade support message failed:`, error.message),
+  );
+
+  const portalIds = await superAdminIds();
+  if (portalIds.length) {
+    await notifyUsers({
+      userIds: portalIds,
+      actorId: actor.id,
+      type: 'plan_upgrade_request',
+      title: `${organization.name} requested ${label}`,
+      body: trimmedNote || `${actor.name} asked the portal to upgrade.`,
+      link: '/super-admin',
+      email: false,
+    });
+  }
+  if (config.superAdmin.email) {
+    await sendEmail({
+      to: config.superAdmin.email,
+      ...planUpgradeRequestEmail({
+        organization,
+        requester: actor,
+        targetLabel: label,
+        note: trimmedNote || null,
+      }),
+    }).catch((error) => console.warn(`[plan] upgrade email failed:`, error.message));
+  }
+
+  await notifyPortal('updated', organization);
+  return { upgradeRequest: publicUpgradeRequest(organization), alreadyPending: false };
 }
 
 /** Pushes the organization's current settings and status to every member's open browsers. */

@@ -3,6 +3,14 @@ import type { PlanFeatureKey } from '@/lib/plan-features'
 import type { OrganizationStatus, UserSummary } from '@/types/models'
 
 /** An organization as the super admin reviews it. */
+export interface OrganizationUpgradeRequest {
+  target: 'pro' | 'seats' | 'projects'
+  note: string | null
+  requestedByName: string | null
+  createdAt: string
+  status: 'pending'
+}
+
 export interface ReviewedOrganization {
   id: string
   name: string
@@ -13,6 +21,8 @@ export interface ReviewedOrganization {
   plan: { id: string; name: string } | null
   /** Features turned on or off for this organization only, unlike its plan. */
   customFeatureCount: number
+  /** Org admin asked for Pro / more seats / more projects. */
+  upgradeRequest: OrganizationUpgradeRequest | null
   createdAt: string
   reviewedAt: string | null
   creator: (UserSummary & { title: string | null }) | null

@@ -287,6 +287,32 @@ async function copyEmail(email: string) {
           >
             Reason: {{ detail.organization.rejectionReason }}
           </p>
+          <div
+            v-if="detail?.organization.upgradeRequest"
+            class="mt-3 flex flex-col gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 sm:flex-row sm:items-center"
+          >
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium text-amber-900 dark:text-amber-200">
+                Plan request:
+                {{
+                  detail.organization.upgradeRequest.target === 'pro'
+                    ? 'Pro'
+                    : detail.organization.upgradeRequest.target === 'seats'
+                      ? 'more people'
+                      : 'more projects'
+                }}
+              </p>
+              <p class="text-xs text-muted-foreground">
+                {{ detail.organization.upgradeRequest.requestedByName ?? 'An admin' }}
+                · {{ timeAgo(detail.organization.upgradeRequest.createdAt) }}
+                <template v-if="detail.organization.upgradeRequest.note"> · “{{ detail.organization.upgradeRequest.note }}”</template>
+              </p>
+              <p class="mt-1 text-[11px] text-muted-foreground">Change their plan above (or in the list) to fulfill — that clears the request.</p>
+            </div>
+            <Button size="sm" variant="outline" class="shrink-0" @click="view = 'chat'">
+              <MessageCircle /> Open support
+            </Button>
+          </div>
         </div>
       </header>
 
