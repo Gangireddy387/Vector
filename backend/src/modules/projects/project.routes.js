@@ -18,6 +18,8 @@ router.post('/projects', validate({ body: createProjectSchema }), controller.cre
 router.post('/projects/sample', controller.createSample);
 router.get('/projects/:projectId', requireProjectRole(), controller.show);
 router.patch('/projects/:projectId', requireProjectRole('admin'), validate({ body: updateProjectSchema }), controller.update);
+/** Keep demo work as a real project, or wipe the sample entirely. */
+router.post('/projects/:projectId/convert-sample', requireProjectRole('admin'), controller.convertSample);
 router.delete('/projects/:projectId', requireProjectRole('admin'), controller.remove);
 
 router.post('/projects/:projectId/members', requireProjectRole('admin'), validate({ body: addMemberSchema }), controller.addMember);

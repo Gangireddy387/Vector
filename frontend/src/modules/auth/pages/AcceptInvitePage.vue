@@ -36,7 +36,8 @@ onMounted(async () => {
   }
 })
 
-const continueToApp = () => void router.replace({ name: 'projects' })
+/** Invitees land on Home with Start my day highlighted — not a blank project list. */
+const continueToApp = () => void router.replace({ name: 'home', query: { startDay: '1' } })
 </script>
 
 <template>
@@ -63,8 +64,8 @@ const continueToApp = () => void router.replace({ name: 'projects' })
         <p class="text-xs text-muted-foreground">Sign in as <strong class="text-foreground">{{ auth.user?.email }}</strong> with this password until you choose your own.</p>
         <p class="flex items-center gap-1.5 text-xs text-muted-foreground"><MailCheck class="size-3.5" /> We also emailed it to you.</p>
       </div>
-      <p class="text-sm text-muted-foreground">Next, choose your own password. It only takes a moment.</p>
-      <Button variant="brand" class="w-full" size="lg" @click="continueToApp">Continue <ArrowRight /></Button>
+      <p class="text-sm text-muted-foreground">Next, choose your own password, then Start my day on Home.</p>
+      <Button variant="brand" class="w-full" size="lg" @click="continueToApp">Continue to Start my day <ArrowRight /></Button>
     </div>
   </template>
 

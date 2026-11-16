@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, Plus, Sparkles, Trash2 } from 'lucide-vue-next'
+import { Check, ChevronDown, Plus, Sparkles, Trash2 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -68,24 +68,39 @@ onBeforeUnmount(() => (projects.currentProjectId = null))
 
 const router = useRouter()
 const confirm = useConfirm()
-const isDeletingSample = ref(false)
-async function deleteSample() {
-  const ok = await confirm({
-    title: 'Delete the sample project?',
-    description: 'All of its tasks, sprints, comments, chat and history are removed for everyone. This cannot be undone.',
-    confirmLabel: 'Delete sample project',
-    destructive: true,
-  })
-  if (!ok) return
-  isDeletingSample.value = true
+const isConvertingSample = ref(false)
+
+/** Keep demo tasks as a real project (strip the sample flag). */
+async function keepSample() {
+  isConvertingSample.value = true
   try {
-    await projects.deleteProject(props.projectId)
-    toast.success('Sample project deleted')
-    await router.replace({ name: 'home' })
+    const project = await projects.convertSampleProject(props.projectId, 'keep')
+    toast.success('Now a real project', { description: project ? `“${project.name}” is yours to customize.` : undefined })
   } catch (error) {
     toast.error(getErrorMessage(error))
   } finally {
-    isDeletingSample.value = false
+    isConvertingSample.value = false
+  }
+}
+
+/** Wipe the sample entirely and go create a fresh project. */
+async function wipeSample() {
+  const ok = await confirm({
+    title: 'Wipe the sample and start fresh?',
+    description: 'All of its tasks, sprints, comments, chat and history are removed for everyone. This cannot be undone.',
+    confirmLabel: 'Wipe sample',
+    destructive: true,
+  })
+  if (!ok) return
+  isConvertingSample.value = true
+  try {
+    await projects.convertSampleProject(props.projectId, 'wipe')
+    toast.success('Sample wiped', { description: 'Create your real project next.' })
+    await router.replace({ name: 'projects', query: { welcome: '1' } })
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isConvertingSample.value = false
   }
 }
 </script>
@@ -182,16 +197,21 @@ async function deleteSample() {
       </div>
     </nav>
 
-    <!-- The sample project says what it is and can be removed, with everything in it, in one click -->
+    <!-- Sample → real: keep the demo work, or wipe and start fresh -->
     <div v-if="project.settings?.isSample" class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-primary/[0.05] px-3 py-2 text-[13px] sm:px-4">
       <Sparkles class="size-4 shrink-0 text-primary" />
       <span class="min-w-0 flex-1">
         <span class="font-medium">This is a sample project.</span>
-        <span class="ml-1 text-muted-foreground">Explore freely; deleting it removes all its tasks, sprints, chat and history.</span>
+        <span class="ml-1 text-muted-foreground">Keep the demo work as yours, or wipe it and create a real project.</span>
       </span>
-      <Button v-if="project.myRole === 'admin'" variant="outline" size="sm" class="max-sm:w-full text-destructive hover:text-destructive" :loading="isDeletingSample" @click="deleteSample">
-        <Trash2 /> Delete sample project
-      </Button>
+      <div v-if="project.myRole === 'admin'" class="flex w-full flex-wrap gap-2 sm:w-auto">
+        <Button size="sm" class="max-sm:flex-1" :loading="isConvertingSample" @click="keepSample">
+          <Check /> Keep as real project
+        </Button>
+        <Button variant="outline" size="sm" class="max-sm:flex-1 text-destructive hover:text-destructive" :disabled="isConvertingSample" @click="wipeSample">
+          <Trash2 /> Wipe & start fresh
+        </Button>
+      </div>
     </div>
 
     <div

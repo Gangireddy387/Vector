@@ -46,6 +46,9 @@ export const projectsApi = {
   create: (input: ProjectInput) => http.post<{ project: ProjectDetail }>('/projects', input).then((r) => r.data.project),
   /** A ready-made project with a running sprint and example work, for exploring Vector. */
   createSample: () => http.post<{ project: ProjectDetail }>('/projects/sample').then((r) => r.data.project),
+  /** Keep demo work as a real project, or wipe the sample entirely (204). */
+  convertSample: (projectId: string, mode: 'keep' | 'wipe') =>
+    http.post<{ project: ProjectDetail } | void>(`/projects/${projectId}/convert-sample`, { mode }).then((r) => (r.status === 204 ? null : r.data.project)),
   update: (projectId: string, changes: ProjectChanges) =>
     http.patch<{ project: ProjectDetail }>(`/projects/${projectId}`, changes).then((r) => r.data.project),
   remove: (projectId: string) => http.delete(`/projects/${projectId}`),

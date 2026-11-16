@@ -62,7 +62,9 @@ function fromScratch() {
       <div class="relative overflow-hidden border-b border-border bg-[radial-gradient(120%_120%_at_0%_0%,color-mix(in_oklch,var(--primary)_18%,transparent),transparent_60%)] px-6 pt-6 pb-5">
         <BrandMark class="size-9" />
         <DialogTitle class="mt-4 text-xl font-semibold tracking-tight">Welcome to Vector, {{ auth.user?.name.split(' ')[0] }}</DialogTitle>
-        <DialogDescription class="mt-1 text-[13px]">Let’s get {{ auth.organization?.name }} ready for your team. How would you like to start?</DialogDescription>
+        <DialogDescription class="mt-1 text-[13px]">
+          First 10 minutes: project → invite → standup → task. How would you like to start?
+        </DialogDescription>
       </div>
 
       <div class="space-y-2.5 p-5">
@@ -79,7 +81,7 @@ function fromScratch() {
               <span class="rounded-full bg-primary/12 px-1.5 py-px text-[10.5px] font-medium text-primary">Recommended</span>
             </span>
             <span class="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
-              A website launch with a running sprint, tasks in every column and due dates. See how everything works, then delete it any time.
+              A website launch with a running sprint and tasks in every column. Convert it to a real project when you’re ready, or wipe it.
             </span>
           </span>
           <ArrowRight class="mt-2 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
@@ -93,7 +95,7 @@ function fromScratch() {
           <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground"><FolderPlus class="size-4" /></span>
           <span class="min-w-0 flex-1">
             <span class="block text-sm font-semibold">Start from scratch</span>
-            <span class="mt-0.5 block text-xs leading-relaxed text-muted-foreground">Create your first project, then invite your team and add tasks.</span>
+            <span class="mt-0.5 block text-xs leading-relaxed text-muted-foreground">Create a project, invite 2 people, post standup, then add your first task.</span>
           </span>
           <ArrowRight class="mt-2 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
         </button>

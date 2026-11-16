@@ -53,6 +53,19 @@ export const useProjectsStore = defineStore('projects', () => {
     return project
   }
 
+  /** Keep sample work as a real project, or wipe the sample completely. */
+  async function convertSampleProject(projectId: string, mode: 'keep' | 'wipe') {
+    const project = await projectsApi.convertSample(projectId, mode)
+    if (mode === 'wipe' || !project) {
+      delete details.value[projectId]
+      projects.value = projects.value.filter((item) => item.id !== projectId)
+      return null
+    }
+    storeDetail(project)
+    await fetchProjects(true)
+    return project
+  }
+
   async function updateProject(projectId: string, changes: ProjectChanges) {
     return storeDetail(await projectsApi.update(projectId, changes))
   }
@@ -85,6 +98,7 @@ export const useProjectsStore = defineStore('projects', () => {
     fetchProject,
     createProject,
     createSampleProject,
+    convertSampleProject,
     updateProject,
     deleteProject,
     canEdit,

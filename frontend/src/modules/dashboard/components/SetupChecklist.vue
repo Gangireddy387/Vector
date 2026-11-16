@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { type Meeting } from '@/modules/meetings/meetings.api'
+import ScheduleMeetingSheet from '@/modules/meetings/components/ScheduleMeetingSheet.vue'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import { useUiStore } from '@/stores/ui.store'
 import { type OnboardingStep, useOnboarding } from '../composables/useOnboarding'
@@ -19,16 +21,18 @@ const auth = useAuthStore()
 const projects = useProjectsStore()
 const ui = useUiStore()
 const router = useRouter()
-const { steps, doneCount, isComplete, isVisible, hide, isAdmin } = useOnboarding(toRef(props, 'data'))
-const percent = computed(() => Math.round((doneCount.value / steps.value.length) * 100))
+const { steps, doneCount, isComplete, isVisible, hide, isAdmin, skip } = useOnboarding(toRef(props, 'data'))
+const percent = computed(() => Math.round((doneCount.value / Math.max(steps.value.length, 1)) * 100))
 const nextStep = computed(() => steps.value.find((step) => !step.done)?.id ?? null)
 const isCreatingSample = ref(false)
+const meetingSheet = ref<{ meeting?: Meeting } | null>(null)
 
 function run(step: OnboardingStep) {
   const action = step.action
   if (action.kind === 'route') void router.push(action.to)
   else if (action.kind === 'create-project') emit('createProject')
   else if (action.kind === 'create-task') ui.openCreateIssue({})
+  else if (action.kind === 'schedule-meeting') meetingSheet.value = {}
   else void router.push({ name: 'settings' })
 }
 
@@ -36,7 +40,9 @@ async function trySample() {
   isCreatingSample.value = true
   try {
     const project = await projects.createSampleProject()
-    toast.success('Sample project ready', { description: 'Look around the board, backlog and reports. Delete it from its settings when you are done.' })
+    toast.success('Sample project ready', {
+      description: 'Explore the board, then convert it to a real project or wipe it from the banner.',
+    })
     emit('changed')
     await router.push({ name: 'project-board', params: { projectId: project.id } })
   } catch (error) {
@@ -45,19 +51,32 @@ async function trySample() {
     isCreatingSample.value = false
   }
 }
+
+function onMeetingSaved() {
+  meetingSheet.value = null
+  skip('meeting')
+  emit('changed')
+  toast.success('Meeting scheduled', { description: 'Optional setup step done — keep going on Home.' })
+}
 </script>
 
 <template>
-  <section v-if="isVisible" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft" aria-label="Getting started">
+  <section v-if="isVisible" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft" aria-label="First 10 minutes">
     <header class="space-y-3 border-b border-border px-3 py-3 sm:px-4">
       <div class="flex items-start gap-2.5 sm:items-center sm:gap-3">
         <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary"><Sparkles class="size-4" /></span>
         <div class="min-w-0 flex-1">
           <h2 class="text-sm font-semibold leading-snug">
-            {{ isAdmin ? `Get ${auth.organization?.name} set up` : `Get started in ${auth.organization?.name}` }}
+            {{ isAdmin ? `First 10 minutes in ${auth.organization?.name}` : `Get started in ${auth.organization?.name}` }}
           </h2>
           <p class="mt-0.5 text-xs text-muted-foreground">
-            {{ isComplete ? 'Everything is in place.' : `${doneCount} of ${steps.length} done · each step ticks itself off as you go` }}
+            {{
+              isComplete
+                ? 'Everything is in place.'
+                : isAdmin
+                  ? `${doneCount} of ${steps.length} · project → invite → standup → task → meeting`
+                  : `${doneCount} of ${steps.length} done · each step ticks itself off as you go`
+            }}
           </p>
         </div>
         <Button variant="ghost" size="icon-sm" class="shrink-0 text-muted-foreground" title="Hide checklist" aria-label="Hide checklist" @click="hide"><X /></Button>
@@ -72,12 +91,14 @@ async function trySample() {
       <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"><PartyPopper class="size-4.5" /></span>
       <p class="min-w-0 flex-1 text-[13px]">
         <span class="font-medium">You’re all set.</span>
-        <span class="ml-1 text-muted-foreground">{{ isAdmin ? 'Your organization is ready for the team.' : 'Your work will show up below as it is assigned to you.' }}</span>
+        <span class="ml-1 text-muted-foreground">
+          {{ isAdmin ? 'Run the workday loop from Home every morning.' : 'Your work will show up below as it is assigned to you.' }}
+        </span>
       </p>
       <Button variant="outline" size="sm" class="w-full sm:w-auto" @click="hide">Hide checklist</Button>
     </div>
 
-    <ol v-else class="grid gap-px bg-border sm:grid-cols-2" :class="steps.length === 5 ? 'xl:grid-cols-5' : 'lg:grid-cols-3'">
+    <ol v-else class="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-5">
       <li
         v-for="(step, index) in steps"
         :key="step.id"
@@ -92,15 +113,24 @@ async function trySample() {
             <Check v-if="step.done" class="size-3.5" />
             <template v-else>{{ index + 1 }}</template>
           </span>
-          <h3 class="min-w-0 flex-1 text-[13px] font-medium" :class="step.done && 'text-muted-foreground line-through decoration-muted-foreground/40'">{{ step.title }}</h3>
+          <h3 class="min-w-0 flex-1 text-[13px] font-medium" :class="step.done && 'text-muted-foreground line-through decoration-muted-foreground/40'">
+            {{ step.title }}
+          </h3>
         </div>
         <p class="flex-1 text-xs leading-relaxed text-muted-foreground">{{ step.description }}</p>
         <div v-if="!step.done" class="flex flex-wrap items-center gap-1.5">
-          <Button :variant="step.id === nextStep ? 'default' : 'outline'" size="sm" class="max-sm:flex-1" @click="run(step)">{{ step.actionLabel }}</Button>
-          <Button v-if="step.sample" variant="ghost" size="sm" class="text-muted-foreground max-sm:flex-1" :loading="isCreatingSample" @click="trySample">Try a sample</Button>
+          <Button :variant="step.id === nextStep ? 'default' : 'outline'" size="sm" class="max-sm:flex-1" @click="run(step)">
+            {{ step.actionLabel }}
+          </Button>
+          <Button v-if="step.sample" variant="ghost" size="sm" class="text-muted-foreground max-sm:flex-1" :loading="isCreatingSample" @click="trySample">
+            Try a sample
+          </Button>
+          <Button v-if="step.optional" variant="ghost" size="sm" class="text-muted-foreground" @click="skip(step.id)">Skip</Button>
         </div>
         <p v-else class="text-xs font-medium text-success">Done</p>
       </li>
     </ol>
+
+    <ScheduleMeetingSheet v-if="auth.hasFeature('meetings')" v-model:target="meetingSheet" @saved="onMeetingSaved" />
   </section>
 </template>

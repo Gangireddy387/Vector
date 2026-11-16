@@ -1,4 +1,4 @@
-import { createSampleProject } from './project.sample.js';
+import { convertSampleProject, createSampleProject } from './project.sample.js';
 import * as projectService from './project.service.js';
 
 export const list = async (req, res) => res.json({ projects: await projectService.listProjects(req.user.id, req.filters) });
@@ -8,6 +8,13 @@ export const show = async (req, res) => res.json({ project: await projectService
 
 export const update = async (req, res) =>
   res.json({ project: await projectService.updateProject(req.params.projectId, req.user, req.body) });
+
+export const convertSample = async (req, res) => {
+  const mode = req.body?.mode === 'wipe' ? 'wipe' : 'keep';
+  const result = await convertSampleProject(req.params.projectId, req.user, { mode });
+  if (result.wiped) return res.status(204).end();
+  return res.json({ project: result.project });
+};
 
 export const remove = async (req, res) => {
   await projectService.deleteProject(req.params.projectId);

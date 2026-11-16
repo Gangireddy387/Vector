@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ClipboardList, ListTodo, MessageCircle, Play, Video } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, onMounted, useTemplateRef } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -11,9 +11,15 @@ import type { DashboardData } from '../dashboard.api'
  * Vector’s signature loop: standup → tasks → meetings → messages.
  * “Start my day” always points at the next incomplete step — the habit that makes this a workday OS.
  */
-const props = defineProps<{ data: DashboardData }>()
+const props = defineProps<{ data: DashboardData; /** Invite / deep-link highlight from ?startDay=1 */ highlight?: boolean }>()
 const auth = useAuthStore()
 const messages = useMessagesStore()
+const root = useTemplateRef<HTMLElement>('root')
+
+onMounted(() => {
+  if (!props.highlight) return
+  root.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+})
 
 const standup = computed(() => props.data.standupPending ?? [])
 const meetingActions = computed(() => props.data.meetingActions ?? [])
@@ -124,17 +130,29 @@ const ctaLabel = computed(() => {
 </script>
 
 <template>
-  <section class="overflow-hidden rounded-xl border border-border bg-card shadow-soft" aria-label="Your workday loop">
+  <section
+    ref="root"
+    class="scroll-mt-4 overflow-hidden rounded-xl border bg-card shadow-soft"
+    :class="highlight ? 'border-primary ring-2 ring-primary/25' : 'border-border'"
+    aria-label="Your workday loop"
+  >
     <header class="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center">
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-2">
-          <h2 class="text-sm font-semibold">Workday loop</h2>
+          <h2 class="text-sm font-semibold">{{ highlight ? 'Start my day' : 'Workday loop' }}</h2>
           <span class="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
             {{ doneCount }}/{{ steps.length }}
           </span>
+          <span v-if="highlight" class="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Welcome</span>
         </div>
         <p class="mt-0.5 text-xs text-muted-foreground">
-          {{ allDone ? 'You’re through today’s loop. Capture anything new or take a break.' : 'Standup → tasks → meetings → messages — Vector’s daily rhythm.' }}
+          {{
+            highlight
+              ? 'You’re in. Hit Start my day — standup, then tasks, meetings and messages.'
+              : allDone
+                ? 'You’re through today’s loop. Capture anything new or take a break.'
+                : 'Standup → tasks → meetings → messages — Vector’s daily rhythm.'
+          }}
         </p>
       </div>
       <Button v-if="next && !allDone" size="sm" class="shrink-0 self-start sm:self-center" as-child>

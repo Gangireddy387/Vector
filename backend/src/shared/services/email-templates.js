@@ -129,7 +129,7 @@ const invitationFooter = (email, inviterName) =>
 export const inviteEmail = ({ inviterName, inviterEmail, organization, project, role = 'member', email, token }) => ({
   subject: `${inviterName} invited you to ${project.name} in ${organization.name}`,
   html: renderLayout({
-    preheader: `Join ${project.name} and start working with the ${organization.name} team on Vector.`,
+    preheader: `Join ${project.name} — accept to Start my day with the ${organization.name} team on Vector.`,
     brand: organization,
     eyebrow: 'You’re invited',
     heading: `Join ${project.name} at ${organization.name}`,
@@ -142,7 +142,7 @@ export const inviteEmail = ({ inviterName, inviterEmail, organization, project, 
     ],
     actionLabel: 'Accept invitation',
     actionUrl: inviteLinkFor(token),
-    note: `<strong>What happens next?</strong> One click sets up your account and opens ${escapeHtml(project.name)} in ${escapeHtml(organization.name)}. You get a temporary password (also by email) and choose your own when you first sign in.`,
+    note: `<strong>What happens next?</strong> One click sets up your account. You’ll land on Home to Start my day — standup, tasks, meetings and messages. You get a temporary password (also by email) and choose your own when you first sign in.`,
     footer: invitationFooter(email, inviterName),
   }),
 });
@@ -151,7 +151,7 @@ export const inviteEmail = ({ inviterName, inviterEmail, organization, project, 
 export const organizationInviteEmail = ({ inviterName, inviterEmail, organization, role = 'member', email, token }) => ({
   subject: `${inviterName} invited you to join ${organization.name} on Vector`,
   html: renderLayout({
-    preheader: `Accept to start working with the ${organization.name} team on Vector.`,
+    preheader: `Accept to Start my day with the ${organization.name} team on Vector.`,
     brand: organization,
     eyebrow: 'You’re invited',
     heading: `Join ${organization.name} on Vector`,
@@ -163,7 +163,7 @@ export const organizationInviteEmail = ({ inviterName, inviterEmail, organizatio
     ],
     actionLabel: 'Accept invitation',
     actionUrl: inviteLinkFor(token),
-    note: `<strong>What happens next?</strong> One click sets up your account and opens ${escapeHtml(organization.name)}. You get a temporary password (also by email) and choose your own when you first sign in.`,
+    note: `<strong>What happens next?</strong> One click sets up your account. You’ll land on Home to Start my day — standup, tasks, meetings and messages. You get a temporary password (also by email) and choose your own when you first sign in.`,
     footer: invitationFooter(email, inviterName),
   }),
 });

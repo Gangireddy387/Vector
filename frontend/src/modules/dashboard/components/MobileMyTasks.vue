@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { PartyPopper, RefreshCw } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -10,6 +11,7 @@ import { useIssueActions } from '@/modules/issues/composables/useIssueActions'
 import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import type { Issue } from '@/types/models'
 import { useDashboardData } from '../composables/useDashboardData'
+import { consumeStartDayQuery } from '../composables/useStartDayHighlight'
 import { bucketOf } from '../my-work'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import DailyBriefingCard from './DailyBriefingCard.vue'
@@ -23,11 +25,15 @@ import SetupChecklist from './SetupChecklist.vue'
 type Segment = 'today' | 'upcoming' | 'anytime' | 'done'
 
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 const actions = useIssueActions()
 const openIssue = useOpenIssue()
 const { data, isLoading, error, reload } = useDashboardData()
 const isCreateProjectOpen = ref(false)
 const segment = ref<Segment>('today')
+/** Invite deep-link: shared highlight survives clearing ?startDay=1 from the URL. */
+const startDay = consumeStartDayQuery(route, router)
 
 const SEGMENTS: Array<{ value: Segment; label: string }> = [
   { value: 'today', label: 'Today' },
@@ -79,7 +85,7 @@ async function complete(issue: Issue) {
 
     <QuickCapture stacked />
 
-    <HomeDayLoop v-if="data" :data="data" />
+    <HomeDayLoop v-if="data" :data="data" :highlight="startDay" />
     <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
     <HomeFocusCards v-if="data" :data="data" />
     <DailyBriefingCard />

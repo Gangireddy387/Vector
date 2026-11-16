@@ -1,8 +1,9 @@
 import { Label, Project, Sprint, Status } from '../../database/models.js';
 import { currentOrganizationId } from '../../shared/context/request-context.js';
+import { ApiError } from '../../shared/errors/api-error.js';
 import { createIssue } from '../issues/issue.service.js';
 import { startSprint } from '../sprints/sprint.service.js';
-import { createProject, getProject } from './project.service.js';
+import { createProject, deleteProject, getProject } from './project.service.js';
 
 export const SAMPLE_PROJECT_NAME = 'Sample: Website launch';
 
@@ -92,4 +93,28 @@ export async function createSampleProject(user) {
     );
   }
   return getProject(created.id, user.id);
+}
+
+/**
+ * Turn a sample into a real project (keep the demo work) or wipe it entirely.
+ * `keep` clears the sample flag and renames; `wipe` deletes the project and everything in it.
+ */
+export async function convertSampleProject(projectId, user, { mode = 'keep' } = {}) {
+  const project = await Project.findByPk(projectId);
+  if (!project) throw ApiError.notFound('Project not found');
+  if (!project.settings?.isSample) throw ApiError.badRequest('This is not a sample project');
+
+  if (mode === 'wipe') {
+    await deleteProject(projectId);
+    return { wiped: true, project: null };
+  }
+
+  const name = project.name.startsWith('Sample: ') ? project.name.slice('Sample: '.length).trim() || project.name : project.name;
+  const { isSample: _removed, ...restSettings } = project.settings ?? {};
+  await project.update({
+    name,
+    description: 'Your project — converted from the Vector sample. Rename it and invite your team.',
+    settings: { ...restSettings, isSample: false },
+  });
+  return { wiped: false, project: await getProject(projectId, user.id) };
 }

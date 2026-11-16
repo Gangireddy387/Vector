@@ -18,7 +18,7 @@ import {
   UsersRound,
 } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import { Button } from '@/components/ui/button'
@@ -35,6 +35,7 @@ import CreateProjectDialog from '@/modules/projects/components/CreateProjectDial
 import { useUiStore } from '@/stores/ui.store'
 import type { Issue } from '@/types/models'
 import { useDashboardData } from '../composables/useDashboardData'
+import { consumeStartDayQuery } from '../composables/useStartDayHighlight'
 import { useTodayAgenda } from '../composables/useTodayAgenda'
 import { groupMyWork } from '../my-work'
 import DailyBriefingCard from './DailyBriefingCard.vue'
@@ -47,10 +48,14 @@ import SetupChecklist from './SetupChecklist.vue'
 
 const auth = useAuthStore()
 const ui = useUiStore()
+const route = useRoute()
+const router = useRouter()
 const openIssue = useOpenIssue()
 const issueActions = useIssueActions()
 const { data, isLoading, error, reload } = useDashboardData()
 const agenda = useTodayAgenda()
+/** Invite deep-link: shared highlight survives clearing ?startDay=1 from the URL. */
+const startDay = consumeStartDayQuery(route, router)
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -150,7 +155,7 @@ const daysLeft = (endDate: string | null) => {
 
     <QuickCapture />
 
-    <HomeDayLoop v-if="data" :data="data" />
+    <HomeDayLoop v-if="data" :data="data" :highlight="startDay" />
     <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
     <HomeFocusCards v-if="data" :data="data" />
     <DailyBriefingCard />
