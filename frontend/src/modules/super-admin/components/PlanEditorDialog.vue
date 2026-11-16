@@ -116,10 +116,10 @@ async function save() {
           <ul class="grid gap-2" :class="group.value === 'app' && 'sm:grid-cols-2'">
             <li v-for="feature in PLAN_FEATURES.filter((item) => item.group === group.value)" :key="feature.key">
               <label
-                class="flex cursor-pointer items-start gap-3 border p-3 transition-colors"
+                class="flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors"
                 :class="form.features[feature.key] ? 'border-primary/40 bg-primary/5' : 'border-border/70 hover:bg-accent/30'"
               >
-                <span class="flex size-8 shrink-0 items-center justify-center bg-primary/10 text-primary"><component :is="feature.icon" class="size-4" /></span>
+                <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><component :is="feature.icon" class="size-4" /></span>
                 <span class="min-w-0 flex-1">
                   <span class="block text-sm font-medium">{{ feature.label }}</span>
                   <span class="block text-xs text-muted-foreground">{{ feature.description }}</span>
@@ -147,7 +147,7 @@ async function save() {
           </div>
         </section>
 
-        <label class="flex cursor-pointer items-start gap-3 border border-border/70 p-3">
+        <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-border/70 p-3">
           <Switch v-model="form.isDefault" :disabled="plan?.isDefault" aria-label="Default plan for new organizations" />
           <span>
             <span class="block text-sm font-medium">Default for new organizations</span>
@@ -158,9 +158,9 @@ async function save() {
         </label>
       </form>
 
-      <DialogFooter>
-        <Button variant="ghost" @click="open = false">Cancel</Button>
-        <Button type="submit" form="plan-editor" :loading="isSaving" :disabled="form.name.trim().length < 2">{{ plan ? 'Save plan' : 'Create plan' }}</Button>
+      <DialogFooter class="max-sm:flex-col-reverse max-sm:gap-2">
+        <Button variant="ghost" class="max-sm:w-full" @click="open = false">Cancel</Button>
+        <Button type="submit" form="plan-editor" class="max-sm:w-full" :loading="isSaving" :disabled="form.name.trim().length < 2">{{ plan ? 'Save plan' : 'Create plan' }}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

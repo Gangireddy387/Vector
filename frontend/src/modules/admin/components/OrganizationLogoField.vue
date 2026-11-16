@@ -79,11 +79,15 @@ function onDrop(event: DragEvent) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+  <div class="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:gap-4">
     <button
       type="button"
-      class="group relative flex h-20 shrink-0 items-center justify-center overflow-hidden border border-dashed border-border bg-muted/40 outline-none focus-visible:ring-4 focus-visible:ring-ring/30"
-      :class="[isDragging && 'ring-4 ring-primary/40', logo && (traits.transparent ? 'border-solid bg-transparent' : 'border-solid bg-white'), logo && logoIsWide ? 'w-60' : 'w-20']"
+      class="group relative flex h-20 w-full shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-muted/40 outline-none focus-visible:ring-4 focus-visible:ring-ring/30 sm:w-auto"
+      :class="[
+        isDragging && 'ring-4 ring-primary/40',
+        logo && (traits.transparent ? 'border-solid bg-transparent' : 'border-solid bg-white'),
+        logo && logoIsWide ? 'sm:w-60' : 'sm:w-20',
+      ]"
       :aria-label="logo ? 'Change organization logo' : 'Upload organization logo'"
       :disabled="isUploading"
       @click="fileInput?.click()"
@@ -109,18 +113,29 @@ function onDrop(event: DragEvent) {
       </span>
     </button>
 
-    <div class="min-w-0 space-y-2.5">
-      <div class="flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" variant="outline" :loading="isUploading" @click="fileInput?.click()">
+    <div class="min-w-0 flex-1 space-y-2.5">
+      <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <Button type="button" size="sm" variant="outline" class="max-sm:w-full" :loading="isUploading" @click="fileInput?.click()">
           <Upload /> {{ logo ? 'Change logo' : 'Upload logo' }}
         </Button>
-        <Button v-if="logo" type="button" size="sm" variant="ghost" class="text-destructive hover:text-destructive" :loading="isRemoving" @click="remove">
+        <Button
+          v-if="logo"
+          type="button"
+          size="sm"
+          variant="ghost"
+          class="text-destructive hover:text-destructive max-sm:w-full"
+          :loading="isRemoving"
+          @click="remove"
+        >
           <Trash2 /> Remove
         </Button>
       </div>
-      <p class="text-xs text-muted-foreground">
-        PNG, JPEG, WebP or GIF: a square icon, or a wide logo with your name in it. You can position, zoom and rotate it before saving, or drop an image on the
-        box.
+      <p class="text-xs leading-relaxed text-muted-foreground">
+        <span class="sm:hidden">PNG, JPEG, WebP or GIF. Adjust crop before saving.</span>
+        <span class="max-sm:hidden">
+          PNG, JPEG, WebP or GIF: a square icon, or a wide logo with your name in it. You can position, zoom and rotate it before saving, or drop an image on
+          the box.
+        </span>
       </p>
     </div>
 

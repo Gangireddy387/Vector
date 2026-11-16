@@ -31,6 +31,8 @@ const ui = useUiStore()
 const auth = useAuthStore()
 const { isDesktop } = useDevice()
 const notFound = ref(false)
+/** Chat (and similar) fill the phone viewport; board and the rest scroll with the page. */
+const fillHeight = computed(() => route.matched.some((record) => record.meta.fillHeight))
 
 const project = computed(() => projects.details[props.projectId])
 const meetPreset = computed<MeetingPreset | null>(() =>
@@ -102,7 +104,11 @@ async function deleteSample() {
     <Skeleton class="h-96 w-full" />
   </div>
 
-  <div v-else class="flex min-h-0 min-w-0 flex-col overflow-x-hidden" :class="isDesktop ? 'h-full min-h-full' : 'h-full'">
+  <div
+    v-else
+    class="flex min-h-0 min-w-0 flex-col overflow-x-hidden"
+    :class="isDesktop || fillHeight ? 'h-full min-h-full' : ''"
+  >
     <!-- Desktop header -->
     <header v-if="isDesktop" class="shrink-0 border-b border-border px-3 pt-2.5 sm:px-4">
       <div class="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
@@ -183,7 +189,16 @@ async function deleteSample() {
       </Button>
     </div>
 
-    <div class="min-h-0 min-w-0 flex-1 overflow-x-hidden" :class="isDesktop ? 'overflow-y-auto' : 'flex flex-col'">
+    <div
+      class="min-w-0 overflow-x-hidden"
+      :class="
+        isDesktop
+          ? 'min-h-0 flex-1 overflow-y-auto'
+          : fillHeight
+            ? 'flex min-h-0 flex-1 flex-col'
+            : 'w-full'
+      "
+    >
       <RouterView />
     </div>
   </div>

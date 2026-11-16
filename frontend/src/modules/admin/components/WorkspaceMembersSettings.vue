@@ -156,7 +156,7 @@ async function sendInvite() {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="space-y-3.5 sm:space-y-4">
     <Card>
       <CardHeader>
         <CardTitle>Invite people</CardTitle>
@@ -168,8 +168,8 @@ async function sendInvite() {
             <Input v-model="invite.email" type="email" placeholder="colleague@company.com" aria-label="Email address" autocomplete="off" required />
             <p v-if="inviteError" class="text-xs text-destructive" role="alert">{{ inviteError }}</p>
           </div>
-          <SelectField v-model="invite.role" :options="ROLE_OPTIONS" class="sm:w-36" content-class="w-72" align="end" aria-label="Role" />
-          <Button type="submit" :loading="isInviting" :disabled="!invite.email.trim()"><UserPlus /> Invite</Button>
+          <SelectField v-model="invite.role" :options="ROLE_OPTIONS" class="w-full sm:w-36" content-class="w-72" align="end" aria-label="Role" />
+          <Button type="submit" class="max-sm:w-full" :loading="isInviting" :disabled="!invite.email.trim()"><UserPlus /> Invite</Button>
         </form>
       </CardContent>
     </Card>

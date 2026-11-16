@@ -69,10 +69,16 @@ interface ApiErrorBody {
 export function getErrorMessage(error: unknown, fallback = 'Something went wrong. Please try again.') {
   if (axios.isAxiosError<ApiErrorBody>(error)) {
     if (!error.response) return 'Cannot reach the server. Check your connection.'
+    const status = error.response.status
     const body = error.response.data
     const firstDetail = body?.details?.[0]
     if (firstDetail && body?.message === 'Validation failed') return firstDetail.message
-    return body?.message ?? fallback
+    if (typeof body?.message === 'string' && body.message.trim()) return body.message
+    // Vite / proxies often answer 5xx with HTML or an empty body when the API is down.
+    if (status === 502 || status === 503 || status === 504 || status >= 500) {
+      return 'Cannot reach the server. Check your connection.'
+    }
+    return fallback
   }
   return error instanceof Error ? error.message : fallback
 }

@@ -211,11 +211,11 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
       aria-hidden="true"
     />
 
-    <header class="relative z-10 flex h-14 shrink-0 items-center justify-between px-6 pt-safe sm:px-12 lg:h-16 lg:text-white xl:px-16">
+    <header class="relative z-10 flex h-14 shrink-0 items-center justify-between px-4 pt-safe sm:px-12 lg:h-16 lg:px-12 lg:text-white xl:px-16">
       <!-- One logo and one theme switch per screen size; the wrappers decide which shows. -->
       <span class="lg:hidden"><AppLogo /></span>
       <span class="hidden lg:block"><AppLogo inverted /></span>
-      <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3 sm:gap-4">
         <span class="hidden text-xs font-medium text-muted-foreground sm:inline lg:text-white/80">
           {{ workspace.settings.slug ? workspace.settings.name : 'Work management for every team' }}
         </span>
@@ -351,9 +351,9 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
       </div>
 
       <!-- The form, in the middle of the radar -->
-      <main class="relative z-10 flex w-full min-h-0 flex-col px-6 pb-safe sm:px-12 lg:col-[2/3] lg:row-[1/2] lg:overflow-y-auto lg:px-0 lg:py-6">
-        <div class="flex flex-1 flex-col items-center justify-center py-6 short:py-2 lg:py-0">
-          <div class="auth-card w-full max-w-[22rem] lg:text-card-foreground">
+      <main class="relative z-10 flex w-full min-h-0 flex-col px-4 pb-4 sm:px-12 lg:col-[2/3] lg:row-[1/2] lg:overflow-y-auto lg:px-0 lg:py-6">
+        <div class="flex flex-1 flex-col items-center justify-center py-3 short:py-2 sm:py-6 lg:py-0">
+          <div class="auth-card w-full sm:max-w-[22rem] lg:text-card-foreground">
             <span class="auth-card-sheen" aria-hidden="true" />
             <div class="auth-card-body">
               <RouterView />
@@ -370,45 +370,45 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
 
     <!-- Tablets and phones: the headline, the team and the feature cards, in a panel under the form. -->
     <section
-      class="auth-showcase relative z-10 mx-4 mt-2 mb-2 space-y-5 overflow-hidden rounded-[1.5rem] bg-brand px-5 py-6 text-white shadow-xl shadow-black/15 sm:mx-12 sm:px-8 lg:hidden"
+      class="auth-showcase relative z-10 mx-3 mb-3 mt-1 space-y-4 overflow-hidden rounded-2xl bg-brand px-4 py-5 text-white shadow-xl shadow-black/15 sm:mx-12 sm:mt-2 sm:space-y-5 sm:rounded-[1.5rem] sm:px-8 sm:py-6 lg:hidden"
       aria-hidden="true"
     >
-      <div class="space-y-3">
-        <span class="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 py-1 pr-3.5 pl-1.5 text-xs font-medium backdrop-blur-md">
-          <span class="flex size-5 items-center justify-center rounded-full bg-linear-to-br from-fuchsia-300 to-violet-500">
+      <div class="space-y-2.5 sm:space-y-3">
+        <span class="inline-flex max-w-full items-center gap-2 rounded-full border border-white/25 bg-white/10 py-1 pr-3 pl-1.5 text-[11px] font-medium backdrop-blur-md sm:text-xs sm:pr-3.5">
+          <span class="flex size-5 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-fuchsia-300 to-violet-500">
             <Sparkles class="size-3 text-white" />
           </span>
-          AI · Automation · Recurring work
+          <span class="truncate">AI · Automation · Recurring work</span>
         </span>
-        <h2 class="text-2xl leading-tight font-semibold tracking-tight sm:text-3xl">
+        <h2 class="text-[1.35rem] leading-tight font-semibold tracking-tight sm:text-3xl">
           Less busywork.<br />
           <span class="bg-linear-to-r from-cyan-200 to-fuchsia-200 bg-clip-text text-transparent">More shipped work.</span>
         </h2>
-        <p class="max-w-md text-sm text-white/80">Plan, track and automate your team’s work so the boring parts happen on their own.</p>
+        <p class="max-w-md text-[13px] leading-relaxed text-white/80 sm:text-sm">Plan, track and automate your team’s work so the boring parts happen on their own.</p>
       </div>
 
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <span
           v-for="item in HIGHLIGHTS"
           :key="item.title"
-          class="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 py-1 pr-3.5 pl-1 text-xs font-semibold backdrop-blur-md"
+          class="flex min-w-0 items-center gap-2 rounded-full border border-white/20 bg-white/10 py-1.5 pr-3 pl-1.5 text-xs font-semibold backdrop-blur-md"
         >
-          <span class="flex size-7 items-center justify-center rounded-full bg-linear-to-br" :class="item.tone">
+          <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-linear-to-br" :class="item.tone">
             <component :is="item.icon" class="size-3.5" />
           </span>
-          {{ item.title }}
+          <span class="truncate">{{ item.title }}</span>
         </span>
       </div>
 
-      <div class="flex flex-wrap gap-2.5">
+      <div class="hidden flex-wrap gap-2.5 sm:flex">
         <ShowcaseChip kind="online" />
         <ShowcaseChip kind="activity" />
         <ShowcaseChip kind="standup" />
       </div>
 
-      <div class="showcase-strip -mx-5 overflow-hidden pt-4 pb-1 sm:-mx-8">
+      <div class="showcase-strip -mx-4 overflow-hidden pt-2 pb-1 sm:-mx-8 sm:pt-4">
         <div class="showcase-track flex w-max">
-          <div v-for="(card, index) in [...STRIP, ...STRIP]" :key="index" class="pl-5">
+          <div v-for="(card, index) in [...STRIP, ...STRIP]" :key="index" class="pl-4 sm:pl-5">
             <FeaturePreview :kind="card.kind" :person="card.person" />
           </div>
         </div>
@@ -417,15 +417,15 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
       <div class="flex items-center gap-3">
         <span class="flex shrink-0 -space-x-2.5">
           <img
-            v-for="who in [...COMMUNITY, TEAM.james, TEAM.liam]"
+            v-for="who in COMMUNITY"
             :key="who.name"
             :src="who.src"
             alt=""
-            class="size-9 rounded-full bg-linear-to-br shadow-md ring-2 ring-white/80"
+            class="size-8 rounded-full bg-linear-to-br shadow-md ring-2 ring-white/80 sm:size-9"
             :class="who.tone"
           />
         </span>
-        <span class="text-xs leading-snug text-white/80">
+        <span class="min-w-0 text-xs leading-snug text-white/80">
           <span class="block font-semibold text-white">Built for teams</span>
           Product, design, ops
         </span>
@@ -433,7 +433,7 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
     </section>
 
     <footer
-      class="relative z-10 flex h-12 shrink-0 flex-wrap items-center justify-between gap-x-4 px-6 text-xs text-muted-foreground sm:px-12 lg:text-white/70 xl:px-16"
+      class="relative z-10 flex h-11 shrink-0 flex-wrap items-center justify-between gap-x-4 px-4 pb-safe text-xs text-muted-foreground sm:h-12 sm:px-12 lg:text-white/70 xl:px-16"
     >
       <span>© {{ year }} Vector</span>
     </footer>
@@ -550,7 +550,8 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
     --compact: 0.86;
   }
 }
-@media (max-width: 63.99rem) {
+/* Tablets: circular glass disc sized to the viewport. */
+@media (min-width: 40rem) and (max-width: 63.99rem) {
   .auth-stage {
     --radar: max(34rem, min(44rem, calc(100vw - 2rem), calc(100dvh - 8.5rem)));
     --disc: calc(var(--radar) * 0.8);
@@ -559,13 +560,6 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
   }
   .radar-frame-small {
     display: flex;
-  }
-}
-/* Phones: the radar as wide as the screen, with smaller feature icons (see `isPhone`). */
-@media (max-width: 39.99rem) {
-  .auth-stage {
-    --radar: max(20rem, calc(100vw - 0.5rem));
-    --compact: 0.8;
   }
 }
 
@@ -689,6 +683,49 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
   }
   .showcase-strip {
     overflow-x: auto;
+  }
+}
+
+/*
+ * Phones: drop the circular disc. A normal rounded card reads cleanly; the radar is a soft backdrop only.
+ * These rules must come after `.auth-card` so they win over the disc defaults.
+ */
+@media (max-width: 39.99rem) {
+  .auth-stage {
+    --radar: 22rem;
+    --disc: auto;
+    --compact: 1;
+    min-height: 0;
+  }
+  .radar-frame-small {
+    display: flex;
+    top: -2rem;
+    opacity: 0.35;
+    pointer-events: none;
+    mask-image: radial-gradient(ellipse 70% 55% at 50% 40%, black 20%, transparent 70%);
+  }
+  .auth-card {
+    display: block;
+    width: 100%;
+    max-width: 24rem;
+    height: auto;
+    min-height: 0;
+    border-radius: 1.25rem;
+    padding: 0;
+    box-shadow:
+      0 18px 48px -20px rgb(30 10 80 / 0.28),
+      inset 0 1px 0 var(--glass-shine);
+  }
+  .auth-card-body {
+    zoom: 1;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    padding: 1.35rem 1.2rem 1.2rem;
+  }
+  .auth-card::after {
+    display: none;
   }
 }
 </style>

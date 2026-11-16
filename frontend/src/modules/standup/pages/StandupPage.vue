@@ -128,12 +128,12 @@ async function copySummary() {
         <Button variant="outline" size="icon-sm" aria-label="Next day" :disabled="date >= today" @click="shift(1)"><ChevronRight /></Button>
         <Button v-if="date !== today" variant="ghost" size="sm" @click="date = today">Today</Button>
       </div>
-      <div class="hidden min-w-0 flex-wrap items-center gap-1 sm:flex sm:flex-1" aria-label="Recent standups">
+      <div class="-mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1 scrollbar-none sm:flex-wrap sm:overflow-visible" aria-label="Recent standups">
         <button
           v-for="entry in recentDays"
           :key="entry.date"
           type="button"
-          class="flex flex-col items-center border px-2 py-1 text-[11px] leading-tight transition-colors"
+          class="flex shrink-0 flex-col items-center rounded-lg border px-2.5 py-1.5 text-[11px] leading-tight transition-colors"
           :class="entry.date === date ? 'border-primary bg-primary/10 text-primary' : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted'"
           :title="`${formatDate(entry.date, 'EEE, d MMM')}: ${entry.count} update${entry.count === 1 ? '' : 's'}`"
           @click="date = entry.date"
@@ -164,7 +164,7 @@ async function copySummary() {
         </div>
         <div class="flex min-w-0 w-full items-center gap-3 sm:min-w-48 sm:w-auto sm:flex-1">
           <Users class="size-4 text-muted-foreground" />
-          <span class="h-2 flex-1 bg-muted"><span class="block h-full bg-success transition-[width] duration-500" :style="{ width: `${day.stats.expected ? (day.stats.posted / day.stats.expected) * 100 : 0}%` }" /></span>
+          <span class="h-2 flex-1 overflow-hidden rounded-full bg-muted"><span class="block h-full rounded-full bg-success transition-[width] duration-500" :style="{ width: `${day.stats.expected ? (day.stats.posted / day.stats.expected) * 100 : 0}%` }" /></span>
           <span class="text-sm font-semibold tabular-nums">{{ day.stats.posted }}/{{ day.stats.expected }} posted</span>
         </div>
         <span class="inline-flex items-center gap-1.5 text-sm"><CircleCheck class="size-4 text-success" /> <span class="font-semibold tabular-nums">{{ day.stats.completed }}</span> tasks completed</span>

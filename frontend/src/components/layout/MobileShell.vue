@@ -8,7 +8,15 @@ import MobileTopbar from './MobileTopbar.vue'
 const props = defineProps<{ bare?: boolean }>()
 
 const route = useRoute()
-const showTabBar = computed(() => !props.bare && !route.matched.some((record) => record.meta.hideMobileTabBar))
+/** Open message threads need the bottom edge for the composer — hide the tab bar there. */
+const inMessageThread = computed(
+  () => route.name === 'messages' && typeof route.params.conversationId === 'string' && route.params.conversationId.length > 0,
+)
+const showTabBar = computed(
+  () => !props.bare && !inMessageThread.value && !route.matched.some((record) => record.meta.hideMobileTabBar),
+)
+/** Chat / messages fill the pane; other pages scroll under the tab bar. */
+const fillHeight = computed(() => route.matched.some((record) => record.meta.fillHeight))
 </script>
 
 <template>
@@ -16,10 +24,13 @@ const showTabBar = computed(() => !props.bare && !route.matched.some((record) =>
     <MobileTopbar v-show="!bare" />
     <main
       id="main-content"
-      class="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-y-contain"
-      :class="[showTabBar && 'pb-[calc(5.75rem+env(safe-area-inset-bottom))] sm:pb-[calc(6.5rem+env(safe-area-inset-bottom))]', bare && 'overflow-hidden']"
+      class="flex min-h-0 min-w-0 flex-1 flex-col overscroll-y-contain"
+      :class="[
+        fillHeight || bare ? 'overflow-hidden' : 'overflow-x-hidden overflow-y-auto',
+        showTabBar && 'pb-mobile-tab',
+      ]"
     >
-      <div class="mx-auto flex min-h-0 w-full min-w-0 flex-1 flex-col">
+      <div class="mx-auto flex w-full min-w-0 flex-col" :class="fillHeight && 'min-h-0 flex-1'">
         <slot />
       </div>
     </main>

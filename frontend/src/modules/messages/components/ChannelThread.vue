@@ -392,7 +392,7 @@ const messageEvents = (message: ChatMessage) => ({
 </script>
 
 <template>
-  <div class="relative flex min-h-0 flex-col">
+  <div class="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden">
     <!-- Pinned posts -->
     <div v-if="pinned.length" class="shrink-0 border-b border-border bg-amber-50/60 dark:bg-amber-400/5">
       <button type="button" class="flex w-full items-center gap-2 px-4 py-2 text-left text-xs sm:px-[5%]" :aria-expanded="pinsOpen" @click="pinsOpen = !pinsOpen">
@@ -413,7 +413,7 @@ const messageEvents = (message: ChatMessage) => ({
       </ul>
     </div>
 
-    <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto bg-sidebar/60 px-4 pt-3 pb-4 scrollbar-thin sm:px-[5%]" @scroll.passive="onScroll">
+    <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-sidebar/60 px-3 pt-3 pb-4 scrollbar-thin sm:px-[5%]" @scroll.passive="onScroll">
       <div class="mx-auto flex max-w-3xl flex-col gap-3">
         <div v-if="!term" class="flex items-start gap-3 rounded-xl border border-border/70 bg-card/70 px-4 py-2.5 shadow-soft">
           <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -518,33 +518,34 @@ const messageEvents = (message: ChatMessage) => ({
     <button
       v-if="unseen"
       type="button"
-      class="absolute bottom-28 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-elevated transition-transform hover:scale-105"
+      class="absolute bottom-24 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground shadow-elevated transition-transform hover:scale-105"
       @click="scrollToEnd(true)"
     >
       <ArrowDown class="size-3.5" /> {{ unseen }} new {{ unseen === 1 ? 'post' : 'posts' }}
     </button>
 
-    <div class="shrink-0 border-t border-border bg-background px-4 pt-1.5 pb-3 sm:px-[5%]">
-      <div class="mx-auto flex max-w-3xl items-center gap-1">
-        <p class="h-4 min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground italic" aria-live="polite">{{ typingLine(null) }}</p>
-        <button type="button" class="inline-flex items-center gap-1 rounded px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground" @click="pollOpen = true">
-          <BarChart3 class="size-3.5" /> Poll
-        </button>
-        <button type="button" class="inline-flex items-center gap-1 rounded px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground" @click="approvalOpen = true">
-          <ClipboardCheck class="size-3.5" /> Approval
-        </button>
+    <div class="shrink-0 border-t border-border bg-background px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-[5%]">
+      <div class="mx-auto max-w-3xl space-y-1.5">
+        <div class="flex items-center gap-1">
+          <p class="h-4 min-w-0 flex-1 truncate text-[11.5px] text-muted-foreground italic" aria-live="polite">{{ typingLine(null) }}</p>
+          <button type="button" class="inline-flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground" @click="pollOpen = true">
+            <BarChart3 class="size-3.5" /> Poll
+          </button>
+          <button type="button" class="inline-flex shrink-0 items-center gap-1 rounded px-2 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground" @click="approvalOpen = true">
+            <ClipboardCheck class="size-3.5" /> Approval
+          </button>
+        </div>
+        <ChannelComposer
+          allow-subject
+          allow-important
+          allow-everyone
+          :people="people"
+          :conversation-id="canAttach ? conversation.id : null"
+          :placeholder="`Start a new post in ${channelName}`"
+          :send="post"
+          @typing="sendTyping(null)"
+        />
       </div>
-      <ChannelComposer
-        class="mx-auto mt-0.5 max-w-3xl"
-        allow-subject
-        allow-important
-        allow-everyone
-        :people="people"
-        :conversation-id="canAttach ? conversation.id : null"
-        :placeholder="`Start a new post in ${channelName}`"
-        :send="post"
-        @typing="sendTyping(null)"
-      />
     </div>
 
     <ForwardMessageDialog

@@ -29,7 +29,7 @@ const activeSection = computed({
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3 pb-2'">
     <PageHeader v-if="isDesktop" title="Organization settings" :description="`Name, address, people, plan and support for ${workspace.settings.name}.`" />
 
     <SettingsLayout v-model="activeSection" :sections="SECTIONS" aria-label="Organization settings">

@@ -49,32 +49,41 @@ async function trySample() {
 
 <template>
   <section v-if="isVisible" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft" aria-label="Getting started">
-    <header class="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-      <span class="flex size-8 items-center justify-center rounded-lg bg-primary/12 text-primary"><Sparkles class="size-4" /></span>
-      <div class="min-w-0 flex-1">
-        <h2 class="text-sm font-semibold">{{ isAdmin ? `Get ${auth.organization?.name} set up` : `Get started in ${auth.organization?.name}` }}</h2>
-        <p class="text-xs text-muted-foreground">
-          {{ isComplete ? 'Everything is in place.' : `${doneCount} of ${steps.length} done · each step ticks itself off as you go` }}
-        </p>
+    <header class="space-y-3 border-b border-border px-3 py-3 sm:px-4">
+      <div class="flex items-start gap-2.5 sm:items-center sm:gap-3">
+        <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary"><Sparkles class="size-4" /></span>
+        <div class="min-w-0 flex-1">
+          <h2 class="text-sm font-semibold leading-snug">
+            {{ isAdmin ? `Get ${auth.organization?.name} set up` : `Get started in ${auth.organization?.name}` }}
+          </h2>
+          <p class="mt-0.5 text-xs text-muted-foreground">
+            {{ isComplete ? 'Everything is in place.' : `${doneCount} of ${steps.length} done · each step ticks itself off as you go` }}
+          </p>
+        </div>
+        <Button variant="ghost" size="icon-sm" class="shrink-0 text-muted-foreground" title="Hide checklist" aria-label="Hide checklist" @click="hide"><X /></Button>
       </div>
-      <div class="flex w-40 items-center gap-2">
-        <Progress :model-value="percent" class="h-1.5 flex-1" indicator-class="bg-success" />
-        <span class="w-8 text-right text-xs font-medium tabular-nums">{{ percent }}%</span>
+      <div class="flex items-center gap-2.5 sm:pl-[2.625rem]">
+        <Progress :model-value="percent" class="h-1.5 min-w-0 flex-1" indicator-class="bg-success" />
+        <span class="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">{{ percent }}%</span>
       </div>
-      <Button variant="ghost" size="icon-sm" class="text-muted-foreground" title="Hide checklist" aria-label="Hide checklist" @click="hide"><X /></Button>
     </header>
 
-    <div v-if="isComplete" class="flex flex-wrap items-center gap-3 px-4 py-4">
-      <span class="flex size-9 items-center justify-center rounded-full bg-success/15 text-success"><PartyPopper class="size-4.5" /></span>
+    <div v-if="isComplete" class="flex flex-col gap-3 px-3 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:px-4">
+      <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"><PartyPopper class="size-4.5" /></span>
       <p class="min-w-0 flex-1 text-[13px]">
         <span class="font-medium">You’re all set.</span>
         <span class="ml-1 text-muted-foreground">{{ isAdmin ? 'Your organization is ready for the team.' : 'Your work will show up below as it is assigned to you.' }}</span>
       </p>
-      <Button variant="outline" size="sm" @click="hide">Hide checklist</Button>
+      <Button variant="outline" size="sm" class="w-full sm:w-auto" @click="hide">Hide checklist</Button>
     </div>
 
     <ol v-else class="grid gap-px bg-border sm:grid-cols-2" :class="steps.length === 5 ? 'xl:grid-cols-5' : 'lg:grid-cols-3'">
-      <li v-for="(step, index) in steps" :key="step.id" class="flex flex-col gap-2 bg-card p-4" :class="step.done && 'bg-muted/30'">
+      <li
+        v-for="(step, index) in steps"
+        :key="step.id"
+        class="flex flex-col gap-2 bg-card p-3.5 sm:p-4"
+        :class="step.done ? 'bg-muted/30' : step.id === nextStep && 'bg-primary/[0.04]'"
+      >
         <div class="flex items-center gap-2">
           <span
             class="flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums"
@@ -83,12 +92,12 @@ async function trySample() {
             <Check v-if="step.done" class="size-3.5" />
             <template v-else>{{ index + 1 }}</template>
           </span>
-          <h3 class="truncate text-[13px] font-medium" :class="step.done && 'text-muted-foreground line-through decoration-muted-foreground/40'">{{ step.title }}</h3>
+          <h3 class="min-w-0 flex-1 text-[13px] font-medium" :class="step.done && 'text-muted-foreground line-through decoration-muted-foreground/40'">{{ step.title }}</h3>
         </div>
         <p class="flex-1 text-xs leading-relaxed text-muted-foreground">{{ step.description }}</p>
         <div v-if="!step.done" class="flex flex-wrap items-center gap-1.5">
-          <Button :variant="step.id === nextStep ? 'default' : 'outline'" size="sm" @click="run(step)">{{ step.actionLabel }}</Button>
-          <Button v-if="step.sample" variant="ghost" size="sm" class="text-muted-foreground" :loading="isCreatingSample" @click="trySample">Try a sample</Button>
+          <Button :variant="step.id === nextStep ? 'default' : 'outline'" size="sm" class="max-sm:flex-1" @click="run(step)">{{ step.actionLabel }}</Button>
+          <Button v-if="step.sample" variant="ghost" size="sm" class="text-muted-foreground max-sm:flex-1" :loading="isCreatingSample" @click="trySample">Try a sample</Button>
         </div>
         <p v-else class="text-xs font-medium text-success">Done</p>
       </li>

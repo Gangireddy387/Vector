@@ -85,11 +85,14 @@ async function deleteOrganization() {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="space-y-3.5 sm:space-y-4">
     <Card>
       <CardHeader>
         <CardTitle>Name and address</CardTitle>
-        <CardDescription>The name appears in the sidebar and emails. The address is the link your team uses to open this organization.</CardDescription>
+        <CardDescription>
+          <span class="sm:hidden">Name in the sidebar and emails; address is the link your team opens.</span>
+          <span class="max-sm:hidden">The name appears in the sidebar and emails. The address is the link your team uses to open this organization.</span>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form class="space-y-4" @submit.prevent="save({ name: form.name.trim(), slug: form.slug }, 'Organization updated')">
@@ -100,9 +103,9 @@ async function deleteOrganization() {
             :errors="fieldErrors"
             :current-slug="workspace.settings.slug"
           />
-          <div class="flex flex-wrap items-center gap-2">
-            <Button type="submit" :loading="isSaving" :disabled="!isDirty || form.name.trim().length < 2 || !slugAvailable">Save</Button>
-            <Button type="button" variant="ghost" :disabled="!workspace.settings.slug" @click="copyLink"><Copy /> Copy link</Button>
+          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <Button type="submit" class="max-sm:w-full" :loading="isSaving" :disabled="!isDirty || form.name.trim().length < 2 || !slugAvailable">Save</Button>
+            <Button type="button" variant="ghost" class="max-sm:w-full" :disabled="!workspace.settings.slug" @click="copyLink"><Copy /> Copy link</Button>
             <span v-if="form.slug !== workspace.settings.slug" class="text-xs text-muted-foreground">Old links that use the previous address stop working.</span>
           </div>
         </form>
@@ -143,12 +146,19 @@ async function deleteOrganization() {
       <CardContent class="space-y-3">
         <div
           v-if="theme.isPersonal.value"
-          class="flex flex-wrap items-center gap-3 border border-warning/40 bg-warning/10 px-3 py-2.5 text-sm text-amber-800 dark:text-warning"
+          class="flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning/10 px-3 py-3 text-sm text-amber-800 sm:flex-row sm:items-center dark:text-warning"
         >
-          <span class="min-w-0 flex-1">
+          <p class="min-w-0 flex-1 leading-relaxed">
             You picked <strong>{{ PERSONAL_LABEL[theme.preference.value] }}</strong> for yourself in Settings, so this default does not change what you see.
-          </span>
-          <Button variant="outline" size="sm" @click="theme.followOrganization(workspace.settings.defaultMode)">Follow the organization default</Button>
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            class="w-full shrink-0 sm:w-auto"
+            @click="theme.followOrganization(workspace.settings.defaultMode)"
+          >
+            Follow the organization default
+          </Button>
         </div>
         <div class="grid gap-3 sm:grid-cols-3" role="radiogroup" aria-label="Default colour mode">
           <button
@@ -157,7 +167,7 @@ async function deleteOrganization() {
             type="button"
             role="radio"
             :aria-checked="workspace.settings.defaultMode === mode.value"
-            class="flex items-center gap-3 border p-3.5 text-left transition-all"
+            class="flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all"
             :class="
               workspace.settings.defaultMode === mode.value
                 ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
@@ -165,8 +175,8 @@ async function deleteOrganization() {
             "
             @click="save({ defaultMode: mode.value }, `Default mode set to ${mode.label.toLowerCase()}`)"
           >
-            <span class="flex size-9 items-center justify-center bg-primary/10 text-primary"><component :is="mode.icon" class="size-4" /></span>
-            <span>
+            <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><component :is="mode.icon" class="size-4" /></span>
+            <span class="min-w-0">
               <span class="block text-sm font-medium">{{ mode.label }}</span>
               <span class="block text-xs text-muted-foreground">{{ mode.description }}</span>
             </span>
@@ -184,7 +194,7 @@ async function deleteOrganization() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Button variant="destructive" @click="isDeleteOpen = true"><Trash2 /> Delete organization</Button>
+        <Button variant="destructive" class="max-sm:w-full" @click="isDeleteOpen = true"><Trash2 /> Delete organization</Button>
       </CardContent>
     </Card>
 

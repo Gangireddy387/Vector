@@ -245,22 +245,23 @@ useHotkeys({
 
 <template>
   <!-- On wide screens the page fits the window: the calendar takes the remaining height instead of the page scrolling. -->
-  <div class="w-full space-y-4 sm:space-y-5 xl:flex xl:h-full xl:flex-col xl:space-y-4" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <div class="w-full space-y-4 sm:space-y-5 lg:flex lg:h-full lg:flex-col lg:space-y-4" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <PageHeader title="Calendar" description="Plan each day, tick off what you finished and see how your time was spent. Only you see your events.">
       <template #actions>
         <Button variant="brand" class="max-sm:w-full" title="New event (N)" @click="createForSelected"><Plus /> New event</Button>
       </template>
     </PageHeader>
 
-    <!-- shrink-0: on wide screens the calendar below takes the remaining height, never this row's -->
+    <!-- Compact on tablet; full strip on wide screens -->
     <div class="grid shrink-0 grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
       <StatCard variant="card" label="Events" :value="stats.planned" :icon="CalendarDays" :hint="periodLabel" />
       <StatCard variant="card" label="Completed" :value="`${stats.percent}%`" :icon="CalendarCheck2" tone="success" :hint="`${stats.done} of ${stats.planned} done`">
         <Progress :model-value="stats.percent" class="mt-2.5 h-1.5" indicator-class="bg-success" />
       </StatCard>
-      <StatCard variant="card" label="Time scheduled" :value="formatHours(stats.minutes)" :icon="Clock3" tone="warning" :hint="periodLabel" />
+      <StatCard variant="card" class="max-lg:hidden" label="Time scheduled" :value="formatHours(stats.minutes)" :icon="Clock3" tone="warning" :hint="periodLabel" />
       <StatCard
         variant="card"
+        class="max-lg:hidden"
         label="Your tasks due"
         :value="showTasks ? stats.tasks : '–'"
         :icon="ListTodo"
@@ -269,8 +270,8 @@ useHotkeys({
       />
     </div>
 
-    <div class="grid gap-4 sm:gap-5 xl:min-h-[30rem] xl:flex-1 xl:grid-cols-[minmax(0,1fr)_22rem] xl:gap-4">
-      <section class="relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft xl:min-h-0">
+    <div class="grid gap-4 sm:gap-5 lg:min-h-[30rem] lg:flex-1 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <section class="relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft lg:min-h-0">
         <div v-if="isLoading" class="absolute inset-x-0 top-0 z-30 h-0.5 animate-pulse bg-brand" aria-hidden="true" />
 
         <div class="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center">

@@ -7,6 +7,6 @@ export const messageRoutes: RouteRecordRaw[] = [
     name: 'messages',
     component: () => import('./pages/MessagesPage.vue'),
     props: true,
-    meta: { title: 'Messages', requiresFeature: ['directMessages', 'teamChat'] },
+    meta: { title: 'Messages', requiresFeature: ['directMessages', 'teamChat'], fillHeight: true },
   },
 ]

@@ -278,7 +278,7 @@ async function removeRecurring(task: RecurringTask) {
           <Button v-if="canEdit" variant="brand" class="max-sm:w-full shrink-0" @click="openRecurring()"><Plus /> New recurring task</Button>
         </div>
         <ul v-if="recurringTasks.length" class="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-card shadow-soft">
-          <li v-for="task in recurringTasks" :key="task.id" class="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center">
+          <li v-for="task in recurringTasks" :key="task.id" class="flex flex-col gap-3 p-4 transition-colors hover:bg-accent/30 sm:flex-row sm:flex-wrap sm:items-center">
             <Switch
               :model-value="task.enabled"
               :disabled="!canEdit"

@@ -36,6 +36,8 @@ declare module 'vue-router' {
     mobileBack?: boolean
     /** Full-screen task pages (forms) on mobile: the bottom tab bar is hidden. */
     hideMobileTabBar?: boolean
+    /** Page fills the mobile viewport (chat, board, messages); main does not page-scroll. */
+    fillHeight?: boolean
     /** Organization administration (settings, people). */
     requiresWorkspaceAdmin?: boolean
     /** Signed-in pages that work before the person belongs to any organization. */

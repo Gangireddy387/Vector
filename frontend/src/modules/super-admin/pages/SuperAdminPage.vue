@@ -58,7 +58,8 @@ import { type Plan, type ReviewedOrganization, superAdminApi } from '../super-ad
 
 const auth = useAuthStore()
 const router = useRouter()
-const { isDesktop } = useDevice()
+/** Full sidebar from 1024px up; phone and tablet use the top section bar. */
+const { isWide } = useDevice()
 
 /** Quick theme switch beside sign-out: light → dim → dark → system (the full choice is on Your profile). */
 const { preference } = useTheme()
@@ -87,9 +88,9 @@ const sidebarOrganizations = computed(() => {
 })
 
 const SECTIONS = [
-  { value: 'organizations', label: 'Organizations', icon: Building2 },
-  { value: 'plans', label: 'Plans', icon: Gem },
-  { value: 'profile', label: 'Your profile', icon: UserRound },
+  { value: 'organizations', label: 'Organizations', short: 'Orgs', icon: Building2 },
+  { value: 'plans', label: 'Plans', short: 'Plans', icon: Gem },
+  { value: 'profile', label: 'Your profile', short: 'Profile', icon: UserRound },
 ] as const
 
 const HEADINGS = {
@@ -282,12 +283,12 @@ function signOut() {
     <!-- Organization admins can call the Vector team: their call rings here. -->
     <IncomingCall />
     <aside
-      v-if="isDesktop"
+      v-if="isWide"
       class="flex w-64 shrink-0 flex-col border-r border-sidebar-border/70 bg-sidebar/75 text-sidebar-foreground backdrop-blur-xl"
       aria-label="Super admin navigation"
     >
       <div class="flex h-14 items-center gap-2.5 px-4">
-        <span class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-brand text-white shadow-glow">
+        <span class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-brand text-white shadow-glow">
           <span class="pointer-events-none absolute inset-0" style="background: radial-gradient(circle at 15% 5%, rgb(255 255 255 / 0.25), transparent 60%)" />
           <BrandMark class="relative size-[20px]" />
         </span>
@@ -384,48 +385,60 @@ function signOut() {
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col">
-      <header v-if="!isDesktop" class="sticky top-0 z-20 border-b border-border/70 bg-card/80 backdrop-blur-xl">
-        <div class="flex h-14 items-center gap-3 px-3">
-          <span class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden bg-brand text-white shadow-glow">
+      <header v-if="!isWide" class="sticky top-0 z-20 border-b border-border/70 bg-card/90 pt-safe backdrop-blur-xl">
+        <div class="flex h-14 items-center gap-2.5 px-3">
+          <span class="relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-brand text-white shadow-glow">
             <BrandMark class="relative size-[20px]" />
           </span>
           <span class="min-w-0 flex-1">
             <span class="block text-[15px] leading-tight font-semibold tracking-tight">Vector</span>
             <span class="block text-[11px] leading-tight text-muted-foreground">Portal control</span>
           </span>
-          <Button variant="ghost" size="sm" @click="signOut"><LogOut /> Sign out</Button>
+          <Button variant="ghost" size="icon-sm" :aria-label="`Theme: ${themeLabel}. Change`" :title="`Theme: ${themeLabel}`" @click="cycleTheme">
+            <component :is="themeIcon" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" aria-label="Sign out" @click="signOut"><LogOut /></Button>
         </div>
-        <nav class="flex gap-1 px-3" aria-label="Super admin sections">
+        <nav class="-mx-0 flex gap-1 overflow-x-auto px-3 scrollbar-none" aria-label="Super admin sections">
           <button
             v-for="item in SECTIONS"
             :key="item.value"
             type="button"
-            class="-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors"
+            class="-mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 px-2.5 py-2.5 text-sm font-medium transition-colors sm:gap-2 sm:px-3"
             :class="section === item.value ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'"
             @click="section = item.value"
           >
-            <component :is="item.icon" class="size-4" /> {{ item.label }}
+            <component :is="item.icon" class="size-4" />
+            <span class="sm:hidden">{{ item.short }}</span>
+            <span class="max-sm:hidden">{{ item.label }}</span>
+            <span
+              v-if="item.value === 'organizations' && pendingCount"
+              class="rounded-full bg-warning/20 px-1.5 text-[10px] font-semibold text-amber-800 tabular-nums dark:text-warning"
+            >
+              {{ pendingCount }}
+            </span>
           </button>
         </nav>
       </header>
 
-    <main class="relative min-h-0 w-full flex-1 space-y-6 overflow-y-auto p-5 scrollbar-thin">
-      <section class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div class="max-w-2xl space-y-3">
-          <span class="inline-flex items-center gap-2 text-brand text-xs font-medium">
+    <main class="relative min-h-0 w-full flex-1 space-y-4 overflow-y-auto p-3 pb-safe scrollbar-thin sm:space-y-6 sm:p-5">
+      <section class="flex items-start justify-between gap-3 sm:flex-col sm:gap-5 lg:flex-row lg:items-end">
+        <div class="min-w-0 max-w-2xl space-y-1 sm:space-y-3">
+          <span class="inline-flex items-center gap-2 text-xs font-medium text-brand max-sm:hidden">
             <ShieldCheck class="size-3.5" /> Super admin
           </span>
-          <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">{{ HEADINGS[section].title }}</h1>
-          <p class="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-[15px]">{{ HEADINGS[section].text }}</p>
+          <h1 class="text-xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">{{ HEADINGS[section].title }}</h1>
+          <p class="max-w-xl text-[13px] leading-relaxed text-muted-foreground max-sm:hidden sm:text-sm sm:text-[15px]">{{ HEADINGS[section].text }}</p>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex shrink-0 flex-wrap items-center gap-2">
           <span
             v-if="pendingCount && section === 'organizations'"
-            class="inline-flex items-center gap-2 border border-warning/30 bg-warning/10 px-3 py-1.5 text-sm font-medium text-amber-800 dark:text-warning"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-warning/30 bg-warning/10 px-2.5 py-1 text-xs font-medium text-amber-800 sm:gap-2 sm:px-3 sm:py-1.5 sm:text-sm dark:text-warning"
           >
             <Clock class="size-3.5" /> {{ pendingCount }} waiting
           </span>
-          <Button variant="outline" size="sm" :loading="isLoading" @click="load"><RefreshCw /> Refresh</Button>
+          <Button variant="outline" size="icon-sm" class="sm:hidden" :loading="isLoading" aria-label="Refresh" @click="load"><RefreshCw /></Button>
+          <Button variant="outline" size="sm" class="max-sm:hidden" :loading="isLoading" @click="load"><RefreshCw /> Refresh</Button>
         </div>
       </section>
 
@@ -433,29 +446,41 @@ function signOut() {
       <SuperAdminProfile v-else-if="section === 'profile'" />
 
       <template v-else>
-      <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" role="tablist" aria-label="Filter organizations">
+      <!-- Phone/tablet: 2×2 fit, no horizontal scroll. Wide screens: stat cards. -->
+      <section class="grid grid-cols-2 gap-2 xl:grid-cols-4 xl:gap-3" role="tablist" aria-label="Filter organizations">
         <button
           v-for="item in FILTERS"
           :key="item.value"
           type="button"
           role="tab"
           :aria-selected="filter === item.value"
-          class="group relative overflow-hidden border bg-card p-4 text-left shadow-soft transition-all duration-200"
+          class="group relative min-w-0 overflow-hidden rounded-xl border bg-card p-2.5 text-left shadow-soft transition-all duration-200 sm:p-3 xl:p-4"
           :class="
             filter === item.value
-              ? 'border-primary/40 ring-4 ring-primary/10'
+              ? 'border-primary/40 ring-2 ring-primary/15 xl:ring-4 xl:ring-primary/10'
               : 'border-border/70 hover:border-primary/25 hover:bg-accent/30'
           "
           @click="filter = item.value"
         >
-          <span class="flex items-start justify-between gap-3">
-            <span class="flex size-10 items-center justify-center ring-4" :class="item.accent">
-              <component :is="item.icon" class="size-4" />
+          <span class="flex items-center justify-between gap-2 xl:hidden">
+            <span class="flex min-w-0 items-center gap-1.5">
+              <span class="flex size-7 shrink-0 items-center justify-center rounded-md" :class="item.accent">
+                <component :is="item.icon" class="size-3.5" />
+              </span>
+              <span class="truncate text-xs font-semibold">{{ item.label }}</span>
             </span>
-            <span class="text-2xl font-semibold tracking-tight tabular-nums">{{ count(item.value) }}</span>
+            <span class="text-sm font-semibold tabular-nums">{{ count(item.value) }}</span>
           </span>
-          <span class="mt-4 block text-sm font-semibold">{{ item.label }}</span>
-          <span class="mt-0.5 block text-xs text-muted-foreground">{{ item.description }}</span>
+          <span class="hidden xl:block">
+            <span class="flex items-start justify-between gap-3">
+              <span class="flex size-10 items-center justify-center rounded-lg ring-4" :class="item.accent">
+                <component :is="item.icon" class="size-4" />
+              </span>
+              <span class="text-2xl font-semibold tracking-tight tabular-nums">{{ count(item.value) }}</span>
+            </span>
+            <span class="mt-4 block text-sm font-semibold">{{ item.label }}</span>
+            <span class="mt-0.5 block text-xs text-muted-foreground">{{ item.description }}</span>
+          </span>
         </button>
       </section>
 
@@ -468,7 +493,7 @@ function signOut() {
         </div>
 
         <div v-if="organizations === null" class="space-y-3">
-          <Skeleton v-for="index in 3" :key="index" class="h-28 w-full" />
+          <Skeleton v-for="index in 3" :key="index" class="h-36 w-full rounded-xl" />
         </div>
 
         <EmptyState
@@ -480,13 +505,132 @@ function signOut() {
               ? 'When someone creates an organization, it lands here until you approve it.'
               : 'Try another filter, or wait for the next signup.'
           "
-          class="border border-dashed border-border/80 bg-card/60 py-16"
+          class="rounded-xl py-14 sm:py-16"
         />
 
-        <div v-else class="overflow-hidden border border-border/80 bg-card shadow-soft">
-          <!-- Column headings (wide screens); each row lines up under them. -->
+        <!-- Mobile / tablet cards -->
+        <ul v-else class="space-y-3 xl:hidden">
+          <li
+            v-for="organization in visible"
+            :key="organization.id"
+            class="rounded-xl border border-border/80 bg-card p-3.5 shadow-soft"
+            :class="openId === organization.id && 'border-primary/40 bg-primary/5'"
+          >
+            <button type="button" class="flex w-full min-w-0 items-start gap-3 text-left" :title="`Open ${organization.name}`" @click="openId = organization.id">
+              <OrganizationLogo
+                v-if="organization.logoUrl"
+                :src="assetUrl(organization.logoUrl)!"
+                :alt="organization.name"
+                size="md"
+                bare
+                class="mt-0.5 h-10 max-w-24 shrink-0"
+              />
+              <span
+                v-else
+                class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand text-xs font-bold tracking-wide text-white shadow-glow"
+              >
+                {{ organization.name.slice(0, 2).toUpperCase() }}
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="flex items-start justify-between gap-2">
+                  <span class="truncate text-[15px] font-semibold tracking-tight">{{ organization.name }}</span>
+                  <Badge :variant="STATUS[organization.status].variant" class="shrink-0">
+                    <component :is="STATUS[organization.status].icon" /> {{ STATUS[organization.status].label }}
+                  </Badge>
+                </span>
+                <span class="mt-0.5 block truncate text-xs text-muted-foreground">{{ organizationAddress(organization.slug) }}</span>
+              </span>
+            </button>
+
+            <div class="mt-3 flex items-center gap-2.5">
+              <template v-if="organization.creator">
+                <UserAvatar :user="organization.creator" size="sm" />
+                <div class="min-w-0 flex-1">
+                  <p class="flex items-center gap-1 truncate text-sm font-medium">
+                    {{ organization.creator.name }}
+                    <Crown class="size-3 shrink-0 text-amber-500" />
+                  </p>
+                  <p class="truncate text-xs text-muted-foreground">{{ organization.creator.title || organization.creator.email }}</p>
+                </div>
+              </template>
+              <p v-else class="text-xs text-muted-foreground">No admin</p>
+            </div>
+
+            <div class="mt-3 flex items-center gap-2">
+              <SelectField
+                :model-value="organization.plan?.id ?? null"
+                :options="planOptions"
+                placeholder="No plan"
+                size="sm"
+                class="min-w-0 flex-1"
+                :disabled="busyId !== null || !planOptions.length"
+                :aria-label="`Plan for ${organization.name}`"
+                @update:model-value="(value) => changePlan(organization, value ?? null)"
+              />
+              <button
+                v-if="organization.customFeatureCount"
+                type="button"
+                class="shrink-0 text-[11px] font-medium text-brand hover:underline"
+                @click="openId = organization.id"
+              >
+                +{{ organization.customFeatureCount }}
+              </button>
+            </div>
+
+            <p class="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span class="inline-flex items-center gap-1"><Users class="size-3.5" /> {{ organization.memberCount }}</span>
+              <span class="inline-flex items-center gap-1"><FolderKanban class="size-3.5" /> {{ organization.projectCount }}</span>
+              <span :title="formatDate(organization.createdAt, 'd MMM yyyy, HH:mm')">{{ timeAgo(organization.createdAt) }}</span>
+            </p>
+
+            <p
+              v-if="organization.status === 'rejected' && organization.rejectionReason"
+              class="mt-2.5 rounded-md border-l-2 border-destructive bg-destructive/5 px-2.5 py-1.5 text-xs text-destructive"
+            >
+              Reason: {{ organization.rejectionReason }}
+            </p>
+
+            <div class="mt-3 flex items-center gap-2 border-t border-border/60 pt-3">
+              <Button size="sm" variant="outline" class="min-w-0 flex-1" @click="openId = organization.id"><Eye /> Details</Button>
+              <Button
+                v-if="organization.status !== 'approved'"
+                size="sm"
+                class="shrink-0"
+                :loading="busyId === organization.id && !rejecting"
+                :disabled="busyId !== null"
+                @click="approve(organization)"
+              >
+                <Check /> Approve
+              </Button>
+              <Button
+                v-if="organization.status !== 'rejected'"
+                size="sm"
+                variant="outline"
+                class="shrink-0 text-destructive hover:bg-destructive/5 hover:text-destructive"
+                :disabled="busyId !== null"
+                @click="openReject(organization)"
+              >
+                <Ban /> {{ organization.status === 'approved' ? 'Revoke' : 'Reject' }}
+              </Button>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                class="shrink-0 text-muted-foreground hover:bg-destructive/5 hover:text-destructive"
+                :disabled="busyId !== null"
+                :aria-label="`Delete ${organization.name}`"
+                title="Delete the organization and everything in it"
+                @click="openRemove(organization)"
+              >
+                <Trash2 />
+              </Button>
+            </div>
+          </li>
+        </ul>
+
+        <!-- Wide desktop table -->
+        <div v-if="visible.length" class="hidden overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft xl:block">
           <div
-            class="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_7.5rem_10rem_6.5rem_7rem_auto] items-center gap-4 border-b border-border/70 bg-muted/40 px-4 py-2.5 text-xs font-medium text-muted-foreground xl:grid"
+            class="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_7.5rem_10rem_6.5rem_7rem_auto] items-center gap-4 border-b border-border/70 bg-muted/40 px-4 py-2.5 text-xs font-medium text-muted-foreground"
           >
             <span>Organization</span>
             <span>Admin</span>
@@ -500,15 +644,14 @@ function signOut() {
           <ul class="divide-y divide-border/60">
             <li
               v-for="organization in visible"
-              :key="organization.id"
-              class="grid gap-3 px-4 py-3.5 transition-colors hover:bg-accent/30 xl:grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_7.5rem_10rem_6.5rem_7rem_auto] xl:items-center xl:gap-4"
+              :key="`table-${organization.id}`"
+              class="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_7.5rem_10rem_6.5rem_7rem_auto] items-center gap-4 px-4 py-3.5 transition-colors hover:bg-accent/30"
               :class="openId === organization.id && 'bg-primary/5'"
             >
-              <!-- Organization -->
               <button type="button" class="group flex min-w-0 items-center gap-3 text-left" :title="`Open ${organization.name}`" @click="openId = organization.id">
                 <span class="flex h-10 w-32 shrink-0 items-center justify-start">
                   <OrganizationLogo v-if="organization.logoUrl" :src="assetUrl(organization.logoUrl)!" :alt="organization.name" size="md" bare class="h-10 max-w-32" />
-                  <span v-else class="flex size-10 items-center justify-center bg-brand text-xs font-bold tracking-wide text-white shadow-glow">
+                  <span v-else class="flex size-10 items-center justify-center rounded-lg bg-brand text-xs font-bold tracking-wide text-white shadow-glow">
                     {{ organization.name.slice(0, 2).toUpperCase() }}
                   </span>
                 </span>
@@ -518,7 +661,6 @@ function signOut() {
                 </span>
               </button>
 
-              <!-- Admin -->
               <button
                 v-if="organization.creator"
                 type="button"
@@ -537,14 +679,12 @@ function signOut() {
               </button>
               <span v-else class="text-xs text-muted-foreground">No admin</span>
 
-              <!-- Status -->
               <div>
                 <Badge :variant="STATUS[organization.status].variant">
                   <component :is="STATUS[organization.status].icon" /> {{ STATUS[organization.status].label }}
                 </Badge>
               </div>
 
-              <!-- Plan -->
               <div class="min-w-0 space-y-1">
                 <SelectField
                   :model-value="organization.plan?.id ?? null"
@@ -566,19 +706,16 @@ function signOut() {
                 </button>
               </div>
 
-              <!-- Usage -->
-              <div class="flex gap-3 text-xs text-muted-foreground xl:flex-col xl:gap-0.5">
+              <div class="flex flex-col gap-0.5 text-xs text-muted-foreground">
                 <span class="inline-flex items-center gap-1" title="People"><Users class="size-3.5" /> {{ organization.memberCount }} people</span>
                 <span class="inline-flex items-center gap-1" title="Projects"><FolderKanban class="size-3.5" /> {{ organization.projectCount }} projects</span>
               </div>
 
-              <!-- Created -->
               <span class="text-xs text-muted-foreground" :title="formatDate(organization.createdAt, 'd MMM yyyy, HH:mm')">
-                <span class="xl:hidden">Created </span>{{ timeAgo(organization.createdAt) }}
+                {{ timeAgo(organization.createdAt) }}
               </span>
 
-              <!-- Actions -->
-              <div class="flex flex-wrap items-center gap-1.5 xl:justify-end">
+              <div class="flex flex-wrap items-center justify-end gap-1.5">
                 <Button size="sm" variant="ghost" @click="openId = organization.id"><Eye /> Details</Button>
                 <Button
                   v-if="organization.status !== 'approved'"
@@ -614,7 +751,7 @@ function signOut() {
 
               <p
                 v-if="organization.status === 'rejected' && organization.rejectionReason"
-                class="border-l-2 border-destructive bg-destructive/5 px-2.5 py-1.5 text-xs text-destructive xl:col-span-7"
+                class="col-span-7 rounded-md border-l-2 border-destructive bg-destructive/5 px-2.5 py-1.5 text-xs text-destructive"
               >
                 Reason: {{ organization.rejectionReason }}
               </p>
@@ -639,9 +776,9 @@ function signOut() {
             <Textarea id="reject-reason" v-model="reason" rows="3" maxlength="500" placeholder="For example: we could not verify this company." />
           </FormField>
         </form>
-        <DialogFooter>
-          <Button variant="ghost" @click="rejecting = null">Cancel</Button>
-          <Button type="submit" form="reject-organization" variant="destructive" :loading="busyId === rejecting?.id">
+        <DialogFooter class="max-sm:flex-col-reverse max-sm:gap-2">
+          <Button variant="ghost" class="max-sm:w-full" @click="rejecting = null">Cancel</Button>
+          <Button type="submit" form="reject-organization" variant="destructive" class="max-sm:w-full" :loading="busyId === rejecting?.id">
             {{ rejecting?.status === 'approved' ? 'Revoke access' : 'Reject organization' }}
           </Button>
         </DialogFooter>
@@ -667,9 +804,9 @@ function signOut() {
             <Input id="remove-confirm" v-model="confirmName" autocomplete="off" :placeholder="removing?.name" />
           </FormField>
         </form>
-        <DialogFooter>
-          <Button variant="ghost" @click="removing = null">Cancel</Button>
-          <Button type="submit" form="remove-organization" variant="destructive" :disabled="!nameMatches" :loading="busyId === removing?.id">
+        <DialogFooter class="max-sm:flex-col-reverse max-sm:gap-2">
+          <Button variant="ghost" class="max-sm:w-full" @click="removing = null">Cancel</Button>
+          <Button type="submit" form="remove-organization" variant="destructive" class="max-sm:w-full" :disabled="!nameMatches" :loading="busyId === removing?.id">
             <Trash2 /> Delete for good
           </Button>
         </DialogFooter>

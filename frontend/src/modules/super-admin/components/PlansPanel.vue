@@ -39,26 +39,26 @@ const limitLabel = (value: number | null, noun: string) => (value === null ? `Un
 </script>
 
 <template>
-  <section class="space-y-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <p class="max-w-xl text-sm text-muted-foreground">
+  <section class="space-y-3.5 sm:space-y-4">
+    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <p class="max-w-xl text-[13px] text-muted-foreground sm:text-sm">
         Plans decide which features and emails an organization gets and how many people and projects it may have. Changes apply right away.
       </p>
-      <Button variant="brand" @click="openEditor()"><Plus /> New plan</Button>
+      <Button variant="brand" class="max-sm:w-full" @click="openEditor()"><Plus /> New plan</Button>
     </div>
 
-    <div v-if="props.plans === null" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <Skeleton v-for="index in 3" :key="index" class="h-96 w-full" />
+    <div v-if="props.plans === null" class="grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <Skeleton v-for="index in 3" :key="index" class="h-96 w-full rounded-xl" />
     </div>
 
-    <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div v-else class="grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
       <article
         v-for="plan in props.plans"
         :key="plan.id"
-        class="relative flex flex-col border bg-card shadow-soft transition-colors"
+        class="relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-soft transition-colors"
         :class="plan.isDefault ? 'border-primary/40 ring-4 ring-primary/10' : 'border-border/80 hover:border-primary/25'"
       >
-        <div class="space-y-3 border-b border-border/60 p-5">
+        <div class="space-y-3 border-b border-border/60 p-4 sm:p-5">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <h3 class="truncate text-lg font-semibold tracking-tight">{{ plan.name }}</h3>
@@ -73,7 +73,7 @@ const limitLabel = (value: number | null, noun: string) => (value === null ? `Un
           </div>
         </div>
 
-        <ul class="flex-1 space-y-2 p-5 text-sm">
+        <ul class="flex-1 space-y-2 p-4 text-sm sm:p-5">
           <template v-for="group in PLAN_FEATURE_GROUPS" :key="group.value">
           <li class="pt-1 text-xs font-medium text-muted-foreground first:pt-0">{{ group.label }}</li>
           <li
@@ -99,7 +99,7 @@ const limitLabel = (value: number | null, noun: string) => (value === null ? `Un
           </template>
         </ul>
 
-        <div class="flex items-center justify-between gap-2 border-t border-border/60 px-5 py-3">
+        <div class="flex items-center justify-between gap-2 border-t border-border/60 px-4 py-3 sm:px-5">
           <span class="text-xs text-muted-foreground tabular-nums">
             {{ plan.organizationCount }} organization{{ plan.organizationCount === 1 ? '' : 's' }}
           </span>

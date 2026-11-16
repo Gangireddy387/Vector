@@ -70,8 +70,8 @@ if (redirectSlug) {
     </Button>
   </form>
 
-  <p class="mt-6 text-center text-sm text-muted-foreground short:mt-4">
+  <p class="mt-5 text-center text-sm leading-relaxed text-muted-foreground short:mt-4">
     New to Vector?
-    <RouterLink :to="{ name: 'register' }" class="font-medium text-primary hover:underline">Create an account</RouterLink>
+    <RouterLink :to="{ name: 'register' }" class="font-medium whitespace-nowrap text-primary hover:underline">Create an account</RouterLink>
   </p>
 </template>

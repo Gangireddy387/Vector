@@ -185,9 +185,9 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         Inbox
         <span v-if="notifications.unreadCount" class="rounded-full bg-primary/12 px-1.5 text-[11px] font-semibold text-primary tabular-nums dark:bg-primary/20">{{ notifications.unreadCount }}</span>
       </h1>
-      <div class="relative ml-auto hidden w-44 sm:block lg:w-60">
+      <div class="relative ml-auto w-36 sm:w-44 lg:w-60">
         <Search class="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input v-model="search" class="h-7 pl-8" placeholder="Search notifications" aria-label="Search notifications" />
+        <Input v-model="search" class="h-7 pl-8" placeholder="Search" aria-label="Search notifications" />
       </div>
       <Button variant="outline" size="sm" class="shrink-0" :disabled="!notifications.unreadCount" @click="notifications.markAllRead()"><CheckCheck /> <span class="hidden sm:inline">Mark all read</span></Button>
     </header>
@@ -199,13 +199,13 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         class="flex min-w-0 flex-col border-border"
         :class="isWide ? 'w-[min(26rem,38%)] shrink-0 border-r xl:w-[30rem]' : 'w-full'"
       >
-        <div class="flex shrink-0 flex-wrap gap-1 px-2.5 pt-2.5 pb-1.5" role="tablist" aria-label="Filter notifications">
+        <div class="flex shrink-0 gap-1 overflow-x-auto px-2.5 pt-2.5 pb-1.5 scrollbar-none" role="tablist" aria-label="Filter notifications">
           <button
             v-for="chip in chips"
             :key="chip.value"
             type="button"
             role="tab"
-            class="inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors"
+            class="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors"
             :class="filter === chip.value ? 'bg-accent text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'"
             :aria-selected="filter === chip.value"
             @click="chooseFilter(chip.value)"

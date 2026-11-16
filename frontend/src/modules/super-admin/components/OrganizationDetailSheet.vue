@@ -240,7 +240,7 @@ async function copyEmail(email: string) {
           <X />
         </Button>
 
-        <div class="px-5 pt-4 pb-4">
+        <div class="px-3.5 pt-4 pb-4 sm:px-5">
           <!-- Shown the way the organization sees it in its own sidebar: the full logo, unboxed. -->
           <Skeleton v-if="!detail" class="h-14 w-40" />
           <OrganizationLogo
@@ -251,11 +251,11 @@ async function copyEmail(email: string) {
             bare
             class="h-14 max-w-64"
           />
-          <span v-else class="flex size-14 items-center justify-center bg-brand text-lg font-bold text-white shadow-glow">
+          <span v-else class="flex size-14 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white shadow-glow">
             {{ detail.organization.name.slice(0, 2).toUpperCase() }}
           </span>
 
-          <SheetTitle class="mt-3 flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight">
+          <SheetTitle class="mt-3 flex flex-wrap items-center gap-2 text-lg font-semibold tracking-tight sm:text-xl">
             {{ detail?.organization.name ?? 'Organization' }}
             <Badge v-if="detail" :variant="STATUS[detail.organization.status].variant">
               <component :is="STATUS[detail.organization.status].icon" /> {{ STATUS[detail.organization.status].label }}
@@ -290,13 +290,13 @@ async function copyEmail(email: string) {
         </div>
       </header>
 
-      <div class="min-h-0 flex-1 space-y-6 overflow-y-auto p-5 scrollbar-thin">
+      <div class="min-h-0 flex-1 space-y-5 overflow-y-auto p-3.5 pb-safe scrollbar-thin sm:space-y-6 sm:p-5">
         <template v-if="!detail">
-          <Skeleton class="h-72 w-full" />
-          <Skeleton class="h-32 w-full" />
+          <Skeleton class="h-72 w-full rounded-xl" />
+          <Skeleton class="h-32 w-full rounded-xl" />
         </template>
 
-        <Tabs v-else v-model="tab" class="gap-5">
+        <Tabs v-else v-model="tab" class="gap-4 sm:gap-5">
           <TabsList class="w-full">
             <TabsTrigger value="overview"><LayoutDashboard /> Overview</TabsTrigger>
             <TabsTrigger value="people">
@@ -307,10 +307,10 @@ async function copyEmail(email: string) {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" class="space-y-6">
+          <TabsContent value="overview" class="space-y-5 sm:space-y-6">
           <!-- Plan usage and work -->
           <section class="grid gap-3 sm:grid-cols-2">
-            <div class="space-y-3 border border-border/80 bg-card p-4 shadow-soft">
+            <div class="space-y-3 rounded-xl border border-border/80 bg-card p-3.5 shadow-soft sm:p-4">
               <h3 class="text-sm font-semibold">Plan · {{ detail.organization.plan?.name ?? 'No plan' }}</h3>
               <div v-for="item in usage" :key="item.label" class="space-y-1">
                 <div class="flex items-center justify-between text-xs">
@@ -324,7 +324,7 @@ async function copyEmail(email: string) {
               </button>
             </div>
             <div class="grid grid-cols-2 gap-2">
-              <div v-for="item in COUNTS" :key="item.label" class="border border-border/80 bg-card p-3 shadow-soft">
+              <div v-for="item in COUNTS" :key="item.label" class="rounded-xl border border-border/80 bg-card p-3 shadow-soft">
                 <component :is="item.icon" class="mb-1.5 size-4 text-muted-foreground" />
                 <span class="block text-xl leading-none font-semibold tabular-nums">{{ item.value }}</span>
                 <span class="mt-1 block text-[11px] text-muted-foreground">{{ item.label }}</span>
@@ -335,7 +335,7 @@ async function copyEmail(email: string) {
           <!-- Admins: full profile cards -->
           <section class="space-y-3">
             <h3 class="flex items-center gap-2 text-sm font-semibold"><Crown class="size-4 text-amber-500" /> Organization admins</h3>
-            <article v-for="admin in detail.admins" :key="admin.id" class="overflow-hidden border border-border/80 bg-card shadow-soft">
+            <article v-for="admin in detail.admins" :key="admin.id" class="overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft">
               <div class="h-20" :style="profileCoverStyle(admin.avatarColor)" />
               <div class="px-4 pb-4">
                 <div class="-mt-10 flex items-end justify-between gap-3">

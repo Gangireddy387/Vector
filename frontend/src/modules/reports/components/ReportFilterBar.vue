@@ -10,7 +10,7 @@ import type { ReportFilters } from '../reports.api'
 
 const props = defineProps<{ projects: Project[]; members: UserSummary[]; lockProject?: boolean }>()
 const filters = defineModel<ReportFilters>({ required: true })
-const { isDesktop } = useDevice()
+const { isDesktop, isWide } = useDevice()
 
 const PERIOD_OPTIONS: SelectFieldOption[] = [7, 14, 30, 90, 180].map((days) => ({
   value: String(days),
@@ -88,6 +88,7 @@ function reset() {
       @update:model-value="(value) => set('assigneeId', value ?? undefined)"
     />
     <SelectField
+      v-if="isWide || filters.type"
       :model-value="filters.type ?? null"
       :options="typeOptions"
       size="sm"
@@ -96,6 +97,7 @@ function reset() {
       @update:model-value="(value) => set('type', value ?? undefined)"
     />
     <SelectField
+      v-if="isWide || filters.priority"
       :model-value="filters.priority ?? null"
       :options="priorityOptions"
       size="sm"

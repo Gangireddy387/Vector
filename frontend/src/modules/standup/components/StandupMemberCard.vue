@@ -25,7 +25,10 @@ const hasSignals = computed(() => Boolean(props.member.signals.completed.length 
 </script>
 
 <template>
-  <article class="flex flex-col border bg-card shadow-soft" :class="!update && 'border-dashed bg-card/60'">
+  <article
+    class="flex flex-col rounded-xl border border-border bg-card shadow-soft transition-[border-color,box-shadow] hover:border-input hover:shadow-[0_2px_8px_-2px_oklch(0_0_0/0.1)]"
+    :class="!update && 'border-dashed bg-card/60'"
+  >
     <header class="flex items-center gap-3 px-4 pt-3.5 pb-3">
       <UserAvatar :user="member.user" size="md" />
       <div class="min-w-0 flex-1">

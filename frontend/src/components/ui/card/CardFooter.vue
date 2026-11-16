@@ -6,7 +6,7 @@ const props = defineProps<{ class?: HTMLAttributes['class'] }>()
 </script>
 
 <template>
-  <div data-slot="card-footer" :class="cn('flex items-center px-4', props.class)">
+  <div data-slot="card-footer" :class="cn('flex items-center px-3.5 sm:px-4', props.class)">
     <slot />
   </div>
 </template>

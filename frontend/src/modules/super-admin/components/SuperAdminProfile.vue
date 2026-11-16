@@ -59,12 +59,12 @@ async function save() {
             <Input id="super-admin-email" :model-value="auth.user?.email" disabled />
           </FormField>
         </div>
-        <Button type="submit" variant="brand" :loading="isSaving">Save profile</Button>
+        <Button type="submit" variant="brand" class="max-sm:w-full" :loading="isSaving">Save profile</Button>
       </form>
     </CardContent>
   </Card>
 
-  <Card class="mt-4">
+  <Card class="mt-3.5 sm:mt-4">
     <CardHeader>
       <CardTitle>Appearance</CardTitle>
       <CardDescription>Light, dark, or follow your device. Saved on this device.</CardDescription>
@@ -77,7 +77,7 @@ async function save() {
           type="button"
           role="radio"
           :aria-checked="preference === option.value"
-          class="flex flex-col items-center gap-2 border p-3 text-sm transition-all"
+          class="flex flex-col items-center gap-2 rounded-xl border p-3 text-sm transition-all"
           :class="preference === option.value ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-border/70 hover:border-primary/30 hover:bg-accent/40'"
           @click="preference = option.value"
         >

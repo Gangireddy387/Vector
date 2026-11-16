@@ -71,14 +71,14 @@ function open(result: MeetingSearchResult) {
 
 <template>
   <div class="space-y-2">
-    <label class="flex h-10 items-center gap-2 border border-input bg-card px-3 shadow-xs focus-within:border-primary focus-within:ring-4 focus-within:ring-ring/15">
+    <label class="flex h-10 items-center gap-2 rounded-xl border border-input bg-card px-3 shadow-xs focus-within:border-primary focus-within:ring-4 focus-within:ring-ring/15">
       <Search class="size-4 shrink-0 text-muted-foreground" />
       <input v-model="query" class="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" placeholder="Search what was said in meetings…" aria-label="Search meetings" />
       <LoaderCircle v-if="isSearching" class="size-4 shrink-0 animate-spin text-muted-foreground" />
       <button v-else-if="query" type="button" class="text-muted-foreground hover:text-foreground" aria-label="Clear the search" @click="query = ''"><X class="size-4" /></button>
     </label>
 
-    <section v-if="active" class="border border-border/70 bg-card shadow-soft">
+    <section v-if="active" class="overflow-hidden rounded-xl border border-border/70 bg-card shadow-soft">
       <header class="flex items-center gap-2 border-b border-border/70 px-4 py-2 text-xs text-muted-foreground">
         <Sparkles v-if="mode === 'meaning'" class="size-3.5 text-primary" />
         <span class="min-w-0 flex-1">

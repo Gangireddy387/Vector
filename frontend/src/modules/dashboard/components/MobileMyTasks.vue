@@ -59,7 +59,7 @@ async function complete(issue: Issue) {
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5 p-3">
+  <div class="w-full space-y-4 p-3 pb-2 sm:space-y-5">
     <div class="flex flex-col gap-2 px-1 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <p class="text-lg font-semibold">Hi {{ auth.user?.name.split(' ')[0] }}</p>

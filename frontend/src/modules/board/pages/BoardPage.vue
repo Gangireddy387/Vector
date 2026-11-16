@@ -270,7 +270,7 @@ function moveOnMobile(issue: Issue, status: Status) {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 w-full flex-col overflow-x-hidden" :class="isDesktop ? '' : 'min-h-0'">
+  <div class="flex w-full flex-col overflow-x-hidden" :class="isDesktop ? 'h-full min-h-0' : ''">
     <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
     <div v-if="isLoading" class="flex gap-3 overflow-x-auto p-3 sm:p-4">
       <Skeleton v-for="index in 4" :key="index" class="h-96 w-64 shrink-0 rounded-xl sm:min-w-64 sm:flex-1" />
@@ -300,20 +300,20 @@ function moveOnMobile(issue: Issue, status: Status) {
 
       <!-- Desktop: the whole workflow at a glance -->
       <template v-if="isDesktop">
-        <div class="flex flex-col gap-2 border-b border-border px-3 py-2.5 xl:flex-row xl:items-start xl:gap-3 xl:px-4">
+        <div class="flex flex-col gap-2 border-b border-border px-3 py-2.5 lg:flex-row lg:items-start lg:gap-3 lg:px-4">
           <div class="min-w-0 flex-1">
             <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" />
           </div>
-          <div class="flex shrink-0 flex-wrap items-center gap-2 xl:gap-3">
+          <div class="flex shrink-0 flex-wrap items-center gap-2 lg:gap-3">
             <template v-if="activeSprint">
               <div class="flex min-w-0 items-center gap-2 text-[13px]" :title="activeSprint.goal ?? undefined">
                 <span class="size-1.5 shrink-0 rounded-full bg-success" />
                 <span class="max-w-40 truncate font-medium">{{ activeSprint.name }}</span>
               </div>
-              <div class="hidden 2xl:block"><SprintProgress :sprint="activeSprint" :stats="sprintStats" inline /></div>
+              <div class="hidden xl:block"><SprintProgress :sprint="activeSprint" :stats="sprintStats" inline /></div>
               <Button v-if="canManageSprints" variant="outline" size="sm" @click="isCompleteOpen = true">Complete sprint</Button>
             </template>
-            <div v-else-if="sprintStats.issueCount" class="hidden items-center gap-2 text-xs text-muted-foreground xl:flex" :title="`${sprintStats.doneCount} of ${sprintStats.issueCount} tasks done`">
+            <div v-else-if="sprintStats.issueCount" class="hidden items-center gap-2 text-xs text-muted-foreground lg:flex" :title="`${sprintStats.doneCount} of ${sprintStats.issueCount} tasks done`">
               <span class="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
                 <span class="block h-full rounded-full bg-success transition-[width]" :style="{ width: `${donePercent}%` }" />
               </span>
@@ -330,7 +330,7 @@ function moveOnMobile(issue: Issue, status: Status) {
           </div>
         </div>
 
-        <p v-if="isFiltered" class="flex flex-wrap items-center gap-2 border-b border-border bg-primary/[0.03] px-3 py-1.5 text-xs text-muted-foreground xl:px-4">
+        <p v-if="isFiltered" class="flex flex-wrap items-center gap-2 border-b border-border bg-primary/[0.03] px-3 py-1.5 text-xs text-muted-foreground lg:px-4">
           Showing <strong class="font-semibold text-foreground tabular-nums">{{ filteredIssues.length }}</strong> of {{ issues.length }} tasks
           <button type="button" class="font-medium text-primary hover:underline" @click="filters = { search: '', assigneeIds: [] }">Clear filters</button>
         </p>
@@ -425,10 +425,10 @@ function moveOnMobile(issue: Issue, status: Status) {
         </div>
       </template>
 
-      <!-- Mobile: one status at a time, tap to move -->
+      <!-- Mobile: one status at a time; page scrolls (no nested board scrollbar) -->
       <template v-else>
-        <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <div class="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+        <div class="flex w-full min-w-0 flex-col">
+          <div class="flex items-center gap-2 border-b border-border px-3 py-2">
             <div class="relative min-w-0 flex-1">
               <Search class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input v-model="filters.search" placeholder="Search board" class="h-9 pl-8" aria-label="Search this board" />
@@ -452,12 +452,12 @@ function moveOnMobile(issue: Issue, status: Status) {
             </Button>
           </div>
 
-          <p v-if="isFiltered" class="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-primary/[0.03] px-3 py-1.5 text-xs text-muted-foreground">
+          <p v-if="isFiltered" class="flex flex-wrap items-center gap-2 border-b border-border bg-primary/[0.03] px-3 py-1.5 text-xs text-muted-foreground">
             Showing <strong class="font-semibold text-foreground tabular-nums">{{ filteredIssues.length }}</strong> of {{ issues.length }}
             <button type="button" class="font-medium text-primary hover:underline" @click="filters = { search: '', assigneeIds: [] }">Clear</button>
           </p>
 
-          <div v-if="activeSprint" class="shrink-0 border-b border-border px-3 py-2">
+          <div v-if="activeSprint" class="border-b border-border px-3 py-2">
             <div class="mb-1.5 flex items-center justify-between gap-2">
               <p class="min-w-0 truncate text-sm font-semibold">{{ activeSprint.name }}</p>
               <Button v-if="canManageSprints" variant="outline" size="xs" class="shrink-0" @click="isCompleteOpen = true">Complete</Button>

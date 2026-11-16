@@ -313,67 +313,70 @@ defineExpose({
       </li>
     </ul>
 
-    <div class="flex items-end gap-2">
-      <div
-        class="flex min-w-0 flex-1 flex-col rounded-lg border bg-card shadow-soft transition-colors focus-within:border-ring/60 focus-within:ring-[3px] focus-within:ring-ring/15"
-        :class="[isDragging ? 'border-primary ring-[3px] ring-primary/20' : 'border-border', important && 'border-l-[3px] border-l-red-500']"
-        @dragover.prevent="canAttach && (isDragging = true)"
-        @dragleave.self="isDragging = false"
-        @drop.prevent="onDrop"
-      >
-        <p v-if="important" class="flex items-center gap-1 px-3 pt-2 text-[11px] font-bold tracking-wide text-red-600 uppercase dark:text-red-400"><CircleAlert class="size-3.5" /> Important!</p>
-        <div v-if="allowSubject && showSubject" class="flex items-center gap-2 border-b border-border/70 px-3">
-          <input
-            ref="subjectInput"
-            v-model="subject"
-            maxlength="150"
-            class="h-10 min-w-0 flex-1 bg-transparent text-[15px] font-semibold outline-none placeholder:font-medium placeholder:text-muted-foreground"
-            placeholder="Add a subject"
-            aria-label="Subject"
-            @keydown.enter.prevent="input?.focus()"
-          />
-          <button type="button" class="text-muted-foreground hover:text-foreground" aria-label="Remove the subject" title="Remove the subject" @click="toggleSubject">
-            <X class="size-4" />
-          </button>
-        </div>
-        <textarea
-          ref="input"
-          v-model="draft"
-          rows="1"
-          maxlength="4000"
-          class="max-h-48 resize-none bg-transparent px-3 text-[14px] leading-5 text-foreground outline-none placeholder:text-muted-foreground"
-          :class="compact ? 'py-2' : 'py-3'"
-          :placeholder="isDragging ? 'Drop files to share them' : placeholder"
-          :aria-label="placeholder"
-          @input="
-            detectTrigger();
-            autosize();
-            signalTyping()
-          "
-          @click="detectTrigger"
-          @keydown="onKeydown"
-          @paste="onPaste"
+    <div
+      class="flex flex-col rounded-lg border bg-card shadow-soft transition-colors focus-within:border-ring/60 focus-within:ring-[3px] focus-within:ring-ring/15"
+      :class="[isDragging ? 'border-primary ring-[3px] ring-primary/20' : 'border-border', important && 'border-l-[3px] border-l-red-500']"
+      @dragover.prevent="canAttach && (isDragging = true)"
+      @dragleave.self="isDragging = false"
+      @drop.prevent="onDrop"
+    >
+      <p v-if="important" class="flex items-center gap-1 px-3 pt-2 text-[11px] font-bold tracking-wide text-red-600 uppercase dark:text-red-400">
+        <CircleAlert class="size-3.5" /> Important!
+      </p>
+      <div v-if="allowSubject && showSubject" class="flex items-center gap-2 border-b border-border/70 px-3">
+        <input
+          ref="subjectInput"
+          v-model="subject"
+          maxlength="150"
+          class="h-10 min-w-0 flex-1 bg-transparent text-[15px] font-semibold outline-none placeholder:font-medium placeholder:text-muted-foreground"
+          placeholder="Add a subject"
+          aria-label="Subject"
+          @keydown.enter.prevent="input?.focus()"
         />
+        <button type="button" class="text-muted-foreground hover:text-foreground" aria-label="Remove the subject" title="Remove the subject" @click="toggleSubject">
+          <X class="size-4" />
+        </button>
+      </div>
+      <textarea
+        ref="input"
+        v-model="draft"
+        rows="1"
+        maxlength="4000"
+        class="max-h-48 w-full resize-none bg-transparent px-3 text-[14px] leading-5 text-foreground outline-none placeholder:text-muted-foreground"
+        :class="compact ? 'py-2' : 'min-h-11 py-3'"
+        :placeholder="isDragging ? 'Drop files to share them' : placeholder"
+        :aria-label="placeholder"
+        @input="
+          detectTrigger();
+          autosize();
+          signalTyping()
+        "
+        @click="detectTrigger"
+        @keydown="onKeydown"
+        @paste="onPaste"
+      />
 
-        <div v-if="pending.length" class="flex flex-wrap gap-1.5 px-3 pb-2">
-          <span v-for="item in pending" :key="item.key" class="relative flex max-w-56 items-center gap-2 overflow-hidden rounded-md border border-border bg-muted/40 py-1.5 pr-1.5 pl-2 text-xs">
-            <LoaderCircle v-if="!item.uploaded" class="size-4 shrink-0 animate-spin text-muted-foreground" />
-            <FileText v-else class="size-4 shrink-0 text-primary" />
-            <span class="min-w-0 flex-1">
-              <span class="block truncate font-medium">{{ item.name }}</span>
-              <span class="block text-[10.5px] text-muted-foreground">{{ item.uploaded ? formatBytes(item.size) : `${item.progress}%` }}</span>
-            </span>
-            <button type="button" class="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" :aria-label="`Remove ${item.name}`" @click="removeFile(item.key)"><X class="size-3.5" /></button>
-            <span v-if="!item.uploaded" class="absolute bottom-0 left-0 h-0.5 bg-primary transition-all" :style="{ width: `${item.progress}%` }" />
+      <div v-if="pending.length" class="flex flex-wrap gap-1.5 px-3 pb-2">
+        <span v-for="item in pending" :key="item.key" class="relative flex max-w-56 items-center gap-2 overflow-hidden rounded-md border border-border bg-muted/40 py-1.5 pr-1.5 pl-2 text-xs">
+          <LoaderCircle v-if="!item.uploaded" class="size-4 shrink-0 animate-spin text-muted-foreground" />
+          <FileText v-else class="size-4 shrink-0 text-primary" />
+          <span class="min-w-0 flex-1">
+            <span class="block truncate font-medium">{{ item.name }}</span>
+            <span class="block text-[10.5px] text-muted-foreground">{{ item.uploaded ? formatBytes(item.size) : `${item.progress}%` }}</span>
           </span>
-        </div>
+          <button type="button" class="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" :aria-label="`Remove ${item.name}`" @click="removeFile(item.key)"><X class="size-3.5" /></button>
+          <span v-if="!item.uploaded" class="absolute bottom-0 left-0 h-0.5 bg-primary transition-all" :style="{ width: `${item.progress}%` }" />
+        </span>
+      </div>
 
-        <div class="flex items-center gap-0.5 border-t border-border/60 px-1.5 py-1">
+      <!-- One toolbar row: tools + subject + send, so the box fills width on phone -->
+      <div class="flex items-center gap-1 border-t border-border/60 px-1.5 py-1.5">
+        <div class="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto scrollbar-none">
           <template v-if="!compact">
             <button v-for="format in FORMATS" :key="format.label" type="button" :class="toolButton" :aria-label="format.label" :title="format.label" @click="format.run()">
               <component :is="format.icon" class="size-4" />
             </button>
-            <span class="mx-1 h-4 w-px bg-border" />
+            <span class="mx-0.5 h-4 w-px shrink-0 bg-border" />
           </template>
           <Popover>
             <PopoverTrigger as-child>
@@ -419,24 +422,25 @@ defineExpose({
           >
             <CircleAlert class="size-4" />
           </button>
-          <template v-if="allowSubject">
-            <button v-if="!showSubject" type="button" class="ml-1 rounded px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" @click="toggleSubject">
-              Add a subject
-            </button>
-          </template>
-          <span v-if="!compact" class="ml-auto hidden px-2 text-[11px] text-muted-foreground lg:inline">Enter to send · Shift + Enter for a new line</span>
+          <button
+            v-if="allowSubject && !showSubject"
+            type="button"
+            class="ml-0.5 shrink-0 rounded px-2 py-1 text-xs font-medium whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            @click="toggleSubject"
+          >
+            Add a subject
+          </button>
         </div>
+        <button
+          type="submit"
+          class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-95 disabled:opacity-50 sm:size-10"
+          :disabled="!canSend"
+          :aria-label="isUploading ? 'Waiting for files to upload' : 'Send'"
+          :title="isUploading ? 'Waiting for files to upload' : 'Send'"
+        >
+          <SendHorizontal class="size-4 sm:size-[18px]" :class="isSending && 'animate-pulse'" />
+        </button>
       </div>
-      <button
-        type="submit"
-        class="flex shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-all hover:bg-primary/90 active:scale-95 disabled:opacity-50"
-        :class="compact ? 'size-9' : 'size-11'"
-        :disabled="!canSend"
-        :aria-label="isUploading ? 'Waiting for files to upload' : 'Send'"
-        :title="isUploading ? 'Waiting for files to upload' : 'Send'"
-      >
-        <SendHorizontal class="size-[18px]" :class="isSending && 'animate-pulse'" />
-      </button>
     </div>
   </form>
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { CalendarDays, Flag, Hash, History, ListTodo, SlidersHorizontal, Sparkles } from 'lucide-vue-next'
+import { useStorage } from '@vueuse/core'
+import { CalendarDays, Flag, Hash, History, LayoutGrid, List, ListTodo, SlidersHorizontal, Sparkles } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { type LocationQuery, useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useDevice } from '@/composables/useDevice'
 import { useProjectRealtime } from '@/composables/useProjectRealtime'
 import { getErrorMessage } from '@/lib/http'
@@ -27,6 +29,8 @@ import SavedFiltersMenu from '../components/SavedFiltersMenu.vue'
 import { useIssueSelection } from '../composables/useIssueSelection'
 import { useOpenIssue } from '../composables/useOpenIssue'
 
+type LayoutMode = 'list' | 'grid'
+
 const FILTER_KEYS: FilterKey[] = ['q', 'assigneeId', 'statusCategory', 'type', 'priority', 'labelId', 'sprintId', 'overdue']
 const SORT_OPTIONS: SelectFieldOption[] = [
   { value: 'updatedAt', label: 'Recently updated', icon: History },
@@ -43,6 +47,9 @@ const projects = useProjectsStore()
 const ui = useUiStore()
 const openIssue = useOpenIssue()
 const { isDesktop } = useDevice()
+
+/** List (dense rows) or grid (cards). Remembered per device. */
+const layout = useStorage<LayoutMode>('vector.tasks.layout', 'list')
 
 const projectId = computed(() => (typeof route.params.projectId === 'string' ? route.params.projectId : undefined))
 const project = computed(() => (projectId.value ? projects.details[projectId.value] : undefined))
@@ -117,6 +124,9 @@ function loadMore() {
 const allSelected = computed(() => issues.value.length > 0 && selection.count.value === issues.value.length)
 const toggleAll = () => selection.setAll(allSelected.value ? [] : issues.value.map((issue) => issue.id))
 const applySaved = (criteria: Record<string, string>) => (filters.value = readQuery(criteria))
+
+const showList = computed(() => layout.value === 'list' && isDesktop.value)
+const showGrid = computed(() => layout.value === 'grid' || !isDesktop.value)
 </script>
 
 <template>
@@ -126,16 +136,52 @@ const applySaved = (criteria: Record<string, string>) => (filters.value = readQu
   >
     <PageHeader v-if="!projectId" title="Tasks" description="Everything across your projects, filtered your way." />
 
-    <!-- Desktop toolbar -->
+    <!-- Desktop / tablet toolbar -->
     <div v-if="isDesktop" class="flex flex-wrap items-start justify-between gap-3">
       <IssueFilterBar v-model="filters" :members="members" :labels="project?.labels" :sprints="sprints" :show-sprint="project?.type === 'scrum'" />
-      <div class="flex items-center gap-2">
-        <SelectField :model-value="sort" :options="SORT_OPTIONS" size="sm" class="w-48" aria-label="Sort by" @update:model-value="setSort" />
+      <div class="flex flex-wrap items-center gap-2">
+        <SelectField :model-value="sort" :options="SORT_OPTIONS" size="sm" class="w-44 lg:w-48" aria-label="Sort by" @update:model-value="setSort" />
+        <div class="inline-flex h-8 items-center rounded-md border border-border bg-muted/40 p-0.5" role="group" aria-label="Layout">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                class="size-7"
+                :class="layout === 'list' && 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]'"
+                :aria-pressed="layout === 'list'"
+                aria-label="List view"
+                @click="layout = 'list'"
+              >
+                <List />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>List</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                class="size-7"
+                :class="layout === 'grid' && 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]'"
+                :aria-pressed="layout === 'grid'"
+                aria-label="Grid view"
+                @click="layout = 'grid'"
+              >
+                <LayoutGrid />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Grid</TooltipContent>
+          </Tooltip>
+        </div>
         <SavedFiltersMenu :project-id="projectId" :criteria="filters" @apply="applySaved" />
       </div>
     </div>
 
-    <!-- Mobile toolbar -->
+    <!-- Phone toolbar (cards only — list/grid toggle is for tablet+) -->
     <div v-else class="flex items-center gap-2">
       <Button variant="outline" size="sm" class="flex-1" @click="isFilterSheetOpen = true">
         <SlidersHorizontal /> Filters<span v-if="activeFilterCount" class="text-primary">({{ activeFilterCount }})</span>
@@ -143,10 +189,23 @@ const applySaved = (criteria: Record<string, string>) => (filters.value = readQu
       <SelectField :model-value="sort" :options="SORT_OPTIONS" size="sm" class="flex-1" aria-label="Sort by" @update:model-value="setSort" />
     </div>
 
-    <p class="text-xs text-muted-foreground">{{ total }} issue{{ total === 1 ? '' : 's' }}</p>
+    <div class="flex flex-wrap items-center gap-2">
+      <p class="text-xs text-muted-foreground">{{ total }} issue{{ total === 1 ? '' : 's' }}</p>
+      <label v-if="showGrid && issues.length" class="ml-auto inline-flex items-center gap-2 text-xs text-muted-foreground">
+        <Checkbox :model-value="allSelected" aria-label="Select all" @update:model-value="toggleAll" />
+        Select all
+      </label>
+    </div>
 
-    <div v-if="isLoading" class="space-y-2">
-      <Skeleton v-for="index in 8" :key="index" class="h-11 w-full" />
+    <div
+      v-if="isLoading"
+      :class="
+        layout === 'grid'
+          ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
+          : 'space-y-2'
+      "
+    >
+      <Skeleton v-for="index in 8" :key="index" :class="layout === 'grid' ? 'h-36 w-full rounded-lg' : 'h-11 w-full'" />
     </div>
 
     <EmptyState v-else-if="loadError && !issues.length" :icon="ListTodo" title="Tasks did not load" :description="loadError">
@@ -163,34 +222,53 @@ const applySaved = (criteria: Record<string, string>) => (filters.value = readQu
       <Button v-else @click="ui.openCreateIssue({ projectId })">Create task</Button>
     </EmptyState>
 
-    <!-- Tablet + desktop: dense table (scrolls sideways on narrower widths) -->
-    <div v-else-if="isDesktop" class="overflow-x-auto border">
+    <!-- Dense list (tablet + desktop) -->
+    <div v-else-if="showList" class="overflow-x-auto rounded-xl border border-border shadow-soft">
       <div class="min-w-[36rem]">
-      <div class="flex h-9 items-center gap-2 border-b bg-muted/40 px-2 text-xs font-medium text-muted-foreground">
-        <Checkbox :model-value="allSelected" aria-label="Select all" @update:model-value="toggleAll" />
-        <span class="w-4" />
-        <span class="w-20">Key</span>
-        <span class="flex-1">Title</span>
-        <span class="w-28 text-center">Status</span>
-        <span class="w-6 text-center" title="Story points">Pts</span>
-        <span class="w-4" />
-        <span class="w-6" />
+        <div class="flex h-9 items-center gap-2 border-b bg-muted/40 px-2 text-xs font-medium text-muted-foreground">
+          <Checkbox :model-value="allSelected" aria-label="Select all" @update:model-value="toggleAll" />
+          <span class="w-4" />
+          <span class="w-20">Key</span>
+          <span class="flex-1">Title</span>
+          <span class="w-28 text-center">Status</span>
+          <span class="w-6 text-center" title="Story points">Pts</span>
+          <span class="w-4" />
+          <span class="w-6" />
+        </div>
+        <IssueRow
+          v-for="issue in issues"
+          :key="issue.id"
+          :issue="issue"
+          selectable
+          :selected="selection.isSelected(issue.id)"
+          @open="openIssue"
+          @toggle-select="selection.toggle(issue.id)"
+        />
       </div>
-      <IssueRow
+    </div>
+
+    <!-- Grid cards (and phone list = stacked cards) -->
+    <div
+      v-else-if="showGrid"
+      class="grid gap-2.5 sm:gap-3"
+      :class="
+        layout === 'grid'
+          ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
+          : 'grid-cols-1'
+      "
+    >
+      <IssueCard
         v-for="issue in issues"
         :key="issue.id"
         :issue="issue"
+        :show-project="!projectId"
+        show-status
+        :grid="layout === 'grid'"
         selectable
         :selected="selection.isSelected(issue.id)"
         @open="openIssue"
         @toggle-select="selection.toggle(issue.id)"
       />
-      </div>
-    </div>
-
-    <!-- Mobile: cards -->
-    <div v-else class="space-y-2">
-      <IssueCard v-for="issue in issues" :key="issue.id" :issue="issue" :show-project="!projectId" show-status @open="openIssue" />
     </div>
 
     <div v-if="issues.length < total" class="flex justify-center">

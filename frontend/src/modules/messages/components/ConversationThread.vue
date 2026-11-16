@@ -285,7 +285,7 @@ const notice = computed(() =>
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-col">
+  <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
     <div ref="scroller" class="chat-wallpaper min-h-0 flex-1 overflow-y-auto px-[6%] py-4 scrollbar-thin">
       <div class="mx-auto mb-3 flex max-w-sm items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-center text-[11.5px] leading-snug text-amber-900/80 ring-1 ring-amber-200/70 dark:ring-amber-400/15 dark:bg-amber-400/10 dark:text-amber-200">
         <Lock class="mt-0.5 size-3 shrink-0" />

@@ -25,21 +25,34 @@ async function toggle() {
 </script>
 
 <template>
-  <section v-if="push.state.supported || push.state.needsInstall" class="flex flex-wrap items-center gap-3 border border-border/70 bg-card p-3 shadow-soft">
-    <span class="flex size-9 shrink-0 items-center justify-center bg-primary/10 text-primary">
-      <BellRing v-if="push.state.subscribed" class="size-4" />
-      <Smartphone v-else class="size-4" />
-    </span>
-    <div class="min-w-0 flex-1">
-      <p class="text-sm font-semibold">{{ push.state.subscribed ? 'Calls ring on this device' : 'Ring my phone and computer for calls' }}</p>
-      <p class="text-xs text-muted-foreground">
-        <template v-if="push.state.needsInstall">On iPhone and iPad, add Vector to your Home Screen first (Share → Add to Home Screen), then turn this on from the app.</template>
-        <template v-else-if="push.state.permission === 'denied'">Notifications are blocked for Vector. Allow them in the browser’s site settings to get calls here.</template>
-        <template v-else-if="push.state.subscribed">You get a notification when someone starts a call you are invited to, even when Vector is closed.</template>
-        <template v-else>Get a notification with “Join” when someone starts a call you are invited to, even when Vector is closed.</template>
-      </p>
+  <section
+    v-if="push.state.supported || push.state.needsInstall"
+    class="flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-3 shadow-soft sm:flex-row sm:items-center"
+  >
+    <div class="flex min-w-0 flex-1 items-start gap-3">
+      <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <BellRing v-if="push.state.subscribed" class="size-4" />
+        <Smartphone v-else class="size-4" />
+      </span>
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-semibold leading-snug">{{ push.state.subscribed ? 'Calls ring on this device' : 'Ring my phone and computer for calls' }}</p>
+        <p class="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+          <template v-if="push.state.needsInstall">On iPhone and iPad, add Vector to your Home Screen first (Share → Add to Home Screen), then turn this on from the app.</template>
+          <template v-else-if="push.state.permission === 'denied'">Notifications are blocked for Vector. Allow them in the browser’s site settings to get calls here.</template>
+          <template v-else-if="push.state.subscribed">You get a notification when someone starts a call you are invited to, even when Vector is closed.</template>
+          <template v-else>Get a notification with “Join” when someone starts a call you are invited to, even when Vector is closed.</template>
+        </p>
+      </div>
     </div>
-    <Button v-if="!push.state.needsInstall" :variant="push.state.subscribed ? 'ghost' : 'brand'" size="sm" :loading="push.state.busy" :disabled="push.state.permission === 'denied'" @click="toggle">
+    <Button
+      v-if="!push.state.needsInstall"
+      :variant="push.state.subscribed ? 'ghost' : 'brand'"
+      size="sm"
+      class="shrink-0 max-sm:w-full"
+      :loading="push.state.busy"
+      :disabled="push.state.permission === 'denied'"
+      @click="toggle"
+    >
       <BellOff v-if="push.state.subscribed" /> {{ push.state.subscribed ? 'Turn off' : 'Turn on' }}
     </Button>
   </section>

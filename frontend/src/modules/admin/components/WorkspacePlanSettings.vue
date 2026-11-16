@@ -29,7 +29,7 @@ const usageRows = computed(() => {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="space-y-3.5 sm:space-y-4">
     <Card>
       <CardHeader>
         <CardTitle class="flex items-center gap-2"><Gem class="size-4 text-primary" /> {{ overview?.entitlements.planName ?? 'Full access' }} plan</CardTitle>

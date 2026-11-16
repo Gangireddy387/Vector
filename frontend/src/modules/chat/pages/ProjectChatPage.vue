@@ -199,7 +199,7 @@ const discussedTasks = computed(() => {
 </script>
 
 <template>
-  <div class="flex min-h-0" :class="isDesktop || embedded ? 'h-full' : 'h-[calc(100dvh-10.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]'">
+  <div class="flex min-h-0 w-full flex-1">
     <section class="flex min-w-0 flex-1 flex-col">
       <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-3">
         <div v-if="isLoading" class="space-y-4 p-4">

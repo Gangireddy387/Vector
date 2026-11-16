@@ -24,6 +24,14 @@ const { resolvedTheme } = useTheme()
     <RouterView />
     <ConfirmDialog />
     <CallHost />
-    <Toaster :position="isDesktop ? 'bottom-right' : 'top-center'" :theme="resolvedTheme" close-button rich-colors />
+    <Toaster
+      :position="isDesktop ? 'bottom-right' : 'top-center'"
+      :close-button-position="isDesktop ? 'top-left' : 'top-right'"
+      :offset="isDesktop ? 16 : { top: 'max(0.75rem, env(safe-area-inset-top))', right: '0.75rem', left: '0.75rem' }"
+      :theme="resolvedTheme"
+      close-button
+      rich-colors
+      class="vector-toaster"
+    />
   </TooltipProvider>
 </template>

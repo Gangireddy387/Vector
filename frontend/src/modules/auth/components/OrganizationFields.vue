@@ -73,27 +73,34 @@ function onSlugInput(event: Event) {
     </FormField>
 
     <FormField label="Organization URL" for="organization-slug" :error="errors?.organizationSlug ?? errors?.slug">
-      <div class="flex items-stretch border border-input bg-card shadow-xs transition focus-within:border-ring focus-within:ring-4 focus-within:ring-ring/15">
-        <span class="flex max-w-[55%] items-center truncate border-r bg-muted/50 px-2.5 text-sm text-muted-foreground select-none" :title="organizationAddress('')">
+      <div
+        class="flex flex-col overflow-hidden rounded-lg border border-input bg-card shadow-xs transition focus-within:border-ring focus-within:ring-4 focus-within:ring-ring/15 sm:flex-row sm:items-stretch"
+      >
+        <span
+          class="truncate border-b bg-muted/50 px-3 py-2 text-xs text-muted-foreground select-none sm:flex sm:max-w-[55%] sm:items-center sm:border-r sm:border-b-0 sm:px-2.5 sm:py-0 sm:text-sm"
+          :title="organizationAddress('')"
+        >
           {{ organizationAddress('') }}
         </span>
-        <input
-          id="organization-slug"
-          :value="slug"
-          class="h-9 min-w-0 flex-1 bg-transparent px-2.5 text-sm font-medium outline-none placeholder:text-muted-foreground"
-          placeholder="acme"
-          autocomplete="off"
-          spellcheck="false"
-          maxlength="40"
-          required
-          aria-describedby="organization-slug-status"
-          @input="onSlugInput"
-        />
-        <span class="flex w-9 items-center justify-center" aria-hidden="true">
-          <LoaderCircle v-if="isChecking" class="size-4 animate-spin text-muted-foreground" />
-          <CircleCheck v-else-if="check?.available" class="size-4 text-success" />
-          <CircleAlert v-else-if="check" class="size-4 text-destructive" />
-        </span>
+        <div class="flex min-w-0 flex-1 items-stretch">
+          <input
+            id="organization-slug"
+            :value="slug"
+            class="h-10 min-w-0 flex-1 bg-transparent px-3 text-sm font-medium outline-none placeholder:text-muted-foreground sm:h-9 sm:px-2.5"
+            placeholder="acme"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="40"
+            required
+            aria-describedby="organization-slug-status"
+            @input="onSlugInput"
+          />
+          <span class="flex w-10 items-center justify-center sm:w-9" aria-hidden="true">
+            <LoaderCircle v-if="isChecking" class="size-4 animate-spin text-muted-foreground" />
+            <CircleCheck v-else-if="check?.available" class="size-4 text-success" />
+            <CircleAlert v-else-if="check" class="size-4 text-destructive" />
+          </span>
+        </div>
       </div>
       <p id="organization-slug-status" class="min-h-4 text-xs" aria-live="polite">
         <template v-if="!errors?.organizationSlug && !errors?.slug">

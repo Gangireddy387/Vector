@@ -33,7 +33,7 @@ const current = computed(() => props.options.find((option) => option.value === a
       <Button
         type="button"
         variant="outline"
-        class="h-9 w-full min-w-0 justify-between gap-2 px-3"
+        class="h-10 w-full min-w-0 justify-between gap-2 rounded-xl px-3 sm:h-9"
         :aria-label="ariaLabel ?? 'Choose section'"
       >
         <span class="flex min-w-0 items-center gap-2">
