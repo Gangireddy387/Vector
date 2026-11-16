@@ -10,6 +10,7 @@ import {
   Clock3,
   Copy,
   DoorOpen,
+  ListTodo,
   LoaderCircle,
   Mic,
   MicOff,
@@ -338,6 +339,43 @@ const onRemoved = (id: string) => (updates.value = updates.value.filter((item) =
 const onNotes = (notes: string | null) => meeting.value && (meeting.value = { ...meeting.value, notes })
 const onChanged = (value: Meeting) => (meeting.value = value)
 const onSummary = (summary: Meeting['summary']) => meeting.value && (meeting.value = { ...meeting.value, summary })
+
+/** Open action items still waiting to become tasks — the demo moment after a call. */
+const openActionCount = computed(
+  () => meeting.value?.summary?.actionItems.filter((item) => !item.issue).length ?? 0,
+)
+const canSummarizeEnded = computed(
+  () =>
+    Boolean(meeting.value?.canManage && capabilities.value?.summaries) &&
+    (savedChat.value.length + transcript.value.length > 0 || Boolean(meeting.value?.notes)),
+)
+const focusingTasks = ref(false)
+
+async function focusCreateTasks() {
+  if (!meeting.value || meeting.value.status === 'cancelled') return
+  focusingTasks.value = true
+  try {
+    if (!meeting.value.summary && canSummarizeEnded.value) {
+      const summary = await meetingsApi.summarize(meeting.value.id)
+      onSummary(summary)
+      await nextTick()
+    }
+    if (!(meeting.value.summary?.actionItems.some((item) => !item.issue))) {
+      toast.info('No open action items yet', {
+        description: meeting.value.summary ? 'Everything from the summary is already a task.' : 'Summarize the meeting first to extract who does what.',
+      })
+      return
+    }
+    await router.replace({ query: { ...route.query, focus: 'actions' } })
+    await nextTick()
+    document.getElementById('meeting-action-items')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    focusingTasks.value = false
+  }
+}
+
 const previewButton = 'flex size-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25'
 </script>
 
@@ -494,13 +532,52 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
             </div>
           </template>
 
-          <div v-else class="flex flex-col items-center gap-2 rounded-xl border border-border/70 bg-card px-6 py-12 text-center shadow-soft">
+          <div v-else class="flex flex-col items-center gap-3 rounded-xl border border-border/70 bg-card px-6 py-10 text-center shadow-soft">
             <span class="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground"><VideoOff class="size-6" /></span>
-            <p class="font-semibold">{{ meeting.status === 'cancelled' ? 'This meeting was cancelled' : 'This meeting has ended' }}</p>
-            <p class="max-w-sm text-sm text-muted-foreground">
-              {{ meeting.status === 'cancelled' ? 'It was removed from everyone’s calendar.' : 'The updates, notes, polls and whiteboard from the meeting are kept here.' }}
-            </p>
-            <Button v-if="meeting.canManage" variant="ghost" size="sm" class="mt-2 text-destructive" @click="remove"><Trash2 /> Delete meeting</Button>
+            <div class="space-y-1">
+              <p class="font-semibold">{{ meeting.status === 'cancelled' ? 'This meeting was cancelled' : 'This meeting has ended' }}</p>
+              <p class="max-w-sm text-sm text-muted-foreground">
+                <template v-if="meeting.status === 'cancelled'">It was removed from everyone’s calendar.</template>
+                <template v-else-if="openActionCount">
+                  {{ openActionCount }} open action {{ openActionCount === 1 ? 'item' : 'items' }} — turn them into owned tasks now.
+                </template>
+                <template v-else>
+                  Recap stays here. Summarize to extract decisions and action items, then create tasks.
+                </template>
+              </p>
+            </div>
+            <div v-if="meeting.status !== 'cancelled'" class="flex w-full max-w-md flex-col gap-2 sm:flex-row sm:justify-center">
+              <Button
+                v-if="openActionCount"
+                variant="brand"
+                size="lg"
+                class="sm:flex-1"
+                :loading="focusingTasks"
+                @click="focusCreateTasks"
+              >
+                <ListTodo /> Create {{ openActionCount }} {{ openActionCount === 1 ? 'task' : 'tasks' }}
+              </Button>
+              <Button
+                v-else-if="canSummarizeEnded"
+                variant="brand"
+                size="lg"
+                class="sm:flex-1"
+                :loading="focusingTasks"
+                @click="focusCreateTasks"
+              >
+                <Sparkles /> Summarize → tasks
+              </Button>
+              <Button
+                v-else-if="meeting.summary"
+                variant="outline"
+                size="lg"
+                class="sm:flex-1"
+                @click="document.getElementById('meeting-action-items')?.scrollIntoView({ behavior: 'smooth', block: 'start' })"
+              >
+                <ListTodo /> Open recap
+              </Button>
+            </div>
+            <Button v-if="meeting.canManage" variant="ghost" size="sm" class="text-destructive" @click="remove"><Trash2 /> Delete meeting</Button>
           </div>
 
           <MeetingRecap

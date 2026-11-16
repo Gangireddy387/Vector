@@ -30,6 +30,21 @@ const totals = computed(() => ({
   missing: rows.value.reduce((sum, row) => sum + row.missing.length, 0),
 }))
 
+/** Flat manager morning list — act before scanning project cards. */
+const flatBlockers = computed(() =>
+  rows.value.flatMap((row) =>
+    row.blockers.map((item, index) => ({
+      key: `${row.projectId}-${item.user.id}-${index}`,
+      projectId: row.projectId,
+      projectName: row.projectName,
+      projectColor: row.projectColor,
+      date: row.date,
+      user: item.user,
+      blockers: item.blockers,
+    })),
+  ),
+)
+
 async function load() {
   isLoading.value = true
   error.value = null
@@ -53,7 +68,7 @@ const percent = (row: StandupRollupItem) => (row.expected ? Math.round((row.post
     <PageHeader
       v-if="isDesktop"
       title="Standup rollup"
-      description="Across every project you lead or admin — who posted today, who is missing, and what is blocked."
+      description="Manager morning view — clear blockers first, then chase missing posts across projects you lead."
     >
       <template #actions>
         <Button variant="outline" size="sm" :loading="isLoading" @click="load"><RefreshCw /> Refresh</Button>
@@ -78,6 +93,45 @@ const percent = (row: StandupRollupItem) => (row.expected ? Math.round((row.post
     />
 
     <template v-else>
+      <section
+        v-if="flatBlockers.length"
+        class="overflow-hidden rounded-xl border border-destructive/30 bg-destructive/[0.04] shadow-soft"
+      >
+        <header class="flex flex-wrap items-center gap-2 border-b border-destructive/20 px-4 py-3">
+          <AlertTriangle class="size-4 text-destructive" />
+          <h2 class="text-sm font-semibold">Clear blockers first</h2>
+          <span class="rounded-full bg-destructive/15 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-destructive">
+            {{ flatBlockers.length }}
+          </span>
+          <p class="w-full text-xs text-muted-foreground sm:ml-auto sm:w-auto">Assign a task, message, or start a quick meet</p>
+        </header>
+        <ul class="divide-y divide-destructive/15">
+          <li v-for="item in flatBlockers" :key="item.key" class="space-y-2 px-4 py-3">
+            <div class="flex flex-wrap items-start gap-2">
+              <UserAvatar :user="item.user" size="sm" />
+              <div class="min-w-0 flex-1">
+                <p class="text-[13px] font-semibold">
+                  {{ item.user.name }}
+                  <span class="font-normal text-muted-foreground"> · {{ item.projectName }}</span>
+                </p>
+                <p class="mt-1 whitespace-pre-wrap text-[13px] text-muted-foreground">{{ item.blockers }}</p>
+              </div>
+              <Button size="sm" variant="ghost" class="shrink-0 text-muted-foreground" as-child>
+                <RouterLink :to="{ name: 'project-standup', params: { projectId: item.projectId }, query: { date: item.date } }">
+                  Standup <ArrowRight />
+                </RouterLink>
+              </Button>
+            </div>
+            <BlockerPersonActions
+              v-if="item.user.id !== auth.user?.id"
+              :user="item.user"
+              :project-id="item.projectId"
+              :blocker-text="item.blockers"
+            />
+          </li>
+        </ul>
+      </section>
+
       <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <div class="rounded-xl border border-border bg-card px-3 py-2.5 shadow-soft">
           <p class="text-[11px] text-muted-foreground">Projects</p>
@@ -98,7 +152,7 @@ const percent = (row: StandupRollupItem) => (row.expected ? Math.round((row.post
       </div>
 
       <section v-if="needsAttention.length" class="space-y-2.5">
-        <h2 class="flex items-center gap-1.5 text-sm font-semibold"><AlertTriangle class="size-4 text-amber-600 dark:text-amber-400" /> Needs attention</h2>
+        <h2 class="flex items-center gap-1.5 text-sm font-semibold"><AlertTriangle class="size-4 text-amber-600 dark:text-amber-400" /> By project</h2>
         <article
           v-for="row in needsAttention"
           :key="row.projectId"

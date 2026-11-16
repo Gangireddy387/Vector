@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PartyPopper, RefreshCw } from 'lucide-vue-next'
+import { PartyPopper, RefreshCw, Share2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -13,6 +13,7 @@ import type { Issue } from '@/types/models'
 import { useDashboardData } from '../composables/useDashboardData'
 import { consumeStartDayQuery } from '../composables/useStartDayHighlight'
 import { bucketOf } from '../my-work'
+import { copyShareWorkday } from '../share-workday'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import DailyBriefingCard from './DailyBriefingCard.vue'
 import HabitNudgeBanner from './HabitNudgeBanner.vue'
@@ -80,7 +81,17 @@ async function complete(issue: Issue) {
         <p class="text-lg font-semibold">Hi {{ auth.user?.name.split(' ')[0] }}</p>
         <p class="text-sm" :class="data?.stats.overdue ? 'text-destructive' : 'text-muted-foreground'">{{ summary }}</p>
       </div>
-      <Button variant="ghost" size="icon" class="self-end sm:self-start" aria-label="Refresh" @click="reload"><RefreshCw /></Button>
+      <div class="flex self-end gap-1 sm:self-start">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Share workday"
+          @click="copyShareWorkday(auth.organization?.slug)"
+        >
+          <Share2 />
+        </Button>
+        <Button variant="ghost" size="icon" aria-label="Refresh" @click="reload"><RefreshCw /></Button>
+      </div>
     </div>
 
     <SetupChecklist v-if="data" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
@@ -91,9 +102,9 @@ async function complete(issue: Issue) {
     <QuickCapture stacked />
 
     <HomeDayLoop v-if="data" :data="data" :highlight="startDay" />
+    <HomeFocusCards v-if="data" :data="data" @changed="reload" />
     <PlanUnlocksCard />
     <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
-    <HomeFocusCards v-if="data" :data="data" @changed="reload" />
     <WeeklyPulseCard v-if="data" :data="data" />
     <DailyBriefingCard />
 

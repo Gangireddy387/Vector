@@ -15,6 +15,7 @@ import {
   ListTodo,
   Plus,
   Rocket,
+  Share2,
   UsersRound,
 } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
@@ -38,6 +39,7 @@ import { useDashboardData } from '../composables/useDashboardData'
 import { consumeStartDayQuery } from '../composables/useStartDayHighlight'
 import { useTodayAgenda } from '../composables/useTodayAgenda'
 import { groupMyWork } from '../my-work'
+import { copyShareWorkday } from '../share-workday'
 import DailyBriefingCard from './DailyBriefingCard.vue'
 import HabitNudgeBanner from './HabitNudgeBanner.vue'
 import HomeDayLoop from './HomeDayLoop.vue'
@@ -148,6 +150,9 @@ const daysLeft = (endDate: string | null) => {
         <p v-if="summary" class="mt-1 text-[13.5px] text-muted-foreground">{{ summary }}</p>
       </div>
       <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        <Button variant="outline" size="sm" class="max-lg:flex-1" @click="copyShareWorkday(auth.organization?.slug)">
+          <Share2 /> Share workday
+        </Button>
         <Button v-if="canSchedule" variant="outline" size="sm" class="max-lg:flex-1" @click="meetingSheet = {}"><CalendarPlus /> Schedule meeting</Button>
         <Button variant="outline" size="sm" class="max-lg:flex-1" @click="isCreateProjectOpen = true"><FolderPlus /> New project</Button>
         <Button size="sm" class="max-lg:flex-1" @click="newTask"><Plus /> New task</Button>
@@ -161,9 +166,9 @@ const daysLeft = (endDate: string | null) => {
     <QuickCapture />
 
     <HomeDayLoop v-if="data" :data="data" :highlight="startDay" />
+    <HomeFocusCards v-if="data" :data="data" @changed="reload" />
     <PlanUnlocksCard />
     <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
-    <HomeFocusCards v-if="data" :data="data" @changed="reload" />
     <WeeklyPulseCard v-if="data" :data="data" />
     <DailyBriefingCard />
 
