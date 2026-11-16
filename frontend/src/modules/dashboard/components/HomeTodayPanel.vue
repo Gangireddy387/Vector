@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { format } from 'date-fns'
-import { ArrowRight, CalendarDays, ClipboardList, ListTodo, MessageCircle, Video } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { ArrowRight, CalendarDays, Check, ClipboardList, ListTodo, MessageCircle, Video } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { useIssueActions } from '@/modules/issues/composables/useIssueActions'
+import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import { useMessagesStore } from '@/modules/messages/messages.store'
 import type { Issue } from '@/types/models'
 import { useTodayAgenda } from '../composables/useTodayAgenda'
@@ -13,9 +16,14 @@ import type { DashboardData } from '../dashboard.api'
 import { bucketOf } from '../my-work'
 
 const props = defineProps<{ data: DashboardData }>()
+const emit = defineEmits<{ changed: [] }>()
+
 const auth = useAuthStore()
 const messages = useMessagesStore()
 const agenda = useTodayAgenda()
+const actions = useIssueActions()
+const openIssue = useOpenIssue()
+const completingId = ref<string | null>(null)
 
 const standup = computed(() => props.data.standupPending ?? [])
 const unread = computed(() => messages.unreadTotal)
@@ -23,25 +31,43 @@ const showMessages = computed(() => auth.hasFeature('directMessages') || auth.ha
 const meetings = computed(() => (agenda.items.value ?? []).filter((item) => item.kind === 'meeting'))
 const events = computed(() => (agenda.items.value ?? []).filter((item) => item.kind === 'event'))
 
-/** Tasks that belong in a morning pass: overdue, due today, or already in progress. */
+/** Morning pass: overdue first, then due today, then in progress. */
 const todayTasks = computed(() => {
-  const list = (props.data.myWork ?? []).filter((issue) => {
-    if (issue.status.category === 'done') return false
+  const rank = (issue: Issue) => {
     const bucket = bucketOf(issue)
-    return bucket === 'overdue' || bucket === 'today' || issue.status.category === 'in_progress'
-  })
-  return list.slice(0, 5)
+    if (bucket === 'overdue') return 0
+    if (bucket === 'today') return 1
+    if (issue.status.category === 'in_progress') return 2
+    return 3
+  }
+  return (props.data.myWork ?? [])
+    .filter((issue) => {
+      if (issue.status.category === 'done') return false
+      const bucket = bucketOf(issue)
+      return bucket === 'overdue' || bucket === 'today' || issue.status.category === 'in_progress'
+    })
+    .sort((a, b) => rank(a) - rank(b))
+    .slice(0, 7)
 })
+
+const focusTask = computed(() => todayTasks.value[0] ?? null)
+const remaining = computed(() => todayTasks.value.length)
 
 const chips = computed(() => {
   const { dueToday, overdue, inProgress } = props.data.stats
   return [
-    overdue ? { label: `${overdue} overdue`, tone: 'danger' as const, to: { name: 'issues', query: { assigneeId: 'me', overdue: 'true' } } } : null,
+    overdue ? { label: `${overdue} overdue`, tone: 'danger' as const, to: { name: 'issues', query: { assigneeId: 'me', overdue: 'true', sort: 'dueDate' } } } : null,
     dueToday ? { label: `${dueToday} due today`, tone: 'warn' as const, to: { name: 'issues', query: { assigneeId: 'me', sort: 'dueDate' } } } : null,
     inProgress ? { label: `${inProgress} in progress`, tone: 'info' as const, to: { name: 'issues', query: { assigneeId: 'me', statusCategory: 'in_progress' } } } : null,
     meetings.value.length ? { label: `${meetings.value.length} meeting${meetings.value.length === 1 ? '' : 's'}`, tone: 'default' as const, to: { name: 'meetings' } } : null,
     showMessages.value && unread.value ? { label: `${unread.value} unread`, tone: 'default' as const, to: { name: 'messages' } } : null,
-    standup.value.length ? { label: 'Standup due', tone: 'primary' as const, to: { name: 'project-standup', params: { projectId: standup.value[0]!.projectId }, query: { date: standup.value[0]!.date } } } : null,
+    standup.value.length
+      ? {
+          label: 'Standup due',
+          tone: 'primary' as const,
+          to: { name: 'project-standup', params: { projectId: standup.value[0]!.projectId }, query: { date: standup.value[0]!.date } },
+        }
+      : null,
   ].filter(Boolean) as Array<{ label: string; tone: 'danger' | 'warn' | 'info' | 'primary' | 'default'; to: RouteLocationRaw }>
 })
 
@@ -60,6 +86,15 @@ const taskHint = (issue: Issue) => {
   if (issue.status.category === 'in_progress') return 'In progress'
   return issue.status.name
 }
+
+async function complete(issue: Issue) {
+  completingId.value = issue.id
+  try {
+    if (await actions.complete(issue)) emit('changed')
+  } finally {
+    completingId.value = null
+  }
+}
 </script>
 
 <template>
@@ -69,12 +104,13 @@ const taskHint = (issue: Issue) => {
       <h2 class="text-sm font-semibold">Today</h2>
       <span class="text-xs text-muted-foreground">Morning view · {{ format(new Date(), 'EEEE d MMM') }}</span>
       <Button variant="ghost" size="sm" class="ml-auto text-muted-foreground" as-child>
-        <RouterLink :to="{ name: 'calendar' }">Calendar <ArrowRight /></RouterLink>
+        <RouterLink :to="{ name: 'issues', query: { assigneeId: 'me', sort: 'dueDate' } }">
+          All my tasks <ArrowRight />
+        </RouterLink>
       </Button>
     </header>
 
     <div class="space-y-4 p-4">
-      <!-- Morning chips -->
       <div v-if="chips.length" class="flex flex-wrap gap-1.5">
         <RouterLink
           v-for="chip in chips"
@@ -88,7 +124,6 @@ const taskHint = (issue: Issue) => {
       </div>
       <p v-else class="text-[13px] text-muted-foreground">Nothing urgent this morning. Capture a task or check Upcoming.</p>
 
-      <!-- Standup CTA -->
       <div
         v-if="standup.length"
         class="flex flex-col gap-2 rounded-lg border border-primary/20 bg-primary/[0.04] px-3 py-2.5 sm:flex-row sm:items-center"
@@ -109,18 +144,37 @@ const taskHint = (issue: Issue) => {
         </Button>
       </div>
 
+      <!-- Focus next: one task to act on without hunting -->
+      <div
+        v-if="focusTask && !standup.length"
+        class="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5 sm:flex-row sm:items-center"
+      >
+        <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-card text-foreground shadow-xs"><ListTodo class="size-4" /></span>
+        <div class="min-w-0 flex-1">
+          <p class="text-[11.5px] font-medium text-muted-foreground">Focus next · {{ remaining }} in morning list</p>
+          <p class="truncate text-[13px] font-semibold">{{ focusTask.key }} · {{ focusTask.title }}</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" @click="openIssue(focusTask)">Open</Button>
+          <Button size="sm" :loading="completingId === focusTask.id" @click="complete(focusTask)"><Check /> Done</Button>
+        </div>
+      </div>
+
       <div class="grid gap-4 lg:grid-cols-2">
-        <!-- Tasks -->
         <div class="min-w-0 space-y-2">
           <div class="flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground">
             <ListTodo class="size-3.5" /> My tasks
+            <span v-if="remaining" class="font-normal tabular-nums opacity-70">{{ remaining }}</span>
           </div>
           <ul v-if="todayTasks.length" class="divide-y divide-border/70 overflow-hidden rounded-lg border border-border">
-            <li v-for="issue in todayTasks" :key="issue.id">
-              <RouterLink
-                :to="{ name: 'issues', query: { issue: issue.key } }"
-                class="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-accent/50"
-              >
+            <li v-for="issue in todayTasks" :key="issue.id" class="flex items-center gap-2 px-2.5 py-1.5 hover:bg-accent/50">
+              <Checkbox
+                :model-value="false"
+                :disabled="completingId === issue.id"
+                :aria-label="`Complete ${issue.key}`"
+                @update:model-value="(value) => value && complete(issue)"
+              />
+              <button type="button" class="flex min-w-0 flex-1 items-center gap-2 text-left" @click="openIssue(issue)">
                 <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: issue.project?.color ?? 'var(--muted-foreground)' }" />
                 <span class="min-w-0 flex-1 truncate text-[13px] font-medium">{{ issue.key }} · {{ issue.title }}</span>
                 <span
@@ -129,13 +183,14 @@ const taskHint = (issue: Issue) => {
                 >
                   {{ taskHint(issue) }}
                 </span>
-              </RouterLink>
+              </button>
             </li>
           </ul>
-          <p v-else class="rounded-lg border border-dashed border-border px-3 py-4 text-center text-[12.5px] text-muted-foreground">No overdue or due-today work.</p>
+          <p v-else class="rounded-lg border border-dashed border-border px-3 py-4 text-center text-[12.5px] text-muted-foreground">
+            Morning list clear. Nice — capture something or open Upcoming.
+          </p>
         </div>
 
-        <!-- Meetings + DMs -->
         <div class="min-w-0 space-y-3">
           <div>
             <div class="mb-2 flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground">

@@ -107,7 +107,17 @@ watch([filters, sort, projectId], () => {
 useProjectRealtime(projectId, fetchIssues)
 
 onMounted(async () => {
-  void fetchIssues()
+  // Global Tasks is the daily driver: default to my work by due date when no filters are set.
+  let deferredLoad = false
+  if (!projectId.value) {
+    const hasFilter = FILTER_KEYS.some((key) => typeof route.query[key] === 'string')
+    const hasSort = typeof route.query.sort === 'string'
+    if (!hasFilter && !hasSort) {
+      deferredLoad = true
+      void router.replace({ query: { ...route.query, assigneeId: 'me', sort: 'dueDate' } })
+    }
+  }
+  if (!deferredLoad) void fetchIssues()
   if (projectId.value) {
     const detail = await projects.fetchProject(projectId.value)
     if (detail.type === 'scrum') sprints.value = await sprintsApi.list(projectId.value)
@@ -134,7 +144,11 @@ const showGrid = computed(() => layout.value === 'grid' || !isDesktop.value)
     class="w-full space-y-4 sm:space-y-5"
     :class="isDesktop ? (projectId ? 'px-5 py-4' : 'p-4 sm:p-5 lg:p-6') : 'p-3'"
   >
-    <PageHeader v-if="!projectId" title="Tasks" description="Everything across your projects, filtered your way." />
+    <PageHeader
+      v-if="!projectId"
+      title="Tasks"
+      description="Your work across projects — defaults to assigned to you, sorted by due date."
+    />
 
     <!-- Desktop / tablet toolbar -->
     <div v-if="isDesktop" class="flex flex-wrap items-start justify-between gap-3">

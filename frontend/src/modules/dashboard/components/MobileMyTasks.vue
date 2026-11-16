@@ -80,10 +80,9 @@ async function complete(issue: Issue) {
     <QuickCapture stacked />
 
     <HomeDayLoop v-if="data" :data="data" />
-    <HomeTodayPanel v-if="data" :data="data" />
+    <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
     <HomeFocusCards v-if="data" :data="data" />
     <DailyBriefingCard />
-    <PlanUnlocksCard />
 
     <div class="grid w-full grid-cols-4 gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Task groups">
       <button
@@ -118,5 +117,7 @@ async function complete(issue: Issue) {
         <IssueCard :issue="issue" show-project completable @open="openIssue" @complete="complete" />
       </li>
     </ul>
+
+    <PlanUnlocksCard />
   </div>
 </template>

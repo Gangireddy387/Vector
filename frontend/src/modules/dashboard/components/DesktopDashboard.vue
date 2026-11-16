@@ -6,6 +6,7 @@ import {
   ArrowRight,
   CalendarClock,
   CalendarPlus,
+  Check,
   CircleCheck,
   CircleDot,
   FolderPlus,
@@ -26,11 +27,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import ActivityList from '@/modules/issues/components/ActivityList.vue'
 import IssueRow from '@/modules/issues/components/IssueRow.vue'
+import { useIssueActions } from '@/modules/issues/composables/useIssueActions'
 import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import ScheduleMeetingSheet from '@/modules/meetings/components/ScheduleMeetingSheet.vue'
 import { type Meeting, meetingsApi } from '@/modules/meetings/meetings.api'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import { useUiStore } from '@/stores/ui.store'
+import type { Issue } from '@/types/models'
 import { useDashboardData } from '../composables/useDashboardData'
 import { useTodayAgenda } from '../composables/useTodayAgenda'
 import { groupMyWork } from '../my-work'
@@ -45,6 +48,7 @@ import SetupChecklist from './SetupChecklist.vue'
 const auth = useAuthStore()
 const ui = useUiStore()
 const openIssue = useOpenIssue()
+const issueActions = useIssueActions()
 const { data, isLoading, error, reload } = useDashboardData()
 const agenda = useTodayAgenda()
 
@@ -84,7 +88,7 @@ const stats = computed(() => {
   const s = data.value?.stats
   if (!s) return []
   return [
-    { label: 'Assigned to me', value: s.open, icon: ListTodo, tone: 'default' as const, hint: 'Open tasks', to: { name: 'issues', query: mine } },
+    { label: 'Assigned to me', value: s.open, icon: ListTodo, tone: 'default' as const, hint: 'Open tasks', to: { name: 'issues', query: { ...mine, sort: 'dueDate' } } },
     { label: 'In progress', value: s.inProgress, icon: CircleDot, tone: 'info' as const, hint: 'Being worked on', to: { name: 'issues', query: { ...mine, statusCategory: 'in_progress' } } },
     { label: 'Due today', value: s.dueToday, icon: CalendarClock, tone: 'warning' as const, hint: `${s.dueThisWeek} due this week`, to: { name: 'issues', query: { ...mine, sort: 'dueDate' } } },
     {
@@ -93,7 +97,7 @@ const stats = computed(() => {
       icon: AlarmClock,
       tone: s.overdue ? ('danger' as const) : ('default' as const),
       hint: s.overdue ? 'Needs attention' : 'Everything on time',
-      to: { name: 'issues', query: { ...mine, overdue: 'true' } },
+      to: { name: 'issues', query: { ...mine, overdue: 'true', sort: 'dueDate' } },
     },
     { label: 'Done this week', value: s.completedThisWeek, icon: CircleCheck, tone: 'success' as const, hint: 'Since Monday', to: { name: 'issues', query: { ...mine, statusCategory: 'done' } } },
   ]
@@ -106,6 +110,12 @@ const openGroups = computed(() => groups.value.filter((group) => group.bucket !=
 const doneGroups = computed(() => groups.value.filter((group) => group.bucket === 'done'))
 const count = (list: typeof groups.value) => list.reduce((sum, group) => sum + group.issues.length, 0)
 const shownGroups = computed(() => (workTab.value === 'open' ? openGroups.value : doneGroups.value))
+
+async function completeIssue(issue: Issue) {
+  if (await issueActions.complete(issue)) await reload()
+}
+
+const pendingStandupIds = computed(() => new Set((data.value?.standupPending ?? []).map((item) => item.projectId)))
 
 // --- Sprints and projects ---------------------------------------------------------------------
 /** The side card's tab, remembered per device. */
@@ -141,10 +151,9 @@ const daysLeft = (endDate: string | null) => {
     <QuickCapture />
 
     <HomeDayLoop v-if="data" :data="data" />
-    <HomeTodayPanel v-if="data" :data="data" />
+    <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
     <HomeFocusCards v-if="data" :data="data" />
     <DailyBriefingCard />
-    <PlanUnlocksCard />
 
     <Skeleton v-if="isLoading" class="h-[86px] w-full rounded-xl" />
 
@@ -190,14 +199,14 @@ const daysLeft = (endDate: string | null) => {
                 </button>
               </div>
               <Button variant="ghost" size="sm" class="ml-auto text-muted-foreground" as-child>
-                <RouterLink :to="{ name: 'issues', query: { assigneeId: 'me' } }">View all <ArrowRight /></RouterLink>
+                <RouterLink :to="{ name: 'issues', query: { assigneeId: 'me', sort: 'dueDate' } }">View all <ArrowRight /></RouterLink>
               </Button>
             </header>
             <EmptyState
               v-if="!shownGroups.length"
               :icon="workTab === 'open' ? Inbox : CircleCheck"
               :title="workTab === 'open' ? 'Nothing assigned to you' : 'Nothing finished yet this week'"
-              :description="workTab === 'open' ? 'Create a task, or pick one up from a project backlog.' : 'Tasks you complete this week show up here.'"
+              :description="workTab === 'open' ? 'Create a task, or pick one up from a project board.' : 'Tasks you complete this week show up here.'"
               class="py-12"
             >
               <div v-if="workTab === 'open'" class="flex flex-wrap justify-center gap-2">
@@ -213,12 +222,25 @@ const daysLeft = (endDate: string | null) => {
                 >
                   {{ group.title }} <span class="tabular-nums opacity-70">{{ group.issues.length }}</span>
                 </h3>
-                <IssueRow v-for="issue in group.issues" :key="issue.id" :issue="issue" @open="openIssue" />
+                <IssueRow v-for="issue in group.issues" :key="issue.id" :issue="issue" @open="openIssue">
+                  <template v-if="workTab === 'open'" #actions>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      class="opacity-0 group-hover:opacity-100"
+                      :aria-label="`Complete ${issue.key}`"
+                      title="Mark done"
+                      @click.stop="completeIssue(issue)"
+                    >
+                      <Check class="size-3.5" />
+                    </Button>
+                  </template>
+                </IssueRow>
               </section>
             </div>
           </section>
 
-          <!-- Projects: how each is doing, at a glance -->
+          <!-- Projects: jump into the board (or standup if still due) -->
           <section v-if="data.projects.length" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
             <header class="flex h-12 items-center gap-2 border-b border-border px-4">
               <h2 class="text-sm font-semibold">Projects</h2>
@@ -227,16 +249,15 @@ const daysLeft = (endDate: string | null) => {
                 <RouterLink :to="{ name: 'projects' }">All projects <ArrowRight /></RouterLink>
               </Button>
             </header>
-            <div class="hidden grid-cols-[minmax(0,1.6fr)_6rem_minmax(0,1fr)_5rem_minmax(8rem,1fr)] gap-4 border-b border-border/70 bg-muted/40 px-4 py-1.5 text-[11px] font-medium text-muted-foreground md:grid">
-              <span>Project</span><span class="text-right">Open tasks</span><span>Sprint</span><span>People</span><span>Progress</span>
+            <div class="hidden grid-cols-[minmax(0,1.6fr)_6rem_minmax(0,1fr)_5rem_minmax(8rem,1fr)_auto] gap-4 border-b border-border/70 bg-muted/40 px-4 py-1.5 text-[11px] font-medium text-muted-foreground md:grid">
+              <span>Project</span><span class="text-right">Open</span><span>Sprint</span><span>People</span><span>Progress</span><span class="text-right">Continue</span>
             </div>
-            <RouterLink
+            <div
               v-for="project in data.projects"
               :key="project.id"
-              :to="{ name: 'project-board', params: { projectId: project.id } }"
-              class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-border/60 px-4 py-2.5 transition-colors last:border-0 hover:bg-accent/50 md:grid-cols-[minmax(0,1.6fr)_6rem_minmax(0,1fr)_5rem_minmax(8rem,1fr)]"
+              class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border/60 px-4 py-2.5 last:border-0 md:grid-cols-[minmax(0,1.6fr)_6rem_minmax(0,1fr)_5rem_minmax(8rem,1fr)_auto] md:gap-4"
             >
-              <span class="flex min-w-0 items-center gap-2.5">
+              <RouterLink :to="{ name: 'project-board', params: { projectId: project.id } }" class="flex min-w-0 items-center gap-2.5 hover:opacity-90">
                 <span class="flex size-7 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white" :style="{ backgroundColor: project.color }">
                   {{ project.key.slice(0, 3) }}
                 </span>
@@ -244,7 +265,7 @@ const daysLeft = (endDate: string | null) => {
                   <span class="block truncate text-[13px] font-medium">{{ project.name }}</span>
                   <span class="block truncate text-[11.5px] text-muted-foreground">{{ project.team?.name ?? (project.type === 'scrum' ? 'Scrum' : 'Kanban') }}</span>
                 </span>
-              </span>
+              </RouterLink>
               <span class="text-right text-[13px] tabular-nums">{{ project.issueSummary?.open ?? 0 }}</span>
               <span class="hidden min-w-0 truncate text-[12.5px] text-muted-foreground md:block">
                 <template v-if="project.activeSprint"><Rocket class="mr-1 inline size-3 text-primary" />{{ project.activeSprint.name }}</template>
@@ -255,7 +276,15 @@ const daysLeft = (endDate: string | null) => {
                 <Progress :model-value="percent(project.issueSummary?.done, project.issueSummary?.total)" class="h-1.5 flex-1" indicator-class="bg-success" />
                 <span class="w-9 text-right text-[12px] text-muted-foreground tabular-nums">{{ percent(project.issueSummary?.done, project.issueSummary?.total) }}%</span>
               </span>
-            </RouterLink>
+              <div class="flex shrink-0 items-center justify-end gap-1.5">
+                <Button v-if="pendingStandupIds.has(project.id)" size="sm" variant="outline" as-child>
+                  <RouterLink :to="{ name: 'project-standup', params: { projectId: project.id } }">Standup</RouterLink>
+                </Button>
+                <Button size="sm" variant="ghost" as-child>
+                  <RouterLink :to="{ name: 'project-board', params: { projectId: project.id } }">Board</RouterLink>
+                </Button>
+              </div>
+            </div>
           </section>
         </div>
 
@@ -323,6 +352,8 @@ const daysLeft = (endDate: string | null) => {
         </div>
       </div>
     </template>
+
+    <PlanUnlocksCard />
 
     <CreateProjectDialog v-model:open="isCreateProjectOpen" />
     <ScheduleMeetingSheet v-if="canSchedule" v-model:target="meetingSheet" @saved="agenda.reload()" />
