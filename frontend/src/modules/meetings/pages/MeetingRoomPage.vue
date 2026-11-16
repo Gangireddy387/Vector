@@ -22,7 +22,7 @@ import {
   Video,
   VideoOff,
 } from 'lucide-vue-next'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -146,6 +146,16 @@ const searchFocus = computed(() => {
   if (!at || Number.isNaN(Date.parse(at))) return null
   return { at, in: route.query.in === 'chat' ? ('chat' as const) : ('transcript' as const) }
 })
+
+/** Home / list “Create tasks” deep-links with ?focus=actions. */
+watch(
+  () => [meeting.value?.id, route.query.focus, isLoading.value] as const,
+  async ([id, focus, loading]) => {
+    if (!id || loading || focus !== 'actions') return
+    await nextTick()
+    document.getElementById('meeting-action-items')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  },
+)
 
 const PROVIDER_LABELS = { google: 'Google Calendar', microsoft: 'Outlook' } as const
 async function copyDialIn() {

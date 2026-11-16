@@ -70,7 +70,12 @@ const groups = computed(() => {
 const peopleOf = (meeting: Meeting) => [...(meeting.host ? [meeting.host] : []), ...meeting.participants.filter((person) => person.id !== meeting.host?.id)]
 const openActionCount = (meeting: Meeting) => (meeting.summary?.actionItems ?? []).filter((item) => item.text && !item.issue).length
 
-const open = (meeting: Meeting) => router.push({ name: 'meeting-room', params: { meetingId: meeting.id } })
+const open = (meeting: Meeting, focusActions = false) =>
+  router.push({
+    name: 'meeting-room',
+    params: { meetingId: meeting.id },
+    ...(focusActions ? { query: { focus: 'actions' } } : {}),
+  })
 
 /** `series`: cancel this and every later occurrence of a repeating meeting, and stop repeating it. */
 async function cancel(meeting: Meeting, series = false) {
@@ -262,7 +267,7 @@ onMounted(async () => {
                 </DropdownMenu>
               </div>
               <Button v-if="isJoinable(meeting, now)" size="sm" variant="outline" class="max-sm:min-w-[5.5rem]" @click="open(meeting)"><Video /> Join</Button>
-              <Button v-else-if="scope === 'past' && openActionCount(meeting)" size="sm" variant="outline" class="max-sm:min-w-[5.5rem]" @click="open(meeting)">
+              <Button v-else-if="scope === 'past' && openActionCount(meeting)" size="sm" variant="outline" class="max-sm:min-w-[5.5rem]" @click="open(meeting, true)">
                 <ListTodo /> {{ openActionCount(meeting) }} to tasks
               </Button>
               <Button v-else size="sm" variant="ghost" @click="open(meeting)">Updates & notes</Button>

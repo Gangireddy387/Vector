@@ -5,7 +5,6 @@ import {
   AlarmClock,
   ArrowRight,
   CalendarClock,
-  CalendarDays,
   CalendarPlus,
   CircleCheck,
   CircleDot,
@@ -16,7 +15,6 @@ import {
   Plus,
   Rocket,
   UsersRound,
-  Video,
 } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -38,6 +36,8 @@ import { useTodayAgenda } from '../composables/useTodayAgenda'
 import { groupMyWork } from '../my-work'
 import DailyBriefingCard from './DailyBriefingCard.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
+import HomeTodayPanel from './HomeTodayPanel.vue'
+import PlanUnlocksCard from './PlanUnlocksCard.vue'
 import QuickCapture from './QuickCapture.vue'
 import SetupChecklist from './SetupChecklist.vue'
 
@@ -139,8 +139,10 @@ const daysLeft = (endDate: string | null) => {
 
     <QuickCapture />
 
+    <HomeTodayPanel v-if="data" :data="data" />
     <HomeFocusCards v-if="data" :data="data" />
     <DailyBriefingCard />
+    <PlanUnlocksCard />
 
     <Skeleton v-if="isLoading" class="h-[86px] w-full rounded-xl" />
 
@@ -256,47 +258,6 @@ const daysLeft = (endDate: string | null) => {
         </div>
 
         <div class="min-w-0 space-y-5">
-          <!-- Today: meetings and calendar events -->
-          <section class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
-            <header class="flex h-12 items-center gap-2 border-b border-border px-4">
-              <CalendarDays class="size-4 text-primary" />
-              <h2 class="text-sm font-semibold">Today</h2>
-              <Button variant="ghost" size="sm" class="ml-auto text-muted-foreground" as-child>
-                <RouterLink :to="{ name: 'calendar' }">Calendar <ArrowRight /></RouterLink>
-              </Button>
-            </header>
-            <div v-if="agenda.items.value === null" class="space-y-2 p-3">
-              <Skeleton v-for="index in 2" :key="index" class="h-11 w-full" />
-            </div>
-            <div v-else-if="!agenda.items.value.length" class="flex flex-col items-center gap-2 px-4 py-7 text-center">
-              <span class="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground"><CalendarDays class="size-5" /></span>
-              <p class="text-[13px] font-medium">Nothing scheduled today</p>
-              <p class="text-xs text-muted-foreground">Meetings and calendar events for today appear here.</p>
-              <Button v-if="canSchedule" variant="outline" size="sm" class="mt-1" @click="meetingSheet = {}"><CalendarPlus /> Schedule meeting</Button>
-            </div>
-            <ul v-else class="divide-y divide-border/70">
-              <li v-for="item in agenda.items.value" :key="item.id">
-                <RouterLink :to="item.to" class="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/50">
-                  <span class="w-[4.5rem] shrink-0 text-[12px] text-muted-foreground tabular-nums">
-                    <template v-if="item.start">{{ item.start }}<span v-if="item.end" class="opacity-60"> – {{ item.end }}</span></template>
-                    <template v-else>All day</template>
-                  </span>
-                  <span class="h-8 w-0.5 shrink-0 rounded-full" :style="{ backgroundColor: item.color ?? (item.kind === 'meeting' ? 'var(--primary)' : 'var(--muted-foreground)') }" />
-                  <span class="min-w-0 flex-1">
-                    <span class="flex items-center gap-1.5 truncate text-[13px] font-medium">
-                      <Video v-if="item.kind === 'meeting'" class="size-3.5 shrink-0 text-muted-foreground" />
-                      <span class="truncate">{{ item.title }}</span>
-                    </span>
-                    <span v-if="item.detail" class="block truncate text-[11.5px] text-muted-foreground">{{ item.detail }}</span>
-                  </span>
-                  <span v-if="item.live" class="flex shrink-0 items-center gap-1.5 rounded-full bg-success px-2.5 py-1 text-[11px] font-semibold text-white">
-                    <span class="size-1.5 animate-pulse rounded-full bg-white" /> Join
-                  </span>
-                </RouterLink>
-              </li>
-            </ul>
-          </section>
-
           <!-- Sprints and activity share one card, one tab at a time -->
           <section class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
             <header class="flex h-12 items-center gap-3 border-b border-border px-4">

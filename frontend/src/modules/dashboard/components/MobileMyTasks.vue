@@ -14,6 +14,8 @@ import { bucketOf } from '../my-work'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import DailyBriefingCard from './DailyBriefingCard.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
+import HomeTodayPanel from './HomeTodayPanel.vue'
+import PlanUnlocksCard from './PlanUnlocksCard.vue'
 import QuickCapture from './QuickCapture.vue'
 import SetupChecklist from './SetupChecklist.vue'
 
@@ -75,8 +77,10 @@ async function complete(issue: Issue) {
 
     <QuickCapture stacked />
 
+    <HomeTodayPanel v-if="data" :data="data" />
     <HomeFocusCards v-if="data" :data="data" />
     <DailyBriefingCard />
+    <PlanUnlocksCard />
 
     <div class="grid w-full grid-cols-4 gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Task groups">
       <button

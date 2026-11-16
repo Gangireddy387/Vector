@@ -79,7 +79,7 @@ async function create() {
 </script>
 
 <template>
-  <div class="space-y-2">
+  <div id="meeting-action-items" class="scroll-mt-24 space-y-2">
     <h3 class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><ListTodo class="size-3.5" /> Action items</h3>
     <ul class="space-y-1 text-sm">
       <li v-for="item in done" :key="item.issue.id" class="flex items-center gap-2">

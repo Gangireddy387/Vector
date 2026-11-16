@@ -250,7 +250,10 @@ useHotkeys({
 
 <template>
   <!-- On wide screens the page fits the window: the calendar takes the remaining height instead of the page scrolling. -->
-  <div class="w-full space-y-4 sm:space-y-5 lg:flex lg:h-full lg:flex-col lg:space-y-4" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <div
+    class="flex min-h-0 w-full flex-1 flex-col space-y-4 overflow-y-auto sm:space-y-5 lg:gap-4 lg:space-y-0 lg:overflow-hidden"
+    :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'"
+  >
     <PageHeader title="Calendar" description="Plan each day, tick off what you finished and see how your time was spent. Only you see your events.">
       <template #actions>
         <Button variant="brand" class="max-sm:w-full" title="New event (N)" @click="createForSelected"><Plus /> New event</Button>
@@ -275,8 +278,8 @@ useHotkeys({
       />
     </div>
 
-    <div class="grid gap-4 sm:gap-5 lg:min-h-[30rem] lg:flex-1 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <section class="relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft lg:min-h-0">
+    <div class="grid min-h-0 gap-4 sm:gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <section class="relative flex min-h-[28rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft lg:min-h-0">
         <div v-if="isLoading" class="absolute inset-x-0 top-0 z-30 h-0.5 animate-pulse bg-brand" aria-hidden="true" />
 
         <div class="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center">

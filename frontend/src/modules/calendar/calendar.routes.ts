@@ -6,6 +6,6 @@ export const calendarRoutes: RouteRecordRaw[] = [
     path: 'calendar',
     name: 'calendar',
     component: () => import('./pages/CalendarPage.vue'),
-    meta: { title: 'Calendar', requiresFeature: ['calendar'], mobileBack: true },
+    meta: { title: 'Calendar', requiresFeature: ['calendar'], mobileBack: true, fillHeight: true },
   },
 ]
