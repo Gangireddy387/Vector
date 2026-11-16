@@ -128,9 +128,9 @@ async function review(organizationId, actor, status, reason = null) {
 }
 
 /** Moves an organization to another plan; its people see the new features and limits right away. */
-export async function changeOrganizationPlan(organizationId, planId) {
+export async function changeOrganizationPlan(organizationId, planId, actor = null) {
   forgetMeetingAiAccess(organizationId);
-  await broadcastOrganization(await setOrganizationPlan(organizationId, planId));
+  await broadcastOrganization(await setOrganizationPlan(organizationId, planId, { actorId: actor?.id ?? null }));
   return (await listOrganizations()).find((item) => item.id === organizationId);
 }
 

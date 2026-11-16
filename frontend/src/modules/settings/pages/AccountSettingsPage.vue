@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Download, Monitor, Moon, Sun, SunDim } from 'lucide-vue-next'
+import { Download, Monitor, Moon, Sun, SunDim, Trash2 } from 'lucide-vue-next'
 import { reactive, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
@@ -13,6 +14,7 @@ import { useDevice } from '@/composables/useDevice'
 import { usePwaInstall } from '@/composables/usePwaInstall'
 import { type ThemePreference, useTheme } from '@/composables/useTheme'
 import { getErrorMessage } from '@/lib/http'
+import { authApi } from '@/modules/auth/auth.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import PasswordInput from '@/modules/auth/components/PasswordInput.vue'
 import PushPrompt from '@/modules/meetings/components/PushPrompt.vue'
@@ -56,7 +58,13 @@ const PAGE_SECTIONS = [
   { id: 'sounds', label: 'Sounds' },
   { id: 'calendar', label: 'Calendar' },
   { id: 'appearance', label: 'Appearance' },
+  { id: 'data', label: 'Your data' },
 ] as const
+
+const isExporting = ref(false)
+const isDeleteOpen = ref(false)
+const deletePassword = ref('')
+const isDeleting = ref(false)
 
 async function saveProfile() {
   isSavingProfile.value = true
@@ -76,11 +84,36 @@ async function saveProfile() {
   }
 }
 
-async function setPreference(key: 'emailNotifications' | 'dailyDigest', value: boolean) {
+async function setPreference(key: 'emailNotifications' | 'dailyDigest' | 'weeklyReportsEmail', value: boolean) {
   try {
     await auth.updateProfile({ preferences: { [key]: value } })
   } catch (error) {
     toast.error(getErrorMessage(error))
+  }
+}
+
+async function exportData() {
+  isExporting.value = true
+  try {
+    await authApi.exportAccount()
+    toast.success('Export downloaded')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isExporting.value = false
+  }
+}
+
+async function deleteAccount() {
+  isDeleting.value = true
+  try {
+    await authApi.deleteAccount(deletePassword.value)
+    toast.success('Account deleted')
+    await auth.logout()
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isDeleting.value = false
   }
 }
 
@@ -203,6 +236,16 @@ async function changePassword() {
               </span>
               <Switch :model-value="auth.user?.preferences.dailyDigest ?? false" @update:model-value="(value: boolean) => setPreference('dailyDigest', value)" />
             </label>
+            <label class="flex items-start justify-between gap-4">
+              <span>
+                <span class="block text-sm font-medium">Weekly reports email</span>
+                <span class="block text-xs text-muted-foreground">A Monday morning overview of open work, completions and overdue tasks.</span>
+              </span>
+              <Switch
+                :model-value="auth.user?.preferences.weeklyReportsEmail ?? false"
+                @update:model-value="(value: boolean) => setPreference('weeklyReportsEmail', value)"
+              />
+            </label>
           </CardContent>
         </Card>
 
@@ -254,8 +297,49 @@ async function changePassword() {
             <Button @click="install"><Download /> Install Vector</Button>
           </CardContent>
         </Card>
+
+        <Card id="data" class="scroll-mt-20">
+          <CardHeader>
+            <CardTitle>Your data</CardTitle>
+            <CardDescription>Download a copy of your account data, or permanently disable this account.</CardDescription>
+          </CardHeader>
+          <CardContent class="space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p class="text-sm font-medium">Export data</p>
+                <p class="text-xs text-muted-foreground">JSON with your profile, memberships, preferences and assigned task keys.</p>
+              </div>
+              <Button variant="outline" :loading="isExporting" @click="exportData"><Download /> Export data</Button>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
+              <div>
+                <p class="text-sm font-medium text-destructive">Delete account</p>
+                <p class="text-xs text-muted-foreground">Disables your account and anonymizes your email. This cannot be undone.</p>
+              </div>
+              <Button variant="destructive" @click="isDeleteOpen = true"><Trash2 /> Delete account</Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
       </div>
     </div>
+
+    <Dialog v-model:open="isDeleteOpen">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete your account?</DialogTitle>
+          <DialogDescription>
+            Your account will be disabled and your email anonymized. You will be signed out immediately. Type your password to confirm.
+          </DialogDescription>
+        </DialogHeader>
+        <FormField label="Password" for="delete-password">
+          <PasswordInput id="delete-password" v-model="deletePassword" autocomplete="current-password" required />
+        </FormField>
+        <DialogFooter>
+          <Button variant="outline" @click="isDeleteOpen = false">Cancel</Button>
+          <Button variant="destructive" :loading="isDeleting" :disabled="!deletePassword" @click="deleteAccount">Delete account</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

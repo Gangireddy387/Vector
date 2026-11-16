@@ -11,6 +11,7 @@ export const WORKSPACE_ROLES = ['admin', 'member'];
 export const DEFAULT_USER_PREFERENCES = Object.freeze({
   emailNotifications: true,
   dailyDigest: false,
+  weeklyReportsEmail: false,
   autoTimezone: true,
 });
 

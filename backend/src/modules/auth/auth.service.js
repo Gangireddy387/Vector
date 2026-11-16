@@ -2,8 +2,9 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { Op } from 'sequelize';
 import { config } from '../../config/index.js';
-import { Organization, User } from '../../database/models.js';
+import { Issue, Organization, OrganizationMember, Project, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
+import { disconnectUser } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { accountReadyEmail, passwordResetEmail } from '../../shared/services/email-templates.js';
 import { createOneTimeToken, hashOneTimeToken, signAccessToken } from './token.js';
@@ -132,6 +133,12 @@ export async function updateProfile(user, changes) {
   if (preferences) {
     updates.preferences = { ...user.preferences, ...preferences };
     if (preferences.sounds) updates.preferences.sounds = { ...user.preferences?.sounds, ...preferences.sounds };
+    if (preferences.favoriteProjectIds) {
+      updates.preferences.favoriteProjectIds = {
+        ...(user.preferences?.favoriteProjectIds ?? {}),
+        ...preferences.favoriteProjectIds,
+      };
+    }
   }
   await user.update(updates);
   return user.toJSON();
@@ -152,4 +159,100 @@ export async function changePassword(user, { currentPassword, newPassword }) {
   }
   await withSecrets.update({ passwordHash: await hashPassword(newPassword), mustChangePassword: false, tokenVersion: (withSecrets.tokenVersion ?? 0) + 1 });
   return { token: signAccessToken(withSecrets) };
+}
+
+/**
+ * JSON export of the signed-in person's profile, organization memberships, preferences, and assigned issue keys.
+ */
+export async function exportAccount(user) {
+  const memberships = await OrganizationMember.findAll({
+    where: { userId: user.id },
+    include: [{ model: Organization, as: 'organization', attributes: ['id', 'name', 'slug', 'status'] }],
+  });
+  const assigned = await Issue.findAll({
+    where: { assigneeId: user.id },
+    attributes: ['key', 'title', 'projectId', 'updatedAt'],
+    include: [{ model: Project, as: 'project', attributes: ['key', 'name'] }],
+    order: [['updatedAt', 'DESC']],
+    limit: 2000,
+  });
+  return {
+    exportedAt: new Date().toISOString(),
+    profile: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      title: user.title,
+      timezone: user.timezone,
+      about: user.about,
+      location: user.location,
+      phone: user.phone,
+      skills: user.skills ?? [],
+      avatarColor: user.avatarColor,
+      avatarUrl: user.avatarUrl ?? null,
+      status: user.status,
+      createdAt: user.createdAt,
+      lastSeenAt: user.lastSeenAt,
+    },
+    preferences: user.preferences ?? {},
+    memberships: memberships.map((membership) => ({
+      organizationId: membership.organizationId,
+      role: membership.role,
+      status: membership.status,
+      joinedAt: membership.createdAt,
+      organization: membership.organization
+        ? {
+            id: membership.organization.id,
+            name: membership.organization.name,
+            slug: membership.organization.slug,
+            status: membership.organization.status,
+          }
+        : null,
+    })),
+    assignedIssues: assigned.map((issue) => ({
+      key: issue.key,
+      title: issue.title,
+      projectKey: issue.project?.key ?? null,
+      projectName: issue.project?.name ?? null,
+      updatedAt: issue.updatedAt,
+    })),
+  };
+}
+
+/**
+ * Soft-deletes the account: disables it, anonymizes the email, and invalidates all sessions.
+ * Requires the current password. The portal super-admin email cannot be deleted this way.
+ */
+export async function deleteAccount(user, { password }) {
+  if (config.superAdmin.email && user.email?.toLowerCase() === config.superAdmin.email) {
+    throw ApiError.badRequest('The portal owner account cannot be deleted this way');
+  }
+  const withSecrets = await User.scope('withSecrets').findByPk(user.id);
+  const isValid = await bcrypt.compare(password ?? '', withSecrets?.passwordHash ?? DUMMY_HASH);
+  if (!withSecrets?.passwordHash || !isValid) {
+    throw ApiError.badRequest('Password is incorrect', [{ path: 'password', message: 'Password is incorrect' }]);
+  }
+
+  const stamp = Date.now().toString(36);
+  const anonymizedEmail = `deleted+${user.id.slice(0, 8)}.${stamp}@deleted.invalid`;
+  await withSecrets.update({
+    status: 'disabled',
+    name: 'Deleted user',
+    email: anonymizedEmail,
+    title: null,
+    about: null,
+    location: null,
+    phone: null,
+    skills: [],
+    avatarUrl: null,
+    inviteToken: null,
+    resetToken: null,
+    resetTokenExpiresAt: null,
+    passwordHash: await hashPassword(crypto.randomBytes(32).toString('hex')),
+    mustChangePassword: false,
+    tokenVersion: (withSecrets.tokenVersion ?? 0) + 1,
+    preferences: { emailNotifications: false, dailyDigest: false, weeklyReportsEmail: false, autoTimezone: true },
+  });
+  disconnectUser(user.id);
+  return { deleted: true };
 }

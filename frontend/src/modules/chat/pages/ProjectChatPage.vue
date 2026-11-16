@@ -17,7 +17,7 @@ import { useAuthStore } from '@/modules/auth/auth.store'
 import { usersApi } from '@/modules/projects/projects.api'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import type { UserSummary } from '@/types/models'
-import { type AssistantCommand, type ChatIssueRef, type ChatMessage, chatApi } from '../chat.api'
+import { type AssistantCommand, type ChatIssueRef, type ChatMessage, type ChatReaction, type ChatSendPayload, chatApi } from '../chat.api'
 import ChatComposer from '../components/ChatComposer.vue'
 import ChatMessageItem from '../components/ChatMessageItem.vue'
 
@@ -35,6 +35,7 @@ const targetMessage = computed(() => props.messageId ?? (typeof route.query.mess
 const project = computed(() => projects.details[projectId.value] ?? null)
 const isAdmin = computed(() => project.value?.myRole === 'admin')
 
+/** Top-level posts and their replies live in one list; threads are built in the view. */
 const messages = ref<ChatMessage[]>([])
 const commands = ref<AssistantCommand[]>([])
 const members = ref<UserSummary[]>([])
@@ -43,12 +44,36 @@ const isLoading = ref(true)
 const loadError = ref<string | null>(null)
 const isLoadingOlder = ref(false)
 const isSending = ref(false)
-const failedSend = ref<string | null>(null)
+const failedSend = ref<ChatSendPayload | null>(null)
 const threadSearch = ref('')
 const quoteDraft = ref<string | null>(null)
+const replyTo = ref<ChatMessage | null>(null)
 const highlightedId = ref<string | null>(null)
 const scroller = ref<HTMLElement | null>(null)
 const composer = ref<InstanceType<typeof ChatComposer> | null>(null)
+
+const posts = computed(() => messages.value.filter((message) => !message.parentId))
+const repliesOf = computed(() => {
+  const map = new Map<string, ChatMessage[]>()
+  for (const message of messages.value) {
+    if (!message.parentId) continue
+    const list = map.get(message.parentId)
+    if (list) list.push(message)
+    else map.set(message.parentId, [message])
+  }
+  for (const list of map.values()) list.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  return map
+})
+
+const replyToPreview = computed(() => {
+  if (!replyTo.value) return null
+  const author = replyTo.value.author?.name ?? (replyTo.value.kind === 'bot' ? 'Assistant' : 'Someone')
+  return {
+    id: replyTo.value.id,
+    authorName: author,
+    snippet: replyTo.value.body.split('\n')[0].slice(0, 160) || replyTo.value.files?.[0]?.fileName || 'Message',
+  }
+})
 
 const nearBottom = () => {
   const el = scroller.value
@@ -68,13 +93,24 @@ async function focusMessage(id: string) {
   window.setTimeout(() => highlightedId.value === id && (highlightedId.value = null), 2600)
 }
 
+function mergePage(page: { messages: ChatMessage[]; replies: ChatMessage[] }, mode: 'replace' | 'prepend') {
+  const incoming = [...page.messages, ...page.replies]
+  if (mode === 'replace') {
+    messages.value = incoming
+    return
+  }
+  const seen = new Set(messages.value.map((message) => message.id))
+  const older = incoming.filter((message) => !seen.has(message.id))
+  messages.value = [...older, ...messages.value]
+}
+
 async function load() {
   isLoading.value = true
   loadError.value = null
   if (props.embedded) void projects.fetchProject(projectId.value).catch(() => {})
   try {
     const [page, people] = await Promise.all([chatApi.list(projectId.value), usersApi.search({ projectId: projectId.value })])
-    messages.value = page.messages
+    mergePage(page, 'replace')
     hasMore.value = page.hasMore
     commands.value = page.commands
     members.value = people.filter((person) => person.id !== auth.user?.id)
@@ -93,14 +129,14 @@ watch(targetMessage, (id) => {
 })
 
 async function loadOlder() {
-  const first = messages.value[0]
+  const first = posts.value[0]
   if (!first || isLoadingOlder.value) return
   isLoadingOlder.value = true
   const el = scroller.value
   const previousHeight = el?.scrollHeight ?? 0
   try {
     const page = await chatApi.list(projectId.value, { before: first.createdAt })
-    messages.value = [...page.messages, ...messages.value]
+    mergePage(page, 'prepend')
     hasMore.value = page.hasMore
     await nextTick()
     if (el) el.scrollTop = el.scrollHeight - previousHeight
@@ -118,17 +154,27 @@ function upsert(message: ChatMessage) {
   else messages.value.push(message)
 }
 
-async function send(body: string) {
+function applyReactions(messageId: string, reactions: ChatReaction[]) {
+  messages.value = messages.value.map((item) => (item.id === messageId ? { ...item, reactions } : item))
+}
+
+async function send(payload: { body: string; fileIds: string[] }) {
   isSending.value = true
   failedSend.value = null
+  const request: ChatSendPayload = {
+    body: payload.body,
+    fileIds: payload.fileIds,
+    ...(replyTo.value ? { parentId: replyTo.value.id } : {}),
+  }
   try {
-    const { message, reply } = await chatApi.send(projectId.value, body)
+    const { message, reply } = await chatApi.send(projectId.value, request)
     upsert(message)
     if (reply) upsert(reply)
     quoteDraft.value = null
+    replyTo.value = null
     await scrollToBottom(true)
   } catch (error) {
-    failedSend.value = body
+    failedSend.value = request
     toast.error(getErrorMessage(error))
   } finally {
     isSending.value = false
@@ -137,21 +183,34 @@ async function send(body: string) {
 
 function retryFailedSend() {
   if (!failedSend.value) return
-  const body = failedSend.value
+  const payload = failedSend.value
   failedSend.value = null
-  void send(body)
+  if (payload.parentId) {
+    const parent = messages.value.find((message) => message.id === payload.parentId)
+    if (parent) replyTo.value = parent
+  }
+  void send({ body: payload.body, fileIds: payload.fileIds ?? [] })
 }
 
 function quoteMessage(message: ChatMessage) {
   const author = message.author?.name ?? (message.kind === 'bot' ? 'Assistant' : 'Someone')
   const snippet = message.body.split('\n')[0].slice(0, 160)
   quoteDraft.value = `> ${author}: ${snippet}\n\n`
+  replyTo.value = null
   composer.value?.setText(quoteDraft.value)
+}
+
+async function startReply(message: ChatMessage) {
+  const parent = message.parentId ? messages.value.find((item) => item.id === message.parentId) ?? message : message
+  replyTo.value = parent
+  quoteDraft.value = null
+  await nextTick()
+  composer.value?.focus()
 }
 
 async function copyMessageLink(message: ChatMessage) {
   const url = new URL(window.location.href)
-  url.searchParams.set('message', message.id)
+  url.searchParams.set('message', message.parentId ?? message.id)
   try {
     await navigator.clipboard.writeText(url.toString())
     toast.success('Message link copied')
@@ -169,17 +228,38 @@ async function edit(message: ChatMessage, body: string) {
 }
 
 async function remove(message: ChatMessage) {
-  const ok = await confirm({ title: 'Delete this message?', description: 'It will also disappear from the follow-up record of any task it mentions.', confirmLabel: 'Delete', destructive: true })
+  const replyCount = message.parentId ? 0 : (repliesOf.value.get(message.id)?.length ?? 0)
+  const ok = await confirm({
+    title: message.parentId ? 'Delete this reply?' : 'Delete this message?',
+    description: message.parentId
+      ? 'It will disappear for everyone in this project chat.'
+      : `It will also disappear from the follow-up record of any task it mentions.${replyCount ? ` Its ${replyCount} ${replyCount === 1 ? 'reply' : 'replies'} will be removed too.` : ''}`,
+    confirmLabel: 'Delete',
+    destructive: true,
+  })
   if (!ok) return
   try {
     await chatApi.remove(message.id)
-    messages.value = messages.value.filter((item) => item.id !== message.id)
+    if (replyTo.value?.id === message.id) replyTo.value = null
+    messages.value = messages.value.filter((item) => item.id !== message.id && item.parentId !== message.id)
   } catch (error) {
     toast.error(getErrorMessage(error))
   }
 }
 
-const useCommand = (command: AssistantCommand) => composer.value?.setText(command.name === 'status' ? '/status ' : `/${command.name}`)
+async function react(message: ChatMessage, emoji: string) {
+  try {
+    const result = await chatApi.react(message.id, emoji)
+    applyReactions(result.messageId, result.reactions)
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  }
+}
+
+const useCommand = (command: AssistantCommand) => {
+  replyTo.value = null
+  composer.value?.setText(command.name === 'status' ? '/status ' : `/${command.name}`)
+}
 
 // Realtime: teammates' messages arrive without refreshing.
 useProjectRealtime(projectId, () => {})
@@ -190,27 +270,43 @@ const onIncoming = async (message: ChatMessage) => {
   if (isNew && message.kind === 'user' && message.authorId !== auth.user?.id) playSound('message', { id: message.id, quiet: true })
   if (stick) await scrollToBottom(true)
 }
-const onDeleted = ({ id }: { id: string; projectId?: string }) => (messages.value = messages.value.filter((item) => item.id !== id))
+const onDeleted = ({ id }: { id: string; projectId?: string }) => {
+  if (replyTo.value?.id === id) replyTo.value = null
+  messages.value = messages.value.filter((item) => item.id !== id && item.parentId !== id)
+}
+const onReactions = (payload: { messageId: string; projectId?: string; reactions: ChatReaction[] }) => {
+  applyReactions(payload.messageId, payload.reactions)
+}
 /** Only this project's chat (the browser can follow several projects at once). */
 const here = <T extends { projectId?: string }>(handler: (payload: T) => unknown) => (payload: T) => {
   if (!payload.projectId || payload.projectId === projectId.value) void handler(payload)
 }
-useSocketEvents({ 'chat:message': here(onIncoming), 'chat:updated': here(upsert), 'chat:deleted': here(onDeleted) })
+useSocketEvents({
+  'chat:message': here(onIncoming),
+  'chat:updated': here(upsert),
+  'chat:deleted': here(onDeleted),
+  'chat:reactions': here(onReactions),
+})
 
-// Day separators and consecutive-message grouping.
+// Day separators and consecutive-message grouping for top-level posts only.
 const dayLabel = (date: Date) => (isToday(date) ? 'Today' : isYesterday(date) ? 'Yesterday' : format(date, 'EEEE, d MMMM yyyy'))
-const filteredMessages = computed(() => {
+const filteredPosts = computed(() => {
   const term = threadSearch.value.trim().toLowerCase()
-  if (!term) return messages.value
-  return messages.value.filter((message) => {
+  if (!term) return posts.value
+  return posts.value.filter((message) => {
     const author = message.author?.name ?? ''
-    return `${message.body} ${author}`.toLowerCase().includes(term)
+    const inPost = `${message.body} ${author}`.toLowerCase().includes(term)
+    const inReplies = (repliesOf.value.get(message.id) ?? []).some((reply) => {
+      const replyAuthor = reply.author?.name ?? ''
+      return `${reply.body} ${replyAuthor}`.toLowerCase().includes(term)
+    })
+    return inPost || inReplies
   })
 })
 
 const rows = computed(() =>
-  filteredMessages.value.map((message, index) => {
-    const previous = filteredMessages.value[index - 1]
+  filteredPosts.value.map((message, index) => {
+    const previous = filteredPosts.value[index - 1]
     const at = new Date(message.createdAt)
     const newDay = !previous || new Date(previous.createdAt).toDateString() !== at.toDateString()
     const grouped =
@@ -219,7 +315,8 @@ const rows = computed(() =>
       previous!.authorId === message.authorId &&
       message.kind === 'user' &&
       at.getTime() - new Date(previous!.createdAt).getTime() < 5 * 60 * 1000
-    return { message, grouped, day: newDay ? dayLabel(at) : null }
+    const replies = repliesOf.value.get(message.id) ?? []
+    return { message, grouped, day: newDay ? dayLabel(at) : null, replies }
   }),
 )
 
@@ -264,7 +361,7 @@ const discussedTasks = computed(() => {
           </EmptyState>
 
           <EmptyState
-            v-else-if="!messages.length"
+            v-else-if="!posts.length"
             :icon="Hash"
             title="Start the work chat"
             description="Talk about this project’s tasks here. Mention a key like VEC-12 and it lands on that task. Private DMs and team channels live under Messages — a separate place."
@@ -310,6 +407,7 @@ const discussedTasks = computed(() => {
               <ChatMessageItem
                 :message="row.message"
                 :project-id="projectId"
+                :members="members"
                 :grouped="row.grouped"
                 :highlighted="highlightedId === row.message.id"
                 :can-edit="row.message.kind === 'user' && row.message.authorId === auth.user?.id"
@@ -319,7 +417,29 @@ const discussedTasks = computed(() => {
                 @use-command="useCommand"
                 @quote="quoteMessage(row.message)"
                 @copy-link="copyMessageLink(row.message)"
+                @reply="startReply(row.message)"
+                @react="(emoji) => react(row.message, emoji)"
               />
+              <div v-if="row.replies.length" class="border-l border-border/70 ml-8 sm:ml-12">
+                <ChatMessageItem
+                  v-for="reply in row.replies"
+                  :key="reply.id"
+                  reply
+                  :message="reply"
+                  :project-id="projectId"
+                  :members="members"
+                  :grouped="false"
+                  :highlighted="highlightedId === reply.id"
+                  :can-edit="reply.kind === 'user' && reply.authorId === auth.user?.id"
+                  :can-delete="(reply.kind === 'user' && reply.authorId === auth.user?.id) || isAdmin"
+                  @edit="(body) => edit(reply, body)"
+                  @remove="remove(reply)"
+                  @use-command="useCommand"
+                  @quote="quoteMessage(reply)"
+                  @copy-link="copyMessageLink(reply)"
+                  @react="(emoji) => react(reply, emoji)"
+                />
+              </div>
             </template>
           </template>
         </div>
@@ -331,7 +451,16 @@ const discussedTasks = computed(() => {
           <Button size="sm" variant="outline" @click="retryFailedSend">Retry</Button>
           <Button size="sm" variant="ghost" @click="failedSend = null">Dismiss</Button>
         </div>
-        <ChatComposer ref="composer" :project-id="projectId" :members="members" :commands="commands" :disabled="isSending" @submit="send" />
+        <ChatComposer
+          ref="composer"
+          :project-id="projectId"
+          :members="members"
+          :commands="commands"
+          :disabled="isSending"
+          :reply-to="replyToPreview"
+          @submit="send"
+          @cancel-reply="replyTo = null"
+        />
       </div>
     </section>
 

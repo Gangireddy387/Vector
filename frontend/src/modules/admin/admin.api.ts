@@ -94,4 +94,17 @@ export const workspaceApi = {
   /** A new invitation for someone who has not accepted yet; without invitation emails the link comes back to share. */
   resendInvitation: (userId: string) =>
     http.post<{ emailed: boolean; inviteLink: string | null }>(`/workspace/members/${userId}/resend-invitation`).then((r) => r.data),
+  /** Organization admin audit trail (invites, roles, settings, plan). */
+  auditLog: (params?: { limit?: number; before?: string }) =>
+    http.get<{ entries: WorkspaceAuditEntry[] }>('/workspace/audit-log', { params }).then((r) => r.data),
+}
+
+export interface WorkspaceAuditEntry {
+  id: string
+  action: string
+  targetType: string | null
+  targetId: string | null
+  meta: Record<string, unknown> | null
+  createdAt: string
+  actor: UserSummary | null
 }

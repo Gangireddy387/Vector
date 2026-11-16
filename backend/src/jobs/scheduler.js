@@ -3,6 +3,7 @@ import { config } from '../config/index.js';
 import { sendDueReminders } from '../modules/issues/due-reminder.job.js';
 import { sendDailyDigests } from '../modules/notifications/daily-digest.job.js';
 import { sendWorkdayNudges } from '../modules/notifications/workday-nudge.job.js';
+import { sendWeeklyReports } from '../modules/reports/weekly-reports.job.js';
 import { runDueRecurringTasks } from '../modules/recurring-tasks/recurring-task.service.js';
 import { runPendingFollowups } from '../modules/meetings/meeting.followup.js';
 import { sendMeetingReminders } from '../modules/meetings/meeting.notify.js';
@@ -18,6 +19,8 @@ const JOBS = [
   { name: 'due-reminders', schedule: '*/15 * * * *', run: sendDueReminders },
   // Hourly: each user receives it at 8:00 in their own time zone.
   { name: 'daily-digest', schedule: '0 * * * *', run: () => sendDailyDigests() },
+  // Hourly: Monday 08:00 local — weekly reports overview for opted-in users.
+  { name: 'weekly-reports', schedule: '0 * * * *', run: () => sendWeeklyReports() },
   // Hourly: day-2 / day-7 workday habit nudge at 10:00 local (weekdays).
   { name: 'workday-nudges', schedule: '0 * * * *', run: () => sendWorkdayNudges() },
   // Hourly: standup nudge at each project's reminder hour in the person's zone (weekdays).

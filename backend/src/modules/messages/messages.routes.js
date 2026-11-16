@@ -42,6 +42,9 @@ const reactionLimiter = rateLimit({ windowMs: 60 * 1000, limit: 120, standardHea
 
 router.get('/conversations', async (req, res) => res.json({ conversations: await service.listConversations(viewer(req)) }));
 router.get('/conversations/saved', async (req, res) => res.json({ items: await service.listSaved(viewer(req)) }));
+router.get('/messages/search', validate({ query: searchMessagesQuery }), async (req, res) =>
+  res.json(await service.searchAllMessages(viewer(req), req.filters)),
+);
 router.post('/conversations/direct', validate({ body: directSchema }), async (req, res) =>
   res.status(201).json({ conversation: await service.openDirect(viewer(req), req.body.userId) }),
 );

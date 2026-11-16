@@ -79,6 +79,9 @@ watch(
     if (!value) return
     showErrors.value = false
     search.value = ''
+    suggestions.value = null
+    checkedCalendars.value = 0
+    agendaHint.value = null
     const { meeting, preset } = value
     const startsAt = meeting ? parseISO(meeting.startsAt) : null
     const presetPeople = (preset?.people ?? []).filter((person) => person.id !== auth.user?.id)
@@ -271,8 +274,64 @@ async function save() {
           </FormField>
         </div>
 
+        <div class="grid gap-2">
+          <div class="flex items-baseline justify-between gap-2">
+            <span class="text-sm font-medium">Invite people</span>
+            <span class="text-xs text-muted-foreground">{{ form.participantIds.length }} invited</span>
+          </div>
+
+          <div v-if="teams.length" class="flex flex-wrap gap-1.5">
+            <button
+              v-for="team in teams"
+              :key="team.id"
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-full border border-border/80 px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary/50 hover:bg-primary/5"
+              @click="addTeam(team)"
+            >
+              <UsersRound class="size-3.5 text-muted-foreground" /> {{ team.name }}
+              <span class="text-muted-foreground">· {{ team.members.length }}</span>
+            </button>
+          </div>
+
+          <div v-if="chosen.length" class="flex flex-wrap gap-1.5">
+            <span v-for="person in chosen" :key="person.id" class="inline-flex items-center gap-1.5 rounded-full bg-primary/10 py-0.5 pr-1 pl-0.5 text-xs font-medium text-primary">
+              <UserAvatar :user="person" size="xs" />
+              {{ person.name }}
+              <button type="button" class="rounded-full p-0.5 hover:bg-primary/15" :aria-label="`Remove ${person.name}`" @click="togglePerson(person.id)">
+                <X class="size-3" />
+              </button>
+            </span>
+          </div>
+
+          <div class="relative">
+            <Search class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input v-model="search" class="pl-8" placeholder="Search people by name or email" />
+          </div>
+          <ul class="max-h-64 divide-y divide-border/60 overflow-y-auto border border-border/70">
+            <li v-for="person in matches" :key="person.id">
+              <button type="button" class="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-accent" @click="togglePerson(person.id)">
+                <UserAvatar :user="person" size="md" />
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-medium">{{ person.name }}</span>
+                  <span class="block truncate text-xs text-muted-foreground">{{ person.title || person.email }}</span>
+                </span>
+                <span
+                  class="flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors"
+                  :class="isChosen(person.id) ? 'border-primary bg-primary text-primary-foreground' : 'border-border'"
+                >
+                  <Check v-if="isChosen(person.id)" class="size-3" />
+                </span>
+              </button>
+            </li>
+            <li v-if="!matches.length" class="px-3 py-6 text-center text-sm text-muted-foreground">No one matches “{{ search }}”.</li>
+          </ul>
+          <p v-if="errorFor('people')" class="text-xs text-destructive" role="alert">{{ errorFor('people') }}</p>
+        </div>
+
         <div class="space-y-2">
-          <Button type="button" variant="outline" size="sm" :loading="isFinding" @click="findTimes"><CalendarSearch /> Find a time that suits everyone</Button>
+          <Button type="button" variant="outline" size="sm" :loading="isFinding" :disabled="!form.participantIds.length" @click="findTimes">
+            <CalendarSearch /> Find a time
+          </Button>
           <div v-if="suggestions" class="space-y-1.5">
             <p class="text-xs text-muted-foreground">
               <template v-if="suggestions.length">
@@ -337,60 +396,6 @@ async function save() {
             <Sparkles /> {{ form.agenda.trim() ? 'Draft it again' : 'Draft the agenda' }}
           </Button>
         </FormField>
-
-        <div class="grid gap-2">
-          <div class="flex items-baseline justify-between gap-2">
-            <span class="text-sm font-medium">Invite people</span>
-            <span class="text-xs text-muted-foreground">{{ form.participantIds.length }} invited</span>
-          </div>
-
-          <div v-if="teams.length" class="flex flex-wrap gap-1.5">
-            <button
-              v-for="team in teams"
-              :key="team.id"
-              type="button"
-              class="inline-flex items-center gap-1.5 rounded-full border border-border/80 px-2.5 py-1 text-xs font-medium transition-colors hover:border-primary/50 hover:bg-primary/5"
-              @click="addTeam(team)"
-            >
-              <UsersRound class="size-3.5 text-muted-foreground" /> {{ team.name }}
-              <span class="text-muted-foreground">· {{ team.members.length }}</span>
-            </button>
-          </div>
-
-          <div v-if="chosen.length" class="flex flex-wrap gap-1.5">
-            <span v-for="person in chosen" :key="person.id" class="inline-flex items-center gap-1.5 rounded-full bg-primary/10 py-0.5 pr-1 pl-0.5 text-xs font-medium text-primary">
-              <UserAvatar :user="person" size="xs" />
-              {{ person.name }}
-              <button type="button" class="rounded-full p-0.5 hover:bg-primary/15" :aria-label="`Remove ${person.name}`" @click="togglePerson(person.id)">
-                <X class="size-3" />
-              </button>
-            </span>
-          </div>
-
-          <div class="relative">
-            <Search class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input v-model="search" class="pl-8" placeholder="Search people by name or email" />
-          </div>
-          <ul class="max-h-64 divide-y divide-border/60 overflow-y-auto border border-border/70">
-            <li v-for="person in matches" :key="person.id">
-              <button type="button" class="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-accent" @click="togglePerson(person.id)">
-                <UserAvatar :user="person" size="md" />
-                <span class="min-w-0 flex-1">
-                  <span class="block truncate text-sm font-medium">{{ person.name }}</span>
-                  <span class="block truncate text-xs text-muted-foreground">{{ person.title || person.email }}</span>
-                </span>
-                <span
-                  class="flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors"
-                  :class="isChosen(person.id) ? 'border-primary bg-primary text-primary-foreground' : 'border-border'"
-                >
-                  <Check v-if="isChosen(person.id)" class="size-3" />
-                </span>
-              </button>
-            </li>
-            <li v-if="!matches.length" class="px-3 py-6 text-center text-sm text-muted-foreground">No one matches “{{ search }}”.</li>
-          </ul>
-          <p v-if="errorFor('people')" class="text-xs text-destructive" role="alert">{{ errorFor('people') }}</p>
-        </div>
 
         <button type="submit" class="hidden" aria-hidden="true" tabindex="-1" />
       </form>

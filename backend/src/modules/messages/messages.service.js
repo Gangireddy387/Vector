@@ -372,6 +372,69 @@ export async function searchMessages(viewer, conversationId, { q, limit = 25 }) 
   return { conversation: await describe(viewer, conversation, people), messages: await decorate(rows, viewer.id) };
 }
 
+/**
+ * Search message bodies across every conversation this person can open (direct, team, department, channel).
+ * Respects cleared chats and messages hidden for themselves, same rules as per-conversation search.
+ */
+export async function searchAllMessages(viewer, { q, limit = 25 }) {
+  const term = `%${sanitizeLike(q)}%`;
+  if (term === '%%') return { results: [] };
+
+  const entries = [
+    ...(hasFeature(viewer, 'teamChat') ? await groupConversations(viewer) : []),
+    ...(hasFeature(viewer, 'directMessages') ? await directConversations(viewer) : []),
+  ];
+  if (!entries.length) return { results: [] };
+
+  const conversationIds = entries.map((entry) => entry.conversation.id);
+  const prefetched = await prefetchFor(viewer, conversationIds);
+  const rows = await ConversationMessage.findAll({
+    where: {
+      conversationId: conversationIds,
+      deletedAt: null,
+      body: { [likeOperator]: term },
+    },
+    include: authorInclude,
+    order: [['createdAt', 'DESC']],
+    limit: Math.min(limit * 4, 200),
+  });
+
+  const kept = [];
+  for (const message of rows) {
+    const membership = prefetched.memberships.get(message.conversationId);
+    const hidden = prefetched.hidden.get(message.conversationId) ?? [];
+    if (hidden.includes(message.id)) continue;
+    if (membership?.clearedAt && new Date(message.createdAt) <= new Date(membership.clearedAt)) continue;
+    kept.push(message);
+    if (kept.length >= limit) break;
+  }
+
+  const decorated = await decorate(kept, viewer.id);
+  const entryById = new Map(entries.map((entry) => [entry.conversation.id, entry]));
+  const summaryCache = new Map();
+  const results = [];
+  for (const message of decorated) {
+    let conversation = summaryCache.get(message.conversationId);
+    if (!conversation) {
+      const entry = entryById.get(message.conversationId);
+      conversation = entry
+        ? await summarize(viewer, entry, null, prefetched)
+        : { id: message.conversationId, kind: 'direct', title: 'Conversation', team: null };
+      summaryCache.set(message.conversationId, conversation);
+    }
+    results.push({
+      conversation: {
+        id: conversation.id,
+        kind: conversation.kind,
+        title: conversation.title,
+        team: conversation.team ?? null,
+      },
+      message,
+    });
+  }
+  return { results };
+}
+
 /** Everyone who can read the conversation (for @mentions and calls). */
 export async function listPeople(viewer, conversationId) {
   const { people } = await loadConversation(viewer, conversationId);

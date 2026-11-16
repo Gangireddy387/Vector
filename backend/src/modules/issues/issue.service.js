@@ -494,10 +494,29 @@ export async function bulkUpdate(issueIds, changes, actor) {
   const projectIds = [...new Set(issues.map((issue) => issue.projectId))];
   await Promise.all(projectIds.map((projectId) => assertProjectRole(projectId, actor.id, 'member')));
 
-  const { addLabelIds, ...fieldChanges } = changes;
+  const { addLabelIds, statusCategory, ...fieldChanges } = changes;
+  /** Per project: first status in the requested category (lowest position). */
+  let statusByProject = null;
+  if (statusCategory) {
+    const statuses = await Status.findAll({
+      where: { projectId: projectIds, category: statusCategory },
+      order: [['position', 'ASC']],
+      attributes: ['id', 'projectId', 'position'],
+    });
+    statusByProject = new Map();
+    for (const status of statuses) {
+      if (!statusByProject.has(status.projectId)) statusByProject.set(status.projectId, status.id);
+    }
+  }
+
   const results = [];
   for (const issue of issues) {
     const issueChanges = { ...fieldChanges };
+    if (statusByProject) {
+      const statusId = statusByProject.get(issue.projectId);
+      if (!statusId) throw ApiError.badRequest(`No “${statusCategory.replaceAll('_', ' ')}” status in one of the selected projects`);
+      issueChanges.statusId = statusId;
+    }
     if (addLabelIds?.length) issueChanges.labelIds = [...new Set([...issue.labels.map((label) => label.id), ...addLabelIds])];
     results.push(await updateIssue(issue.id, issueChanges, actor, { source: 'user', bulk: true }));
   }

@@ -7,6 +7,7 @@ import {
   acceptInviteQuickSchema,
   acceptInviteSchema,
   changePasswordSchema,
+  deleteAccountSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
@@ -36,7 +37,9 @@ router.post('/accept-invite', credentialLimiter, validate({ body: acceptInviteSc
 router.post('/accept-invite/quick', credentialLimiter, validate({ body: acceptInviteQuickSchema }), controller.acceptInviteQuick);
 
 router.get('/me', authenticate, controller.me);
+router.get('/me/export', authenticate, controller.exportAccount);
 router.patch('/me', authenticate, validate({ body: updateProfileSchema }), controller.updateProfile);
 router.patch('/me/password', authenticate, validate({ body: changePasswordSchema }), controller.changePassword);
+router.delete('/me', authenticate, validate({ body: deleteAccountSchema }), controller.deleteAccount);
 
 export default router;

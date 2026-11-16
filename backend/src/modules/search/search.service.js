@@ -1,9 +1,11 @@
 import { Op } from 'sequelize';
 import { likeOperator } from '../../database/connection.js';
 import { Comment, Issue, IssueLabel, Label, Project, Status, User } from '../../database/models.js';
+import { ISSUE_PRIORITIES, ISSUE_TYPES } from '../issues/issue.model.js';
 import { getMemberProjectIds } from '../projects/project-access.js';
 import { searchUsers } from '../users/user.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
+import { STATUS_CATEGORIES } from '../statuses/status.model.js';
 
 /** Strip LIKE wildcards so a typed `%` or `_` is literal text, not a pattern. */
 const sanitizeTerm = (q) => q.replace(/[%_]/g, ' ').trim();
@@ -14,7 +16,78 @@ const issueIncludes = [
   { model: Project, as: 'project', attributes: ['id', 'key', 'name', 'color'] },
 ];
 
+/**
+ * Parses advanced operators from q and returns them plus the free-text remainder.
+ * Supported: assignee:me|email, is:open|done|in_progress, project:KEY, type:bug|task|…, priority:high|…
+ */
+export function parseSearchOperators(raw) {
+  const operators = {
+    assignee: null,
+    statusCategory: null,
+    projectKey: null,
+    type: null,
+    priority: null,
+  };
+  const tokens = String(raw || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const textParts = [];
+
+  for (const token of tokens) {
+    const match = /^([a-z]+):(.+)$/i.exec(token);
+    if (!match) {
+      textParts.push(token);
+      continue;
+    }
+    const key = match[1].toLowerCase();
+    const value = match[2].trim();
+    if (!value) {
+      textParts.push(token);
+      continue;
+    }
+
+    if (key === 'assignee') {
+      operators.assignee = value.toLowerCase() === 'me' ? 'me' : value.toLowerCase();
+      continue;
+    }
+    if (key === 'is') {
+      const normalized = value.toLowerCase().replace('-', '_');
+      if (normalized === 'open') {
+        operators.statusCategory = 'open';
+        continue;
+      }
+      if (STATUS_CATEGORIES.includes(normalized)) {
+        operators.statusCategory = normalized;
+        continue;
+      }
+    }
+    if (key === 'project') {
+      operators.projectKey = value.toUpperCase();
+      continue;
+    }
+    if (key === 'type') {
+      const type = value.toLowerCase();
+      if (ISSUE_TYPES.includes(type)) {
+        operators.type = type;
+        continue;
+      }
+    }
+    if (key === 'priority') {
+      const priority = value.toLowerCase();
+      if (ISSUE_PRIORITIES.includes(priority)) {
+        operators.priority = priority;
+        continue;
+      }
+    }
+    textParts.push(token);
+  }
+
+  return { operators, text: textParts.join(' ').trim() };
+}
+
 function scoreIssue(issue, q) {
+  if (!q) return { score: 20, matchedOn: 'filter' };
   const needle = q.toLowerCase();
   const key = String(issue.key || '').toLowerCase();
   const title = String(issue.title || '').toLowerCase();
@@ -28,39 +101,89 @@ function scoreIssue(issue, q) {
   return { score: 10, matchedOn: 'title' };
 }
 
-async function searchIssues(projectIds, q, limit) {
+async function resolveAssigneeId(userId, assignee) {
+  if (!assignee) return null;
+  if (assignee === 'me') return userId;
+  if (assignee === 'unassigned' || assignee === 'none') return 'unassigned';
+  const people = await searchUsers(userId, { q: assignee });
+  const exact = people.find((person) => person.email?.toLowerCase() === assignee || person.name?.toLowerCase() === assignee);
+  return exact?.id ?? people[0]?.id ?? null;
+}
+
+async function searchIssues(userId, projectIds, q, operators, limit) {
   if (!projectIds.length) return [];
 
-  const term = `%${sanitizeTerm(q)}%`;
-  if (term === '%%') return [];
+  let scopedProjectIds = projectIds;
+  if (operators.projectKey) {
+    const projects = await Project.findAll({
+      where: { id: projectIds, key: { [likeOperator]: operators.projectKey } },
+      attributes: ['id', 'key'],
+    });
+    // Prefer exact key match (case-insensitive).
+    const exact = projects.filter((project) => project.key.toUpperCase() === operators.projectKey);
+    scopedProjectIds = (exact.length ? exact : projects).map((project) => project.id);
+    if (!scopedProjectIds.length) return [];
+  }
 
+  const where = { projectId: scopedProjectIds };
+  if (operators.type) where.type = operators.type;
+  if (operators.priority) where.priority = operators.priority;
+
+  if (operators.assignee) {
+    const assigneeId = await resolveAssigneeId(userId, operators.assignee);
+    if (assigneeId === 'unassigned') where.assigneeId = null;
+    else if (assigneeId) where.assigneeId = assigneeId;
+    else return [];
+  }
+
+  if (operators.statusCategory) {
+    const statusWhere =
+      operators.statusCategory === 'open'
+        ? { projectId: scopedProjectIds, category: { [Op.ne]: 'done' } }
+        : { projectId: scopedProjectIds, category: operators.statusCategory };
+    const statuses = await Status.findAll({ where: statusWhere, attributes: ['id'], raw: true });
+    if (!statuses.length) return [];
+    where.statusId = statuses.map((status) => status.id);
+  }
+
+  const text = sanitizeTerm(q);
+  const hasText = Boolean(text);
+  const term = hasText ? `%${text}%` : null;
+
+  // Operators alone are enough to search; free text optionally narrows.
   const [direct, commentHits, labelHits] = await Promise.all([
     Issue.findAll({
-      where: {
-        projectId: projectIds,
-        [Op.or]: [
-          { title: { [likeOperator]: term } },
-          { key: { [likeOperator]: term } },
-          { description: { [likeOperator]: term } },
-        ],
-      },
+      where: hasText
+        ? {
+            ...where,
+            [Op.or]: [
+              { title: { [likeOperator]: term } },
+              { key: { [likeOperator]: term } },
+              { description: { [likeOperator]: term } },
+            ],
+          }
+        : where,
       attributes: ['id', 'key', 'title', 'description', 'type', 'priority', 'projectId', 'updatedAt'],
       include: issueIncludes,
       order: [['updatedAt', 'DESC']],
       limit: limit * 2,
     }),
-    Comment.findAll({
-      where: { body: { [likeOperator]: term } },
-      attributes: ['issueId'],
-      include: [{ model: Issue, as: 'issue', attributes: ['id'], where: { projectId: projectIds }, required: true }],
-      limit: 40,
-      order: [['updatedAt', 'DESC']],
-    }),
-    Label.findAll({
-      where: { projectId: projectIds, name: { [likeOperator]: term } },
-      attributes: ['id'],
-      limit: 20,
-    }),
+    hasText
+      ? Comment.findAll({
+          where: { body: { [likeOperator]: term } },
+          attributes: ['issueId'],
+          include: [{ model: Issue, as: 'issue', attributes: ['id'], where, required: true }],
+          limit: 40,
+          order: [['updatedAt', 'DESC']],
+        })
+      : Promise.resolve([]),
+    hasText
+      ? Label.findAll({
+          where: { projectId: scopedProjectIds, name: { [likeOperator]: term } },
+          attributes: ['id'],
+          limit: 20,
+        })
+      : Promise.resolve([]),
   ]);
 
   const byId = new Map();
@@ -79,7 +202,7 @@ async function searchIssues(projectIds, q, limit) {
   const extraIds = [...commentIssueIds, ...labelIssueIds].slice(0, limit * 2);
   if (extraIds.length) {
     const extras = await Issue.findAll({
-      where: { id: extraIds, projectId: projectIds },
+      where: { id: extraIds, ...where },
       attributes: ['id', 'key', 'title', 'description', 'type', 'priority', 'projectId', 'updatedAt'],
       include: issueIncludes,
     });
@@ -93,7 +216,7 @@ async function searchIssues(projectIds, q, limit) {
 
   return [...byId.values()]
     .map((issue) => {
-      const { score, matchedOn } = scoreIssue(issue, q);
+      const { score, matchedOn } = scoreIssue(issue, text);
       return {
         id: issue.id,
         key: issue.key,
@@ -115,22 +238,36 @@ async function searchIssues(projectIds, q, limit) {
 }
 
 export async function globalSearch(userId, { q, limit, scope = 'all' }) {
+  const { operators, text } = parseSearchOperators(q);
+  const hasOperators = Object.values(operators).some(Boolean);
   const projectIds = await getMemberProjectIds(userId);
   const wantIssues = scope === 'all' || scope === 'issues';
   const wantProjects = scope === 'all' || scope === 'projects';
   const wantPeople = scope === 'all' || scope === 'people';
-  const term = `%${sanitizeTerm(q)}%`;
+  const freeText = text || (!hasOperators ? sanitizeTerm(q) : '');
+  const term = freeText ? `%${sanitizeTerm(freeText)}%` : null;
 
+  // Issue operators only apply to the issues pane; projects/people still use free text.
   const [issues, projects, people] = await Promise.all([
-    wantIssues ? searchIssues(projectIds, q, limit) : Promise.resolve([]),
-    wantProjects && projectIds.length && term !== '%%'
+    wantIssues && (freeText || hasOperators) ? searchIssues(userId, projectIds, freeText, operators, limit) : Promise.resolve([]),
+    wantProjects && projectIds.length && term && term !== '%%'
       ? Project.findAll({
-          where: { id: projectIds, [Op.or]: [{ name: { [likeOperator]: term } }, { key: { [likeOperator]: term } }] },
+          where: {
+            id: projectIds,
+            ...(operators.projectKey ? { key: { [likeOperator]: operators.projectKey } } : {}),
+            [Op.or]: [{ name: { [likeOperator]: term } }, { key: { [likeOperator]: term } }],
+          },
           attributes: ['id', 'key', 'name', 'color', 'type'],
           limit: scope === 'projects' ? limit : 5,
         })
-      : Promise.resolve([]),
-    wantPeople ? searchUsers(userId, { q }).then((rows) => rows.slice(0, scope === 'people' ? limit : 5)) : Promise.resolve([]),
+      : wantProjects && operators.projectKey && projectIds.length
+        ? Project.findAll({
+            where: { id: projectIds, key: { [likeOperator]: operators.projectKey } },
+            attributes: ['id', 'key', 'name', 'color', 'type'],
+            limit: scope === 'projects' ? limit : 5,
+          })
+        : Promise.resolve([]),
+    wantPeople && freeText ? searchUsers(userId, { q: freeText }).then((rows) => rows.slice(0, scope === 'people' ? limit : 5)) : Promise.resolve([]),
   ]);
 
   return { issues, projects, people };

@@ -66,6 +66,15 @@ export const authApi = {
   removeRingtone: () => http.delete<{ user: User }>('/users/me/ringtone').then((r) => r.data.user),
   /** Signs out every other session; the returned token keeps this one signed in. */
   changePassword: (payload: { currentPassword?: string; newPassword: string }) => http.patch<{ token: string }>('/auth/me/password', payload).then((r) => r.data),
+  /** Downloads a JSON export of profile, memberships, preferences and assigned issue keys. */
+  exportAccount: async () => {
+    const response = await http.get<Blob>('/auth/me/export', { responseType: 'blob' })
+    const url = URL.createObjectURL(response.data)
+    Object.assign(document.createElement('a'), { href: url, download: 'vector-account-export.json' }).click()
+    URL.revokeObjectURL(url)
+  },
+  /** Soft-deletes the account after password confirmation. */
+  deleteAccount: (password: string) => http.delete('/auth/me', { data: { password } }),
 }
 
 export const organizationsApi = {

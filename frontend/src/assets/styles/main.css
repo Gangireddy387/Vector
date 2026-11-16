@@ -536,3 +536,28 @@
 .markdown-body.compact li + li {
   @apply mt-0.5;
 }
+
+/* Reports → Download PDF (window.print). Hides app chrome; keeps the dashboard. */
+@media print {
+  body.printing-reports * {
+    visibility: hidden !important;
+  }
+  body.printing-reports .reports-dashboard,
+  body.printing-reports .reports-dashboard * {
+    visibility: visible !important;
+  }
+  body.printing-reports .reports-dashboard {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: white !important;
+    color: black !important;
+  }
+  body.printing-reports .reports-toolbar {
+    display: none !important;
+  }
+  body.printing-reports .reports-dashboard .shadow-soft,
+  body.printing-reports .reports-dashboard [class*='shadow'] {
+    box-shadow: none !important;
+  }
+}

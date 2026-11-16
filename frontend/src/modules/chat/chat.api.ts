@@ -67,10 +67,27 @@ export type AssistantMeta = { replyTo?: string; requestedBy?: { id: string; name
     }
 )
 
+/** The emojis people can react with, in the picker's order. */
+export const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🎉'] as const
+
+export interface ChatReaction {
+  emoji: string
+  userIds: string[]
+}
+
+/** A file shared in project chat (same shape as a call / channel attachment). */
+export interface ChatFile {
+  id: string
+  fileName: string
+  mimeType: string
+  size: number
+}
+
 export interface ChatMessage {
   id: string
   projectId: string
   authorId: string | null
+  parentId?: string | null
   kind: 'user' | 'bot'
   body: string
   meta: AssistantMeta | null
@@ -78,6 +95,14 @@ export interface ChatMessage {
   createdAt: string
   author: UserSummary | null
   issues: ChatIssueRef[]
+  reactions?: ChatReaction[]
+  files?: ChatFile[]
+}
+
+export type ChatSendPayload = {
+  body: string
+  parentId?: string | null
+  fileIds?: string[]
 }
 
 export type Followup =
@@ -95,11 +120,33 @@ export type Followup =
 export const chatApi = {
   list: (projectId: string, params: { before?: string; limit?: number } = {}) =>
     http
-      .get<{ messages: ChatMessage[]; hasMore: boolean; commands: AssistantCommand[] }>(`/projects/${projectId}/chat/messages`, { params })
+      .get<{ messages: ChatMessage[]; replies: ChatMessage[]; hasMore: boolean; commands: AssistantCommand[] }>(`/projects/${projectId}/chat/messages`, { params })
       .then((r) => r.data),
-  send: (projectId: string, body: string) =>
-    http.post<{ message: ChatMessage; reply: ChatMessage | null }>(`/projects/${projectId}/chat/messages`, { body }).then((r) => r.data),
+  send: (projectId: string, payload: ChatSendPayload) =>
+    http
+      .post<{ message: ChatMessage; reply: ChatMessage | null }>(`/projects/${projectId}/chat/messages`, {
+        body: payload.body,
+        ...(payload.parentId ? { parentId: payload.parentId } : {}),
+        ...(payload.fileIds?.length ? { fileIds: payload.fileIds } : {}),
+      })
+      .then((r) => r.data),
   edit: (messageId: string, body: string) => http.patch<{ message: ChatMessage }>(`/chat/messages/${messageId}`, { body }).then((r) => r.data.message),
   remove: (messageId: string) => http.delete(`/chat/messages/${messageId}`),
+  /** Adds your reaction, or takes it back. */
+  react: (messageId: string, emoji: string) =>
+    http.post<{ messageId: string; reactions: ChatReaction[] }>(`/chat/messages/${messageId}/reactions`, { emoji }).then((r) => r.data),
+  /** Uploads a file to share in the project chat; send its id with the message. */
+  upload: (projectId: string, file: File, onProgress?: (percent: number) => void) => {
+    const form = new FormData()
+    form.append('file', file, file.name)
+    return http
+      .post<{ file: ChatFile }>(`/projects/${projectId}/chat/files`, form, {
+        timeout: 0,
+        onUploadProgress: (event) => event.total && onProgress?.(Math.round((event.loaded / event.total) * 100)),
+      })
+      .then((r) => r.data.file)
+  },
+  fileLink: (projectId: string, fileId: string) =>
+    http.get<{ url: string }>(`/projects/${projectId}/chat/files/${fileId}/link`).then((r) => r.data.url),
   followups: (issueId: string) => http.get<{ followups: Followup[] }>(`/issues/${issueId}/followups`).then((r) => r.data.followups),
 }

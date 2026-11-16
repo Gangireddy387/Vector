@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { useStorage } from '@vueuse/core'
 import { Archive, FolderKanban, Plus, Search, Star, Users } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -29,14 +29,10 @@ const isCreateOpen = ref(route.query.welcome === '1')
 const search = ref('')
 const typeFilter = ref<'all' | 'scrum' | 'kanban'>('all')
 const showArchived = ref(false)
-const favoritesScope = computed(() => `${auth.organization?.id ?? 'none'}.${auth.user?.id ?? 'none'}`)
-const favoritesMap = useStorage<Record<string, string[]>>('vector.project.favorites', {})
-const favoriteIds = computed({
-  get: () => new Set(favoritesMap.value[favoritesScope.value] ?? []),
-  set: (value) => {
-    favoritesMap.value = { ...favoritesMap.value, [favoritesScope.value]: [...value] }
-  },
-})
+const pendingFavorite = ref<string | null>(null)
+
+const orgId = computed(() => auth.organization?.id ?? null)
+const favoriteIds = computed(() => new Set(orgId.value ? (auth.user?.preferences?.favoriteProjectIds?.[orgId.value] ?? []) : []))
 
 async function load() {
   isLoading.value = true
@@ -72,13 +68,34 @@ const visible = computed(() => {
     })
 })
 
-function toggleFavorite(projectId: string, event: Event) {
+async function toggleFavorite(projectId: string, event: Event) {
   event.preventDefault()
   event.stopPropagation()
-  const next = new Set(favoriteIds.value)
-  if (next.has(projectId)) next.delete(projectId)
-  else next.add(projectId)
-  favoriteIds.value = next
+  const organizationId = orgId.value
+  if (!organizationId || !auth.user || pendingFavorite.value) return
+
+  const previous = auth.user.preferences?.favoriteProjectIds?.[organizationId] ?? []
+  const next = previous.includes(projectId) ? previous.filter((id) => id !== projectId) : [...previous, projectId]
+  const previousPrefs = auth.user.preferences
+  // Optimistic: update the star before the request finishes.
+  auth.user = {
+    ...auth.user,
+    preferences: {
+      ...previousPrefs,
+      favoriteProjectIds: { ...(previousPrefs.favoriteProjectIds ?? {}), [organizationId]: next },
+    },
+  }
+  pendingFavorite.value = projectId
+  try {
+    await auth.updateProfile({ preferences: { favoriteProjectIds: { [organizationId]: next } } })
+  } catch (error) {
+    if (auth.user) {
+      auth.user = { ...auth.user, preferences: previousPrefs }
+    }
+    toast.error(getErrorMessage(error))
+  } finally {
+    pendingFavorite.value = null
+  }
 }
 
 async function onShowArchived(value: boolean) {
@@ -172,8 +189,9 @@ async function onShowArchived(value: boolean) {
           </div>
           <button
             type="button"
-            class="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+            class="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
             :aria-label="favoriteIds.has(project.id) ? 'Remove from favorites' : 'Add to favorites'"
+            :disabled="pendingFavorite === project.id"
             @click="toggleFavorite(project.id, $event)"
           >
             <Star class="size-4" :class="favoriteIds.has(project.id) && 'fill-warning text-warning'" />

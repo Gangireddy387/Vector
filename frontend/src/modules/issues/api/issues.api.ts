@@ -49,6 +49,8 @@ export type UpdateIssueInput = Partial<IssueFields> & { position?: number }
 
 export interface BulkChanges {
   statusId?: string
+  /** Cross-project bulk: resolve each issue's project status of this category. */
+  statusCategory?: 'todo' | 'in_progress' | 'done'
   assigneeId?: string | null
   priority?: IssuePriority
   type?: IssueType

@@ -184,15 +184,33 @@ export async function deletePlan(planId) {
 }
 
 /** Moves an organization to another plan; returns it with its plan loaded. */
-export async function setOrganizationPlan(organizationId, planId) {
-  const [organization, plan] = await Promise.all([Organization.findByPk(organizationId), Plan.findByPk(planId)]);
+export async function setOrganizationPlan(organizationId, planId, { actorId = null } = {}) {
+  const [organization, plan] = await Promise.all([
+    Organization.findByPk(organizationId, { include: [{ model: Plan, as: 'plan' }] }),
+    Plan.findByPk(planId),
+  ]);
   if (!organization) throw ApiError.notFound('Organization not found');
   if (!plan) throw ApiError.notFound('Plan not found');
+  const previousPlan = organization.plan;
   // Fulfilling a plan change also clears any pending upgrade request from the org.
   await organization.update({
     planId,
     featureOverrides: cleanOverrides(organization.featureOverrides, plan),
     upgradeRequest: null,
+  });
+  const { logWorkspaceAction } = await import('../workspace/workspace-audit.service.js');
+  await logWorkspaceAction({
+    organizationId,
+    actorId,
+    action: 'plan.changed',
+    targetType: 'organization',
+    targetId: organizationId,
+    meta: {
+      fromPlanId: previousPlan?.id ?? null,
+      fromPlanName: previousPlan?.name ?? null,
+      toPlanId: plan.id,
+      toPlanName: plan.name,
+    },
   });
   return loadOrganization(organizationId);
 }

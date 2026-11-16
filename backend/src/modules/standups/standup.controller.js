@@ -1,6 +1,7 @@
 import * as standupService from './standup.service.js';
 
-export const day = async (req, res) => res.json(await standupService.getStandupDay(req.params.projectId, req.filters.date));
+export const day = async (req, res) =>
+  res.json(await standupService.getStandupDay(req.params.projectId, req.filters.date, { days: req.filters.days ?? 30 }));
 
 export const save = async (req, res) => res.json({ update: await standupService.saveStandup(req.params.projectId, req.user, req.body) });
 

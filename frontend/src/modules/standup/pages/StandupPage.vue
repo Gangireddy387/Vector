@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { addDays, format, isValid, parseISO } from 'date-fns'
-import { ArrowRight, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, ClipboardCopy, ClipboardList, Clock3, Columns3, ListTodo, Users } from 'lucide-vue-next'
+import { ArrowRight, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, ClipboardCopy, ClipboardList, Clock3, Columns3, ListTodo, TrendingUp, Users } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -51,7 +51,7 @@ const editing = ref(false)
 async function load() {
   errorMessage.value = ''
   try {
-    day.value = await standupApi.day(projectId.value, date.value)
+    day.value = await standupApi.day(projectId.value, date.value, 30)
   } catch (error) {
     errorMessage.value = getErrorMessage(error)
   } finally {
@@ -75,15 +75,26 @@ const showEditor = computed(() => canPost.value && (editing.value || !me.value?.
 const showHandoff = computed(() => date.value === today && Boolean(me.value?.update) && !editing.value)
 const teammates = computed(() => (day.value?.members ?? []).filter((member) => member.user.id !== auth.user?.id || !showEditor.value))
 const issueKeys = computed(() => Object.keys(day.value?.issues ?? {}))
+/** Last ~7 workdays for the day picker chips. */
 const recentDays = computed(() => {
   const counts = new Map((day.value?.recentDays ?? []).map((row) => [row.date, row.count]))
-  return Array.from({ length: 10 }, (_, index) => toDateInput(addDays(parseISO(today), -index)))
+  return Array.from({ length: 14 }, (_, index) => toDateInput(addDays(parseISO(date.value), -index)))
     .filter((value) => {
       const weekday = parseISO(value).getDay()
-      return (weekday !== 0 && weekday !== 6) || counts.has(value)
+      return (weekday !== 0 && weekday !== 6) || (counts.get(value) ?? 0) > 0
     })
     .slice(0, 7)
     .map((value) => ({ date: value, count: counts.get(value) ?? 0 }))
+})
+
+/** Full 30-day window from the API for the trend bars (oldest → newest). */
+const trendDays = computed(() => day.value?.recentDays ?? [])
+const trendMax = computed(() => Math.max(1, ...trendDays.value.map((row) => row.count)))
+const postingRate = computed(() => {
+  const period = day.value?.stats.periodDays ?? trendDays.value.length
+  const posted = day.value?.stats.postedDays ?? trendDays.value.filter((row) => row.count > 0).length
+  if (!period) return null
+  return { posted, period, percent: Math.round((posted / period) * 100) }
 })
 
 const dateTitle = computed(() => (date.value === today ? 'Today' : format(parseISO(date.value), 'EEEE')))
@@ -155,20 +166,6 @@ async function copySummary() {
             </span>
           </button>
         </div>
-        <div class="flex items-end gap-1 px-1" aria-label="7-day posting trend" role="img">
-          <div
-            v-for="entry in recentDays"
-            :key="`trend-${entry.date}`"
-            class="flex h-5 min-w-0 flex-1 flex-col items-center justify-end"
-            :title="`${formatDate(entry.date, 'EEE')}: ${entry.count}`"
-          >
-            <span
-              class="w-full max-w-3 rounded-sm transition-colors"
-              :class="entry.count ? 'bg-success/80' : 'bg-muted-foreground/20'"
-              :style="{ height: entry.count ? `${Math.min(4 + entry.count * 3, 20)}px` : '3px' }"
-            />
-          </div>
-        </div>
       </div>
       <Button variant="outline" size="sm" class="max-sm:w-full sm:ml-auto" :disabled="!day?.stats.posted" @click="copySummary"><ClipboardCopy /> Copy summary</Button>
     </div>
@@ -197,6 +194,41 @@ async function copySummary() {
         <span class="inline-flex items-center gap-1.5 text-sm" :class="day.stats.blockers ? 'text-destructive' : ''">
           <CircleAlert class="size-4" /> <span class="font-semibold tabular-nums">{{ day.stats.blockers }}</span> blocker{{ day.stats.blockers === 1 ? '' : 's' }}
         </span>
+      </section>
+
+      <!-- 30-day posting trend -->
+      <section v-if="trendDays.length" class="space-y-3 rounded-xl border bg-card px-4 py-3 shadow-soft">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <div class="min-w-0">
+            <h2 class="flex items-center gap-1.5 text-sm font-semibold"><TrendingUp class="size-3.5 text-muted-foreground" /> 30-day trend</h2>
+            <p class="text-xs text-muted-foreground">Updates posted each day · click a bar to open that day</p>
+          </div>
+          <p v-if="postingRate" class="text-xs text-muted-foreground">
+            Posted <span class="font-semibold tabular-nums text-foreground">{{ postingRate.posted }}/{{ postingRate.period }}</span> days
+            <span class="tabular-nums">({{ postingRate.percent }}%)</span>
+          </p>
+        </div>
+        <div class="flex h-16 items-end gap-px sm:gap-0.5" aria-label="30-day standup posting trend" role="img">
+          <button
+            v-for="entry in trendDays"
+            :key="`trend-${entry.date}`"
+            type="button"
+            class="group relative flex min-w-0 flex-1 flex-col items-center justify-end"
+            :title="`${formatDate(entry.date, 'EEE d MMM')}: ${entry.count} update${entry.count === 1 ? '' : 's'}`"
+            :aria-label="`${formatDate(entry.date, 'EEE d MMM')}: ${entry.count} updates`"
+            @click="date = entry.date"
+          >
+            <span
+              class="w-full max-w-2 rounded-sm transition-colors sm:max-w-none"
+              :class="entry.date === date ? 'bg-primary' : entry.count ? 'bg-success/70 group-hover:bg-success' : 'bg-muted-foreground/15 group-hover:bg-muted-foreground/30'"
+              :style="{ height: entry.count ? `${Math.max(6, Math.round((entry.count / trendMax) * 56))}px` : '3px' }"
+            />
+          </button>
+        </div>
+        <div class="flex justify-between text-[10px] text-muted-foreground tabular-nums">
+          <span>{{ trendDays[0] ? formatDate(trendDays[0].date, 'd MMM') : '' }}</span>
+          <span>{{ trendDays[trendDays.length - 1] ? formatDate(trendDays[trendDays.length - 1].date, 'd MMM') : '' }}</span>
+        </div>
       </section>
 
       <p

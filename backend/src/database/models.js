@@ -21,7 +21,8 @@ import { IssueTemplate } from '../modules/templates/issue-template.model.js';
 import { RecurringTask } from '../modules/recurring-tasks/recurring-task.model.js';
 import { SavedFilter } from '../modules/saved-filters/saved-filter.model.js';
 import { WorkspaceSetting } from '../modules/workspace/workspace-setting.model.js';
-import { ChatMessage, ChatMessageIssue } from '../modules/chat/chat.model.js';
+import { WorkspaceAuditLog } from '../modules/workspace/workspace-audit-log.model.js';
+import { ChatFile, ChatMessage, ChatMessageIssue, ChatReaction } from '../modules/chat/chat.model.js';
 import { StandupUpdate } from '../modules/standups/standup.model.js';
 import { Organization, OrganizationMember } from '../modules/organizations/organization.model.js';
 import { Plan } from '../modules/plans/plan.model.js';
@@ -169,8 +170,16 @@ SavedFilter.belongsTo(Project, { as: 'project', foreignKey: 'projectId', ...casc
 Project.hasMany(ChatMessage, { as: 'chatMessages', foreignKey: 'projectId', ...cascade });
 ChatMessage.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 ChatMessage.belongsTo(User, { as: 'author', foreignKey: 'authorId', onDelete: 'SET NULL' });
+ChatMessage.belongsTo(ChatMessage, { as: 'parent', foreignKey: 'parentId', constraints: false });
+ChatMessage.hasMany(ChatMessage, { as: 'replies', foreignKey: 'parentId', constraints: false });
 ChatMessage.belongsToMany(Issue, { through: ChatMessageIssue, as: 'issues', foreignKey: 'messageId', otherKey: 'issueId' });
 Issue.belongsToMany(ChatMessage, { through: ChatMessageIssue, as: 'chatMessages', foreignKey: 'issueId', otherKey: 'messageId' });
+ChatMessage.hasMany(ChatReaction, { as: 'reactions', foreignKey: 'messageId', ...cascade });
+ChatReaction.belongsTo(User, { as: 'user', foreignKey: 'userId', ...cascade });
+ChatMessage.hasMany(ChatFile, { as: 'files', foreignKey: 'messageId', constraints: false });
+Project.hasMany(ChatFile, { as: 'chatFiles', foreignKey: 'projectId', ...cascade });
+ChatFile.belongsTo(User, { as: 'uploader', foreignKey: 'uploaderId', onDelete: 'SET NULL' });
+ChatFile.belongsTo(ChatMessage, { as: 'message', foreignKey: 'messageId', constraints: false });
 
 Project.hasMany(StandupUpdate, { as: 'standupUpdates', foreignKey: 'projectId', ...cascade });
 User.hasMany(StandupUpdate, { as: 'standupUpdates', foreignKey: 'userId', ...cascade });
@@ -252,6 +261,11 @@ User.hasMany(PushSubscription, { as: 'pushSubscriptions', foreignKey: 'userId', 
 // Portal-wide configuration
 WorkspaceSetting.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
 
+// Organization admin audit trail
+Organization.hasMany(WorkspaceAuditLog, { as: 'auditLogs', foreignKey: 'organizationId', ...cascade });
+WorkspaceAuditLog.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+WorkspaceAuditLog.belongsTo(User, { as: 'actor', foreignKey: 'actorId', onDelete: 'SET NULL' });
+
 export {
   sequelize,
   User,
@@ -274,8 +288,11 @@ export {
   RecurringTask,
   SavedFilter,
   WorkspaceSetting,
+  WorkspaceAuditLog,
   ChatMessage,
   ChatMessageIssue,
+  ChatReaction,
+  ChatFile,
   StandupUpdate,
   Organization,
   OrganizationMember,

@@ -24,8 +24,12 @@ export interface UserSummary {
 export interface UserPreferences {
   emailNotifications: boolean
   dailyDigest: boolean
+  /** Monday morning email with a reports overview summary. */
+  weeklyReportsEmail?: boolean
   /** Follow the device's time zone automatically; `false` keeps the zone the user picked. Missing means true. */
   autoTimezone?: boolean
+  /** Starred projects keyed by organization id. */
+  favoriteProjectIds?: Record<string, string[]>
   /** Chosen call ringtone, message and notification sounds and their loudness (custom choices need the plan feature). */
   sounds?: Partial<SoundPreferences>
 }

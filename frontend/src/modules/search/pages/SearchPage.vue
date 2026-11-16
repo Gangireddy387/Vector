@@ -113,12 +113,28 @@ const rowClass =
 
 <template>
   <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
-    <PageHeader v-if="isDesktop" title="Search" description="Find tasks by key, title, description, comments or labels — plus projects and people." />
+    <PageHeader
+      v-if="isDesktop"
+      title="Search"
+      description="Find tasks by key, title, description, comments or labels — plus projects and people. Use operators like assignee:me or is:open."
+    />
 
     <div class="relative">
       <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input v-model="query" type="search" placeholder="Search tasks, projects, people" class="h-11 pl-9 text-base" autofocus aria-label="Search" />
     </div>
+    <p class="px-1 text-xs text-muted-foreground">
+      Operators:
+      <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">assignee:me</code>
+      <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">assignee:email</code>
+      <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">is:open</code>
+      <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">is:done</code>
+      <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">is:in_progress</code>
+      <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">project:KEY</code>
+      <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">type:bug</code>
+      <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">priority:high</code>
+      — free text still matches title, key, description, comments and labels.
+    </p>
 
     <div class="flex flex-wrap gap-1.5" role="tablist" aria-label="Search scope">
       <Button
@@ -140,7 +156,7 @@ const rowClass =
       v-if="!query.trim()"
       :icon="Search"
       title="Find anything"
-      description="Try a task key (VEC-12), words from the description or a comment, a label name, a project, or a teammate."
+      description="Try a task key (VEC-12), operators like assignee:me is:open type:bug, or words from a description, comment, label, project or teammate."
       class="rounded-xl border border-dashed border-border/80 bg-card/60 py-10"
     >
       <div v-if="recent.length" class="mx-auto mt-4 w-full max-w-md space-y-2 text-left">

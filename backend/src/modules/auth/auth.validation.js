@@ -43,8 +43,12 @@ export const updateProfileSchema = z.object({
     .object({
       emailNotifications: z.boolean().optional(),
       dailyDigest: z.boolean().optional(),
+      /** Weekly reports overview email (picked up by the digest-style job). */
+      weeklyReportsEmail: z.boolean().optional(),
       /** Follow the device's time zone automatically (default) instead of a fixed one. */
       autoTimezone: z.boolean().optional(),
+      /** Starred projects per organization id → project ids. */
+      favoriteProjectIds: z.record(z.string().uuid(), z.array(z.string().uuid()).max(200)).optional(),
       /** Chosen sounds (ids from the frontend's sound library) and their loudness; used when the plan includes custom sounds. */
       sounds: z
         .object({
@@ -66,3 +70,7 @@ export const changePasswordSchema = z.object({
 });
 
 export const acceptInviteQuickSchema = z.object({ token: z.string().min(10) });
+
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1, 'Password is required'),
+});

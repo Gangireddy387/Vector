@@ -52,20 +52,22 @@ const describeIssue = (issue, statusById) => {
 /**
  * Everything for one standup day: each member's update (or the lack of one) next to what the tracker
  * already knows: what they finished since the previous working day and what they have in progress.
+ * `days` controls how many calendar days of posting counts are returned for the trend chart.
  */
-export async function getStandupDay(projectId, date) {
+export async function getStandupDay(projectId, date, { days = 30 } = {}) {
   const previousDate = previousWorkday(date);
-  const [project, memberships, updates, { byId: statusById, idsIn }, recentDays] = await Promise.all([
+  const trendDays = Math.min(90, Math.max(7, Number(days) || 30));
+  const since = addDaysToDate(date, -(trendDays - 1));
+  const [project, memberships, updates, { byId: statusById, idsIn }, recentRows] = await Promise.all([
     Project.findByPk(projectId, { attributes: ['id', 'settings'] }),
     ProjectMember.findAll({ where: { projectId }, include: [{ model: User, as: 'user', attributes: [...USER_SUMMARY_ATTRIBUTES, 'status'] }] }),
     StandupUpdate.findAll({ where: { projectId, date }, include: [{ model: User, as: 'user', attributes: USER_SUMMARY_ATTRIBUTES }] }),
     loadStatuses(projectId),
     StandupUpdate.findAll({
-      where: { projectId, date: { [Op.lte]: date } },
+      where: { projectId, date: { [Op.gte]: since, [Op.lte]: date } },
       attributes: ['date', [fn('COUNT', col('id')), 'count']],
       group: ['date'],
-      order: [['date', 'DESC']],
-      limit: 30,
+      order: [['date', 'ASC']],
       raw: true,
     }),
   ]);
@@ -100,6 +102,16 @@ export async function getStandupDay(projectId, date) {
     })
     .sort((a, b) => Number(Boolean(b.update)) - Number(Boolean(a.update)) || a.user.name.localeCompare(b.user.name));
 
+  const counts = new Map(
+    recentRows.map((row) => [typeof row.date === 'string' ? row.date : toDateOnly(new Date(row.date)), Number(row.count)]),
+  );
+  const recentDays = [];
+  for (let offset = trendDays - 1; offset >= 0; offset -= 1) {
+    const day = addDaysToDate(date, -offset);
+    recentDays.push({ date: day, count: counts.get(day) ?? 0 });
+  }
+  const postedDays = recentDays.filter((row) => row.count > 0).length;
+
   return {
     date,
     previousDate,
@@ -110,8 +122,10 @@ export async function getStandupDay(projectId, date) {
       expected: members.length,
       blockers: updates.filter((update) => update.blockers?.trim()).length,
       completed: completed.length,
+      postedDays,
+      periodDays: trendDays,
     },
-    recentDays: recentDays.map((row) => ({ date: typeof row.date === 'string' ? row.date : toDateOnly(new Date(row.date)), count: Number(row.count) })),
+    recentDays,
     ritual: {
       enabled: Boolean(settings.standupEnabled),
       reminderHour: Number(settings.standupReminderHour),

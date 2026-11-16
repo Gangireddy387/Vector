@@ -57,6 +57,7 @@ import ChannelDocs from '../components/ChannelDocs.vue'
 import ChannelMembersDialog from '../components/ChannelMembersDialog.vue'
 import ChannelThread from '../components/ChannelThread.vue'
 import ConversationThread from '../components/ConversationThread.vue'
+import MessageSearchDialog from '../components/MessageSearchDialog.vue'
 import SavedMessagesDialog from '../components/SavedMessagesDialog.vue'
 import { conversationMatches, conversationPreview, listTime } from '../lib/conversation-list'
 import { type ConversationSummary, type NotifyLevel, channelsApi, messagesApi, notifyLevelOf } from '../messages.api'
@@ -107,6 +108,7 @@ watch(
 const focusPostId = computed(() => (typeof route.query.post === 'string' ? route.query.post : null))
 const canAttach = computed(() => auth.hasFeature('attachments'))
 const savedOpen = ref(false)
+const searchOpen = ref(false)
 
 /** The open channel's tabs (Posts, Files, Docs, Board) and its in-channel search. */
 const view = ref<'posts' | 'files' | 'docs' | 'board'>('posts')
@@ -362,6 +364,7 @@ async function leaveChannel(conversation: ConversationSummary) {
       >
         <header class="flex h-12 shrink-0 items-center gap-1 px-4">
           <h1 class="flex-1 text-[15px] font-semibold">{{ tab === 'chat' ? 'Chat' : 'Teams' }}</h1>
+          <Button variant="ghost" size="icon-sm" title="Search messages" aria-label="Search messages" @click="searchOpen = true"><Search /></Button>
           <Button variant="ghost" size="icon-sm" title="Saved messages" aria-label="Saved messages" @click="savedOpen = true"><Bookmark /></Button>
           <Button v-if="tab === 'chat' && canDirect" variant="ghost" size="icon-sm" title="New chat" aria-label="New chat" @click="openPicker"><MessageCirclePlus /></Button>
           <Button v-else-if="tab === 'teams' && teamsForChannels.length" variant="ghost" size="icon-sm" title="Add a channel" aria-label="Add a channel" @click="addChannel()">
@@ -717,6 +720,7 @@ async function leaveChannel(conversation: ConversationSummary) {
       :team-id="channelDialog.teamId"
       @saved="onChannelSaved"
     />
+    <MessageSearchDialog v-model:open="searchOpen" />
     <SavedMessagesDialog v-model:open="savedOpen" />
     <ChannelMembersDialog v-if="selected?.kind === 'channel'" v-model:open="membersOpen" :conversation="selected" @changed="reload" />
   </div>

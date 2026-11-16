@@ -46,6 +46,8 @@ export const moveIssueSchema = z.object({
 const bulkChanges = z
   .object({
     statusId: uuid,
+    /** Cross-project: map each issue to its project's first status in this category. */
+    statusCategory: z.enum(['todo', 'in_progress', 'done']),
     assigneeId: uuid.nullable(),
     priority: z.enum(ISSUE_PRIORITIES),
     type: z.enum(ISSUE_TYPES),
@@ -54,7 +56,8 @@ const bulkChanges = z
     addLabelIds: z.array(uuid).max(20),
   })
   .partial()
-  .refine((value) => Object.keys(value).length > 0, 'Choose at least one change');
+  .refine((value) => Object.keys(value).length > 0, 'Choose at least one change')
+  .refine((value) => !(value.statusId && value.statusCategory), 'Choose either a status or a status category, not both');
 
 export const bulkUpdateSchema = z.object({ issueIds: z.array(uuid).min(1).max(200), changes: bulkChanges });
 export const bulkDeleteSchema = z.object({ issueIds: z.array(uuid).min(1).max(200) });

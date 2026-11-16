@@ -1,21 +1,48 @@
 <script setup lang="ts">
 import { format } from 'date-fns'
-import { Bot, Copy, Pencil, Quote, Trash2 } from 'lucide-vue-next'
+import { Bot, Copy, MessageSquareReply, Pencil, Quote, SmilePlus, Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import RichText from '@/components/common/RichText.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
-import type { AssistantCommand, ChatMessage } from '../chat.api'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import ChatAttachment from '@/modules/meetings/components/ChatAttachment.vue'
+import { useAuthStore } from '@/modules/auth/auth.store'
+import type { UserSummary } from '@/types/models'
+import { type AssistantCommand, type ChatMessage, REACTIONS, chatApi } from '../chat.api'
 import AssistantCard from './AssistantCard.vue'
 
-const props = defineProps<{ message: ChatMessage; projectId: string; canEdit: boolean; canDelete: boolean; grouped: boolean; highlighted: boolean }>()
-const emit = defineEmits<{ edit: [body: string]; remove: []; useCommand: [command: AssistantCommand]; quote: []; copyLink: [] }>()
+const props = withDefaults(
+  defineProps<{
+    message: ChatMessage
+    projectId: string
+    members?: UserSummary[]
+    canEdit: boolean
+    canDelete: boolean
+    grouped: boolean
+    highlighted: boolean
+    reply?: boolean
+  }>(),
+  { members: () => [], reply: false },
+)
+const emit = defineEmits<{
+  edit: [body: string]
+  remove: []
+  useCommand: [command: AssistantCommand]
+  quote: []
+  copyLink: []
+  reply: []
+  react: [emoji: string]
+}>()
 
+const auth = useAuthStore()
 const isBot = computed(() => props.message.kind === 'bot')
 const issueKeys = computed(() => props.message.issues.map((issue) => issue.key))
 const time = computed(() => format(new Date(props.message.createdAt), 'HH:mm'))
+const canReply = computed(() => !props.reply && props.message.kind === 'user' && !props.message.parentId)
 
 /** For rich assistant replies the card carries the details, so only the opening sentence is shown as text. */
 const body = computed(() => {
@@ -26,6 +53,13 @@ const body = computed(() => {
   if (meta.type === 'help') return props.message.body.split('\n')[0]
   return props.message.body
 })
+
+const nameOf = (userId: string) => (userId === auth.user?.id ? 'You' : (props.members.find((person) => person.id === userId)?.name ?? 'Someone'))
+const reactedBy = (userIds: string[]) => {
+  const names = userIds.map(nameOf)
+  return names.length > 3 ? `${names.slice(0, 3).join(', ')} and ${names.length - 3} more` : names.join(', ')
+}
+const resolveFile = (fileId: string) => chatApi.fileLink(props.projectId, fileId)
 
 const isEditing = ref(false)
 const draft = ref('')
@@ -42,20 +76,23 @@ function saveEdit() {
 <template>
   <article
     :id="`message-${message.id}`"
-    class="group relative flex gap-3 px-4 transition-colors hover:bg-muted/40"
-    :class="[grouped ? 'py-0.5' : 'pt-3 pb-0.5', highlighted && 'bg-primary/8 ring-1 ring-primary/30 ring-inset']"
+    class="group relative flex gap-3 transition-colors hover:bg-muted/40"
+    :class="[
+      reply ? 'gap-2.5 py-1 pr-4 pl-14' : grouped ? 'px-4 py-0.5' : 'px-4 pt-3 pb-0.5',
+      highlighted && 'bg-primary/8 ring-1 ring-primary/30 ring-inset',
+    ]"
   >
-    <div class="w-9 shrink-0">
-      <template v-if="!grouped">
-        <span v-if="isBot" class="flex size-9 items-center justify-center bg-brand text-white shadow-soft"><Bot class="size-5" /></span>
-        <UserAvatar v-else :user="message.author" size="md" class="size-9" />
+    <div class="shrink-0" :class="reply ? 'w-7' : 'w-9'">
+      <template v-if="!grouped || reply">
+        <span v-if="isBot" class="flex items-center justify-center bg-brand text-white shadow-soft" :class="reply ? 'size-7' : 'size-9'"><Bot :class="reply ? 'size-4' : 'size-5'" /></span>
+        <UserAvatar v-else :user="message.author" :size="reply ? 'sm' : 'md'" :class="reply ? 'size-7' : 'size-9'" />
       </template>
       <span v-else class="hidden pt-1 text-right text-[10px] leading-5 text-muted-foreground tabular-nums group-hover:block">{{ time }}</span>
     </div>
 
     <div class="min-w-0 flex-1">
-      <p v-if="!grouped" class="flex flex-wrap items-baseline gap-x-2">
-        <span class="text-sm font-semibold">{{ isBot ? 'Vector Assistant' : message.author?.name ?? 'Former member' }}</span>
+      <p v-if="!grouped || reply" class="flex flex-wrap items-baseline gap-x-2">
+        <span class="font-semibold" :class="reply ? 'text-xs' : 'text-sm'">{{ isBot ? 'Vector Assistant' : message.author?.name ?? 'Former member' }}</span>
         <span v-if="isBot" class="bg-primary/10 px-1 text-[10px] font-semibold tracking-wide text-primary uppercase">Bot</span>
         <span v-if="isBot && message.meta?.requestedBy" class="text-xs text-muted-foreground">for {{ message.meta.requestedBy.name }}</span>
         <span class="text-xs text-muted-foreground tabular-nums">{{ time }}</span>
@@ -87,10 +124,68 @@ function saveEdit() {
             <span class="truncate text-muted-foreground">{{ issue.title }}</span>
           </RouterLink>
         </div>
+        <div v-if="message.files?.length" class="mt-1.5 flex flex-wrap gap-2">
+          <ChatAttachment v-for="file in message.files" :key="file.id" :file="file" :resolve="resolveFile" />
+        </div>
       </template>
+
+      <div v-if="message.reactions?.length && !isEditing" class="mt-1.5 flex flex-wrap gap-1">
+        <Tooltip v-for="reaction in message.reactions" :key="reaction.emoji">
+          <TooltipTrigger as-child>
+            <button
+              type="button"
+              class="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-xs tabular-nums transition-colors"
+              :class="
+                reaction.userIds.includes(auth.user?.id ?? '')
+                  ? 'border-primary/50 bg-primary/10 font-semibold text-primary'
+                  : 'border-border bg-background text-muted-foreground hover:border-input hover:text-foreground'
+              "
+              :aria-label="`${reaction.emoji} ${reaction.userIds.length}: ${reactedBy(reaction.userIds)}`"
+              @click="emit('react', reaction.emoji)"
+            >
+              <span class="text-sm leading-none">{{ reaction.emoji }}</span> {{ reaction.userIds.length }}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">{{ reactedBy(reaction.userIds) }}</TooltipContent>
+        </Tooltip>
+        <Popover>
+          <PopoverTrigger as-child>
+            <button type="button" class="inline-flex h-6 items-center rounded-full border border-dashed border-border px-1.5 text-muted-foreground hover:border-input hover:text-foreground" aria-label="Add a reaction">
+              <SmilePlus class="size-3.5" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent side="top" align="start" class="w-auto p-1">
+            <div class="flex gap-0.5">
+              <button
+                v-for="emoji in REACTIONS"
+                :key="emoji"
+                type="button"
+                class="flex size-9 items-center justify-center rounded-md text-xl transition-transform hover:scale-125 hover:bg-accent"
+                :aria-label="`React with ${emoji}`"
+                @click="emit('react', emoji)"
+              >
+                {{ emoji }}
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
     </div>
 
-    <div v-if="!isEditing" class="absolute top-1 right-3 hidden border bg-card shadow-soft group-focus-within:flex group-hover:flex">
+    <div v-if="!isEditing" class="absolute top-1 right-3 hidden items-center border bg-card shadow-soft group-focus-within:flex group-hover:flex">
+      <button
+        v-for="emoji in REACTIONS"
+        :key="emoji"
+        type="button"
+        class="flex size-7 items-center justify-center text-base transition-transform hover:scale-125 hover:bg-accent"
+        :aria-label="`React with ${emoji}`"
+        :title="`React with ${emoji}`"
+        @click="emit('react', emoji)"
+      >
+        {{ emoji }}
+      </button>
+      <span class="mx-0.5 h-4 w-px bg-border" />
+      <Button v-if="canReply" variant="ghost" size="icon-sm" aria-label="Reply" @click="emit('reply')"><MessageSquareReply /></Button>
       <Button variant="ghost" size="icon-sm" aria-label="Quote message" @click="emit('quote')"><Quote /></Button>
       <Button variant="ghost" size="icon-sm" aria-label="Copy message link" @click="emit('copyLink')"><Copy /></Button>
       <Button v-if="canEdit" variant="ghost" size="icon-sm" aria-label="Edit message" @click="startEditing"><Pencil /></Button>

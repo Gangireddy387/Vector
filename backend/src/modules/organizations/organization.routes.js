@@ -7,6 +7,7 @@ import { validate } from '../../shared/middleware/validate.js';
 import * as controller from './organization.controller.js';
 import { logoUpload } from './organization.service.js';
 import { createOrganizationSchema, deleteOrganizationSchema, inviteMemberSchema, slugQuery, updateMemberSchema, updateOrganizationSchema } from './organization.validation.js';
+import { listAuditLog } from '../workspace/workspace-audit.service.js';
 
 const lookupLimiter = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false });
 
@@ -43,6 +44,17 @@ organizationAdminRoutes.post(
   controller.requestUpgrade,
 );
 organizationAdminRoutes.get('/workspace/members', requireOrganizationAdmin, controller.listMembers);
+organizationAdminRoutes.get(
+  '/workspace/audit-log',
+  requireOrganizationAdmin,
+  validate({
+    query: z.object({
+      limit: z.coerce.number().int().min(1).max(100).default(50),
+      before: z.string().trim().min(1).max(40).optional(),
+    }),
+  }),
+  async (req, res) => res.json(await listAuditLog(req.organization.id, req.filters)),
+);
 organizationAdminRoutes.post('/workspace/invitations', requireOrganizationAdmin, validate({ body: inviteMemberSchema }), controller.invite);
 /** Support chat with the portal's super admin; one conversation per organization, shared by its admins. */
 const supportMessageSchema = z.object({ body: z.string().trim().min(1, 'Write a message').max(4000) });

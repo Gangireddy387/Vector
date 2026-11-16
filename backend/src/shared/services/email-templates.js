@@ -462,3 +462,44 @@ export const workdayNudgeEmail = ({ name, day, reasons, link }) => ({
     footer: 'You’re getting this because you’re building a habit in Vector. Manage email notifications in Settings → Notifications.',
   }),
 });
+
+/** Monday morning reports overview for people with `weeklyReportsEmail`. */
+export const weeklyReportsEmail = ({ name, period, totals, byProject }) => {
+  const projectRows = (byProject ?? [])
+    .map(
+      (row) =>
+        `<tr>
+          <td style="padding:6px 8px;border-bottom:1px solid #e4e4e7">${escapeHtml(row.project.name)}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #e4e4e7;text-align:right">${row.open}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #e4e4e7;text-align:right">${row.completedInPeriod}</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #e4e4e7;text-align:right">${row.overdue}</td>
+        </tr>`,
+    )
+    .join('');
+  return {
+    subject: 'Your Vector weekly reports overview',
+    html: renderLayout({
+      preheader: `${totals.open} open · ${totals.completedInPeriod} completed · ${totals.overdue} overdue`,
+      eyebrow: 'Weekly reports',
+      heading: `Hi ${name}, here’s last week`,
+      intro: `<p style="margin:0 0 12px">${escapeHtml(period.from)} – ${escapeHtml(period.to)}</p>
+        <p style="margin:0"><strong>${totals.open}</strong> open · <strong>${totals.completedInPeriod}</strong> completed · <strong>${totals.overdue}</strong> overdue · <strong>${totals.completionRate}%</strong> complete</p>
+        ${
+          projectRows
+            ? `<table style="width:100%;border-collapse:collapse;margin:16px 0 0;font-size:13px">
+                <thead><tr>
+                  <th style="text-align:left;padding:6px 8px;border-bottom:2px solid #e4e4e7">Project</th>
+                  <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #e4e4e7">Open</th>
+                  <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #e4e4e7">Done</th>
+                  <th style="text-align:right;padding:6px 8px;border-bottom:2px solid #e4e4e7">Overdue</th>
+                </tr></thead>
+                <tbody>${projectRows}</tbody>
+              </table>`
+            : ''
+        }`,
+      actionLabel: 'Open reports',
+      actionUrl: appUrl('/reports'),
+      footer: 'Turn off weekly reports in Settings → Notifications.',
+    }),
+  };
+};

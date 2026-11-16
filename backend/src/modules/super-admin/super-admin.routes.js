@@ -60,7 +60,7 @@ superAdminRoutes.delete('/super-admin/organizations/:organizationId', validate({
   res.json(await removeOrganization(req.params.organizationId, req.body)),
 );
 superAdminRoutes.put('/super-admin/organizations/:organizationId/plan', validate({ body: setPlanSchema }), async (req, res) =>
-  res.json({ organization: await changeOrganizationPlan(req.params.organizationId, req.body.planId) }),
+  res.json({ organization: await changeOrganizationPlan(req.params.organizationId, req.body.planId, req.user) }),
 );
 superAdminRoutes.put('/super-admin/organizations/:organizationId/features', validate({ body: setFeaturesSchema }), async (req, res) =>
   res.json(await changeOrganizationFeatures(req.params.organizationId, req.body.features)),

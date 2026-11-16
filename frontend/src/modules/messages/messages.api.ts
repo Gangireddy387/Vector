@@ -35,6 +35,12 @@ export interface SavedItem {
   message: ChatMessage
 }
 
+/** One hit from workspace-wide message search. */
+export interface MessageSearchHit {
+  conversation: { id: string; kind: ConversationKind; title: string; team: { id: string; name: string } | null }
+  message: ChatMessage
+}
+
 /** What the channel composer sends with the text. */
 export interface ComposerExtras {
   subject: string | null
@@ -195,6 +201,9 @@ export const messagesApi = {
     http
       .get<{ conversation: ConversationSummary; messages: ChatMessage[] }>(`/conversations/${conversationId}/messages/search`, { params: { q, limit } })
       .then((r) => r.data),
+  /** Search message bodies across every conversation this person can open. */
+  searchAll: (q: string, limit = 25) =>
+    http.get<{ results: MessageSearchHit[] }>('/messages/search', { params: { q, limit } }).then((r) => r.data.results),
   /** `parentId`: a reply to that post; `subject` / `important`: for a post (team chats and channels); `fileIds`: uploaded files to share. */
   send: (conversationId: string, body: string, options: { parentId?: string | null; subject?: string | null; important?: boolean; fileIds?: string[] } = {}) =>
     http

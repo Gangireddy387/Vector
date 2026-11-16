@@ -37,7 +37,16 @@ export interface StandupDay {
   previousDate: string
   members: StandupMember[]
   issues: Record<string, StandupIssue>
-  stats: { posted: number; expected: number; blockers: number; completed: number }
+  stats: {
+    posted: number
+    expected: number
+    blockers: number
+    completed: number
+    /** Days in the trend window that had at least one update. */
+    postedDays?: number
+    /** Length of the trend window in calendar days. */
+    periodDays?: number
+  }
   recentDays: Array<{ date: string; count: number }>
   ritual?: { enabled: boolean; reminderHour: number; digestHour: number }
 }
@@ -60,7 +69,8 @@ export interface StandupInput {
 }
 
 export const standupApi = {
-  day: (projectId: string, date: string) => http.get<StandupDay>(`/projects/${projectId}/standups`, { params: { date } }).then((r) => r.data),
+  day: (projectId: string, date: string, days = 30) =>
+    http.get<StandupDay>(`/projects/${projectId}/standups`, { params: { date, days } }).then((r) => r.data),
   save: (projectId: string, input: StandupInput) =>
     http.put<{ update: StandupUpdate | null }>(`/projects/${projectId}/standups/me`, input).then((r) => r.data.update),
   remove: (projectId: string, date: string) => http.delete(`/projects/${projectId}/standups/me`, { params: { date } }),

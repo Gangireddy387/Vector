@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { AlarmClock, CircleCheck, CirclePlus, Download, Gauge, ListTodo, Timer } from 'lucide-vue-next'
+import { AlarmClock, CircleCheck, CirclePlus, Download, FileText, Gauge, ListTodo, Timer } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
 import DonutChart from '@/components/common/charts/DonutChart.vue'
 import HorizontalBarList from '@/components/common/charts/HorizontalBarList.vue'
 import LineChart from '@/components/common/charts/LineChart.vue'
@@ -9,9 +10,11 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { ISSUE_TYPE_META, PRIORITY_META, STATUS_CATEGORY_META } from '@/constants/issue'
 import { formatDate } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import { usersApi } from '@/modules/projects/projects.api'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import type { UserSummary } from '@/types/models'
@@ -29,6 +32,7 @@ const props = defineProps<{ lockedProjectId?: string }>()
 const route = useRoute()
 const router = useRouter()
 const projects = useProjectsStore()
+const auth = useAuthStore()
 
 const queryText = (key: string) => (typeof route.query[key] === 'string' && route.query[key] ? (route.query[key] as string) : undefined)
 const PERIODS = [7, 14, 30, 90, 180]
@@ -144,17 +148,44 @@ function exportCsv() {
   link.click()
   URL.revokeObjectURL(link.href)
 }
+
+/** Uses the browser print dialog (Save as PDF). Print CSS hides chrome outside this report. */
+function downloadPdf() {
+  document.body.classList.add('printing-reports')
+  const cleanup = () => document.body.classList.remove('printing-reports')
+  window.addEventListener('afterprint', cleanup, { once: true })
+  window.print()
+  // Fallback if afterprint never fires (some browsers).
+  setTimeout(cleanup, 2000)
+}
+
+async function setWeeklyEmail(value: boolean) {
+  try {
+    await auth.updateProfile({ preferences: { weeklyReportsEmail: value } })
+    toast.success(value ? 'Weekly reports email on' : 'Weekly reports email off')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  }
+}
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
+  <div class="reports-dashboard space-y-4">
+    <div class="reports-toolbar flex flex-wrap items-center justify-between gap-3">
       <ReportFilterBar v-model="filters" :projects="projects.activeProjects" :members="members" :lock-project="Boolean(lockedProjectId)" />
       <div class="flex flex-wrap items-center gap-2">
         <p v-if="report" class="text-xs text-muted-foreground">
           {{ formatDate(report.period.from, 'd MMM') }} – {{ formatDate(report.period.to, 'd MMM yyyy') }}
           · {{ report.projects.length === 1 ? report.projects[0]!.name : `${report.projects.length} projects` }}
         </p>
+        <label class="flex items-center gap-2 text-xs text-muted-foreground">
+          <Switch
+            :model-value="auth.user?.preferences.weeklyReportsEmail ?? false"
+            @update:model-value="(value: boolean) => setWeeklyEmail(value)"
+          />
+          Email me weekly
+        </label>
+        <Button variant="outline" size="sm" :disabled="!report" @click="downloadPdf"><FileText /> Download PDF</Button>
         <Button variant="outline" size="sm" :disabled="!report" @click="exportCsv"><Download /> Export CSV</Button>
       </div>
     </div>

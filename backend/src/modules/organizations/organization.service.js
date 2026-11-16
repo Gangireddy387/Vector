@@ -37,6 +37,7 @@ import { notifyUsers } from '../notifications/notification.service.js';
 import { sendMessage, superAdminIds } from '../support/support.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
+import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
 
 /** What an org admin can request from the portal. */
 export const UPGRADE_TARGETS = ['pro', 'seats', 'projects'];
@@ -179,7 +180,24 @@ export async function updateOrganization(organization, actor, changes) {
   const updates = { ...changes, updatedById: actor.id };
   if (changes.slug !== undefined) updates.slug = await assertSlugAvailable(changes.slug, organization.id);
   if (changes.name !== undefined) updates.name = changes.name.trim();
+  const before = {
+    name: organization.name,
+    slug: organization.slug,
+    defaultMode: organization.defaultMode,
+    brandColor: organization.brandColor ?? null,
+  };
   await organization.update(updates);
+  const changed = Object.keys(changes).filter((key) => ['name', 'slug', 'defaultMode', 'brandColor'].includes(key));
+  if (changed.length) {
+    await logWorkspaceAction({
+      organizationId: organization.id,
+      actorId: actor.id,
+      action: 'settings.updated',
+      targetType: 'organization',
+      targetId: organization.id,
+      meta: { fields: changed, before, after: { name: organization.name, slug: organization.slug, defaultMode: organization.defaultMode, brandColor: organization.brandColor ?? null } },
+    });
+  }
   return broadcastOrganization(organization);
 }
 
@@ -268,6 +286,14 @@ export async function requestPlanUpgrade(organization, actor, { target, note } =
   }
 
   await notifyPortal('updated', organization);
+  await logWorkspaceAction({
+    organizationId: organization.id,
+    actorId: actor.id,
+    action: 'plan.upgrade_requested',
+    targetType: 'organization',
+    targetId: organization.id,
+    meta: { target, note: trimmedNote || null },
+  });
   return { upgradeRequest: publicUpgradeRequest(organization), alreadyPending: false };
 }
 
@@ -285,6 +311,13 @@ export async function setLogo(organization, actor, file) {
   const previous = organization.logoUrl;
   await organization.update({ logoUrl, updatedById: actor.id });
   await logos.remove(previous);
+  await logWorkspaceAction({
+    organizationId: organization.id,
+    actorId: actor.id,
+    action: 'settings.logo_updated',
+    targetType: 'organization',
+    targetId: organization.id,
+  });
   return broadcastOrganization(organization);
 }
 
@@ -292,6 +325,13 @@ export async function clearLogo(organization, actor) {
   const previous = organization.logoUrl;
   await organization.update({ logoUrl: null, updatedById: actor.id });
   await logos.remove(previous);
+  await logWorkspaceAction({
+    organizationId: organization.id,
+    actorId: actor.id,
+    action: 'settings.logo_removed',
+    targetType: 'organization',
+    targetId: organization.id,
+  });
   return broadcastOrganization(organization);
 }
 
@@ -336,9 +376,30 @@ export async function updateMember(organizationId, actor, userId, { workspaceRol
   if (losesAdmin) await assertAnotherAdmin(organizationId, userId);
   if (status && membership.user.status === 'invited') throw ApiError.badRequest('Invited people become active when they accept');
   if (status === 'active' && membership.status === 'disabled') await assertWithinLimit(organizationId, 'members');
+  const previous = { role: membership.role, status: membership.status };
   await membership.update({ ...(workspaceRole ? { role: workspaceRole } : {}), ...(status ? { status } : {}) });
   // A deactivated member keeps their project memberships (for when they come back) but loses access at once.
   if (status === 'disabled') revokeRealtimeAccess(userId, { organizationId, projectIds: await projectIdsOf(organizationId) });
+  if (workspaceRole && workspaceRole !== previous.role) {
+    await logWorkspaceAction({
+      organizationId,
+      actorId: actor.id,
+      action: 'member.role_changed',
+      targetType: 'user',
+      targetId: userId,
+      meta: { email: membership.user.email, from: previous.role, to: workspaceRole },
+    });
+  }
+  if (status && status !== previous.status) {
+    await logWorkspaceAction({
+      organizationId,
+      actorId: actor.id,
+      action: status === 'disabled' ? 'member.deactivated' : 'member.reactivated',
+      targetType: 'user',
+      targetId: userId,
+      meta: { email: membership.user.email, from: previous.status, to: status },
+    });
+  }
   return (await listMembers(organizationId)).find((member) => member.id === userId);
 }
 
@@ -362,6 +423,14 @@ export async function removeMember(organizationId, actor, userId) {
   });
   await removeFromStructure(organizationId, userId);
   revokeRealtimeAccess(userId, { organizationId, projectIds });
+  await logWorkspaceAction({
+    organizationId,
+    actorId: actor.id,
+    action: 'member.removed',
+    targetType: 'user',
+    targetId: userId,
+    meta: { email: membership.user.email, role: membership.role },
+  });
 }
 
 /** Deletes the organization with all of its projects and work. People keep their accounts and other organizations. */
@@ -503,6 +572,14 @@ export async function inviteMember(organization, inviter, { email, role }) {
   const mayEmailInvite = entitlementsFor(organization).features.emailInvitations;
   if (!inviteToken) await sendEmail({ to: email, ...addedToOrganizationEmail(details) });
   else if (mayEmailInvite) await sendEmail({ to: email, ...organizationInviteEmail({ ...details, email, token: inviteToken }) });
+  await logWorkspaceAction({
+    organizationId: organization.id,
+    actorId: inviter.id,
+    action: 'member.invited',
+    targetType: 'user',
+    targetId: user.id,
+    meta: { email, role, invited: Boolean(inviteToken) },
+  });
   return {
     ...(await listMembers(organization.id)).find((member) => member.id === user.id),
     invited: Boolean(inviteToken),

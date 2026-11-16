@@ -11,8 +11,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
-import { PRIORITIES, PRIORITY_META } from '@/constants/issue'
-import type { Label, Sprint, Status, UserSummary } from '@/types/models'
+import { PRIORITIES, PRIORITY_META, STATUS_CATEGORY_META } from '@/constants/issue'
+import type { Label, Sprint, Status, StatusCategory, UserSummary } from '@/types/models'
 import type { BulkChanges } from '../api/issues.api'
 
 withDefaults(
@@ -22,6 +22,7 @@ withDefaults(
 const emit = defineEmits<{ apply: [changes: BulkChanges]; delete: []; clear: [] }>()
 
 const todayIso = () => format(new Date(), 'yyyy-MM-dd')
+const STATUS_CATEGORIES = Object.keys(STATUS_CATEGORY_META) as StatusCategory[]
 </script>
 
 <template>
@@ -38,6 +39,22 @@ const todayIso = () => format(new Date(), 'yyyy-MM-dd')
       <DropdownMenuContent>
         <DropdownMenuItem v-for="status in statuses" :key="status.id" @select="emit('apply', { statusId: status.id })">
           <span class="size-2 rounded-full" :style="{ backgroundColor: status.color }" /> {{ status.name }}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+
+    <!-- Global Tasks (mixed projects): map category → each issue's project status. -->
+    <DropdownMenu v-else>
+      <DropdownMenuTrigger as-child><Button size="sm" variant="outline" :disabled="busy">Status</Button></DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuLabel>By category</DropdownMenuLabel>
+        <DropdownMenuItem
+          v-for="category in STATUS_CATEGORIES"
+          :key="category"
+          @select="emit('apply', { statusCategory: category })"
+        >
+          <span class="size-2 rounded-full" :style="{ backgroundColor: STATUS_CATEGORY_META[category].color }" />
+          {{ STATUS_CATEGORY_META[category].label }}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
