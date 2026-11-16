@@ -1,7 +1,7 @@
 import { http } from '@/lib/http'
 import type { IssuePriority, IssueType } from '@/types/models'
 
-type AiSource = 'openai' | 'heuristic'
+export type AiSource = 'openai' | 'heuristic' | 'degraded'
 
 export interface IssueDraft {
   source: AiSource
@@ -25,6 +25,7 @@ export interface DailyBriefing {
     source: AiSource
     headline: string
     focus: string[]
+    focusActions?: Array<{ text: string; issueKey: string | null }>
     watch: string[]
     tasks: {
       overdue: Array<{ id: string; key: string; title: string; dueDate: string | null; projectId: string }>
@@ -43,8 +44,14 @@ export interface DailyBriefing {
   generatedAt: string
 }
 
+export function aiSourceHint(source: AiSource | undefined): string | undefined {
+  if (source === 'heuristic') return 'Smart suggestions — add an OpenAI key on the server for richer AI.'
+  if (source === 'degraded') return 'OpenAI was unavailable; used smart suggestions instead.'
+  return undefined
+}
+
 export const aiApi = {
-  status: () => http.get<{ enabled: boolean; provider: AiSource }>('/ai/status').then((r) => r.data),
+  status: () => http.get<{ enabled: boolean; provider: 'openai' | 'heuristic' }>('/ai/status').then((r) => r.data),
   dailyBriefing: () => http.get<DailyBriefing>('/ai/daily-briefing').then((r) => r.data),
   draftIssue: (payload: { projectId: string; title: string; description?: string | null }) =>
     http.post<IssueDraft>('/ai/draft-issue', payload).then((r) => r.data),

@@ -46,7 +46,7 @@ const hasFilters = computed(() => Object.values(filters.value).some(Boolean))
       <Search class="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input
         :model-value="filters.q ?? ''"
-        placeholder="Search title or key"
+        placeholder="Search title, key or description"
         class="h-8 pl-8"
         aria-label="Search tasks"
         @update:model-value="(value: string) => set('q', value)"

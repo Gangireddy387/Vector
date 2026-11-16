@@ -36,7 +36,7 @@ import { nextStart } from './meeting.recurrence.js';
 import { recordingView } from './meeting.recordings.js';
 import { meetingUrl } from './meeting.ring.js';
 import { callPresence, closeCall, dismissLobby } from './meeting.signaling.js';
-import { meetingAiAllowed } from './meeting.ai-access.js';
+import { meetingSummariesAllowed } from './meeting.ai-access.js';
 import { followupInBackground, sendRecap } from './meeting.followup.js';
 import { indexInBackground } from './meeting.search.js';
 import { summarizeMeeting } from './meeting.summary.js';
@@ -459,8 +459,8 @@ export const meetingRecord = (viewer, meetingId) => loadMeeting(viewer, meetingI
 export async function writeSummary(viewer, meetingId) {
   const meeting = await loadMeeting(viewer, meetingId);
   assertManage(viewer, meeting);
-  if (!(await meetingAiAllowed(viewer.organization.id))) {
-    throw ApiError.badRequest('Summaries need the AI assistant: an OpenAI key on the server and the AI assistant in your plan.');
+  if (!(await meetingSummariesAllowed(viewer.organization.id))) {
+    throw ApiError.badRequest('Summaries need the AI assistant on your plan. Add an OpenAI key on the server for richer AI summaries.');
   }
   const summary = await summarizeMeeting(meeting.id);
   if (!summary) throw ApiError.badRequest('There is nothing to summarize yet: turn on captions, chat, or share updates and notes first.');

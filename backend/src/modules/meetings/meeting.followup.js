@@ -5,7 +5,7 @@ import { appUrl, meetingRecapEmail } from '../../shared/services/email-templates
 import { sendEmail } from '../../shared/services/email.service.js';
 import { notifyUsers } from '../notifications/notification.service.js';
 import { entitlementsFor, withPlan } from '../plans/plan.service.js';
-import { meetingAiAllowed } from './meeting.ai-access.js';
+import { meetingSummariesAllowed } from './meeting.ai-access.js';
 import { whenFor } from './meeting.notify.js';
 import { meetingUrl } from './meeting.ring.js';
 import { indexMeeting } from './meeting.search.js';
@@ -108,7 +108,7 @@ export async function runFollowup(meetingId) {
   const meeting = await Meeting.findByPk(meetingId);
   const endedAt = new Date(meeting.endedAt ?? meeting.updatedAt).getTime();
   const recent = Date.now() - endedAt < SUMMARY_WINDOW_MS;
-  if (recent && !meeting.summary && (await meetingAiAllowed(meeting.organizationId))) {
+  if (recent && !meeting.summary && (await meetingSummariesAllowed(meeting.organizationId))) {
     await summarizeMeeting(meetingId).catch((error) => console.warn('[meetings] could not summarize a meeting:', error.message));
   }
   await indexMeeting(meetingId).catch((error) => console.warn('[meetings] could not index a meeting:', error.message));

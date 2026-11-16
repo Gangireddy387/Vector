@@ -1,11 +1,12 @@
 import { Meeting, MeetingChatMessage, MeetingParticipant, MeetingTranscriptLine, MeetingUpdate, User } from '../../database/models.js';
 import { emitToUser } from '../../shared/realtime/socket.js';
+import { summarizeMeetingMaterial } from '../ai/ai.heuristics.js';
 import { completeJson, isAiEnabled } from '../ai/openai.client.js';
 
 /**
  * A written summary of a meeting (what was discussed, decisions, action items with owners and due dates, chapters
- * with their times), made by the AI assistant from the transcript, the call's chat, the shared updates, the agenda
- * and the host's notes. Action items already turned into tasks are kept when the summary is written again.
+ * with their times). Prefers the AI assistant; falls back to extractive heuristics when the key is missing or the
+ * API fails so recaps still work. Action items already turned into tasks are kept when the summary is written again.
  */
 
 const MAX_SOURCE_CHARS = 60_000;
@@ -66,10 +67,25 @@ async function invitedPeople(meeting) {
   return User.findAll({ where: { id: ids }, attributes: ['id', 'name'], raw: true });
 }
 
+function buildActionItems(rawItems, people, created) {
+  return (Array.isArray(rawItems) ? rawItems : [])
+    .map((item) => {
+      const owner = clean(item?.owner, 80) || null;
+      return {
+        text: clean(item?.text, 400),
+        owner,
+        ownerId: matchOwner(owner, people),
+        due: isDate(item?.due) ? item.due : null,
+        priority: PRIORITIES.includes(item?.priority) ? item.priority : null,
+        issue: null,
+      };
+    })
+    .filter((item) => item.text && !created.some((done) => done.text.toLowerCase() === item.text.toLowerCase()));
+}
+
 /** Chapters from the transcript: `[{ at, title }]` where `at` is when the topic started. */
 async function writeChapters(transcript) {
-  if (transcript.length < 12) return [];
-  // Long calls: neighbouring lines are joined so the model sees the whole call.
+  if (!isAiEnabled() || transcript.length < 12) return [];
   const step = Math.max(1, Math.ceil(transcript.length / 600));
   const blocks = [];
   for (let index = 0; index < transcript.length; index += step) {
@@ -86,42 +102,70 @@ async function writeChapters(transcript) {
     .map((chapter) => ({ at: new Date(blocks[chapter.index].at).toISOString(), title: chapter.title }));
 }
 
-/** Writes (or rewrites) the summary; returns it, or null when there is nothing to summarize or no assistant. */
+function heuristicChapters(transcript) {
+  if (transcript.length < 8) return [];
+  const step = Math.max(1, Math.floor(transcript.length / 4));
+  const chapters = [];
+  for (let index = 0; index < transcript.length && chapters.length < 6; index += step) {
+    const line = transcript[index];
+    const words = String(line.text || '')
+      .split(/\s+/)
+      .slice(0, 5)
+      .join(' ');
+    if (words) chapters.push({ at: new Date(line.spokenAt).toISOString(), title: words });
+  }
+  return chapters;
+}
+
+/** Writes (or rewrites) the summary; returns it, or null when there is nothing to summarize. */
 export async function summarizeMeeting(meetingId) {
-  if (!isAiEnabled()) return null;
   const meeting = await Meeting.findByPk(meetingId);
   if (!meeting) return null;
   const found = await sources(meeting);
   const source = material(meeting, found);
   if (!source) return null;
-  const day = new Date(meeting.startedAt ?? meeting.startsAt).toISOString().slice(0, 10);
-  const [answer, chapters, people] = await Promise.all([
-    completeJson({ system: systemPrompt(day), user: source, timeoutMs: 60_000 }),
-    writeChapters(found.transcript),
-    invitedPeople(meeting),
-  ]);
-  if (!answer || typeof answer.text !== 'string') return null;
 
+  const people = await invitedPeople(meeting);
   const created = (meeting.summary?.actionItems ?? []).filter((item) => item.issue);
-  const fresh = (Array.isArray(answer.actionItems) ? answer.actionItems : [])
-    .map((item) => {
-      const owner = clean(item?.owner, 80) || null;
-      return {
-        text: clean(item?.text, 400),
-        owner,
-        ownerId: matchOwner(owner, people),
-        due: isDate(item?.due) ? item.due : null,
-        priority: PRIORITIES.includes(item?.priority) ? item.priority : null,
-        issue: null,
-      };
-    })
-    .filter((item) => item.text && !created.some((done) => done.text.toLowerCase() === item.text.toLowerCase()));
+  const day = new Date(meeting.startedAt ?? meeting.startsAt).toISOString().slice(0, 10);
 
+  let answer = null;
+  let chapters = [];
+  let origin = 'heuristic';
+
+  if (isAiEnabled()) {
+    const [aiAnswer, aiChapters] = await Promise.all([
+      completeJson({ system: systemPrompt(day), user: source, timeoutMs: 60_000 }),
+      writeChapters(found.transcript),
+    ]);
+    if (aiAnswer && typeof aiAnswer.text === 'string') {
+      answer = aiAnswer;
+      chapters = aiChapters;
+      origin = 'openai';
+    }
+  }
+
+  if (!answer) {
+    const fallback = summarizeMeetingMaterial({
+      title: meeting.title,
+      transcript: found.transcript,
+      chat: found.chat,
+      updates: found.updates,
+      notes: meeting.notes,
+      people,
+    });
+    answer = fallback;
+    chapters = heuristicChapters(found.transcript);
+    origin = isAiEnabled() ? 'degraded' : 'heuristic';
+  }
+
+  const fresh = buildActionItems(answer.actionItems, people, created);
   const summary = {
     text: clean(answer.text, 4000),
     decisions: (Array.isArray(answer.decisions) ? answer.decisions : []).map((item) => clean(item, 400)).filter(Boolean).slice(0, 20),
     actionItems: [...created, ...fresh].slice(0, 40),
     chapters,
+    source: origin,
     generatedAt: new Date().toISOString(),
   };
   meeting.summary = summary;

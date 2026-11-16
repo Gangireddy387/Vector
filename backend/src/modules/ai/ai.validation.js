@@ -5,3 +5,8 @@ export const draftIssueSchema = z.object({
   title: z.string().trim().min(3, 'Describe the work in a few words').max(255),
   description: z.string().max(10000).nullable().optional(),
 });
+
+/** Issue id (UUID) or key like VEC-12. */
+export const issueRefParams = z.object({
+  issueId: z.string().trim().min(1).max(40),
+});

@@ -4,6 +4,7 @@ import { resolveIssueRefs } from '../../shared/utils/issue-refs.js';
 import { toDateOnly } from '../../shared/utils/query.js';
 import { localDateTime } from '../../shared/utils/timezone.js';
 import { completeJson, isAiEnabled } from '../ai/openai.client.js';
+import { projectHasFeature } from '../plans/plan.service.js';
 import { draftStandup, getStandupDay } from '../standups/standup.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 
@@ -144,10 +145,10 @@ async function summaryReply(project, user) {
   };
 }
 
-/** Free-text questions: answered by the language model when configured, otherwise routed by intent. */
+/** Free-text questions: answered by the language model when plan + key allow, otherwise routed by intent. */
 async function questionReply(project, user, text) {
   const refs = await resolveIssueRefs(user.id, text);
-  if (isAiEnabled()) {
+  if (isAiEnabled() && (await projectHasFeature(project.id, 'aiAssistant'))) {
     const doneIds = (await Status.findAll({ where: { projectId: project.id, category: 'done' }, attributes: ['id'], raw: true })).map((status) => status.id);
     const [open, recent, standups] = await Promise.all([
       Issue.findAll({ where: { projectId: project.id, statusId: { [Op.notIn]: doneIds } }, include: [{ model: User, as: 'assignee', attributes: ['name'] }, { model: Status, as: 'status', attributes: ['name'] }], limit: 60, order: [['updatedAt', 'DESC']] }),

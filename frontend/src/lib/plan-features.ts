@@ -62,7 +62,13 @@ export interface PlanFeature {
 }
 
 export const PLAN_FEATURES: PlanFeature[] = [
-  { key: 'aiAssistant', label: 'AI assistant', description: 'Draft tasks, summaries and sub-task breakdowns', icon: Sparkles, group: 'app' },
+  {
+    key: 'aiAssistant',
+    label: 'AI assistant',
+    description: 'Draft tasks, daily briefing, meeting summaries, and sub-task breakdowns (OpenAI when configured)',
+    icon: Sparkles,
+    group: 'app',
+  },
   { key: 'automations', label: 'Automation rules', description: 'When something happens, do the follow-up work', icon: Workflow, group: 'app' },
   { key: 'recurringTasks', label: 'Recurring tasks', description: 'Routine work that creates itself on schedule', icon: Repeat, group: 'app' },
   { key: 'templates', label: 'Task templates', description: 'Pre-filled formats for common tasks', icon: LayoutTemplate, group: 'app' },

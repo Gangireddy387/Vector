@@ -21,6 +21,7 @@ import { sprintsApi } from '@/modules/sprints/sprints.api'
 import { useUiStore } from '@/stores/ui.store'
 import type { Issue, Sprint, UserSummary } from '@/types/models'
 import { type IssueFilters, issuesApi } from '../api/issues.api'
+import { savedFiltersApi } from '../api/saved-filters.api'
 import BulkActionBar from '../components/BulkActionBar.vue'
 import IssueCard from '../components/IssueCard.vue'
 import IssueFilterBar, { type FilterKey } from '../components/IssueFilterBar.vue'
@@ -28,6 +29,7 @@ import IssueRow from '../components/IssueRow.vue'
 import SavedFiltersMenu from '../components/SavedFiltersMenu.vue'
 import { useIssueSelection } from '../composables/useIssueSelection'
 import { useOpenIssue } from '../composables/useOpenIssue'
+import { sanitizeCriteria } from '../lib/saved-filter-criteria'
 
 type LayoutMode = 'list' | 'grid'
 
@@ -107,14 +109,28 @@ watch([filters, sort, projectId], () => {
 useProjectRealtime(projectId, fetchIssues)
 
 onMounted(async () => {
-  // Global Tasks is the daily driver: default to my work by due date when no filters are set.
+  // Prefer a personal default saved view; otherwise global Tasks opens as "my work by due date".
   let deferredLoad = false
-  if (!projectId.value) {
-    const hasFilter = FILTER_KEYS.some((key) => typeof route.query[key] === 'string')
-    const hasSort = typeof route.query.sort === 'string'
-    if (!hasFilter && !hasSort) {
-      deferredLoad = true
-      void router.replace({ query: { ...route.query, assigneeId: 'me', sort: 'dueDate' } })
+  const hasFilter = FILTER_KEYS.some((key) => typeof route.query[key] === 'string')
+  const hasSort = typeof route.query.sort === 'string'
+  if (!hasFilter && !hasSort) {
+    try {
+      const views = await savedFiltersApi.list(projectId.value)
+      const preferred =
+        views.find((view) => view.isDefault && view.projectId === (projectId.value ?? null)) ??
+        views.find((view) => view.isDefault && !view.projectId)
+      if (preferred) {
+        deferredLoad = true
+        void router.replace({ query: { ...route.query, ...sanitizeCriteria(preferred.criteria) } })
+      } else if (!projectId.value) {
+        deferredLoad = true
+        void router.replace({ query: { ...route.query, assigneeId: 'me', sort: 'dueDate' } })
+      }
+    } catch {
+      if (!projectId.value) {
+        deferredLoad = true
+        void router.replace({ query: { ...route.query, assigneeId: 'me', sort: 'dueDate' } })
+      }
     }
   }
   if (!deferredLoad) void fetchIssues()
@@ -133,7 +149,15 @@ function loadMore() {
 
 const allSelected = computed(() => issues.value.length > 0 && selection.count.value === issues.value.length)
 const toggleAll = () => selection.setAll(allSelected.value ? [] : issues.value.map((issue) => issue.id))
-const applySaved = (criteria: Record<string, string>) => (filters.value = readQuery(criteria))
+const applySaved = (criteria: Record<string, string>) => {
+  const cleaned = sanitizeCriteria(criteria)
+  void router.replace({
+    query: {
+      ...Object.fromEntries(FILTER_KEYS.map((key) => [key, cleaned[key] || undefined])),
+      sort: cleaned.sort || (typeof route.query.sort === 'string' ? route.query.sort : undefined),
+    },
+  })
+}
 
 const showList = computed(() => layout.value === 'list' && isDesktop.value)
 const showGrid = computed(() => layout.value === 'grid' || !isDesktop.value)
@@ -305,6 +329,7 @@ const showGrid = computed(() => layout.value === 'grid' || !isDesktop.value)
       <SheetContent side="bottom">
         <SheetHeader><SheetTitle>Filters</SheetTitle></SheetHeader>
         <div class="space-y-4 px-4 pb-4">
+          <SavedFiltersMenu :project-id="projectId" :criteria="filters" stacked @apply="(criteria) => { applySaved(criteria); isFilterSheetOpen = false }" />
           <IssueFilterBar v-model="filters" :members="members" :labels="project?.labels" :sprints="sprints" :show-sprint="project?.type === 'scrum'" stacked />
           <Button class="w-full" @click="isFilterSheetOpen = false">Show {{ total }} results</Button>
         </div>

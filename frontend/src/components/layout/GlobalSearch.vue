@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onClickOutside, watchDebounced } from '@vueuse/core'
-import { BarChart3, CalendarDays, ClipboardList, FolderKanban, House, Inbox, ListTodo, Loader2, MessageCircle, Moon, Plus, Search, Settings, Sun, User as UserIcon, Video, X } from 'lucide-vue-next'
+import { BarChart3, CalendarDays, ClipboardList, FolderKanban, House, Inbox, ListTodo, Loader2, MessageCircle, Moon, Plus, Search, Settings, Sparkles, Sun, User as UserIcon, Video, X } from 'lucide-vue-next'
 import { type Component, computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
@@ -9,7 +9,9 @@ import { useTheme } from '@/composables/useTheme'
 import { latestRequest } from '@/lib/latest'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
+import { matchFieldLabel } from '@/modules/issues/lib/saved-filter-criteria'
 import { type SearchResults, searchApi } from '@/modules/search/search.api'
+import { rememberSearch } from '@/modules/search/search-recent'
 import { useUiStore } from '@/stores/ui.store'
 
 interface SearchItem {
@@ -52,6 +54,9 @@ const go = (to: Parameters<typeof router.push>[0]) => () => {
 
 const actions = computed<SearchItem[]>(() => [
   { id: 'create', group: 'Actions', label: 'Create task', hint: 'C', icon: Plus, run: () => { close(); ui.openCreateIssue() } },
+  ...(auth.hasFeature('aiAssistant')
+    ? [{ id: 'briefing', group: 'Actions', label: 'Open daily briefing', icon: Sparkles, run: go({ name: 'home', hash: '#daily-briefing' }) }]
+    : []),
   { id: 'home', group: 'Navigate', label: 'Go to Home', hint: 'G H', icon: House, run: go({ name: 'home' }) },
   { id: 'issues', group: 'Navigate', label: 'Go to Tasks', hint: 'G A', icon: ListTodo, run: go({ name: 'issues' }) },
   { id: 'inbox', group: 'Navigate', label: 'Go to Inbox', hint: 'G I', icon: Inbox, run: go({ name: 'inbox' }) },
@@ -104,9 +109,12 @@ const items = computed<SearchItem[]>(() => {
       id: `issue-${issue.id}`,
       group: 'Tasks',
       label: issue.title,
-      hint: issue.key,
+      hint: matchFieldLabel(issue.matchedOn) ? `${issue.key} · ${matchFieldLabel(issue.matchedOn)}` : issue.key,
       issue,
-      run: go({ name: 'issue', params: { issueKey: issue.key } }),
+      run: () => {
+        rememberSearch(query.value)
+        go({ name: 'issue', params: { issueKey: issue.key } })()
+      },
     })),
     ...(found?.projects ?? []).map((project) => ({
       id: `project-${project.id}`,

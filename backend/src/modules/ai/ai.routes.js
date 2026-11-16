@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { validate } from '../../shared/middleware/validate.js';
 import { requireFeature } from '../plans/plan.service.js';
 import * as controller from './ai.controller.js';
-import { draftIssueSchema } from './ai.validation.js';
+import { draftIssueSchema, issueRefParams } from './ai.validation.js';
 
 const router = Router();
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false });
@@ -13,7 +13,7 @@ const aiFeature = requireFeature('aiAssistant');
 router.get('/ai/status', controller.status);
 router.get('/ai/daily-briefing', aiFeature, aiLimiter, controller.dailyBriefing);
 router.post('/ai/draft-issue', aiFeature, aiLimiter, validate({ body: draftIssueSchema }), controller.draftIssue);
-router.post('/ai/issues/:issueId/summary', aiFeature, aiLimiter, controller.summarize);
-router.post('/ai/issues/:issueId/breakdown', aiFeature, aiLimiter, controller.breakdown);
+router.post('/ai/issues/:issueId/summary', aiFeature, aiLimiter, validate({ params: issueRefParams }), controller.summarize);
+router.post('/ai/issues/:issueId/breakdown', aiFeature, aiLimiter, validate({ params: issueRefParams }), controller.breakdown);
 
 export default router;

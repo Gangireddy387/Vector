@@ -82,6 +82,8 @@ export interface MeetingSummary {
   actionItems: MeetingActionItem[]
   /** Topics of the call and when each started. */
   chapters?: Array<{ at: string; title: string }>
+  /** openai when the model wrote it; heuristic/degraded when extractive fallback ran. */
+  source?: 'openai' | 'heuristic' | 'degraded'
   generatedAt: string
 }
 

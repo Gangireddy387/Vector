@@ -46,6 +46,9 @@ async function suggest() {
     suggestions.value = result.subtasks
     selectedSuggestions.value = [...result.subtasks]
     if (!result.subtasks.length) toast.info('No new sub-tasks to suggest')
+    else if (result.source === 'heuristic') toast.message('Smart suggestions', { description: 'Add an OpenAI key for richer AI breakdowns.' })
+    else if (result.source === 'degraded') toast.message('Smart suggestions', { description: 'OpenAI was unavailable.' })
+
   } catch (error) {
     toast.error(getErrorMessage(error))
   } finally {

@@ -16,7 +16,7 @@ import {
   suggestSubtasks,
   summarizeText,
 } from './ai.heuristics.js';
-import { completeJson, isAiEnabled } from './openai.client.js';
+import { completeJsonDetailed, isAiEnabled } from './openai.client.js';
 
 const isSameLocalDay = (iso) => {
   const date = new Date(iso);
@@ -28,6 +28,12 @@ const SYSTEM_PROMPT =
   'You are a senior agile project manager assisting inside an issue tracker. Be concise and practical. Always respond with valid JSON only.';
 
 const pick = (value, allowed, fallback) => (allowed.includes(value) ? value : fallback);
+const clip = (text, size) => {
+  const value = String(text ?? '');
+  return value.length > size ? `${value.slice(0, size)}\n[…]` : value;
+};
+
+const sourceOf = (result) => (result.ok ? 'openai' : result.reason === 'error' ? 'degraded' : 'heuristic');
 
 export const getAiStatus = () => ({ enabled: isAiEnabled(), provider: isAiEnabled() ? 'openai' : 'heuristic' });
 
@@ -37,19 +43,20 @@ export async function draftIssue(userId, { projectId, title, description }) {
   const labels = await Label.findAll({ where: { projectId }, attributes: ['id', 'name'], raw: true });
   const text = `${title} ${description ?? ''}`;
 
-  const ai = await completeJson({
+  const result = await completeJsonDetailed({
     system: SYSTEM_PROMPT,
     user: `Draft a well-structured issue.
 Title: ${title}
-Notes: ${description ?? 'none'}
+Notes: ${clip(description ?? 'none', 4000)}
 Available labels: ${labels.map((label) => label.name).join(', ') || 'none'}
 Return JSON: {"type": one of ${ISSUE_TYPES.filter((t) => t !== 'subtask').join('|')}, "priority": one of ${ISSUE_PRIORITIES.join('|')}, "storyPoints": number (fibonacci), "description": markdown with Goal, Context and Acceptance criteria checklist, "subtasks": string[] (max 6), "labels": string[] chosen from available labels}`,
   });
+  const ai = result.data;
 
   const type = pick(ai?.type, ISSUE_TYPES, guessType(text));
   const labelNames = ai?.labels ?? labels.filter((label) => text.toLowerCase().includes(label.name.toLowerCase())).map((label) => label.name);
   return {
-    source: ai ? 'openai' : 'heuristic',
+    source: sourceOf(result),
     type,
     priority: pick(ai?.priority, ISSUE_PRIORITIES, guessPriority(text)),
     storyPoints: Number.isInteger(ai?.storyPoints) ? ai.storyPoints : guessStoryPoints(type),
@@ -70,39 +77,51 @@ async function loadIssueContext(issueIdOrKey, userId) {
 
 export async function summarizeIssue(userId, issueIdOrKey) {
   const { issue, statusName, comments } = await loadIssueContext(issueIdOrKey, userId);
-  const ai = await completeJson({
+  const commentBlock = comments
+    .slice(-30)
+    .map((comment) => `- ${clip(comment.body, 500)}`)
+    .join('\n');
+  const result = await completeJsonDetailed({
     system: SYSTEM_PROMPT,
     user: `Summarize this issue for a teammate who is catching up.
 Key: ${issue.key} | Status: ${statusName} | Priority: ${issue.priority}
 Title: ${issue.title}
-Description: ${issue.description ?? 'none'}
-Comments:\n${comments.map((comment) => `- ${comment.body}`).join('\n') || 'none'}
+Description: ${clip(issue.description ?? 'none', 6000)}
+Comments:\n${commentBlock || 'none'}
 Return JSON: {"summary": string (2-3 sentences), "keyPoints": string[] (max 5), "nextSteps": string[] (max 3)}`,
   });
-  const fallback = summarizeText({ title: issue.title, description: issue.description, comments, statusName });
+  const ai = result.data;
+  const fallback = summarizeText({
+    title: issue.title,
+    description: issue.description,
+    comments,
+    statusName,
+    priority: issue.priority,
+  });
   return {
-    source: ai ? 'openai' : 'heuristic',
+    source: sourceOf(result),
     summary: ai?.summary ?? fallback.summary,
-    keyPoints: ai?.keyPoints ?? fallback.keyPoints,
-    nextSteps: ai?.nextSteps ?? fallback.nextSteps,
+    keyPoints: Array.isArray(ai?.keyPoints) ? ai.keyPoints.map(String).slice(0, 5) : fallback.keyPoints,
+    nextSteps: Array.isArray(ai?.nextSteps) ? ai.nextSteps.map(String).slice(0, 3) : fallback.nextSteps,
   };
 }
 
 export async function breakdownIssue(userId, issueIdOrKey) {
-  const { issue } = await loadIssueContext(issueIdOrKey, userId);
+  const { issue, comments } = await loadIssueContext(issueIdOrKey, userId);
   const existing = await Issue.findAll({ where: { parentId: issue.id }, attributes: ['title'], raw: true });
-  const ai = await completeJson({
+  const result = await completeJsonDetailed({
     system: SYSTEM_PROMPT,
     user: `Break this ${issue.type} into small, actionable sub-tasks (each completable in under a day).
 Title: ${issue.title}
-Description: ${issue.description ?? 'none'}
+Description: ${clip(issue.description ?? 'none', 6000)}
 Existing sub-tasks: ${existing.map((row) => row.title).join('; ') || 'none'}
 Return JSON: {"subtasks": string[] (3-8 items, do not repeat existing ones)}`,
   });
   const existingTitles = new Set(existing.map((row) => row.title.toLowerCase()));
-  const subtasks = (Array.isArray(ai?.subtasks) ? ai.subtasks.map(String) : suggestSubtasks(issue))
-    .filter((title) => !existingTitles.has(title.toLowerCase()));
-  return { source: ai ? 'openai' : 'heuristic', subtasks };
+  const subtasks = (Array.isArray(result.data?.subtasks) ? result.data.subtasks.map(String) : suggestSubtasks({ type: issue.type, description: issue.description, comments }))
+    .filter((title) => !existingTitles.has(title.toLowerCase()))
+    .slice(0, 8);
+  return { source: sourceOf(result), subtasks };
 }
 
 /**
@@ -122,17 +141,31 @@ export async function getDailyBriefing(viewer) {
     inProgress: inProgress.slice(0, 8).map((issue) => ({ id: issue.id, key: issue.key, title: issue.title, projectId: issue.projectId })),
   };
 
-  const ai = await completeJson({
+  const result = await completeJsonDetailed({
     system: SYSTEM_PROMPT,
     user: `Write a short daily briefing for a teammate.
-Overdue (${facts.overdue.length}): ${facts.overdue.map((i) => i.key).join(', ') || 'none'}
-Due today (${facts.dueToday.length}): ${facts.dueToday.map((i) => i.key).join(', ') || 'none'}
-In progress (${facts.inProgress.length}): ${facts.inProgress.map((i) => i.key).join(', ') || 'none'}
-Return JSON: {"headline": string (one sentence), "focus": string[] (up to 4 concrete next actions), "watch": string[] (up to 3 risks)}`,
+Overdue (${facts.overdue.length}): ${facts.overdue.map((i) => `${i.key} ${i.title}`).join('; ') || 'none'}
+Due today (${facts.dueToday.length}): ${facts.dueToday.map((i) => `${i.key} ${i.title}`).join('; ') || 'none'}
+In progress (${facts.inProgress.length}): ${facts.inProgress.map((i) => `${i.key} ${i.title}`).join('; ') || 'none'}
+Return JSON: {"headline": string (one sentence), "focus": string[] (up to 4 concrete next actions that mention task keys when relevant), "watch": string[] (up to 3 risks)}`,
+  });
+  const ai = result.data;
+
+  const heuristicFocus = [
+    ...overdue.slice(0, 2).map((issue) => ({ text: `Unblock or finish ${issue.key}`, issueKey: issue.key })),
+    ...dueToday.slice(0, 2).map((issue) => ({ text: `Finish ${issue.key} today`, issueKey: issue.key })),
+    ...inProgress.slice(0, 1).map((issue) => ({ text: `Push ${issue.key} forward`, issueKey: issue.key })),
+  ].slice(0, 4);
+
+  const focusTexts = Array.isArray(ai?.focus) ? ai.focus.map(String).slice(0, 4) : heuristicFocus.map((row) => row.text);
+  const knownKeys = [...facts.overdue, ...facts.dueToday, ...facts.inProgress];
+  const focus = focusTexts.map((text) => {
+    const hit = knownKeys.find((issue) => text.includes(issue.key));
+    return { text, issueKey: hit?.key ?? null };
   });
 
   const needsMe = {
-    source: ai ? 'openai' : 'heuristic',
+    source: sourceOf(result),
     headline:
       ai?.headline ??
       (overdue.length
@@ -142,13 +175,8 @@ Return JSON: {"headline": string (one sentence), "focus": string[] (up to 4 conc
           : inProgress.length
             ? `Keep momentum on ${inProgress.length} in-progress task${inProgress.length === 1 ? '' : 's'}.`
             : 'Nothing urgent is assigned to you. Nice.'),
-    focus: Array.isArray(ai?.focus)
-      ? ai.focus.map(String).slice(0, 4)
-      : [
-          ...overdue.slice(0, 2).map((issue) => `Unblock or finish ${issue.key}`),
-          ...dueToday.slice(0, 2).map((issue) => `Finish ${issue.key} today`),
-          ...inProgress.slice(0, 1).map((issue) => `Push ${issue.key} forward`),
-        ].slice(0, 4),
+    focus: focus.map((row) => row.text),
+    focusActions: focus,
     watch: Array.isArray(ai?.watch) ? ai.watch.map(String).slice(0, 3) : overdue.length ? ['Overdue work is blocking others'] : [],
     tasks: facts,
   };

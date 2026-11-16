@@ -11,7 +11,7 @@ import { phoneEnabled } from './meeting.phone.js';
 import { calendarFile } from './meeting.notify.js';
 import { meetingRecordingRoutes } from './meeting.recordings.js';
 import { ISSUE_PRIORITIES } from '../issues/issue.model.js';
-import { meetingAiAllowed } from './meeting.ai-access.js';
+import { meetingAiAllowed, meetingSummariesAllowed } from './meeting.ai-access.js';
 import { draftAgenda, suggestTimes } from './meeting.planning.js';
 import { searchMeetings } from './meeting.search.js';
 import * as service from './meeting.service.js';
@@ -84,12 +84,16 @@ router.get(base, validate({ query: listSchema }), async (req, res) => {
 router.get(`${base}/permissions`, async (req, res) => res.json({ canSchedule: await service.canSchedule(viewer(req)) }));
 /** What this server's calls can do, so the app shows only what works. */
 router.get(`${base}/capabilities`, async (req, res) => {
-  const ai = await meetingAiAllowed(req.organization.id);
+  const [ai, summaries] = await Promise.all([
+    meetingAiAllowed(req.organization.id),
+    meetingSummariesAllowed(req.organization.id),
+  ]);
   res.json({
     media: sfuEnabled() ? 'sfu' : 'direct',
     capacity: callCapacity(),
-    summaries: ai,
-    /** The AI assistant: notes from speech, translated captions, catch-up, agendas, meaning-based search. */
+    /** Extractive fallback works without an OpenAI key when the plan includes AI. */
+    summaries,
+    /** Live AI notes, translation, catch-up, agendas, meaning-based search (needs OpenAI key). */
     ai,
     reminderMinutes: config.meetings.reminderMinutes,
     recordingMaxMb: config.meetings.recordingMaxMb,

@@ -474,4 +474,6 @@ export interface SavedFilter {
   name: string
   projectId: string | null
   criteria: Record<string, string | number | boolean | null>
+  /** Applied automatically when Tasks opens with no URL filters (per person, per project/global). */
+  isDefault?: boolean
 }

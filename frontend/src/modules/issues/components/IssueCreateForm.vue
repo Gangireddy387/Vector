@@ -154,7 +154,12 @@ async function draftWithAi() {
     form.labelIds = [...new Set([...form.labelIds, ...draft.labelIds])]
     subtasks.value = draft.subtasks
     toast.success(draft.source === 'openai' ? 'Drafted with AI' : 'Drafted with smart suggestions', {
-      description: draft.source === 'heuristic' ? 'Add an OpenAI key on the server for richer drafts.' : undefined,
+      description:
+        draft.source === 'heuristic'
+          ? 'Add an OpenAI key on the server for richer drafts.'
+          : draft.source === 'degraded'
+            ? 'OpenAI was unavailable; used smart suggestions instead.'
+            : undefined,
     })
   } catch (error) {
     errorMessage.value = getErrorMessage(error)

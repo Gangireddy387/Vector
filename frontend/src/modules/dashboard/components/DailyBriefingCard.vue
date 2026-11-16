@@ -34,7 +34,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section v-if="auth.hasFeature('aiAssistant')" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+  <section id="daily-briefing" v-if="auth.hasFeature('aiAssistant')" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
     <header class="flex h-12 items-center gap-2 border-b border-border px-4">
       <Sparkles class="size-4 text-primary" />
       <h2 class="text-sm font-semibold">Daily briefing</h2>
@@ -51,14 +51,31 @@ onMounted(() => {
     <div v-else-if="briefing" class="space-y-4 px-4 py-3">
       <div>
         <p class="text-[13.5px] font-medium">{{ briefing.needsMe.headline }}</p>
-        <ul v-if="briefing.needsMe.focus.length" class="mt-2 space-y-1">
-          <li v-for="(item, index) in briefing.needsMe.focus" :key="index" class="text-[12.5px] text-muted-foreground">· {{ item }}</li>
+        <p v-if="briefing.needsMe.source !== 'openai'" class="mt-1 text-[11px] text-muted-foreground">
+          {{ briefing.needsMe.source === 'degraded' ? 'OpenAI unavailable — smart briefing.' : 'Smart briefing — add an OpenAI key for richer AI.' }}
+        </p>
+        <ul v-if="(briefing.needsMe.focusActions ?? briefing.needsMe.focus.map((text) => ({ text, issueKey: null as string | null }))).length" class="mt-2 space-y-1">
+          <li
+            v-for="(item, index) in briefing.needsMe.focusActions ?? briefing.needsMe.focus.map((text) => ({ text, issueKey: null as string | null }))"
+            :key="index"
+            class="text-[12.5px] text-muted-foreground"
+          >
+            ·
+            <RouterLink
+              v-if="item.issueKey"
+              :to="{ name: 'issue', params: { issueKey: item.issueKey } }"
+              class="font-medium text-foreground hover:text-primary hover:underline"
+            >
+              {{ item.text }}
+            </RouterLink>
+            <template v-else>{{ item.text }}</template>
+          </li>
         </ul>
         <div v-if="briefing.needsMe.tasks.overdue.length || briefing.needsMe.tasks.dueToday.length" class="mt-2 flex flex-wrap gap-1.5">
           <RouterLink
             v-for="task in [...briefing.needsMe.tasks.overdue, ...briefing.needsMe.tasks.dueToday].slice(0, 5)"
             :key="task.id"
-            :to="{ name: 'issues', query: { issue: task.key } }"
+            :to="{ name: 'issue', params: { issueKey: task.key } }"
             class="rounded-md border border-border bg-muted/40 px-2 py-0.5 text-[11.5px] font-medium hover:bg-accent"
           >
             {{ task.key }}

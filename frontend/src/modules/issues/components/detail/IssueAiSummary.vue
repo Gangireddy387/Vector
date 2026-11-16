@@ -29,7 +29,8 @@ defineExpose({ generate })
   <div v-if="isLoading || summary" class="relative space-y-2 border border-primary/30 bg-primary/5 p-4">
     <p class="flex items-center gap-1.5 text-xs font-semibold text-primary">
       <Sparkles class="size-3.5" /> Summary
-      <span v-if="summary?.source === 'heuristic'" class="font-normal text-muted-foreground">(quick summary — add an OpenAI key for AI summaries)</span>
+      <span v-if="summary?.source === 'heuristic'" class="font-normal text-muted-foreground">(quick summary — add an OpenAI key for AI)</span>
+      <span v-else-if="summary?.source === 'degraded'" class="font-normal text-muted-foreground">(OpenAI unavailable — used quick summary)</span>
     </p>
     <button v-if="summary" type="button" class="absolute top-3 right-3 text-muted-foreground hover:text-foreground" aria-label="Close summary" @click="summary = null">
       <X class="size-4" />

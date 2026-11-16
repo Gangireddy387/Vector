@@ -46,7 +46,7 @@ export const DEFAULT_PLANS = [
     priceLabel: '₹999 / month',
     maxMembers: 25,
     maxProjects: 20,
-    features: features('automations', 'recurringTasks', 'templates', 'reports', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar', 'attachments', 'timeTracking', 'customSounds', ...EMAIL_FEATURE_KEYS),
+    features: features('aiAssistant', 'automations', 'recurringTasks', 'templates', 'reports', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar', 'attachments', 'timeTracking', 'customSounds', ...EMAIL_FEATURE_KEYS),
     isDefault: false,
     position: 1,
   },

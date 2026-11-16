@@ -241,7 +241,12 @@ function downloadTranscript() {
             </li>
           </ol>
         </div>
-        <p class="text-[11px] text-muted-foreground">Written by the AI assistant {{ format(parseISO(meeting.summary.generatedAt), 'd MMM, HH:mm') }}. Check it before acting on it.</p>
+        <p class="text-[11px] text-muted-foreground">
+          <template v-if="meeting.summary.source === 'heuristic'">Quick summary from notes</template>
+          <template v-else-if="meeting.summary.source === 'degraded'">OpenAI unavailable — quick summary</template>
+          <template v-else>Written by the AI assistant</template>
+          {{ ' ' }}{{ format(parseISO(meeting.summary.generatedAt), 'd MMM, HH:mm') }}. Check it before acting on it.
+        </p>
       </template>
       <p v-else class="text-sm text-muted-foreground">Write a summary of what was said, decided and who does what next, from the captions, chat, updates and notes.</p>
       <Button v-if="meeting.canManage && canSummarize" variant="outline" size="sm" :loading="summarizing" @click="summarize">

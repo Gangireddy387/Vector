@@ -14,7 +14,8 @@ export const validate = (schemas) => (req, _res, next) => {
       return next(ApiError.badRequest('Validation failed', formatIssues(result.error)));
     }
     if (source === 'query') req.filters = result.data;
-    else req[source] = result.data;
+    else if (source !== 'params') req[source] = result.data;
+    // Express 5 keeps `req.params` read-only; validation alone is enough for path ids.
   }
   return next();
 };

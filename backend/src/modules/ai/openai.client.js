@@ -4,38 +4,67 @@ export const isAiEnabled = () => Boolean(config.openai.apiKey);
 
 const headers = () => ({ Authorization: `Bearer ${config.openai.apiKey}` });
 
+const RETRYABLE = new Set([429, 500, 502, 503, 504]);
+
+async function sleep(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
- * Calls the OpenAI Chat Completions API in JSON mode.
- * Returns `null` when no key is configured or the request fails, so callers can fall back to heuristics.
+ * Chat Completions in JSON mode with one retry on transient failures.
+ * Returns `{ ok, data, reason }` so callers can tell "no key" from "API error" and mark degraded UX.
  */
-export async function completeJson({ system, user, temperature = 0.3, timeoutMs = 30_000, maxTokens }) {
-  if (!isAiEnabled()) return null;
-  try {
-    const response = await fetch(`${config.openai.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: { ...headers(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: config.openai.model,
-        temperature,
-        response_format: { type: 'json_object' },
-        ...(maxTokens ? { max_tokens: maxTokens } : {}),
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-      }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    if (!response.ok) {
-      console.error('[ai] OpenAI request failed:', response.status, await response.text());
-      return null;
+export async function completeJsonDetailed({ system, user, temperature = 0.3, timeoutMs = 30_000, maxTokens }) {
+  if (!isAiEnabled()) return { ok: false, data: null, reason: 'unavailable' };
+
+  let lastReason = 'error';
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(`${config.openai.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: config.openai.model,
+          temperature,
+          response_format: { type: 'json_object' },
+          ...(maxTokens ? { max_tokens: maxTokens } : {}),
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+        }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        console.error('[ai] OpenAI request failed:', response.status, body);
+        lastReason = 'error';
+        if (RETRYABLE.has(response.status) && attempt === 0) {
+          await sleep(400);
+          continue;
+        }
+        return { ok: false, data: null, reason: 'error' };
+      }
+      const data = await response.json();
+      const parsed = JSON.parse(data.choices?.[0]?.message?.content ?? 'null');
+      if (!parsed || typeof parsed !== 'object') return { ok: false, data: null, reason: 'error' };
+      return { ok: true, data: parsed, reason: 'openai' };
+    } catch (error) {
+      console.error('[ai] OpenAI request error:', error.message);
+      lastReason = 'error';
+      if (attempt === 0) {
+        await sleep(400);
+        continue;
+      }
     }
-    const data = await response.json();
-    return JSON.parse(data.choices?.[0]?.message?.content ?? 'null');
-  } catch (error) {
-    console.error('[ai] OpenAI request error:', error.message);
-    return null;
   }
+  return { ok: false, data: null, reason: lastReason };
+}
+
+/** Returns parsed JSON or `null` when no key is configured or the request fails. */
+export async function completeJson(options) {
+  const result = await completeJsonDetailed(options);
+  return result.ok ? result.data : null;
 }
 
 /**

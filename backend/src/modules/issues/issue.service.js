@@ -205,8 +205,14 @@ async function buildListWhere(userId, filters) {
   }
 
   if (filters.q) {
-    const term = `%${filters.q}%`;
-    where[Op.or] = [{ title: { [likeOperator]: term } }, { key: { [likeOperator]: term } }];
+    const term = `%${String(filters.q).replace(/[%_]/g, ' ').trim()}%`;
+    if (term !== '%%') {
+      where[Op.or] = [
+        { title: { [likeOperator]: term } },
+        { key: { [likeOperator]: term } },
+        { description: { [likeOperator]: term } },
+      ];
+    }
   }
 
   const dueRange = {};
