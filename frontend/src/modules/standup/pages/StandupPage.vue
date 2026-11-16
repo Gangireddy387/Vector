@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { addDays, format, isValid, parseISO } from 'date-fns'
-import { ChevronLeft, ChevronRight, CircleAlert, CircleCheck, ClipboardCopy, ClipboardList, Clock3, Users } from 'lucide-vue-next'
+import { ArrowRight, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, ClipboardCopy, ClipboardList, Clock3, Columns3, ListTodo, Users } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { DatePicker } from '@/components/forms'
@@ -71,6 +71,8 @@ useSocketEvents({ 'standup:changed': onStandupChanged })
 
 const me = computed(() => day.value?.members.find((member) => member.user.id === auth.user?.id) ?? null)
 const showEditor = computed(() => canPost.value && (editing.value || !me.value?.update))
+/** After today’s post, push the next step in the workday loop. */
+const showHandoff = computed(() => date.value === today && Boolean(me.value?.update) && !editing.value)
 const teammates = computed(() => (day.value?.members ?? []).filter((member) => member.user.id !== auth.user?.id || !showEditor.value))
 const issueKeys = computed(() => Object.keys(day.value?.issues ?? {}))
 const recentDays = computed(() => {
@@ -117,7 +119,7 @@ async function copySummary() {
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <div class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
     <!-- Day navigation -->
     <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
       <div class="flex min-w-0 flex-wrap items-center gap-1">
@@ -200,6 +202,28 @@ async function copySummary() {
         "
         @cancel="editing = false"
       />
+
+      <section
+        v-if="showHandoff"
+        class="flex flex-col gap-3 rounded-xl border border-success/25 bg-success/[0.04] px-4 py-3 sm:flex-row sm:items-center"
+      >
+        <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success/15 text-success"><CircleCheck class="size-4" /></span>
+        <div class="min-w-0 flex-1">
+          <p class="text-[13px] font-semibold">Standup done — keep the workday moving</p>
+          <p class="text-[12px] text-muted-foreground">Clear what’s due, then run the board for this project.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <Button size="sm" as-child>
+            <RouterLink :to="{ name: 'issues', query: { assigneeId: 'me', sort: 'dueDate' } }"><ListTodo /> My tasks</RouterLink>
+          </Button>
+          <Button size="sm" variant="outline" as-child>
+            <RouterLink :to="{ name: 'project-board', params: { projectId } }"><Columns3 /> Board</RouterLink>
+          </Button>
+          <Button size="sm" variant="ghost" as-child>
+            <RouterLink :to="{ name: 'home' }">Home <ArrowRight /></RouterLink>
+          </Button>
+        </div>
+      </section>
 
       <EmptyState
         v-if="!day.members.length"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onClickOutside, watchDebounced } from '@vueuse/core'
-import { BarChart3, FolderKanban, House, Inbox, ListTodo, Loader2, Moon, Plus, Search, Settings, Sun, User as UserIcon, X } from 'lucide-vue-next'
+import { BarChart3, CalendarDays, ClipboardList, FolderKanban, House, Inbox, ListTodo, Loader2, MessageCircle, Moon, Plus, Search, Settings, Sun, User as UserIcon, Video, X } from 'lucide-vue-next'
 import { type Component, computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
@@ -56,6 +56,22 @@ const actions = computed<SearchItem[]>(() => [
   { id: 'issues', group: 'Navigate', label: 'Go to Tasks', hint: 'G A', icon: ListTodo, run: go({ name: 'issues' }) },
   { id: 'inbox', group: 'Navigate', label: 'Go to Inbox', hint: 'G I', icon: Inbox, run: go({ name: 'inbox' }) },
   { id: 'projects', group: 'Navigate', label: 'Go to Projects', hint: 'G P', icon: FolderKanban, run: go({ name: 'projects' }) },
+  ...(auth.hasFeature('directMessages') || auth.hasFeature('teamChat')
+    ? [{ id: 'messages', group: 'Navigate', label: 'Go to Messages', icon: MessageCircle, run: go({ name: 'messages' }) }]
+    : []),
+  ...(auth.hasFeature('meetings') ? [{ id: 'meetings', group: 'Navigate', label: 'Go to Meetings', icon: Video, run: go({ name: 'meetings' }) }] : []),
+  ...(auth.hasFeature('calendar') ? [{ id: 'calendar', group: 'Navigate', label: 'Go to Calendar', icon: CalendarDays, run: go({ name: 'calendar' }) }] : []),
+  ...(auth.hasFeature('chat') && projects.joinedProjects[0]
+    ? [
+        {
+          id: 'standup',
+          group: 'Navigate',
+          label: `Standup · ${projects.joinedProjects[0].name}`,
+          icon: ClipboardList,
+          run: go({ name: 'project-standup', params: { projectId: projects.joinedProjects[0].id } }),
+        },
+      ]
+    : []),
   ...(auth.hasFeature('reports') ? [{ id: 'reports', group: 'Navigate', label: 'Go to Reports', icon: BarChart3, run: go({ name: 'reports' }) }] : []),
   { id: 'settings', group: 'Navigate', label: 'Open settings', icon: Settings, run: go({ name: 'settings' }) },
   {

@@ -1,5 +1,6 @@
 import { BarChart3, ClipboardList, Columns3, Hash, Kanban, ListTodo, Settings, TrendingUp, Workflow } from 'lucide-vue-next'
 import type { Component } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 import type { PlanFeatureKey } from '@/lib/plan-features'
 import type { Project } from '@/types/models'
 
@@ -7,6 +8,9 @@ export interface ProjectNavItem {
   name: string
   label: string
   icon: Component
+  /** When set, navigate here instead of the named project route (locked-feature teasers). */
+  to?: RouteLocationRaw
+  locked?: boolean
 }
 
 /** The automation page holds rules, templates and recurring tasks; it shows when the plan includes any of them. */
@@ -14,16 +18,33 @@ export const AUTOMATION_FEATURES: PlanFeatureKey[] = ['automations', 'templates'
 
 /** Sections inside a project, shared by the sidebar, project tabs and the mobile project switcher. */
 export function getProjectNavigation(project: Pick<Project, 'type' | 'myRole'>, hasFeature: (key: PlanFeatureKey) => boolean = () => true): ProjectNavItem[] {
+  const chatNav: ProjectNavItem[] = hasFeature('chat')
+    ? [
+        { name: 'project-chat', label: 'Work chat', icon: Hash },
+        { name: 'project-standup', label: 'Standup', icon: ClipboardList },
+      ]
+    : [
+        {
+          name: 'feature-locked',
+          label: 'Work chat',
+          icon: Hash,
+          locked: true,
+          to: { name: 'feature-locked', query: { feature: 'chat' } },
+        },
+        {
+          name: 'feature-locked',
+          label: 'Standup',
+          icon: ClipboardList,
+          locked: true,
+          to: { name: 'feature-locked', query: { feature: 'chat' } },
+        },
+      ]
+
   return [
     { name: 'project-board', label: 'Board', icon: Kanban },
     ...(project.type === 'scrum' ? [{ name: 'project-backlog', label: 'Backlog', icon: Columns3 }] : []),
     { name: 'project-issues', label: 'Tasks', icon: ListTodo },
-    ...(hasFeature('chat')
-      ? [
-          { name: 'project-chat', label: 'Work chat', icon: Hash },
-          { name: 'project-standup', label: 'Standup', icon: ClipboardList },
-        ]
-      : []),
+    ...chatNav,
     ...(hasFeature('reports')
       ? [
           { name: 'project-progress', label: 'Progress', icon: TrendingUp },

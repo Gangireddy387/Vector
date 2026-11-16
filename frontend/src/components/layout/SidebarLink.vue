@@ -16,8 +16,10 @@ withDefaults(
     nested?: boolean
     /** Keyboard shortcut, e.g. "G I": shown on hover and in the collapsed tooltip. */
     shortcut?: string
+    /** Plan-gated teaser: muted look, still navigates to the unlock page. */
+    locked?: boolean
   }>(),
-  { collapsed: false, exact: false, nested: false },
+  { collapsed: false, exact: false, nested: false, locked: false },
 )
 </script>
 
@@ -31,9 +33,10 @@ withDefaults(
           :class="
             cn(
               'group relative flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground',
-              (exact ? isExactActive : isActive) && 'bg-sidebar-accent font-medium text-sidebar-foreground',
+              (exact ? isExactActive : isActive) && !locked && 'bg-sidebar-accent font-medium text-sidebar-foreground',
               nested && 'h-7 pl-7 text-[12.5px]',
               collapsed && 'justify-center px-0',
+              locked && 'opacity-70',
             )
           "
           @click="navigate"
@@ -43,9 +46,10 @@ withDefaults(
             :is="icon"
             v-else-if="icon"
             class="size-4 shrink-0 transition-colors"
-            :class="(exact ? isExactActive : isActive) ? 'text-primary' : 'text-muted-foreground group-hover:text-sidebar-foreground'"
+            :class="(exact ? isExactActive : isActive) && !locked ? 'text-primary' : 'text-muted-foreground group-hover:text-sidebar-foreground'"
           />
           <span v-if="!collapsed" class="min-w-0 flex-1 truncate">{{ label }}</span>
+          <span v-if="locked && !collapsed" class="rounded bg-muted px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Pro</span>
           <span
             v-if="badge && !collapsed"
             class="ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary/12 px-1.5 text-[10.5px] leading-none font-semibold text-primary tabular-nums dark:bg-primary/20"

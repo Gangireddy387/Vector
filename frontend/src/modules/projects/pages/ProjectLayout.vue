@@ -128,19 +128,23 @@ async function deleteSample() {
       <nav class="mt-1.5 -mb-px flex gap-0.5 overflow-x-auto scrollbar-none" aria-label="Project sections">
         <RouterLink
           v-for="item in navigation"
-          :key="item.name"
+          :key="`${item.label}-${item.name}`"
           v-slot="{ href, navigate, isActive }"
-          :to="{ name: item.name, params: { projectId: project.id } }"
+          :to="item.to ?? { name: item.name, params: { projectId: project.id } }"
           custom
         >
           <a
             :href="href"
             class="flex h-9 shrink-0 items-center gap-1.5 border-b-2 px-2 text-[13px] font-medium transition-colors sm:px-2.5"
-            :class="isActive ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'"
-            :aria-current="isActive ? 'page' : undefined"
+            :class="[
+              isActive && !item.locked ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
+              item.locked && 'opacity-70',
+            ]"
+            :aria-current="isActive && !item.locked ? 'page' : undefined"
             @click="navigate"
           >
             <component :is="item.icon" class="size-4 shrink-0" /> {{ item.label }}
+            <span v-if="item.locked" class="rounded bg-muted px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide">Pro</span>
           </a>
         </RouterLink>
       </nav>
@@ -162,13 +166,14 @@ async function deleteSample() {
           <DropdownMenuContent align="start" class="w-[min(18rem,calc(100vw-1.5rem))]">
             <DropdownMenuItem
               v-for="item in navigation"
-              :key="item.name"
+              :key="`${item.label}-${item.name}`"
               class="gap-2"
-              :class="item.name === activeSection?.name && 'bg-accent'"
-              @select="router.push({ name: item.name, params: { projectId: project.id } })"
+              :class="item.name === activeSection?.name && !item.locked && 'bg-accent'"
+              @select="router.push(item.to ?? { name: item.name, params: { projectId: project.id } })"
             >
               <component :is="item.icon" class="size-4 shrink-0" />
               {{ item.label }}
+              <span v-if="item.locked" class="ml-auto text-[10px] font-semibold uppercase text-muted-foreground">Pro</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -7,6 +7,6 @@ export const collaborationRoutes: RouteRecordRaw[] = [
     path: 'standup',
     name: 'project-standup',
     component: () => import('@/modules/standup/pages/StandupPage.vue'),
-    meta: { title: 'Standup', requiresFeature: ['chat'] },
+    meta: { title: 'Standup', requiresFeature: ['chat'], fillHeight: true },
   },
 ]

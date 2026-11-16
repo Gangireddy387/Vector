@@ -3,7 +3,7 @@ import { useIntervalFn, useNow } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
 import { CalendarClock, CalendarX2, Clock3, Ellipsis, History, Info, Link2, ListTodo, PencilLine, Plus, Radio, Repeat, Trash2, Video, XCircle } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -138,8 +138,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3 pb-2'">
-    <PageHeader title="Meetings" description="Video calls right in the browser: join with a click, talk face to face and share your updates with the team.">
+  <div class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3 pb-2'">
+    <PageHeader title="Meetings" description="Join in-browser, then turn action items into tracked tasks — part of your workday loop.">
       <template #actions>
         <Button v-if="canSchedule" variant="brand" class="max-sm:w-full" @click="sheetTarget = {}"><Plus /> Schedule meeting</Button>
       </template>
@@ -282,13 +282,18 @@ onMounted(async () => {
           :description="
             scope === 'upcoming'
               ? canSchedule
-                ? 'Schedule a stand-up or a review: invite people, and they join the video call from here.'
-                : 'When someone invites you to a meeting, it shows up here and in your calendar.'
-              : 'Meetings that ended, with their updates and notes, are kept here.'
+                ? 'Schedule a stand-up or review, then turn action items into tasks after the call — part of your workday loop.'
+                : 'When someone invites you, it shows here and on Home. After the call, open action items → tasks.'
+              : 'Ended meetings keep updates, notes and action items you can turn into tracked work.'
           "
           class="py-14 sm:py-16"
         >
-          <Button v-if="canSchedule && scope === 'upcoming'" variant="brand" class="mt-2 max-sm:w-full" @click="sheetTarget = {}"><Plus /> Schedule meeting</Button>
+          <div class="mt-2 flex flex-wrap justify-center gap-2">
+            <Button v-if="canSchedule && scope === 'upcoming'" variant="brand" class="max-sm:w-full" @click="sheetTarget = {}"><Plus /> Schedule meeting</Button>
+            <Button variant="outline" class="max-sm:w-full" as-child>
+              <RouterLink :to="{ name: 'home' }">Workday loop</RouterLink>
+            </Button>
+          </div>
         </EmptyState>
       </template>
     </template>

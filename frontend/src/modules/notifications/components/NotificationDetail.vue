@@ -214,8 +214,8 @@ const hasMain = computed(() => Boolean(props.latest.body || sprint.value || prop
               <nav class="flex flex-wrap gap-0.5 p-1.5" :class="hasMain && '@4xl:grid @4xl:grid-cols-2'" aria-label="Open in project">
                 <RouterLink
                   v-for="item in shortcuts"
-                  :key="item.name"
-                  :to="{ name: item.name, params: { projectId: project.id } }"
+                  :key="`${item.label}-${item.name}`"
+                  :to="item.to ?? { name: item.name, params: { projectId: project.id } }"
                   class="inline-flex h-8 items-center gap-2 rounded-md px-2.5 text-[13px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   <component :is="item.icon" class="size-4" /> {{ item.label }}

@@ -358,7 +358,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
   </div>
 
   <!-- Phones: one list, tapping an item opens what it points to -->
-  <div v-else class="w-full space-y-4 sm:space-y-5 p-3">
+  <div v-else class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto p-3 sm:space-y-5">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <h1 class="text-lg font-bold">Inbox</h1>
       <Button v-if="notifications.unreadCount" variant="ghost" size="sm" class="max-sm:w-full" @click="notifications.markAllRead()"><CheckCheck /> Read all</Button>

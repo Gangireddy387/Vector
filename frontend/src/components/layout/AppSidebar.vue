@@ -64,12 +64,32 @@ const showStandupRollup = computed(
 )
 
 const workspaceLinks = computed(() => [
-  { name: 'standup-rollup', label: 'Standup rollup', icon: ClipboardList, show: showStandupRollup.value },
-  { name: 'calendar', label: 'Calendar', icon: CalendarDays, show: auth.hasFeature('calendar') },
-  { name: 'meetings', label: 'Meetings', icon: Video, show: auth.hasFeature('meetings') },
-  { name: 'reports', label: 'Reports', icon: BarChart3, show: auth.hasFeature('reports'), shortcut: 'G R', exact: true },
-  { name: 'departments', label: 'Departments', icon: Network, show: true },
+  { name: 'standup-rollup', label: 'Standup rollup', icon: ClipboardList, show: showStandupRollup.value, locked: false as boolean, to: { name: 'standup-rollup' } as const },
+  {
+    name: 'calendar',
+    label: 'Calendar',
+    icon: CalendarDays,
+    show: true,
+    locked: !auth.hasFeature('calendar'),
+    to: auth.hasFeature('calendar') ? ({ name: 'calendar' } as const) : ({ name: 'feature-locked', query: { feature: 'calendar' } } as const),
+  },
+  {
+    name: 'meetings',
+    label: 'Meetings',
+    icon: Video,
+    show: true,
+    locked: !auth.hasFeature('meetings'),
+    to: auth.hasFeature('meetings') ? ({ name: 'meetings' } as const) : ({ name: 'feature-locked', query: { feature: 'meetings' } } as const),
+  },
+  { name: 'reports', label: 'Reports', icon: BarChart3, show: auth.hasFeature('reports'), locked: false, to: { name: 'reports' } as const, shortcut: 'G R', exact: true },
+  { name: 'departments', label: 'Departments', icon: Network, show: true, locked: false, to: { name: 'departments' } as const },
 ])
+
+const messagesLink = computed(() =>
+  messages.isAvailable
+    ? { to: { name: 'messages' } as const, locked: false }
+    : { to: { name: 'feature-locked', query: { feature: ['directMessages', 'teamChat'] } } as const, locked: true },
+)
 
 const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.value ?? undefined })
 </script>
@@ -107,13 +127,20 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
     </div>
 
     <nav class="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2.5 py-2 scrollbar-thin">
-      <!-- Your day: where work and conversations come in -->
+      <!-- Workday: the loop people run every morning -->
       <SidebarLink :to="{ name: 'home' }" label="Home" :icon="House" shortcut="G H" :collapsed="isCollapsed" exact />
       <SidebarLink :to="{ name: 'inbox' }" label="Inbox" :icon="Inbox" shortcut="G I" :badge="notifications.unreadCount" :collapsed="isCollapsed" />
       <SidebarLink :to="{ name: 'issues' }" label="Tasks" :icon="ListTodo" shortcut="G A" :collapsed="isCollapsed" />
-      <SidebarLink v-if="messages.isAvailable" :to="{ name: 'messages' }" label="Messages" :icon="MessageCircle" :badge="messages.unreadTotal" :collapsed="isCollapsed" />
+      <SidebarLink
+        :to="messagesLink.to"
+        label="Messages"
+        :icon="MessageCircle"
+        :badge="messages.isAvailable ? messages.unreadTotal : 0"
+        :collapsed="isCollapsed"
+        :locked="messagesLink.locked"
+      />
 
-      <!-- Workspace: planning, people and insight -->
+      <!-- Rhythm: standup, calendar and meetings that close the loop -->
       <button
         v-if="!isCollapsed"
         type="button"
@@ -121,13 +148,22 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
         :aria-expanded="!folded.workspace"
         @click="toggle('workspace')"
       >
-        Workspace
+        Rhythm
         <ChevronRight class="size-3 transition-transform" :class="!folded.workspace && 'rotate-90'" />
       </button>
       <div v-else class="mx-2 my-3 border-t border-sidebar-border" />
       <template v-if="isCollapsed || !folded.workspace">
         <template v-for="link in workspaceLinks" :key="link.name">
-          <SidebarLink v-if="link.show" :to="{ name: link.name }" :label="link.label" :icon="link.icon" :shortcut="link.shortcut" :exact="link.exact" :collapsed="isCollapsed" />
+          <SidebarLink
+            v-if="link.show"
+            :to="link.to"
+            :label="link.label"
+            :icon="link.icon"
+            :shortcut="link.shortcut"
+            :exact="link.exact"
+            :collapsed="isCollapsed"
+            :locked="link.locked"
+          />
         </template>
       </template>
 
@@ -168,10 +204,11 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
           <template v-if="!isCollapsed && activeProjectId === project.id">
             <SidebarLink
               v-for="item in navigationFor(project.id)"
-              :key="item.name"
-              :to="{ name: item.name, params: { projectId: project.id } }"
+              :key="`${item.label}-${item.name}`"
+              :to="item.to ?? { name: item.name, params: { projectId: project.id } }"
               :label="item.label"
               :icon="item.icon"
+              :locked="item.locked"
               nested
             />
           </template>

@@ -13,6 +13,7 @@ import { useDashboardData } from '../composables/useDashboardData'
 import { bucketOf } from '../my-work'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import DailyBriefingCard from './DailyBriefingCard.vue'
+import HomeDayLoop from './HomeDayLoop.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
 import HomeTodayPanel from './HomeTodayPanel.vue'
 import PlanUnlocksCard from './PlanUnlocksCard.vue'
@@ -66,6 +67,7 @@ async function complete(issue: Issue) {
   <div class="w-full space-y-4 p-3 pb-2 sm:space-y-5">
     <div class="flex flex-col gap-2 px-1 sm:flex-row sm:items-start sm:justify-between">
       <div>
+        <p class="text-[11px] font-medium text-muted-foreground">Your workday</p>
         <p class="text-lg font-semibold">Hi {{ auth.user?.name.split(' ')[0] }}</p>
         <p class="text-sm" :class="data?.stats.overdue ? 'text-destructive' : 'text-muted-foreground'">{{ summary }}</p>
       </div>
@@ -77,6 +79,7 @@ async function complete(issue: Issue) {
 
     <QuickCapture stacked />
 
+    <HomeDayLoop v-if="data" :data="data" />
     <HomeTodayPanel v-if="data" :data="data" />
     <HomeFocusCards v-if="data" :data="data" />
     <DailyBriefingCard />

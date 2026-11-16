@@ -67,7 +67,7 @@ const taskHint = (issue: Issue) => {
     <header class="flex h-12 items-center gap-2 border-b border-border px-4">
       <CalendarDays class="size-4 text-primary" />
       <h2 class="text-sm font-semibold">Today</h2>
-      <span class="text-xs text-muted-foreground">{{ format(new Date(), 'EEEE d MMM') }}</span>
+      <span class="text-xs text-muted-foreground">Morning view · {{ format(new Date(), 'EEEE d MMM') }}</span>
       <Button variant="ghost" size="sm" class="ml-auto text-muted-foreground" as-child>
         <RouterLink :to="{ name: 'calendar' }">Calendar <ArrowRight /></RouterLink>
       </Button>
@@ -95,15 +95,16 @@ const taskHint = (issue: Issue) => {
       >
         <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><ClipboardList class="size-4" /></span>
         <div class="min-w-0 flex-1">
-          <p class="text-[13px] font-semibold">Post today’s standup</p>
+          <p class="text-[13px] font-semibold">Start your workday — post standup</p>
           <p class="truncate text-[12px] text-muted-foreground">
             {{ standup.map((item) => item.projectName).slice(0, 3).join(', ') }}
             <template v-if="standup.length > 3"> +{{ standup.length - 3 }}</template>
+            · then clear tasks
           </p>
         </div>
         <Button size="sm" class="shrink-0 self-start sm:self-center" as-child>
           <RouterLink :to="{ name: 'project-standup', params: { projectId: standup[0]!.projectId }, query: { date: standup[0]!.date } }">
-            Write standup
+            Start my day
           </RouterLink>
         </Button>
       </div>

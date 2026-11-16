@@ -19,7 +19,7 @@ const fillHeight = computed(() => route.matched.some((record) => record.meta.fil
     <AppSidebar v-show="!bare" @show-shortcuts="$emit('showShortcuts')" />
     <div
       class="flex min-w-0 flex-1 flex-col overflow-hidden bg-background"
-      :class="!bare && 'my-1.5 mr-1.5 rounded-xl shadow-panel sm:my-2 sm:mr-2'"
+      :class="!bare && 'mt-1.5 mr-1.5 mb-0 rounded-tl-xl rounded-tr-xl shadow-panel sm:mt-2 sm:mr-2'"
     >
       <DesktopTopbar v-show="!bare" />
       <main

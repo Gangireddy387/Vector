@@ -70,8 +70,18 @@ onMounted(() => {
 async function save() {
   isSaving.value = true
   try {
+    const wasNew = !props.update
     await standupApi.save(props.projectId, { date: props.date, ...form.value })
-    toast.success(props.update ? 'Standup updated' : 'Standup posted', { description: 'Tasks you mentioned now show it on their Follow-ups tab.' })
+    toast.success(wasNew ? 'Standup posted' : 'Standup updated', {
+      description: wasNew ? 'Next in your workday: clear today’s tasks.' : 'Tasks you mentioned show on their Follow-ups tab.',
+      duration: wasNew ? 10_000 : 4_000,
+      action: wasNew
+        ? {
+            label: 'My tasks',
+            onClick: () => void router.push({ name: 'issues', query: { assigneeId: 'me', sort: 'dueDate' } }),
+          }
+        : undefined,
+    })
     draftNote.value = ''
     emit('saved')
   } catch (error) {
@@ -104,8 +114,8 @@ const FIELDS = computed(() => [
     <header class="flex flex-wrap items-center gap-3 border-b px-4 py-3">
       <UserAvatar :user="auth.user" size="md" />
       <div class="min-w-0 flex-1">
-        <h2 class="text-sm font-semibold">{{ update ? 'Your update' : 'Post your update' }}</h2>
-        <p class="text-xs text-muted-foreground">Mention task keys like VEC-12 and the update is recorded on those tasks.</p>
+        <h2 class="text-sm font-semibold">{{ update ? 'Your update' : 'Start your workday' }}</h2>
+        <p class="text-xs text-muted-foreground">Post standup, then clear tasks. Mention keys like VEC-12 to link Follow-ups.</p>
       </div>
       <Button variant="outline" size="sm" :loading="isDrafting" @click="draftFromActivity"><Sparkles /> Draft from my activity</Button>
     </header>

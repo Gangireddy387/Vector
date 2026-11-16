@@ -2,6 +2,7 @@
 import { Check, Gem, Lock, Sparkles } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import CollabGuide from '@/components/common/CollabGuide.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { Button } from '@/components/ui/button'
 import { featureLabel, PLAN_FEATURES, type PlanFeatureKey } from '@/lib/plan-features'
@@ -59,6 +60,17 @@ const unlocks = computed(() =>
         </Button>
       </div>
     </EmptyState>
+
+    <section class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+      <header class="flex h-11 items-center gap-2 border-b border-border px-4">
+        <Gem class="size-4 text-primary" />
+        <h2 class="text-sm font-semibold">How collaboration fits</h2>
+        <span class="text-xs text-muted-foreground">Workday loop</span>
+      </header>
+      <div class="p-1">
+        <CollabGuide />
+      </div>
+    </section>
 
     <section class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
       <header class="flex h-11 items-center gap-2 border-b border-border px-4">

@@ -35,6 +35,7 @@ import { useDashboardData } from '../composables/useDashboardData'
 import { useTodayAgenda } from '../composables/useTodayAgenda'
 import { groupMyWork } from '../my-work'
 import DailyBriefingCard from './DailyBriefingCard.vue'
+import HomeDayLoop from './HomeDayLoop.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
 import HomeTodayPanel from './HomeTodayPanel.vue'
 import PlanUnlocksCard from './PlanUnlocksCard.vue'
@@ -124,7 +125,7 @@ const daysLeft = (endDate: string | null) => {
     <!-- Greeting, the day in one sentence, and the things people start most -->
     <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div class="min-w-0">
-        <p class="text-xs font-medium text-muted-foreground">{{ today }}</p>
+        <p class="text-xs font-medium text-muted-foreground">{{ today }} · Your workday</p>
         <h1 class="mt-0.5 text-[22px] font-semibold tracking-tight">{{ greeting }}, {{ auth.user?.name.split(' ')[0] }}</h1>
         <p v-if="summary" class="mt-1 text-[13.5px] text-muted-foreground">{{ summary }}</p>
       </div>
@@ -139,6 +140,7 @@ const daysLeft = (endDate: string | null) => {
 
     <QuickCapture />
 
+    <HomeDayLoop v-if="data" :data="data" />
     <HomeTodayPanel v-if="data" :data="data" />
     <HomeFocusCards v-if="data" :data="data" />
     <DailyBriefingCard />

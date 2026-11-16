@@ -220,6 +220,9 @@ const discussedTasks = computed(() => {
           >
             <div class="flex flex-wrap justify-center gap-2">
               <Button variant="outline" size="sm" @click="useCommand({ name: 'help', usage: '/help', description: '' })"><Bot /> What can the assistant do?</Button>
+              <Button variant="outline" size="sm" as-child>
+                <RouterLink :to="{ name: 'project-standup', params: { projectId } }"><ClipboardList /> Today’s standup</RouterLink>
+              </Button>
               <Button
                 v-if="auth.hasFeature('directMessages') || auth.hasFeature('teamChat')"
                 variant="ghost"

@@ -29,7 +29,7 @@ import {
   X,
 } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
@@ -375,7 +375,7 @@ async function leaveChannel(conversation: ConversationSummary) {
         </header>
 
         <p class="shrink-0 px-4 pb-2 text-[11.5px] leading-snug text-muted-foreground">
-          People and teams — not project task talk. That lives in each project’s <span class="font-medium text-foreground/80">Work chat</span>.
+          Last step in your workday loop — people and teams. Project talk stays in <span class="font-medium text-foreground/80">Work chat</span>.
         </p>
         <div class="shrink-0 px-3 pb-2"><PushPrompt context="messages" /></div>
 
@@ -416,8 +416,15 @@ async function leaveChannel(conversation: ConversationSummary) {
             <div v-if="!directChats.length" class="flex flex-col items-center gap-3 px-6 py-12 text-center">
               <span class="flex size-12 items-center justify-center bg-primary/10 text-primary"><MessagesSquare class="size-6" /></span>
               <p class="text-sm font-medium">{{ search ? `No chats match “${search}”` : 'No chats yet' }}</p>
-              <p class="max-w-[16rem] text-xs text-muted-foreground">Private one-to-one chats. For tasks and standups, open a project’s Work chat instead.</p>
-              <Button v-if="!search" variant="brand" size="sm" @click="openPicker"><MessageCirclePlus /> New chat</Button>
+              <p class="max-w-[16rem] text-xs text-muted-foreground">
+                Private one-to-one chats — last step in your workday loop. Task talk and standups live in each project’s Work chat.
+              </p>
+              <div class="flex flex-wrap justify-center gap-2">
+                <Button v-if="!search" variant="brand" size="sm" @click="openPicker"><MessageCirclePlus /> New chat</Button>
+                <Button v-if="!search" variant="outline" size="sm" as-child>
+                  <RouterLink :to="{ name: 'home' }">Workday loop</RouterLink>
+                </Button>
+              </div>
             </div>
             <button
               v-for="conversation in directChats"

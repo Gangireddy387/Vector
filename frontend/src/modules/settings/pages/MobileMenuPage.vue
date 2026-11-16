@@ -20,13 +20,21 @@ const LINKS = computed(() => [
   { to: { name: 'search' }, label: 'Search', icon: Search },
   { to: { name: 'settings' }, label: 'Settings', icon: Settings },
   { to: { name: 'departments' }, label: 'Departments', icon: Building2 },
-  ...(auth.hasFeature('calendar') ? [{ to: { name: 'calendar' }, label: 'Calendar', icon: CalendarDays }] : []),
+  {
+    to: auth.hasFeature('calendar') ? { name: 'calendar' } : { name: 'feature-locked', query: { feature: 'calendar' } },
+    label: auth.hasFeature('calendar') ? 'Calendar' : 'Calendar (Pro)',
+    icon: CalendarDays,
+  },
   ...(auth.hasFeature('chat') && projects.joinedProjects.some((project) => project.myRole === 'admin' || project.leadId === auth.user?.id)
     ? [{ to: { name: 'standup-rollup' }, label: 'Standup rollup', icon: ClipboardList }]
     : []),
   // Messages lives on the tab bar when available; keep Projects easy to reach from More.
   { to: { name: 'projects' }, label: 'Projects', icon: FolderKanban },
-  ...(auth.hasFeature('meetings') ? [{ to: { name: 'meetings' }, label: 'Meetings', icon: Video }] : []),
+  {
+    to: auth.hasFeature('meetings') ? { name: 'meetings' } : { name: 'feature-locked', query: { feature: 'meetings' } },
+    label: auth.hasFeature('meetings') ? 'Meetings' : 'Meetings (Pro)',
+    icon: Video,
+  },
   ...(auth.isOrganizationAdmin ? [{ to: { name: 'workspace-admin' }, label: 'Organization settings', icon: ShieldCheck }] : []),
   ...(auth.isSuperAdmin ? [{ to: { name: 'super-admin' }, label: 'Super admin', icon: Crown }] : []),
 ])
