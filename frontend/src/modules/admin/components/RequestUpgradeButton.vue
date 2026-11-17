@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Check, Gem, LoaderCircle } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { Check, CreditCard, Gem, LoaderCircle } from 'lucide-vue-next'
+import { computed, onMounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { getErrorMessage } from '@/lib/http'
@@ -25,19 +25,42 @@ const emit = defineEmits<{ requested: [UpgradeRequest]; update: [] }>()
 const auth = useAuthStore()
 const isSending = ref(false)
 const localPending = ref<UpgradeRequest | null>(null)
+const checkoutEnabled = ref(false)
 const pending = computed(() => localPending.value ?? props.pending ?? null)
 const isPending = computed(() => Boolean(pending.value && pending.value.target === props.target))
+const canPay = computed(() => checkoutEnabled.value && props.target === 'pro')
 
 const buttonLabel = computed(() => {
   if (props.label) return props.label
+  if (canPay.value) return 'Upgrade with card'
   if (props.target === 'seats') return 'Request more people'
   if (props.target === 'projects') return 'Request more projects'
   return 'Request Pro'
 })
 
+onMounted(async () => {
+  if (props.target !== 'pro' || !auth.isOrganizationAdmin) return
+  try {
+    checkoutEnabled.value = (await workspaceApi.billingStatus()).checkoutEnabled
+  } catch {
+    checkoutEnabled.value = false
+  }
+})
+
 async function request() {
   if (!auth.isOrganizationAdmin) {
-    toast.message('Ask an organization admin', { description: 'Only admins can send a plan request to the portal.' })
+    toast.message('Ask an organization admin', { description: 'Only admins can change the plan.' })
+    return
+  }
+  if (canPay.value) {
+    isSending.value = true
+    try {
+      const { url } = await workspaceApi.startCheckout()
+      window.location.assign(url)
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+      isSending.value = false
+    }
     return
   }
   if (isPending.value) {
@@ -65,14 +88,15 @@ async function request() {
 
 <template>
   <Button
-    :variant="isPending ? 'outline' : variant"
+    :variant="isPending && !canPay ? 'outline' : variant"
     :size="size"
-    :disabled="isSending || (isPending && !auth.isOrganizationAdmin)"
+    :disabled="isSending || (isPending && !canPay && !auth.isOrganizationAdmin)"
     @click="request"
   >
     <LoaderCircle v-if="isSending" class="animate-spin" />
-    <Check v-else-if="isPending" />
+    <Check v-else-if="isPending && !canPay" />
+    <CreditCard v-else-if="canPay" />
     <Gem v-else />
-    {{ isPending ? 'Request pending' : buttonLabel }}
+    {{ isPending && !canPay ? 'Request pending' : buttonLabel }}
   </Button>
 </template>

@@ -130,6 +130,20 @@ export const useAuthStore = defineStore('auth', () => {
 
   const refreshSession = async () => applyState(await authApi.me())
 
+  /** Completes Google/Microsoft sign-in when the OAuth callback returned a session JWT. */
+  async function acceptOAuthToken(rawToken: string) {
+    useTokenKey(TOKEN_STORAGE_KEY)
+    token.value = rawToken
+    localStorage.setItem(TOKEN_STORAGE_KEY, rawToken)
+    applyState(await authApi.me())
+    if (user.value?.isSuperAdmin) {
+      localStorage.setItem(SUPER_ADMIN_TOKEN_KEY, rawToken)
+      localStorage.removeItem(TOKEN_STORAGE_KEY)
+      useTokenKey(SUPER_ADMIN_TOKEN_KEY)
+    }
+    connectRealtime()
+  }
+
   /** Returns an MFA challenge when two-factor is on; otherwise applies the session. */
   async function login(payload: { email: string; password: string }): Promise<LoginResult> {
     const result = await authApi.login(payload)
@@ -246,6 +260,7 @@ export const useAuthStore = defineStore('auth', () => {
     hasFeature,
     restoreSession,
     refreshSession,
+    acceptOAuthToken,
     login,
     verifyMfaLogin,
     register,

@@ -2,6 +2,7 @@
 import { BarChart3, Building2, CalendarDays, Check, ChevronRight, ClipboardList, Crown, Download, FolderKanban, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck, Video } from 'lucide-vue-next'
 import { computed } from 'vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
+import { useDevice } from '@/composables/useDevice'
 import { usePwaInstall } from '@/composables/usePwaInstall'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
@@ -9,6 +10,15 @@ import { useProjectsStore } from '@/modules/projects/projects.store'
 const auth = useAuthStore()
 const projects = useProjectsStore()
 const { canInstall, install } = usePwaInstall()
+const { isStandalone } = useDevice()
+const showAppleInstallHint = computed(
+  () =>
+    !isStandalone &&
+    !canInstall.value &&
+    typeof navigator !== 'undefined' &&
+    /iPhone|iPad|iPod/.test(navigator.userAgent) &&
+    /Safari/.test(navigator.userAgent),
+)
 
 async function signOut() {
   await auth.logout()
@@ -69,6 +79,9 @@ const itemClass =
         <Download class="size-5 text-muted-foreground" />
         <span class="flex-1">Install app</span>
       </button>
+      <p v-else-if="showAppleInstallHint" class="border-t border-border/60 px-4 py-3 text-xs text-muted-foreground">
+        Install Vector: Share → <span class="font-medium text-foreground">Add to Home Screen</span>
+      </p>
     </nav>
 
     <section class="space-y-2">

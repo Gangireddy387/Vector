@@ -75,6 +75,10 @@ const ADDED_COLUMNS = [
   { table: 'chat_messages', column: 'parent_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'automation_rules', column: 'recent_runs', definition: { type: DataTypes.JSON, allowNull: false, defaultValue: [] } },
   { table: 'organizations', column: 'require_mfa', definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false } },
+  { table: 'organizations', column: 'stripe_customer_id', definition: { type: DataTypes.STRING(80), allowNull: true } },
+  { table: 'organizations', column: 'stripe_subscription_id', definition: { type: DataTypes.STRING(80), allowNull: true } },
+  { table: 'users', column: 'google_subject', definition: { type: DataTypes.STRING(120), allowNull: true } },
+  { table: 'users', column: 'microsoft_subject', definition: { type: DataTypes.STRING(120), allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

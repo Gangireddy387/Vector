@@ -13,6 +13,8 @@ export const TOKEN_TYPES = Object.freeze({
   recording: 'recording',
   file: 'file',
   oauth: 'oauth',
+  /** Short-lived: Google/Microsoft login in flight (provider + optional redirect). */
+  loginOAuth: 'login_oauth',
   /** Short-lived: password was accepted; a TOTP or recovery code is still required. */
   mfa: 'mfa',
 });
@@ -47,6 +49,12 @@ export const signFileToken = (fileId) => jwt.sign({ typ: TOKEN_TYPES.file, fid: 
 
 /** Carries who started connecting a calendar through the provider's sign-in page and back (10 minutes). */
 export const signOAuthState = ({ userId, provider }) => jwt.sign({ typ: TOKEN_TYPES.oauth, sub: userId, provider }, config.jwt.secret, { expiresIn: '10m' });
+
+/** Carries which provider started a sign-in (and where to return) through the OAuth round-trip. */
+export const signLoginOAuthState = ({ provider, redirect = '/' }) =>
+  jwt.sign({ typ: TOKEN_TYPES.loginOAuth, provider, redirect }, config.jwt.secret, { expiresIn: '10m' });
+
+export const isLoginOAuthState = (payload) => payload?.typ === TOKEN_TYPES.loginOAuth;
 
 /** One-time tokens (invites, password resets): the raw value is emailed, only the hash is stored. */
 export const createOneTimeToken = () => {

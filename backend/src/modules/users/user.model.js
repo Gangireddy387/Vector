@@ -32,6 +32,9 @@ User.init(
     name: { type: DataTypes.STRING(120), allowNull: false },
     email: { type: DataTypes.STRING(190), allowNull: false, unique: true, validate: { isEmail: true } },
     passwordHash: { type: DataTypes.STRING, allowNull: true },
+    /** Google / Microsoft account subjects for “Continue with …” sign-in. */
+    googleSubject: { type: DataTypes.STRING(120), allowNull: true, unique: true },
+    microsoftSubject: { type: DataTypes.STRING(120), allowNull: true, unique: true },
     /** Signed in with a temporary password (one-click invitation): must choose their own before working. */
     mustChangePassword: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     status: { type: DataTypes.ENUM('active', 'invited', 'disabled'), allowNull: false, defaultValue: 'active' },

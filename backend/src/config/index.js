@@ -137,6 +137,15 @@ export const config = {
     password: process.env.SUPER_ADMIN_PASSWORD ?? '',
     name: process.env.SUPER_ADMIN_NAME?.trim() || 'Super Admin',
   },
+  /**
+   * Stripe Checkout for Pro. Without keys, admins can still request an upgrade for the portal owner to fulfill.
+   * Webhook: <PUBLIC_API_URL>/api/billing/stripe/webhook
+   */
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || '',
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    pricePro: process.env.STRIPE_PRICE_PRO || '',
+  },
 };
 
 export const isProduction = config.env === 'production';

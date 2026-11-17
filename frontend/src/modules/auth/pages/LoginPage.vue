@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ArrowRight } from 'lucide-vue-next'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import FormField from '@/components/common/FormField.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getErrorMessage, isSuperAdminPath } from '@/lib/http'
-import { isMfaChallenge, organizationsApi } from '../auth.api'
+import { authApi, isMfaChallenge, organizationsApi } from '../auth.api'
 import { useAuthStore } from '../auth.store'
 import AuthHeading from '../components/AuthHeading.vue'
 import PasswordInput from '../components/PasswordInput.vue'
@@ -22,6 +22,8 @@ const useRecovery = ref(false)
 const fieldErrors = ref<Record<string, string>>({})
 const errorMessage = ref('')
 const isSubmitting = ref(false)
+const oauthBusy = ref<'google' | 'microsoft' | null>(null)
+const oauthProviders = ref({ google: false, microsoft: false })
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/
 const mfaStep = computed(() => Boolean(mfaToken.value))
@@ -114,6 +116,50 @@ function backToPassword() {
   errorMessage.value = ''
 }
 
+async function continueWith(provider: 'google' | 'microsoft') {
+  oauthBusy.value = provider
+  errorMessage.value = ''
+  try {
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    const { url } = await authApi.startOAuth(provider, redirect)
+    window.location.assign(url)
+  } catch (error) {
+    errorMessage.value = getErrorMessage(error)
+    oauthBusy.value = null
+  }
+}
+
+onMounted(async () => {
+  const oauthError = typeof route.query.oauthError === 'string' ? route.query.oauthError : null
+  const oauthToken = typeof route.query.oauthToken === 'string' ? route.query.oauthToken : null
+  const incomingMfa = typeof route.query.mfaToken === 'string' ? route.query.mfaToken : null
+  if (oauthError) {
+    errorMessage.value = oauthError
+    void router.replace({ query: { ...route.query, oauthError: undefined } })
+  }
+  if (incomingMfa) {
+    mfaToken.value = incomingMfa
+    void router.replace({ query: { ...route.query, mfaToken: undefined } })
+  }
+  if (oauthToken) {
+    isSubmitting.value = true
+    try {
+      await auth.acceptOAuthToken(oauthToken)
+      await finishSignIn()
+    } catch (error) {
+      errorMessage.value = getErrorMessage(error)
+    } finally {
+      isSubmitting.value = false
+      void router.replace({ query: { ...route.query, oauthToken: undefined } })
+    }
+  }
+  try {
+    oauthProviders.value = await authApi.oauthProviders()
+  } catch {
+    oauthProviders.value = { google: false, microsoft: false }
+  }
+})
+
 /** Arriving from an organization link (example.com/acme/...): say which organization this sign-in opens. */
 const targetOrganization = ref<string | null>(null)
 const redirectTarget = typeof route.query.redirect === 'string' ? router.resolve(route.query.redirect) : null
@@ -139,6 +185,34 @@ if (redirectSlug) {
           : 'Welcome back — pick up right where your team left off.'
     "
   />
+
+  <div v-if="!mfaStep && (oauthProviders.google || oauthProviders.microsoft)" class="mb-4 space-y-2 short:mb-3">
+    <Button
+      v-if="oauthProviders.google"
+      type="button"
+      variant="outline"
+      class="w-full"
+      size="lg"
+      :loading="oauthBusy === 'google'"
+      :disabled="Boolean(oauthBusy)"
+      @click="continueWith('google')"
+    >
+      Continue with Google
+    </Button>
+    <Button
+      v-if="oauthProviders.microsoft"
+      type="button"
+      variant="outline"
+      class="w-full"
+      size="lg"
+      :loading="oauthBusy === 'microsoft'"
+      :disabled="Boolean(oauthBusy)"
+      @click="continueWith('microsoft')"
+    >
+      Continue with Microsoft
+    </Button>
+    <p class="text-center text-xs text-muted-foreground">or use email</p>
+  </div>
 
   <form class="space-y-4 short:space-y-3" novalidate @submit.prevent="submit">
     <template v-if="!mfaStep">

@@ -103,6 +103,8 @@ export const workspaceApi = {
     Object.assign(document.createElement('a'), { href: url, download: 'vector-audit-log.csv' }).click()
     URL.revokeObjectURL(url)
   },
+  billingStatus: () => http.get<{ checkoutEnabled: boolean }>('/billing/status').then((r) => r.data),
+  startCheckout: () => http.post<{ url: string }>('/billing/checkout').then((r) => r.data),
 }
 
 export interface WorkspaceAuditEntry {

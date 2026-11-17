@@ -4,6 +4,8 @@ import activityRoutes from './modules/activity/activity.routes.js';
 import aiRoutes from './modules/ai/ai.routes.js';
 import attachmentRoutes from './modules/attachments/attachment.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
+import { publicAuthOAuthRoutes } from './modules/auth/auth-oauth.routes.js';
+import { billingRoutes } from './modules/billing/billing.routes.js';
 import automationRoutes from './modules/automations/automation.routes.js';
 import calendarRoutes from './modules/calendar/calendar.routes.js';
 import chatRoutes from './modules/chat/chat.routes.js';
@@ -45,6 +47,7 @@ export function createApiRouter() {
   const router = Router();
 
   router.use('/auth', authRoutes);
+  router.use(publicAuthOAuthRoutes);
   router.use(publicWorkspaceRoutes);
   router.use(publicAvatarRoutes);
   router.use(publicRingtoneRoutes);
@@ -62,6 +65,7 @@ export function createApiRouter() {
   router.use(ringtoneRoutes);
   router.use(calendarSyncRoutes);
   router.use(pushRoutes);
+  router.use(billingRoutes);
   router.use(organizationRoutes);
   router.use(organizationAdminRoutes);
   router.use(superAdminRoutes);

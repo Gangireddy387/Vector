@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Copy, KeyRound, Trash2 } from 'lucide-vue-next'
 import { onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
 import { Button } from '@/components/ui/button'
@@ -79,7 +80,8 @@ async function revoke(token: ApiTokenInfo) {
       <CardDescription>
         Personal Bearer tokens for scripts and integrations. Use
         <code class="rounded bg-muted px-1 py-0.5 text-[11px]">Authorization: Bearer vtk_…</code>
-        and the same organization header as the app.
+        and the same organization header as the app. Quickstart:
+        <RouterLink :to="{ name: 'developers' }" class="font-medium text-primary hover:underline">Developers</RouterLink>.
       </CardDescription>
     </CardHeader>
     <CardContent class="space-y-3">

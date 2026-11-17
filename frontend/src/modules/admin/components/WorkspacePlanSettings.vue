@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Check, FolderKanban, Gem, Minus, Sunrise, Users } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -14,6 +15,7 @@ import RequestUpgradeButton from './RequestUpgradeButton.vue'
 /** The organization's plan as the super admin set it: limits with current usage, and included features. */
 const auth = useAuthStore()
 const route = useRoute()
+const router = useRouter()
 const overview = ref<Awaited<ReturnType<typeof workspaceApi.plan>> | null>(null)
 const nudgeStats = ref<Awaited<ReturnType<typeof workspaceApi.workdayNudgeMetrics>> | null>(null)
 const nudgeLoading = ref(true)
@@ -35,7 +37,18 @@ const load = async () => {
   nudgeStats.value = await workspaceApi.workdayNudgeMetrics().catch(() => emptyNudgeStats)
   nudgeLoading.value = false
 }
-onMounted(load)
+onMounted(async () => {
+  const billing = String(route.query.billing ?? '')
+  if (billing === 'success') {
+    toast.success('Payment received', { description: 'Pro unlocks as soon as Stripe confirms — refresh if features are still locked.' })
+    await auth.refreshSession()
+    void router.replace({ query: { ...route.query, billing: undefined } })
+  } else if (billing === 'cancel') {
+    toast.message('Checkout cancelled')
+    void router.replace({ query: { ...route.query, billing: undefined } })
+  }
+  await load()
+})
 watch(() => auth.organization?.entitlements, load, { deep: true })
 
 /** Deep-link from plan-limit toasts (?request=seats|projects|pro). */

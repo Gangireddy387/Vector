@@ -50,6 +50,11 @@ export interface ProfileChanges {
 }
 
 export const authApi = {
+  oauthProviders: () => http.get<{ google: boolean; microsoft: boolean }>('/auth/oauth/providers').then((r) => r.data),
+  startOAuth: (provider: 'google' | 'microsoft', redirect?: string) =>
+    http
+      .get<{ url: string }>(`/auth/oauth/${provider}/start`, { params: redirect ? { redirect } : undefined })
+      .then((r) => r.data),
   login: (payload: { email: string; password: string }) => http.post<LoginResult>('/auth/login', payload).then((r) => r.data),
   verifyMfaLogin: (payload: { mfaToken: string; code?: string; recoveryCode?: string }) =>
     http.post<Session>('/auth/login/mfa', payload).then((r) => r.data),

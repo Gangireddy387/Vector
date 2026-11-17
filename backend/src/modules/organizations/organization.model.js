@@ -40,6 +40,9 @@ Organization.init(
     supportClearedAt: { type: DataTypes.JSON, allowNull: true },
     /** When true, members must enable two-factor authentication to use this organization. */
     requireMfa: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    /** Stripe customer / subscription ids when the organization pays for Pro via Checkout. */
+    stripeCustomerId: { type: DataTypes.STRING(80), allowNull: true },
+    stripeSubscriptionId: { type: DataTypes.STRING(80), allowNull: true },
     createdById: { type: DataTypes.UUID, allowNull: true },
     updatedById: { type: DataTypes.UUID, allowNull: true },
   },

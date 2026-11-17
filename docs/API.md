@@ -8,12 +8,29 @@ Route files under `backend/src/modules/*/…routes.js` are the source of truth. 
 
 | Header | When |
 |---|---|
-| `Authorization: Bearer <token>` | After sign-in / register / accept-invite |
+| `Authorization: Bearer <token>` | Session JWT from sign-in / register, **or** a personal access token `vtk_…` |
 | `X-Organization-Id: <uuid>` | Optional; only honored for organizations the person actively belongs to |
 
-Public: `POST /auth/register`, `POST /auth/login`, password-reset and invite-accept routes, `GET /health`.
+Public: `POST /auth/register`, `POST /auth/login`, password-reset and invite-accept routes, `GET /auth/oauth/providers`, `GET /auth/oauth/:provider/start`, OAuth callbacks, `GET /health`.
 
 `GET /health` → `200` when the process and database are up, otherwise `503`.
+
+### Personal access tokens (`vtk_`)
+
+Create/list/revoke under `GET|POST /auth/me/tokens` and `DELETE /auth/me/tokens/:tokenId` (session auth). The plaintext secret is returned **once** on create. Use it as `Authorization: Bearer vtk_…` for scripts; org scoping is the same as the app (`X-Organization-Id`). Tokens may expire; revoke stops them immediately.
+
+Public quickstart: `/developers` in the web app.
+
+### Social sign-in
+
+`GET /auth/oauth/providers` → `{ google, microsoft }` booleans.  
+`GET /auth/oauth/:provider/start?redirect=/` → `{ url }` (browser redirect). Callback finishes at `/api/auth/oauth/:provider/callback` and returns the SPA to `/login` with `oauthToken` or `mfaToken`.
+
+### Billing (optional Stripe)
+
+`GET /billing/status` → `{ checkoutEnabled }`.  
+`POST /billing/checkout` (org admin) → `{ url }` Stripe Checkout for Pro.  
+Webhook: `POST /billing/stripe/webhook` (Stripe signature; raw body).
 
 ## Conventions
 

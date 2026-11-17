@@ -9,7 +9,7 @@ Plan.init(
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     name: { type: DataTypes.STRING(60), allowNull: false },
     description: { type: DataTypes.STRING(300), allowNull: true },
-    /** Display only, e.g. "₹999 / month"; there is no billing integration. */
+    /** Display label, e.g. "₹999 / month". Card checkout uses STRIPE_PRICE_PRO when configured. */
     priceLabel: { type: DataTypes.STRING(60), allowNull: true },
     maxMembers: { type: DataTypes.INTEGER, allowNull: true },
     maxProjects: { type: DataTypes.INTEGER, allowNull: true },

@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { config, isProduction } from './config/index.js';
 import { sequelize } from './database/models.js';
+import { mountStripeWebhook } from './modules/billing/billing.routes.js';
 import { createApiRouter } from './routes.js';
 import { runWithContext } from './shared/context/request-context.js';
 import { errorHandler, notFoundHandler } from './shared/middleware/error-handler.js';
@@ -47,6 +48,9 @@ export function createApp() {
         : ':method :safe-url :status :response-time ms',
     ),
   );
+
+  // Stripe needs the raw body for signature verification — mount before express.json.
+  mountStripeWebhook(app);
 
   app.use(express.json({ limit: '2mb' }));
 

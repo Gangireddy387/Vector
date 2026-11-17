@@ -61,6 +61,7 @@ function planHas(plan: (typeof PLANS)[number], key: PlanFeatureKey) {
       description="Free covers the core work loop. Collaboration, automation, reports and AI unlock on Pro — no surprises after sign-up."
     >
       <template #actions>
+        <Button variant="outline" as-child><RouterLink :to="{ name: 'developers' }">API</RouterLink></Button>
         <Button variant="outline" as-child><RouterLink :to="{ name: 'register' }">Create free account</RouterLink></Button>
         <Button as-child><RouterLink :to="{ name: 'login' }">Sign in</RouterLink></Button>
       </template>
