@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { format } from 'date-fns'
+import { format, isValid, parseISO } from 'date-fns'
 import { Bot, Copy, MessageSquareReply, Pencil, Quote, SmilePlus, Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -41,7 +41,10 @@ const emit = defineEmits<{
 const auth = useAuthStore()
 const isBot = computed(() => props.message.kind === 'bot')
 const issueKeys = computed(() => props.message.issues.map((issue) => issue.key))
-const time = computed(() => format(new Date(props.message.createdAt), 'HH:mm'))
+const time = computed(() => {
+  const date = parseISO(props.message.createdAt)
+  return isValid(date) ? format(date, 'HH:mm') : ''
+})
 const canReply = computed(() => !props.reply && props.message.kind === 'user' && !props.message.parentId)
 
 /** For rich assistant replies the card carries the details, so only the opening sentence is shown as text. */

@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
-import { formatDateTime } from '@/lib/format'
+import { formatDate, timeAgo } from '@/lib/format'
 import { toPlainText } from '@/lib/markdown'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import IssueDetailView from '@/modules/issues/components/detail/IssueDetailView.vue'
@@ -397,7 +397,9 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
           <UserAvatar v-if="selected.latest.actor" :user="selected.latest.actor" size="md" class="size-7" />
           <span class="min-w-0 flex-1">
             <span class="block truncate text-[13px] font-semibold">{{ selected.latest.title }}</span>
-            <span class="block truncate text-[11.5px] text-muted-foreground">{{ formatDateTime(selected.latest.createdAt) }} · reply right here</span>
+            <span class="block truncate text-[11.5px] text-muted-foreground">
+              {{ timeAgo(selected.latest.createdAt) || formatDate(selected.latest.createdAt, 'd MMM, HH:mm') }}
+            </span>
           </span>
           <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="removeEntry(selected)"><Trash2 /> Dismiss</Button>
           <Button variant="outline" size="sm" @click="openLink(selected)">Open full chat <ArrowUpRight /></Button>

@@ -7,6 +7,7 @@ import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { getErrorMessage } from '@/lib/http'
+import { toPlainText } from '@/lib/markdown'
 import { formatBytes } from '@/lib/utils'
 import { issuesApi } from '@/modules/issues/api/issues.api'
 import type { Issue, UserSummary } from '@/types/models'
@@ -207,10 +208,12 @@ function onDrop(event: DragEvent) {
 }
 
 async function setText(value: string) {
-  text.value = value
+  // Show readable @Name in the box, never raw @[Name](id) tokens.
+  text.value = toPlainText(value, 2000)
   await nextTick()
   textarea.value?.focus()
-  textarea.value?.setSelectionRange(value.length, value.length)
+  const caret = text.value.length
+  textarea.value?.setSelectionRange(caret, caret)
   autosize()
   detectTrigger()
 }
@@ -264,12 +267,12 @@ defineExpose({ setText, focus: () => textarea.value?.focus() })
 
     <div
       v-if="replyTo"
-      class="mb-2 flex items-start gap-2 border border-primary/25 bg-primary/5 px-3 py-2 text-xs"
+      class="mb-2 flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-xs"
       role="status"
     >
       <div class="min-w-0 flex-1">
         <p class="font-medium text-primary">Replying to {{ replyTo.authorName }}</p>
-        <p class="mt-0.5 truncate text-muted-foreground">{{ replyTo.snippet }}</p>
+        <p class="mt-0.5 line-clamp-2 text-muted-foreground">{{ replyTo.snippet }}</p>
       </div>
       <button type="button" class="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Cancel reply" @click="emit('cancelReply')">
         <X class="size-3.5" />

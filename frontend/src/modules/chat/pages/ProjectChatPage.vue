@@ -11,6 +11,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { useProjectRealtime } from '@/composables/useProjectRealtime'
 import { getErrorMessage } from '@/lib/http'
+import { toPlainText } from '@/lib/markdown'
 import { useSocketEvents } from '@/lib/socket-events'
 import { playSound } from '@/lib/sounds'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -46,7 +47,6 @@ const isLoadingOlder = ref(false)
 const isSending = ref(false)
 const failedSend = ref<ChatSendPayload | null>(null)
 const threadSearch = ref('')
-const quoteDraft = ref<string | null>(null)
 const replyTo = ref<ChatMessage | null>(null)
 const highlightedId = ref<string | null>(null)
 const scroller = ref<HTMLElement | null>(null)
@@ -68,10 +68,14 @@ const repliesOf = computed(() => {
 const replyToPreview = computed(() => {
   if (!replyTo.value) return null
   const author = replyTo.value.author?.name ?? (replyTo.value.kind === 'bot' ? 'Assistant' : 'Someone')
+  const snippet =
+    toPlainText(replyTo.value.body, 140) ||
+    replyTo.value.files?.[0]?.fileName ||
+    'Message'
   return {
     id: replyTo.value.id,
     authorName: author,
-    snippet: replyTo.value.body.split('\n')[0].slice(0, 160) || replyTo.value.files?.[0]?.fileName || 'Message',
+    snippet,
   }
 })
 
@@ -170,7 +174,6 @@ async function send(payload: { body: string; fileIds: string[] }) {
     const { message, reply } = await chatApi.send(projectId.value, request)
     upsert(message)
     if (reply) upsert(reply)
-    quoteDraft.value = null
     replyTo.value = null
     await scrollToBottom(true)
   } catch (error) {
@@ -192,18 +195,15 @@ function retryFailedSend() {
   void send({ body: payload.body, fileIds: payload.fileIds ?? [] })
 }
 
-function quoteMessage(message: ChatMessage) {
-  const author = message.author?.name ?? (message.kind === 'bot' ? 'Assistant' : 'Someone')
-  const snippet = message.body.split('\n')[0].slice(0, 160)
-  quoteDraft.value = `> ${author}: ${snippet}\n\n`
-  replyTo.value = null
-  composer.value?.setText(quoteDraft.value)
+/** Quote uses the same reply bar as Reply — never dumps raw markdown / mention ids into the composer. */
+async function quoteMessage(message: ChatMessage) {
+  await startReply(message)
 }
 
 async function startReply(message: ChatMessage) {
   const parent = message.parentId ? messages.value.find((item) => item.id === message.parentId) ?? message : message
   replyTo.value = parent
-  quoteDraft.value = null
+  composer.value?.setText('')
   await nextTick()
   composer.value?.focus()
 }
