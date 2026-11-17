@@ -3,6 +3,8 @@ import { useSwipe } from '@vueuse/core'
 import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Inbox } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PriorityIcon from '@/components/common/PriorityIcon.vue'
+import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -11,18 +13,49 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import type { CreateIssueInput } from '@/modules/issues/api/issues.api'
 import IssueCard from '@/modules/issues/components/IssueCard.vue'
 import QuickAddInput from '@/modules/issues/components/QuickAddInput.vue'
-import type { Issue, Status } from '@/types/models'
+import type { Issue, IssuePriority, IssueReference, IssueType, Status, UserSummary } from '@/types/models'
+import type { BoardGroupBy } from '../composables/useBoardView'
+
+export interface MobileLane {
+  key: string
+  label: string
+  user?: UserSummary | null
+  priority?: IssuePriority
+  type?: IssueType
+  epic?: IssueReference | null
+}
 
 const props = withDefaults(
-  defineProps<{ statuses: Status[]; issues: Issue[]; projectId: string; sprintId?: string | null; editable?: boolean }>(),
-  { sprintId: null, editable: true },
+  defineProps<{
+    statuses: Status[]
+    issues: Issue[]
+    projectId: string
+    sprintId?: string | null
+    editable?: boolean
+    groupBy?: BoardGroupBy
+    lanes?: MobileLane[]
+    laneOf?: (issue: Issue) => string
+  }>(),
+  { sprintId: null, editable: true, groupBy: 'none', lanes: () => [], laneOf: () => 'all' },
 )
 const emit = defineEmits<{ open: [issue: Issue]; move: [issue: Issue, status: Status] }>()
 
 const selectedIndex = ref(0)
+const selectedLaneKey = ref<string | null>(null)
 const pane = ref<HTMLElement | null>(null)
+
+const grouped = computed(() => props.groupBy !== 'none' && props.lanes.length > 0)
+const activeLanes = computed(() => {
+  if (!grouped.value) return []
+  // Priority keeps empty lanes as drop targets on desktop; on mobile only show lanes with cards in this column (or all if empty column).
+  const inColumn = props.issues.filter((issue) => issue.statusId === selectedStatus.value?.id)
+  const present = new Set(inColumn.map((issue) => props.laneOf(issue)))
+  if (props.groupBy === 'priority') return props.lanes
+  return props.lanes.filter((lane) => present.has(lane.key) || lane.key === selectedLaneKey.value)
+})
 
 watch(
   () => props.statuses,
@@ -35,14 +68,51 @@ watch(
   },
 )
 
+watch(
+  [() => props.groupBy, activeLanes],
+  () => {
+    if (!grouped.value) {
+      selectedLaneKey.value = null
+      return
+    }
+    if (!selectedLaneKey.value || !activeLanes.value.some((lane) => lane.key === selectedLaneKey.value)) {
+      selectedLaneKey.value = activeLanes.value[0]?.key ?? props.lanes[0]?.key ?? null
+    }
+  },
+  { immediate: true },
+)
+
 const selectedStatus = computed(() => props.statuses[selectedIndex.value] ?? null)
-const visible = computed(() =>
+const selectedLane = computed(() => activeLanes.value.find((lane) => lane.key === selectedLaneKey.value) ?? null)
+
+const columnIssues = computed(() =>
   selectedStatus.value ? props.issues.filter((issue) => issue.statusId === selectedStatus.value!.id) : [],
 )
+
+const visible = computed(() => {
+  if (!grouped.value || !selectedLaneKey.value) return columnIssues.value
+  return columnIssues.value.filter((issue) => props.laneOf(issue) === selectedLaneKey.value)
+})
+
 const nextColumn = computed(() => props.statuses[selectedIndex.value + 1] ?? null)
 const canPrev = computed(() => selectedIndex.value > 0)
 const canNext = computed(() => selectedIndex.value < props.statuses.length - 1)
 const countFor = (statusId: string) => props.issues.filter((issue) => issue.statusId === statusId).length
+const laneCount = (laneKey: string) => columnIssues.value.filter((issue) => props.laneOf(issue) === laneKey).length
+
+const addDefaults = computed<Partial<CreateIssueInput>>(() => {
+  const defaults: Partial<CreateIssueInput> = {
+    statusId: selectedStatus.value?.id,
+    sprintId: props.sprintId ?? null,
+  }
+  const lane = selectedLane.value
+  if (!lane || !grouped.value) return defaults
+  if (props.groupBy === 'assignee') defaults.assigneeId = lane.user?.id ?? null
+  if (props.groupBy === 'priority' && lane.priority) defaults.priority = lane.priority
+  if (props.groupBy === 'type' && lane.type) defaults.type = lane.type
+  if (props.groupBy === 'epic' && lane.epic) defaults.parentId = lane.epic.id
+  return defaults
+})
 
 function goPrev() {
   if (canPrev.value) selectedIndex.value -= 1
@@ -143,6 +213,29 @@ useSwipe(pane, {
           @click="goTo(index)"
         />
       </div>
+
+      <!-- Swimlane / group-by picker (same Display menu setting as desktop) -->
+      <div v-if="grouped && activeLanes.length" class="mt-2 flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-thin">
+        <button
+          v-for="lane in activeLanes"
+          :key="lane.key"
+          type="button"
+          class="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors"
+          :class="
+            selectedLaneKey === lane.key
+              ? 'border-primary/40 bg-primary/10 text-foreground'
+              : 'border-border text-muted-foreground hover:border-input hover:text-foreground'
+          "
+          :aria-pressed="selectedLaneKey === lane.key"
+          @click="selectedLaneKey = lane.key"
+        >
+          <UserAvatar v-if="groupBy === 'assignee'" :user="lane.user ?? null" size="xs" />
+          <PriorityIcon v-else-if="groupBy === 'priority' && lane.priority" :priority="lane.priority" class="size-3.5" />
+          <span v-else-if="groupBy === 'epic'" class="size-2 rounded-sm" :class="lane.epic ? 'bg-violet-500' : 'bg-muted-foreground/40'" />
+          <span class="max-w-28 truncate">{{ lane.label || 'Lane' }}</span>
+          <span class="tabular-nums text-muted-foreground">{{ laneCount(lane.key) }}</span>
+        </button>
+      </div>
     </div>
 
     <div class="px-3 py-3">
@@ -150,8 +243,12 @@ useSwipe(pane, {
         <QuickAddInput
           v-if="editable && selectedStatus"
           :project-id="projectId"
-          :defaults="{ statusId: selectedStatus.id, sprintId }"
-          :placeholder="`Add to ${selectedStatus.name}…`"
+          :defaults="addDefaults"
+          :placeholder="
+            grouped && selectedLane
+              ? `Add to ${selectedStatus.name} · ${selectedLane.label}…`
+              : `Add to ${selectedStatus.name}…`
+          "
         />
       </div>
 
@@ -159,7 +256,7 @@ useSwipe(pane, {
         v-if="!visible.length"
         :icon="Inbox"
         title="Nothing here"
-        description="Tasks in this status will show up here."
+        :description="grouped ? 'No tasks in this group for this status.' : 'Tasks in this status will show up here.'"
         class="py-12"
       />
 

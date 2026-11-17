@@ -21,7 +21,7 @@ const tileColor = (seed) => TILE_COLORS[[...String(seed)].reduce((total, char) =
 const PROJECT_ROLE_DETAILS = {
   admin: { label: 'Admin', description: 'Manage the project, its people and settings' },
   member: { label: 'Member', description: 'Create, update and comment on work' },
-  viewer: { label: 'Viewer', description: 'See all of the project’s work' },
+  viewer: { label: 'Viewer', description: 'See work and leave comments' },
 };
 const ORGANIZATION_ROLE_DETAILS = {
   admin: { label: 'Admin', description: 'Manage the organization, its people and settings' },

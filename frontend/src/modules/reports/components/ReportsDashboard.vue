@@ -66,6 +66,8 @@ const filters = computed<ReportFilters>({
     if (next.assigneeId) query.assignee = next.assigneeId
     if (next.type) query.type = next.type
     if (next.priority) query.priority = next.priority
+    const sprintId = queryText('sprintId')
+    if (sprintId) query.sprintId = sprintId
     void router.replace({ query })
   },
 })
@@ -340,7 +342,7 @@ async function setWeeklyEmail(value: boolean) {
       <!-- Sprint reports for a single scrum project -->
       <template v-if="singleProject?.type === 'scrum'">
         <h2 class="pt-2 text-sm font-medium text-muted-foreground">Sprints · {{ singleProject.name }}</h2>
-        <SprintReports :project-id="singleProject.id" />
+        <SprintReports :project-id="singleProject.id" :initial-sprint-id="queryText('sprintId')" />
       </template>
     </div>
   </div>

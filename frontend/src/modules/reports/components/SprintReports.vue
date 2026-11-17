@@ -10,20 +10,26 @@ import { sprintsApi } from '@/modules/sprints/sprints.api'
 import type { Sprint } from '@/types/models'
 import { type BurndownReport, reportsApi, type VelocityReport } from '../reports.api'
 
-const props = defineProps<{ projectId: string }>()
+const props = defineProps<{ projectId: string; initialSprintId?: string | null }>()
 
 const sprints = ref<Sprint[]>([])
 const velocity = ref<VelocityReport | null>(null)
 const burndown = ref<BurndownReport | null>(null)
 const selectedSprintId = ref('')
 
+function pickSprintId(list: Sprint[]) {
+  const preferred = props.initialSprintId
+  if (preferred && list.some((sprint) => sprint.id === preferred)) return preferred
+  return list.find((sprint) => sprint.state === 'active')?.id ?? list[0]?.id ?? ''
+}
+
 watch(
-  () => props.projectId,
-  async (projectId) => {
+  () => [props.projectId, props.initialSprintId] as const,
+  async ([projectId]) => {
     const [sprintList, velocityReport] = await Promise.all([sprintsApi.list(projectId), reportsApi.velocity(projectId)])
     sprints.value = sprintList.filter((sprint) => sprint.state !== 'planned')
     velocity.value = velocityReport
-    selectedSprintId.value = sprints.value.find((sprint) => sprint.state === 'active')?.id ?? sprints.value[0]?.id ?? ''
+    selectedSprintId.value = pickSprintId(sprints.value)
   },
   { immediate: true },
 )

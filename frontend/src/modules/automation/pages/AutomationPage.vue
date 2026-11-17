@@ -42,6 +42,11 @@ const projectId = computed(() => route.params.projectId as string)
 const project = computed(() => projects.details[projectId.value])
 const isAdmin = computed(() => projects.isAdmin(projectId.value))
 const canEdit = computed(() => projects.canEdit(projectId.value))
+const visibleRecipes = computed(() =>
+  AUTOMATION_RECIPES.filter(
+    (recipe) => auth.hasFeature('emailAutomations') || !recipe.actions.some((action) => action.type === 'send_email'),
+  ),
+)
 
 const rules = ref<AutomationRule[]>([])
 const templates = ref<IssueTemplate[]>([])
@@ -251,7 +256,7 @@ async function removeRecurring(task: RecurringTask) {
                 Run details
                 <ChevronDown class="size-3.5 transition-transform" :class="expandedRuleId === rule.id && 'rotate-180'" />
               </button>
-              <div v-if="expandedRuleId === rule.id" class="rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <div v-if="expandedRuleId === rule.id" class="space-y-2 rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                 <p>Total runs: <span class="font-medium text-foreground tabular-nums">{{ rule.runCount }}</span></p>
                 <p>
                   Last run:
@@ -263,6 +268,24 @@ async function removeRecurring(task: RecurringTask) {
                     {{ rule.lastError ? 'Last run failed' : rule.enabled ? 'Ready' : 'Paused' }}
                   </span>
                 </p>
+                <div v-if="rule.recentRuns?.length" class="border-t border-border/60 pt-2">
+                  <p class="mb-1.5 font-medium text-foreground">Recent runs</p>
+                  <ul class="max-h-40 space-y-1 overflow-y-auto">
+                    <li v-for="(run, index) in rule.recentRuns" :key="`${rule.id}-${run.at}-${index}`" class="flex flex-wrap items-baseline gap-x-2">
+                      <span :class="run.ok ? 'text-success' : 'text-destructive'">{{ run.ok ? 'OK' : 'Fail' }}</span>
+                      <span class="tabular-nums">{{ formatDateTime(run.at) }}</span>
+                      <RouterLink
+                        v-if="run.issueKey"
+                        :to="{ name: 'issue', params: { issueKey: run.issueKey } }"
+                        class="font-medium text-foreground hover:text-primary hover:underline"
+                      >
+                        {{ run.issueKey }}
+                      </RouterLink>
+                      <span v-if="!run.ok && run.error" class="basis-full text-destructive">{{ run.error }}</span>
+                    </li>
+                  </ul>
+                </div>
+                <p v-else class="border-t border-border/60 pt-2">No run history yet — it appears after the rule fires.</p>
               </div>
             </div>
             <DropdownMenu v-if="isAdmin">
@@ -289,7 +312,7 @@ async function removeRecurring(task: RecurringTask) {
           <h3 class="text-sm font-semibold">Recipes</h3>
           <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <button
-              v-for="recipe in AUTOMATION_RECIPES"
+              v-for="recipe in visibleRecipes"
               :key="recipe.id"
               type="button"
               class="surface-hover flex min-w-0 flex-col gap-2 rounded-xl border border-border/70 bg-card p-4 text-left shadow-soft disabled:pointer-events-none disabled:opacity-60"

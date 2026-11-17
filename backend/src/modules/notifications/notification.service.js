@@ -65,15 +65,18 @@ export async function notifyUsers({ userIds, actorId = null, type, title, body =
   return notifications;
 }
 
-export async function listNotifications(userId, { unreadOnly, limit }) {
+export async function listNotifications(userId, { unreadOnly, limit, offset = 0 }) {
   const where = { userId };
   if (unreadOnly) where.readAt = null;
-  return Notification.findAll({
+  const { rows, count } = await Notification.findAndCountAll({
     where,
     include: [{ model: User, as: 'actor', attributes: USER_SUMMARY_ATTRIBUTES }],
     order: [['createdAt', 'DESC']],
     limit,
+    offset,
+    distinct: true,
   });
+  return { notifications: rows, total: count };
 }
 
 export const countUnread = (userId) => Notification.count({ where: { userId, readAt: null } });

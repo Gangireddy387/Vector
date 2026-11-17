@@ -100,7 +100,12 @@ async function save() {
 
       <section class="space-y-4 rounded-xl border border-border/80 bg-card p-4 shadow-soft sm:p-5 lg:p-6">
         <h2 class="flex items-center gap-2 text-sm font-semibold"><Crown class="size-4 text-amber-500" /> Department head</h2>
-        <FormField label="Head" for="department-head" hint="Anyone in the organization. You can change it later." :error="fieldErrors.headId">
+        <FormField
+          label="Head"
+          for="department-head"
+          hint="Anyone in the organization. They can view and work on every team project in this department without a separate invite."
+          :error="fieldErrors.headId"
+        >
           <SelectField id="department-head" v-model="form.headId" :options="headOptions" searchable search-placeholder="Search people…" aria-label="Department head" />
         </FormField>
       </section>

@@ -17,7 +17,8 @@ router.use([base, '/chat/messages', '/projects/:projectId/chat/files'], requireF
 router.use(chatFileRoutes);
 
 router.get(base, requireProjectRole(), validate({ query: listMessagesQuery }), controller.list);
-router.post(base, chatLimiter, requireProjectRole(), validate({ body: messageBodySchema }), controller.create);
+/** Posting is for members+; viewers can still read the thread. */
+router.post(base, chatLimiter, requireProjectRole('member'), validate({ body: messageBodySchema }), controller.create);
 router.patch('/chat/messages/:messageId', validate({ params: chatMessageParams, body: editBodySchema }), controller.update);
 router.delete('/chat/messages/:messageId', validate({ params: chatMessageParams }), controller.remove);
 router.post('/chat/messages/:messageId/reactions', validate({ params: chatMessageParams, body: reactionSchema }), controller.react);

@@ -73,7 +73,8 @@ export async function getStandupDay(projectId, date, { days = 30 } = {}) {
   ]);
   const settings = { ...DEFAULT_PROJECT_SETTINGS, ...(project?.settings ?? {}) };
 
-  const people = memberships.filter((membership) => membership.user && membership.user.status !== 'disabled' && (membership.role !== 'viewer' || updates.some((update) => update.userId === membership.userId)));
+  // Everyone with project access can post standup, including viewers.
+  const people = memberships.filter((membership) => membership.user && membership.user.status !== 'disabled');
   const userIds = people.map((membership) => membership.userId);
   const [completed, inProgress, overdue] = userIds.length
     ? await Promise.all([

@@ -195,8 +195,11 @@ async function buildListWhere(userId, filters) {
     where.sprintId = matchIdsOrNull(ids, sprintFilter.includes('backlog'));
   }
 
-  if (filters.parentId === 'none') where.parentId = null;
-  else if (filters.parentId) where.parentId = filters.parentId;
+  const parentFilter = toList(filters.parentId);
+  if (parentFilter.length) {
+    const epicIds = parentFilter.filter((value) => value !== 'none');
+    where.parentId = matchIdsOrNull(epicIds, parentFilter.includes('none'));
+  }
 
   const labelIds = toList(filters.labelId);
   if (labelIds.length) {
@@ -536,6 +539,13 @@ export async function bulkDelete(issueIds, actor) {
 export async function setWatching(issueId, userId, watching) {
   if (watching) await addWatchers(issueId, [userId]);
   else await IssueWatcher.destroy({ where: { issueId, userId } });
+}
+
+/** Add a project member as a watcher on the issue. */
+export async function addIssueWatcher(issue, userId) {
+  const isMember = await ProjectMember.count({ where: { projectId: issue.projectId, userId } });
+  if (!isMember) throw ApiError.badRequest('Watcher must be a project member');
+  await addWatchers(issue.id, [userId]);
 }
 
 export async function createLink(issue, { targetIssue, type }, actor) {

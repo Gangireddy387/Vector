@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
 import { Button } from '@/components/ui/button'
@@ -46,10 +46,20 @@ const STRATEGIES: Array<{ value: AutoAssignStrategy; label: string; description:
   { value: 'default_assignee', label: 'Default person', description: 'Always assign to one chosen member.' },
 ]
 
-const TOGGLES: Array<{ key: 'autoCloseParent' | 'carryOverIncomplete'; label: string; description: string }> = [
-  { key: 'autoCloseParent', label: 'Close parents automatically', description: 'When every sub-task is done, the parent moves to done too.' },
-  { key: 'carryOverIncomplete', label: 'Carry over unfinished work', description: 'When a sprint ends, unfinished tasks move to the next sprint.' },
-]
+const isScrum = computed(() => props.project.type === 'scrum')
+const TOGGLES = computed(() => {
+  const items: Array<{ key: 'autoCloseParent' | 'carryOverIncomplete'; label: string; description: string }> = [
+    { key: 'autoCloseParent', label: 'Close parents automatically', description: 'When every sub-task is done, the parent moves to done too.' },
+  ]
+  if (isScrum.value) {
+    items.push({
+      key: 'carryOverIncomplete',
+      label: 'Carry over unfinished work',
+      description: 'When a sprint ends, unfinished tasks move to the next sprint.',
+    })
+  }
+  return items
+})
 
 async function save() {
   isSaving.value = true
@@ -108,7 +118,7 @@ async function save() {
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">
-          <FormField label="Default sprint length (days)" for="sprint-length">
+          <FormField v-if="isScrum" label="Default sprint length (days)" for="sprint-length">
             <NumberField id="sprint-length" v-model="sprintLengthDays" :min="1" :max="60" suffix="days" />
           </FormField>
           <FormField label="Due date reminder (hours before)" for="reminder-hours" hint="Assignees get an in-app and email reminder.">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronRight } from 'lucide-vue-next'
+import { ChevronRight, GripVertical } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { type SortableEvent, VueDraggable } from 'vue-draggable-plus'
 import { Badge } from '@/components/ui/badge'
@@ -18,7 +18,7 @@ import IssueRow from '@/modules/issues/components/IssueRow.vue'
 import QuickAddInput from '@/modules/issues/components/QuickAddInput.vue'
 import type { Issue, Sprint } from '@/types/models'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     sectionKey: string
     title: string
@@ -26,9 +26,11 @@ withDefaults(
     sprint?: Sprint | null
     moveTargets: Array<{ key: string; label: string }>
     editable?: boolean
+    /** Start collapsed (useful for completed sprints). */
+    startCollapsed?: boolean
     isSelected: (id: string) => boolean
   }>(),
-  { sprint: null, editable: true },
+  { sprint: null, editable: true, startCollapsed: false },
 )
 const issues = defineModel<Issue[]>({ required: true })
 const emit = defineEmits<{
@@ -40,7 +42,7 @@ const emit = defineEmits<{
 }>()
 
 const { isDesktop } = useDevice()
-const isCollapsed = ref(false)
+const isCollapsed = ref(props.startCollapsed)
 
 const points = computed(() => issues.value.reduce((total, issue) => total + (issue.storyPoints ?? 0), 0))
 const STATE_BADGE = { active: 'success', planned: 'secondary', completed: 'outline' } as const
@@ -74,9 +76,11 @@ const STATE_BADGE = { active: 'success', planned: 'secondary', completed: 'outli
         v-model="issues"
         group="backlog"
         :animation="150"
-        :disabled="!editable || !isDesktop"
+        :disabled="!editable"
         handle=".drag-handle"
         ghost-class="opacity-40"
+        :delay="isDesktop ? 0 : 180"
+        :delay-on-touch-only="true"
         :data-section-key="sectionKey"
         class="min-h-10"
         :class="!isDesktop && 'space-y-2 p-2'"
@@ -97,7 +101,16 @@ const STATE_BADGE = { active: 'success', planned: 'secondary', completed: 'outli
         </template>
         <template v-else>
           <div v-for="issue in issues" :key="issue.id" class="relative" :data-issue-id="issue.id">
-            <IssueCard :issue="issue" show-status @open="emit('open', issue)" />
+            <button
+              v-if="editable"
+              type="button"
+              class="drag-handle absolute top-1.5 left-1.5 z-10 rounded-md border border-border bg-card/95 p-1 text-muted-foreground shadow-soft"
+              aria-label="Drag to reorder or move"
+              @click.stop
+            >
+              <GripVertical class="size-4" />
+            </button>
+            <IssueCard :issue="issue" show-status class="pl-9" @open="emit('open', issue)" />
             <DropdownMenu v-if="editable && moveTargets.length">
               <DropdownMenuTrigger as-child>
                 <Button variant="ghost" size="xs" class="absolute top-1.5 right-1.5 bg-card/90">Move</Button>
@@ -113,7 +126,8 @@ const STATE_BADGE = { active: 'success', planned: 'secondary', completed: 'outli
         </template>
       </VueDraggable>
       <p v-if="!issues.length" class="px-4 py-3 text-center text-xs text-muted-foreground">
-        {{ isDesktop ? 'Drag tasks here or add one below.' : 'No tasks yet.' }}
+        <template v-if="!editable">No tasks remaining on this sprint.</template>
+        <template v-else>Drag tasks here or add one below.</template>
       </p>
       <div v-if="editable" class="border-t p-2">
         <QuickAddInput :project-id="projectId" :defaults="{ sprintId: sprint?.id ?? null }" placeholder="Add to this list…" />

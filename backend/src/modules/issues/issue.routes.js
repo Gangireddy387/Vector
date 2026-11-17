@@ -9,6 +9,7 @@ import {
   listIssuesQuery,
   moveIssueSchema,
   updateIssueSchema,
+  watchIssueSchema,
 } from './issue.validation.js';
 
 const router = Router();
@@ -24,8 +25,9 @@ router.patch('/issues/:issueId', validate({ body: updateIssueSchema }), controll
 router.patch('/issues/:issueId/move', validate({ body: moveIssueSchema }), controller.move);
 router.delete('/issues/:issueId', controller.remove);
 
-router.post('/issues/:issueId/watchers', controller.watch);
+router.post('/issues/:issueId/watchers', validate({ body: watchIssueSchema }), controller.watch);
 router.delete('/issues/:issueId/watchers', controller.unwatch);
+router.delete('/issues/:issueId/watchers/:userId', controller.removeWatcher);
 
 router.post('/issues/:issueId/links', validate({ body: createLinkSchema }), controller.createLink);
 router.delete('/issue-links/:linkId', controller.deleteLink);

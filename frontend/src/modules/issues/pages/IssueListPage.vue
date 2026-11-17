@@ -34,7 +34,7 @@ import { sanitizeCriteria } from '../lib/saved-filter-criteria'
 
 type LayoutMode = 'list' | 'grid'
 
-const FILTER_KEYS: FilterKey[] = ['q', 'assigneeId', 'statusCategory', 'type', 'priority', 'labelId', 'sprintId', 'overdue']
+const FILTER_KEYS: FilterKey[] = ['q', 'assigneeId', 'statusCategory', 'type', 'priority', 'labelId', 'sprintId', 'parentId', 'overdue']
 const SORT_OPTIONS: SelectFieldOption[] = [
   { value: 'updatedAt', label: 'Recently updated', icon: History },
   { value: 'createdAt', label: 'Newest first', icon: Sparkles },
@@ -43,6 +43,8 @@ const SORT_OPTIONS: SelectFieldOption[] = [
   { value: 'key', label: 'Task key', icon: Hash },
 ]
 const PAGE_SIZE = 100
+/** Soft ceiling for how far offset paging can go in one view (API max limit is 1000). */
+const MAX_LOADED = 1000
 
 const route = useRoute()
 const router = useRouter()
@@ -60,8 +62,9 @@ const project = computed(() => (projectId.value ? projects.details[projectId.val
 const issues = ref<Issue[]>([])
 const total = ref(0)
 const isLoading = ref(true)
-const limit = ref(PAGE_SIZE)
+const isLoadingMore = ref(false)
 const sprints = ref<Sprint[]>([])
+const epics = ref<Array<{ id: string; key: string; title: string }>>([])
 const collaborators = ref<UserSummary[]>([])
 const isFilterSheetOpen = ref(false)
 
@@ -80,34 +83,58 @@ const setSort = (value: string | null | undefined) => value && (sort.value = val
 const activeFilterCount = computed(() => Object.values(filters.value).filter(Boolean).length)
 
 const members = computed<UserSummary[]>(() => project.value?.members ?? collaborators.value)
-const selection = useIssueSelection(() => fetchIssues())
+const selection = useIssueSelection(() => void fetchIssues('replace'))
 
 const latest = latestRequest()
 /** Why the list did not load (shown with a retry), or null. */
 const loadError = ref<string | null>(null)
+const canLoadMore = computed(() => issues.value.length < total.value && issues.value.length < MAX_LOADED)
 
-async function fetchIssues() {
+async function fetchIssues(mode: 'replace' | 'append' = 'replace') {
   const ticket = latest.start()
   const order = sort.value === 'dueDate' || sort.value === 'key' ? 'asc' : 'desc'
+  if (mode === 'append') isLoadingMore.value = true
+  else isLoading.value = true
   try {
-    const result = await issuesApi.list({ ...filters.value, projectId: projectId.value, sort: sort.value, order, limit: limit.value })
+    const result = await issuesApi.list({
+      ...filters.value,
+      projectId: projectId.value,
+      sort: sort.value,
+      order,
+      limit: PAGE_SIZE,
+      offset: mode === 'append' ? issues.value.length : 0,
+    })
     if (!latest.isCurrent(ticket)) return
-    issues.value = result.issues
+    issues.value = mode === 'append' ? [...issues.value, ...result.issues] : result.issues
     total.value = result.total
     loadError.value = null
   } catch (error) {
     if (latest.isCurrent(ticket)) loadError.value = getErrorMessage(error)
   } finally {
-    if (latest.isCurrent(ticket)) isLoading.value = false
+    if (latest.isCurrent(ticket)) {
+      isLoading.value = false
+      isLoadingMore.value = false
+    }
   }
 }
 
 watch([filters, sort, projectId], () => {
-  limit.value = PAGE_SIZE
   selection.clear()
-  void fetchIssues()
+  void fetchIssues('replace')
 })
-useProjectRealtime(projectId, fetchIssues)
+watch(projectId, async (id) => {
+  epics.value = []
+  sprints.value = []
+  if (!id) {
+    collaborators.value = await usersApi.search({})
+    return
+  }
+  const detail = await projects.fetchProject(id)
+  if (detail.type === 'scrum') sprints.value = await sprintsApi.list(id)
+  const epicResult = await issuesApi.list({ projectId: id, type: 'epic', sort: 'key', order: 'asc', limit: 200 })
+  epics.value = epicResult.issues.map((issue) => ({ id: issue.id, key: issue.key, title: issue.title }))
+})
+useProjectRealtime(projectId, () => void fetchIssues('replace'))
 
 onMounted(async () => {
   // Prefer a personal default saved view; otherwise global Tasks opens as "my work by due date".
@@ -134,18 +161,21 @@ onMounted(async () => {
       }
     }
   }
-  if (!deferredLoad) void fetchIssues()
+  if (!deferredLoad) void fetchIssues('replace')
   if (projectId.value) {
     const detail = await projects.fetchProject(projectId.value)
     if (detail.type === 'scrum') sprints.value = await sprintsApi.list(projectId.value)
+    const epicResult = await issuesApi.list({ projectId: projectId.value, type: 'epic', sort: 'key', order: 'asc', limit: 200 })
+    epics.value = epicResult.issues.map((issue) => ({ id: issue.id, key: issue.key, title: issue.title }))
   } else {
     collaborators.value = await usersApi.search({})
+    epics.value = []
   }
 })
 
 function loadMore() {
-  limit.value += PAGE_SIZE
-  void fetchIssues()
+  if (!canLoadMore.value || isLoadingMore.value) return
+  void fetchIssues('append')
 }
 
 const allSelected = computed(() => issues.value.length > 0 && selection.count.value === issues.value.length)
@@ -213,7 +243,15 @@ useHotkeys({
 
     <!-- Desktop / tablet toolbar -->
     <div v-if="isDesktop" class="flex flex-wrap items-start justify-between gap-3">
-      <IssueFilterBar v-model="filters" :members="members" :labels="project?.labels" :sprints="sprints" :show-sprint="project?.type === 'scrum'" />
+      <IssueFilterBar
+        v-model="filters"
+        :members="members"
+        :labels="project?.labels"
+        :sprints="sprints"
+        :epics="epics"
+        :show-sprint="project?.type === 'scrum'"
+        :show-epic="Boolean(projectId)"
+      />
       <div class="flex flex-wrap items-center gap-2">
         <SelectField :model-value="sort" :options="SORT_OPTIONS" size="sm" class="w-44 lg:w-48" aria-label="Sort by" @update:model-value="setSort" />
         <div class="inline-flex h-8 items-center rounded-md border border-border bg-muted/40 p-0.5" role="group" aria-label="Layout">
@@ -284,7 +322,7 @@ useHotkeys({
     </div>
 
     <EmptyState v-else-if="loadError && !issues.length" :icon="ListTodo" title="Tasks did not load" :description="loadError">
-      <Button variant="outline" @click="fetchIssues">Try again</Button>
+      <Button variant="outline" @click="fetchIssues('replace')">Try again</Button>
     </EmptyState>
 
     <EmptyState
@@ -347,9 +385,16 @@ useHotkeys({
       />
     </div>
 
-    <div v-if="issues.length < total" class="flex justify-center">
-      <Button variant="outline" @click="loadMore">Load more</Button>
+    <div v-if="canLoadMore" class="flex flex-col items-center gap-2">
+      <Button variant="outline" :loading="isLoadingMore" @click="loadMore">Load more</Button>
     </div>
+    <p
+      v-else-if="issues.length >= MAX_LOADED && total > MAX_LOADED"
+      class="text-center text-xs text-muted-foreground"
+      role="status"
+    >
+      Showing the first {{ MAX_LOADED }} of {{ total }} tasks. Narrow filters to find the rest.
+    </p>
 
     <BulkActionBar
       :count="selection.count.value"
@@ -368,7 +413,16 @@ useHotkeys({
         <SheetHeader><SheetTitle>Filters</SheetTitle></SheetHeader>
         <div class="space-y-4 px-4 pb-4">
           <SavedFiltersMenu :project-id="projectId" :criteria="filters" stacked @apply="(criteria) => { applySaved(criteria); isFilterSheetOpen = false }" />
-          <IssueFilterBar v-model="filters" :members="members" :labels="project?.labels" :sprints="sprints" :show-sprint="project?.type === 'scrum'" stacked />
+          <IssueFilterBar
+            v-model="filters"
+            :members="members"
+            :labels="project?.labels"
+            :sprints="sprints"
+            :epics="epics"
+            :show-sprint="project?.type === 'scrum'"
+            :show-epic="Boolean(projectId)"
+            stacked
+          />
           <Button class="w-full" @click="isFilterSheetOpen = false">Show {{ total }} results</Button>
         </div>
       </SheetContent>

@@ -8,11 +8,19 @@ import { ISSUE_TYPE_META, ISSUE_TYPES, PRIORITIES, PRIORITY_META, STATUS_CATEGOR
 import type { Label, Sprint, StatusCategory, UserSummary } from '@/types/models'
 import type { IssueFilters } from '../api/issues.api'
 
-export type FilterKey = 'q' | 'assigneeId' | 'statusCategory' | 'type' | 'priority' | 'labelId' | 'sprintId' | 'overdue'
+export type FilterKey = 'q' | 'assigneeId' | 'statusCategory' | 'type' | 'priority' | 'labelId' | 'sprintId' | 'parentId' | 'overdue'
 
 const props = withDefaults(
-  defineProps<{ members: UserSummary[]; labels?: Label[]; sprints?: Sprint[]; showSprint?: boolean; stacked?: boolean }>(),
-  { labels: () => [], sprints: () => [], showSprint: false, stacked: false },
+  defineProps<{
+    members: UserSummary[]
+    labels?: Label[]
+    sprints?: Sprint[]
+    epics?: Array<{ id: string; key: string; title: string }>
+    showSprint?: boolean
+    showEpic?: boolean
+    stacked?: boolean
+  }>(),
+  { labels: () => [], sprints: () => [], epics: () => [], showSprint: false, showEpic: false, stacked: false },
 )
 const filters = defineModel<Pick<IssueFilters, FilterKey>>({ required: true })
 
@@ -34,7 +42,14 @@ const labelOptions = computed(() => props.labels.map((label) => ({ value: label.
 const sprintOptions = computed(() => [
   { value: 'active', label: 'Active sprint' },
   { value: 'backlog', label: 'Backlog' },
-  ...props.sprints.filter((sprint) => sprint.state !== 'completed').map((sprint) => ({ value: sprint.id, label: sprint.name })),
+  ...props.sprints.map((sprint) => ({
+    value: sprint.id,
+    label: sprint.state === 'completed' ? `${sprint.name} (completed)` : sprint.name,
+  })),
+])
+const epicOptions = computed<FilterOption[]>(() => [
+  { value: 'none', label: 'No epic' },
+  ...props.epics.map((epic) => ({ value: epic.id, label: `${epic.key} · ${epic.title}` })),
 ])
 
 const hasFilters = computed(() => Object.values(filters.value).some(Boolean))
@@ -65,6 +80,13 @@ const hasFilters = computed(() => Object.values(filters.value).some(Boolean))
         @update:model-value="(value) => set('labelId', value)"
       />
       <FilterDropdown v-if="showSprint" :model-value="filters.sprintId" label="Sprint" :options="sprintOptions" @update:model-value="(value) => set('sprintId', value)" />
+      <FilterDropdown
+        v-if="showEpic && epicOptions.length > 1"
+        :model-value="filters.parentId"
+        label="Epic"
+        :options="epicOptions"
+        @update:model-value="(value) => set('parentId', value)"
+      />
       <Button
         variant="outline"
         size="sm"

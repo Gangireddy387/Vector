@@ -316,41 +316,58 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
             :title="search ? `Nothing matches “${search}”` : EMPTY[filter].title"
             :description="search ? 'Try other words or another folder.' : EMPTY[filter].description"
             class="px-4 py-14"
-          />
-          <template v-for="section in sections" v-else :key="section.label">
-            <p class="sticky top-0 z-10 bg-background/95 px-4 pt-3 pb-1 text-[11.5px] font-medium text-muted-foreground backdrop-blur">
-              {{ section.label }}
-            </p>
-            <button
-              v-for="entry in section.entries"
-              :key="entry.key"
-              type="button"
-              class="relative mx-1.5 flex w-[calc(100%-0.75rem)] items-start gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-accent/60"
-              :class="selectedKey === entry.key && 'bg-accent'"
-              @click="select(entry)"
+          >
+            <Button
+              v-if="notifications.hasMore"
+              variant="outline"
+              size="sm"
+              :loading="notifications.isLoadingOlder"
+              @click="notifications.loadOlder()"
             >
-              <UserAvatar v-if="entry.latest.actor" :user="entry.latest.actor" size="md" class="mt-0.5 size-8" />
-              <span v-else class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg" :class="kindOf(entry.latest.type).tone">
-                <component :is="kindOf(entry.latest.type).icon" class="size-4" />
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="flex items-baseline gap-2">
-                  <span class="min-w-0 flex-1 truncate text-[13px]" :class="isUnread(entry) ? 'font-semibold' : 'font-medium text-foreground/85'">
-                    {{ entry.latest.title }}
-                    <span v-if="entry.items.length > 1" class="font-normal text-muted-foreground">({{ entry.items.length }})</span>
+              Load older
+            </Button>
+          </EmptyState>
+          <template v-else>
+            <template v-for="section in sections" :key="section.label">
+              <p class="sticky top-0 z-10 bg-background/95 px-4 pt-3 pb-1 text-[11.5px] font-medium text-muted-foreground backdrop-blur">
+                {{ section.label }}
+              </p>
+              <button
+                v-for="entry in section.entries"
+                :key="entry.key"
+                type="button"
+                class="relative mx-1.5 flex w-[calc(100%-0.75rem)] items-start gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-accent/60"
+                :class="selectedKey === entry.key && 'bg-accent'"
+                @click="select(entry)"
+              >
+                <UserAvatar v-if="entry.latest.actor" :user="entry.latest.actor" size="md" class="mt-0.5 size-8" />
+                <span v-else class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg" :class="kindOf(entry.latest.type).tone">
+                  <component :is="kindOf(entry.latest.type).icon" class="size-4" />
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="flex items-baseline gap-2">
+                    <span class="min-w-0 flex-1 truncate text-[13px]" :class="isUnread(entry) ? 'font-semibold' : 'font-medium text-foreground/85'">
+                      {{ entry.latest.title }}
+                      <span v-if="entry.items.length > 1" class="font-normal text-muted-foreground">({{ entry.items.length }})</span>
+                    </span>
+                    <span class="shrink-0 text-[11px] tabular-nums" :class="isUnread(entry) ? 'font-semibold text-primary' : 'text-muted-foreground'">
+                      {{ listTime(entry.latest) }}
+                    </span>
                   </span>
-                  <span class="shrink-0 text-[11px] tabular-nums" :class="isUnread(entry) ? 'font-semibold text-primary' : 'text-muted-foreground'">
-                    {{ listTime(entry.latest) }}
+                  <span class="flex items-center gap-2">
+                    <span class="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                      {{ senderOf(entry.latest) }} · {{ entry.latest.body ? toPlainText(entry.latest.body, 140) : kindOf(entry.latest.type).label }}
+                    </span>
+                    <span v-if="isUnread(entry)" class="size-2 shrink-0 rounded-full bg-brand" aria-label="Unread" />
                   </span>
                 </span>
-                <span class="flex items-center gap-2">
-                  <span class="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                    {{ senderOf(entry.latest) }} · {{ entry.latest.body ? toPlainText(entry.latest.body, 140) : kindOf(entry.latest.type).label }}
-                  </span>
-                  <span v-if="isUnread(entry)" class="size-2 shrink-0 rounded-full bg-brand" aria-label="Unread" />
-                </span>
-              </span>
-            </button>
+              </button>
+            </template>
+            <div v-if="notifications.hasMore" class="flex justify-center px-4 py-3">
+              <Button variant="outline" size="sm" :loading="notifications.isLoadingOlder" @click="notifications.loadOlder()">
+                Load older
+              </Button>
+            </div>
           </template>
         </div>
       </section>

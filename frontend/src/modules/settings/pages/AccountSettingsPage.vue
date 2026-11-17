@@ -180,7 +180,7 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
 </script>
 
 <template>
-  <div class="w-full space-y-3" :class="isDesktop ? 'p-4 sm:p-5' : 'p-3 pb-28'">
+  <div class="w-full space-y-3" :class="isDesktop ? 'p-4 sm:p-5' : 'p-3'">
     <PageHeader v-if="isDesktop" title="Settings" description="Your profile, notifications and preferences." />
 
     <SettingsLayout v-model="activeSection" :sections="SECTIONS" aria-label="Account settings">

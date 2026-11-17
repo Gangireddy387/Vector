@@ -83,6 +83,11 @@ export const listIssuesQuery = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
+export const watchIssueSchema = z.object({
+  /** When set, add that teammate as a watcher (members only). Omit to watch yourself. */
+  userId: uuid.optional(),
+});
+
 export const createLinkSchema = z.object({
   targetIssue: z.string().trim().min(1, 'Enter a task key'),
   type: z.enum(ISSUE_LINK_TYPES).default('relates_to'),

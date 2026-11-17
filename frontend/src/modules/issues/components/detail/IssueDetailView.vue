@@ -72,6 +72,8 @@ const summaryRef = ref<InstanceType<typeof IssueAiSummary> | null>(null)
 
 const project = computed(() => (issue.value ? projects.details[issue.value.projectId] ?? null : null))
 const canEdit = computed(() => projects.canEdit(issue.value?.projectId))
+/** Anyone with project access can discuss; editing work still needs member+. */
+const canComment = computed(() => Boolean(issue.value && project.value?.myRole))
 const canUseAi = computed(() => auth.hasFeature('aiAssistant'))
 const canAttach = computed(() => canEdit.value && auth.hasFeature('attachments'))
 const isDone = computed(() => issue.value?.status.category === 'done')
@@ -128,9 +130,7 @@ async function toggleDone() {
 
 async function toggleWatch() {
   if (!issue.value) return
-  if (issue.value.isWatching) await issuesApi.unwatch(issue.value.id)
-  else await issuesApi.watch(issue.value.id)
-  await load(false)
+  issue.value = issue.value.isWatching ? await issuesApi.unwatch(issue.value.id) : await issuesApi.watch(issue.value.id)
 }
 
 async function remove() {
@@ -267,7 +267,15 @@ function startLinking() {
             Details <ChevronRight class="size-4 transition-transform group-open:rotate-90" />
           </summary>
           <div class="px-4 pb-3">
-            <IssueFieldsPanel :issue="issue" :project="project" :sprints="sprints" :editable="canEdit" :show-status="false" @update="update" />
+            <IssueFieldsPanel
+              :issue="issue"
+              :project="project"
+              :sprints="sprints"
+              :editable="canEdit"
+              :show-status="false"
+              @update="update"
+              @refreshed="(next) => (issue = next)"
+            />
           </div>
         </details>
 
@@ -287,7 +295,7 @@ function startLinking() {
             <IssueComments
               :issue-id="issue.id"
               :members="project.members"
-              :editable="canEdit"
+              :editable="canComment"
               :is-admin="project.myRole === 'admin'"
               :refresh-key="refreshKey"
             />
@@ -307,7 +315,14 @@ function startLinking() {
 
       <!-- Wide screens: side panel with every field visible at once -->
       <aside v-if="isWide" class="ghost-fields overflow-y-auto border-l border-border bg-sidebar/40 px-4 py-4 dark:bg-sidebar/50">
-        <IssueFieldsPanel :issue="issue" :project="project" :sprints="sprints" :editable="canEdit" @update="update" />
+        <IssueFieldsPanel
+          :issue="issue"
+          :project="project"
+          :sprints="sprints"
+          :editable="canEdit"
+          @update="update"
+          @refreshed="(next) => (issue = next)"
+        />
       </aside>
     </div>
   </div>

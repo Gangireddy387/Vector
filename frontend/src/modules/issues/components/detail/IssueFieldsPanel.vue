@@ -1,18 +1,22 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
+import { X } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
-import UserAvatarStack from '@/components/common/UserAvatarStack.vue'
 import { DatePicker, NumberField } from '@/components/forms'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { formatDateTime } from '@/lib/format'
+import { getErrorMessage } from '@/lib/http'
 import { formatMinutes, parseDuration } from '@/lib/utils'
 import type { IssueDetail, ProjectDetail, Sprint } from '@/types/models'
-import type { UpdateIssueInput } from '../../api/issues.api'
+import { type UpdateIssueInput, issuesApi } from '../../api/issues.api'
 import IssueTypeSelect from '../pickers/IssueTypeSelect.vue'
 import LabelMultiSelect from '../pickers/LabelMultiSelect.vue'
 import MemberSelect from '../pickers/MemberSelect.vue'
+import ParentEpicSelect from '../pickers/ParentEpicSelect.vue'
 import PrioritySelect from '../pickers/PrioritySelect.vue'
 import SprintSelect from '../pickers/SprintSelect.vue'
 import StatusSelect from '../pickers/StatusSelect.vue'
@@ -22,9 +26,40 @@ const props = withDefaults(
   defineProps<{ issue: IssueDetail; project: ProjectDetail; sprints: Sprint[]; editable?: boolean; showStatus?: boolean }>(),
   { editable: true, showStatus: true },
 )
-const emit = defineEmits<{ update: [changes: UpdateIssueInput] }>()
+const emit = defineEmits<{ update: [changes: UpdateIssueInput]; refreshed: [issue: IssueDetail] }>()
 
 const assignableMembers = computed(() => props.project.members.filter((member) => member.role !== 'viewer'))
+const watcherCandidateId = ref<string | null>(null)
+const watcherOptions = computed(() =>
+  props.project.members.filter((member) => !props.issue.watchers.some((watcher) => watcher.id === member.id)),
+)
+const isWatcherBusy = ref(false)
+
+async function addWatcher() {
+  if (!watcherCandidateId.value || isWatcherBusy.value) return
+  isWatcherBusy.value = true
+  try {
+    const updated = await issuesApi.watch(props.issue.id, watcherCandidateId.value)
+    watcherCandidateId.value = null
+    emit('refreshed', updated)
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isWatcherBusy.value = false
+  }
+}
+
+async function removeWatcher(userId: string) {
+  if (isWatcherBusy.value) return
+  isWatcherBusy.value = true
+  try {
+    emit('refreshed', await issuesApi.removeWatcher(props.issue.id, userId))
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isWatcherBusy.value = false
+  }
+}
 
 const storyPoints = ref('')
 const estimate = ref('')
@@ -113,6 +148,16 @@ function setField<K extends keyof UpdateIssueInput>(field: K, value: UpdateIssue
           @update:model-value="(value) => setField('type', value)"
         />
       </IssueFieldRow>
+      <IssueFieldRow v-if="issue.type !== 'epic' && issue.type !== 'subtask'" label="Epic" for="field-epic">
+        <ParentEpicSelect
+          id="field-epic"
+          :model-value="issue.parentId"
+          :project-id="project.id"
+          size="sm"
+          :disabled="!editable"
+          @update:model-value="(value) => setField('parentId', value)"
+        />
+      </IssueFieldRow>
       <IssueFieldRow v-if="project.type === 'scrum' && issue.type !== 'epic'" label="Sprint" for="field-sprint">
         <SprintSelect id="field-sprint" :model-value="issue.sprintId" :sprints="sprints" size="sm" :disabled="!editable" @update:model-value="(value) => setField('sprintId', value)" />
       </IssueFieldRow>
@@ -178,9 +223,43 @@ function setField<K extends keyof UpdateIssueInput>(field: K, value: UpdateIssue
     </div>
 
     <div class="pt-2">
-      <IssueFieldRow label="Watchers" readonly>
-        <UserAvatarStack v-if="issue.watchers.length" :users="issue.watchers" :max="6" />
-        <span v-else class="text-xs text-muted-foreground">Nobody yet</span>
+      <IssueFieldRow label="Watchers" :readonly="!editable">
+        <div class="w-full space-y-2">
+          <ul v-if="issue.watchers.length" class="flex flex-wrap gap-1.5">
+            <li
+              v-for="watcher in issue.watchers"
+              :key="watcher.id"
+              class="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 py-0.5 pl-1 pr-1.5 text-xs"
+            >
+              <UserAvatar :user="watcher" size="xs" />
+              <span class="max-w-28 truncate">{{ watcher.name }}</span>
+              <button
+                v-if="editable"
+                type="button"
+                class="rounded p-0.5 text-muted-foreground hover:bg-background hover:text-destructive"
+                :aria-label="`Stop ${watcher.name} watching`"
+                :disabled="isWatcherBusy"
+                @click="removeWatcher(watcher.id)"
+              >
+                <X class="size-3" />
+              </button>
+            </li>
+          </ul>
+          <p v-else class="text-xs text-muted-foreground">Nobody yet</p>
+          <div v-if="editable && watcherOptions.length" class="flex gap-2">
+            <MemberSelect
+              v-model="watcherCandidateId"
+              class="min-w-0 flex-1"
+              :members="watcherOptions"
+              none-label="Add a watcher"
+              size="sm"
+              aria-label="Add a watcher"
+            />
+            <Button type="button" size="sm" variant="outline" :disabled="!watcherCandidateId || isWatcherBusy" @click="addWatcher">
+              Add
+            </Button>
+          </div>
+        </div>
       </IssueFieldRow>
       <IssueFieldRow label="Created" readonly><span class="text-xs text-muted-foreground">{{ formatDateTime(issue.createdAt) }}</span></IssueFieldRow>
       <IssueFieldRow label="Updated" readonly><span class="text-xs text-muted-foreground">{{ formatDateTime(issue.updatedAt) }}</span></IssueFieldRow>

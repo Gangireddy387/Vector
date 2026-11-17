@@ -24,7 +24,7 @@ export const chatFileRoutes = Router();
 chatFileRoutes.post('/projects/:projectId/chat/files', async (req, _res, next) => {
   if (!isUuid(req.params.projectId)) throw ApiError.notFound('Project not found');
   assertFeature(req.organization, 'attachments');
-  await assertProjectRole(req.params.projectId, req.user.id);
+  await assertProjectRole(req.params.projectId, req.user.id, 'member');
   next();
 }, upload.single('file'), async (req, res) => {
   if (!req.file) throw ApiError.badRequest(`Choose a file of at most ${config.uploads.maxFileSizeMb} MB`);

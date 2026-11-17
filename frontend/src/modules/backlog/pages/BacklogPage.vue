@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Ellipsis, Plus, Zap } from 'lucide-vue-next'
+import { BarChart3, Columns3, Ellipsis, Plus, Trash2, Zap } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import type { SortableEvent } from 'vue-draggable-plus'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
+import { formatDate } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -79,15 +80,19 @@ const completedSprints = computed(() =>
     .sort((a, b) => (b.endDate ?? b.startDate ?? '').localeCompare(a.endDate ?? a.startDate ?? '')),
 )
 const showCompletedSprints = ref(false)
+const completedLists = ref<Record<string, Issue[]>>({})
 const hasActiveSprint = computed(() => sprints.value.some((sprint) => sprint.state === 'active'))
 const moveTargets = computed(() => [
   ...openSprints.value.map((sprint) => ({ key: sprint.id, label: sprint.name })),
   { key: BACKLOG_KEY, label: 'Backlog' },
 ])
 
+const BACKLOG_LIMIT = 1000
 const latest = latestRequest()
 /** Why the backlog did not load (shown with a retry), or null. */
 const loadError = ref<string | null>(null)
+/** How many tasks exist beyond the backlog soft cap. */
+const hiddenCount = ref(0)
 
 async function load() {
   if (isDragging.value) return
@@ -96,11 +101,15 @@ async function load() {
   try {
     const detail = await projects.fetchProject(id)
     if (detail.type !== 'scrum') return
-    const [sprintList, result] = await Promise.all([sprintsApi.list(id), issuesApi.list({ projectId: id, sort: 'position', order: 'asc', limit: 1000 })])
+    const [sprintList, result] = await Promise.all([
+      sprintsApi.list(id),
+      issuesApi.list({ projectId: id, sort: 'position', order: 'asc', limit: BACKLOG_LIMIT }),
+    ])
     if (!latest.isCurrent(ticket)) return
     sprints.value = sprintList
     epics.value = result.issues.filter((issue) => issue.type === 'epic')
     issues.value = result.issues.filter((issue) => issue.type !== 'epic' && issue.type !== 'subtask')
+    hiddenCount.value = Math.max(0, result.total - result.issues.length)
     loadError.value = null
   } catch (error) {
     if (latest.isCurrent(ticket)) loadError.value = getErrorMessage(error)
@@ -117,6 +126,10 @@ function rebuildLists() {
   for (const sprint of openSprints.value) next[sprint.id] = visible.filter((issue) => issue.sprintId === sprint.id)
   next[BACKLOG_KEY] = visible.filter((issue) => !issue.sprintId && (showDone.value || issue.status.category !== 'done'))
   lists.value = next
+
+  const completed: Record<string, Issue[]> = {}
+  for (const sprint of completedSprints.value) completed[sprint.id] = visible.filter((issue) => issue.sprintId === sprint.id)
+  completedLists.value = completed
 }
 
 watch([issues, sprints, showDone, epicFilter], rebuildLists)
@@ -164,13 +177,17 @@ function openSprintForm(sprint: Sprint | null = null) {
 async function deleteSprint(sprint: Sprint) {
   const confirmed = await confirm({
     title: `Delete ${sprint.name}?`,
-    description: 'Its tasks will move back to the backlog.',
+    description:
+      sprint.state === 'completed'
+        ? 'Tasks still on this sprint move to the backlog. Its reports will no longer be available.'
+        : 'Its tasks will move back to the backlog.',
     confirmLabel: 'Delete sprint',
     destructive: true,
   })
   if (!confirmed) return
   try {
     await sprintsApi.remove(projectId.value, sprint.id)
+    toast.success(`${sprint.name} deleted`)
     await load()
   } catch (error) {
     toast.error(getErrorMessage(error))
@@ -222,6 +239,15 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
         </div>
       </div>
 
+      <p
+        v-if="hiddenCount"
+        class="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 dark:text-warning"
+        role="status"
+      >
+        The backlog shows the first {{ BACKLOG_LIMIT }} of {{ BACKLOG_LIMIT + hiddenCount }} tasks for speed; {{ hiddenCount }} more are in
+        <RouterLink :to="{ name: 'project-issues', params: { projectId } }" class="font-medium underline">the task list</RouterLink>.
+      </p>
+
       <BacklogSection
         v-for="sprint in openSprints"
         :key="sprint.id"
@@ -269,28 +295,62 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
         @move-to="moveTo"
       />
 
-      <section v-if="completedSprints.length" class="rounded-xl border border-dashed border-border bg-card/60 px-3 py-3 sm:px-4">
+      <section v-if="completedSprints.length" class="space-y-3">
         <button
           type="button"
-          class="flex w-full items-center justify-between gap-2 text-left text-sm font-medium"
+          class="flex w-full items-center justify-between gap-2 rounded-xl border border-dashed border-border bg-card/60 px-3 py-3 text-left text-sm font-medium sm:px-4"
           :aria-expanded="showCompletedSprints"
           @click="showCompletedSprints = !showCompletedSprints"
         >
-          <span>Completed sprints <span class="font-normal text-muted-foreground tabular-nums">({{ completedSprints.length }})</span></span>
-          <span class="text-xs text-muted-foreground">{{ showCompletedSprints ? 'Hide' : 'Show' }}</span>
+          <span>
+            Completed sprints
+            <span class="font-normal text-muted-foreground tabular-nums">({{ completedSprints.length }})</span>
+          </span>
+          <span class="text-xs text-muted-foreground">{{ showCompletedSprints ? 'Hide' : 'Show & revisit' }}</span>
         </button>
-        <ul v-if="showCompletedSprints" class="mt-3 divide-y divide-border/70 border-t border-border/70">
-          <li v-for="sprint in completedSprints" :key="sprint.id" class="flex flex-wrap items-center gap-2 py-2.5 text-[13px]">
-            <span class="min-w-0 flex-1 truncate font-medium">{{ sprint.name }}</span>
-            <span class="text-xs text-muted-foreground tabular-nums">
-              {{ (sprint.stats ?? sprint.summary)?.doneCount ?? 0 }}/{{ (sprint.stats ?? sprint.summary)?.issueCount ?? 0 }} done
-              <template v-if="sprint.endDate"> · ended {{ sprint.endDate }}</template>
-            </span>
-            <Button size="xs" variant="ghost" as-child>
-              <RouterLink :to="{ name: 'project-reports', params: { projectId }, query: { sprintId: sprint.id } }">Reports</RouterLink>
-            </Button>
-          </li>
-        </ul>
+
+        <div v-if="showCompletedSprints" class="space-y-3">
+          <BacklogSection
+            v-for="sprint in completedSprints"
+            :key="sprint.id"
+            v-model="completedLists[sprint.id]"
+            :section-key="sprint.id"
+            :title="sprint.name"
+            :sprint="sprint"
+            :project-id="projectId"
+            :move-targets="[]"
+            :editable="false"
+            start-collapsed
+            :is-selected="() => false"
+            @open="openIssue"
+          >
+            <template #actions>
+              <span class="mr-1 hidden text-[11px] text-muted-foreground tabular-nums sm:inline">
+                {{ (sprint.stats ?? sprint.summary)?.doneCount ?? 0 }}/{{ (sprint.stats ?? sprint.summary)?.issueCount ?? 0 }} done
+                <template v-if="sprint.endDate"> · ended {{ formatDate(sprint.endDate, 'd MMM yyyy') }}</template>
+              </span>
+              <Button size="xs" variant="outline" as-child>
+                <RouterLink :to="{ name: 'project-board', params: { projectId }, query: { sprintId: sprint.id } }">
+                  <Columns3 /> Board
+                </RouterLink>
+              </Button>
+              <Button size="xs" variant="outline" as-child>
+                <RouterLink :to="{ name: 'project-reports', params: { projectId }, query: { sprintId: sprint.id } }">
+                  <BarChart3 /> Reports
+                </RouterLink>
+              </Button>
+              <Button
+                v-if="isProjectAdmin"
+                size="xs"
+                variant="ghost"
+                class="text-destructive hover:text-destructive"
+                @click="deleteSprint(sprint)"
+              >
+                <Trash2 /> Delete
+              </Button>
+            </template>
+          </BacklogSection>
+        </div>
       </section>
 
       <BulkActionBar

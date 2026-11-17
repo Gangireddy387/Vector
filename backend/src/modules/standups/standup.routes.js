@@ -11,8 +11,9 @@ const base = '/projects/:projectId/standups';
 router.use(base, requireFeature('chat'));
 
 router.get(base, requireProjectRole(), validate({ query: standupDayQuery }), controller.day);
-router.put(`${base}/me`, requireProjectRole('member'), validate({ body: saveStandupSchema }), controller.save);
-router.delete(`${base}/me`, requireProjectRole('member'), validate({ query: standupDayQuery }), controller.remove);
-router.post(`${base}/draft`, requireProjectRole('member'), validate({ body: draftStandupSchema }), controller.draft);
+/** Anyone with project access (including viewers) can post their own standup. */
+router.put(`${base}/me`, requireProjectRole(), validate({ body: saveStandupSchema }), controller.save);
+router.delete(`${base}/me`, requireProjectRole(), validate({ query: standupDayQuery }), controller.remove);
+router.post(`${base}/draft`, requireProjectRole(), validate({ body: draftStandupSchema }), controller.draft);
 
 export default router;

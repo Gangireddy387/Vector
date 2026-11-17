@@ -7,7 +7,7 @@ export const list = async (req, res) => {
 };
 
 export const create = async (req, res) => {
-  const issue = await loadIssueWithAccess(req.params.issueId, req.user.id, 'member');
+  const issue = await loadIssueWithAccess(req.params.issueId, req.user.id, 'viewer');
   res.status(201).json({ comment: await commentService.createComment(issue, req.user, req.body.body) });
 };
 

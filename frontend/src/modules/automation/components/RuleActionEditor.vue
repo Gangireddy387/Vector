@@ -6,6 +6,7 @@ import { NumberField, SelectField, type SelectFieldOption } from '@/components/f
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import LabelMultiSelect from '@/modules/issues/components/pickers/LabelMultiSelect.vue'
 import MemberSelect from '@/modules/issues/components/pickers/MemberSelect.vue'
 import PrioritySelect from '@/modules/issues/components/pickers/PrioritySelect.vue'
@@ -16,6 +17,9 @@ import { ACTION_OPTIONS, ASSIGN_STRATEGY_OPTIONS, defaultParams, RECIPIENT_OPTIO
 const props = defineProps<{ project: ProjectDetail; index: number }>()
 const action = defineModel<AutomationAction>({ required: true })
 defineEmits<{ remove: [] }>()
+
+const auth = useAuthStore()
+const canSendEmail = computed(() => auth.hasFeature('emailAutomations'))
 
 /** Every setting an action can have; each action type uses some of them (see `defaultParams`). */
 interface ActionParams {
@@ -37,7 +41,12 @@ const params = computed(() => action.value.params as ActionParams)
 const setParam = (key: string, value: unknown) => (action.value = { ...action.value, params: { ...action.value.params, [key]: value } })
 const setType = (type: AutomationActionType) => (action.value = { type, params: defaultParams(type) })
 
-const actionOptions: SelectFieldOption[] = ACTION_OPTIONS.map((option) => ({ value: option.value, label: option.label }))
+const actionOptions = computed<SelectFieldOption[]>(() =>
+  ACTION_OPTIONS.filter((option) => option.value !== 'send_email' || canSendEmail.value).map((option) => ({
+    value: option.value,
+    label: option.label,
+  })),
+)
 const strategyOptions: SelectFieldOption[] = ASSIGN_STRATEGY_OPTIONS.map((option) => ({ value: option.value, label: option.label }))
 const memberOptions = computed(() => props.project.members.map((member) => ({ value: member.id, label: member.name })))
 const recipients = computed<string[]>(() => params.value.recipients ?? [])
@@ -103,6 +112,13 @@ const subtaskText = computed({
       </div>
 
       <div v-else-if="action.type === 'notify' || action.type === 'send_email'" class="space-y-2">
+        <p
+          v-if="action.type === 'send_email' && !canSendEmail"
+          class="rounded-md border border-warning/40 bg-warning/10 px-2.5 py-2 text-xs text-amber-800 dark:text-warning"
+          role="status"
+        >
+          Automation emails are off on this plan — this step is skipped when the rule runs.
+        </p>
         <div class="flex flex-wrap items-center gap-3">
           <button
             v-for="option in RECIPIENT_OPTIONS"

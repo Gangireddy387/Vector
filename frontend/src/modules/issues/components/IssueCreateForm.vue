@@ -22,6 +22,7 @@ import { type CreateIssueInput, issuesApi } from '../api/issues.api'
 import IssueTypeSelect from './pickers/IssueTypeSelect.vue'
 import LabelMultiSelect from './pickers/LabelMultiSelect.vue'
 import MemberSelect from './pickers/MemberSelect.vue'
+import ParentEpicSelect from './pickers/ParentEpicSelect.vue'
 import PrioritySelect from './pickers/PrioritySelect.vue'
 import SprintSelect from './pickers/SprintSelect.vue'
 import StatusSelect from './pickers/StatusSelect.vue'
@@ -52,6 +53,7 @@ const form = reactive({
   priority: (props.defaults.priority ?? 'medium') as IssuePriority,
   statusId: props.defaults.statusId ?? '',
   assigneeId: (props.defaults.assigneeId ?? null) as string | null,
+  parentId: (props.defaults.parentId ?? null) as string | null,
   sprintId: (props.defaults.sprintId ?? null) as string | null,
   dueDate: props.defaults.dueDate ?? '',
   storyPoints: props.defaults.storyPoints?.toString() ?? '',
@@ -114,6 +116,7 @@ watch(projectId, (id, previous) => {
   if (previous) {
     form.labelIds = []
     form.assigneeId = null
+    form.parentId = props.defaults.parentId ?? null
     form.sprintId = null
     selectedTemplateId.value = ''
   }
@@ -137,6 +140,12 @@ function applyTemplate(templateId: string) {
   subtasks.value = [...new Set([...subtasks.value, ...template.subtaskTitles])]
 }
 watch(selectedTemplateId, applyTemplate)
+watch(
+  () => form.type,
+  (type) => {
+    if (type === 'epic' || type === 'subtask') form.parentId = type === 'subtask' ? form.parentId ?? props.defaults.parentId ?? null : null
+  },
+)
 
 async function draftWithAi() {
   if (!parsed.value.title || !projectId.value) {
@@ -193,7 +202,7 @@ function buildPayload(): CreateIssueInput {
     subtaskTitles: subtasks.value,
   }
   if (project.value?.type === 'scrum') payload.sprintId = form.sprintId
-  if (props.defaults.parentId) payload.parentId = props.defaults.parentId
+  if (form.type !== 'epic' && form.parentId) payload.parentId = form.parentId
   if (result.assigneeId !== undefined) payload.assigneeId = result.assigneeId
   else if (assigneeTouched.value || form.assigneeId) payload.assigneeId = form.assigneeId
   return payload
@@ -324,12 +333,15 @@ defineExpose({ createAnother })
           </FormField>
           <div class="grid grid-cols-2 gap-3" :class="compact && 'sm:col-span-2'">
             <FormField label="Type" for="create-type">
-              <IssueTypeSelect id="create-type" v-model="form.type" :allow-subtask="Boolean(defaults.parentId)" />
+              <IssueTypeSelect id="create-type" v-model="form.type" :allow-subtask="Boolean(defaults.parentId || form.parentId)" />
             </FormField>
             <FormField label="Priority" for="create-priority">
               <PrioritySelect id="create-priority" v-model="form.priority" />
             </FormField>
           </div>
+          <FormField v-if="form.type !== 'epic' && form.type !== 'subtask'" label="Epic" for="create-epic">
+            <ParentEpicSelect id="create-epic" v-model="form.parentId" :project-id="projectId" />
+          </FormField>
           <FormField label="Status" for="create-status">
             <StatusSelect v-if="project" id="create-status" v-model="form.statusId" :statuses="project.statuses" />
           </FormField>

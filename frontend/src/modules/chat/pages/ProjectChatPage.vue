@@ -35,6 +35,8 @@ const projectId = computed(() => props.projectId ?? (route.params.projectId as s
 const targetMessage = computed(() => props.messageId ?? (typeof route.query.message === 'string' ? route.query.message : null))
 const project = computed(() => projects.details[projectId.value] ?? null)
 const isAdmin = computed(() => project.value?.myRole === 'admin')
+/** Viewers can read the thread; posting needs member+. */
+const canPost = computed(() => projects.canEdit(projectId.value))
 
 /** Top-level posts and their replies live in one list; threads are built in the view. */
 const messages = ref<ChatMessage[]>([])
@@ -410,6 +412,7 @@ const discussedTasks = computed(() => {
                 :members="members"
                 :grouped="row.grouped"
                 :highlighted="highlightedId === row.message.id"
+                :can-post="canPost"
                 :can-edit="row.message.kind === 'user' && row.message.authorId === auth.user?.id"
                 :can-delete="(row.message.kind === 'user' && row.message.authorId === auth.user?.id) || isAdmin"
                 @edit="(body) => edit(row.message, body)"
@@ -430,6 +433,7 @@ const discussedTasks = computed(() => {
                   :members="members"
                   :grouped="false"
                   :highlighted="highlightedId === reply.id"
+                  :can-post="canPost"
                   :can-edit="reply.kind === 'user' && reply.authorId === auth.user?.id"
                   :can-delete="(reply.kind === 'user' && reply.authorId === auth.user?.id) || isAdmin"
                   @edit="(body) => edit(reply, body)"
@@ -452,6 +456,7 @@ const discussedTasks = computed(() => {
           <Button size="sm" variant="ghost" @click="failedSend = null">Dismiss</Button>
         </div>
         <ChatComposer
+          v-if="canPost"
           ref="composer"
           :project-id="projectId"
           :members="members"
@@ -461,6 +466,9 @@ const discussedTasks = computed(() => {
           @submit="send"
           @cancel-reply="replyTo = null"
         />
+        <p v-else class="rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-center text-xs text-muted-foreground" role="status">
+          You’re a viewer on this project — you can read chat, but only members can post.
+        </p>
       </div>
     </section>
 

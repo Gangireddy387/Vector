@@ -2,17 +2,19 @@
 import { addDays, endOfDay, isBefore, parseISO, startOfDay, subDays } from 'date-fns'
 import { CalendarCheck, ChevronDown, Columns3, ListFilter, Search, SearchX } from 'lucide-vue-next'
 import { computed, nextTick, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import type { SortableEvent } from 'vue-draggable-plus'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
+import { SelectField } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { formatDate } from '@/lib/format'
 import { ISSUE_TYPE_META, ISSUE_TYPES, PRIORITIES, PRIORITY_META } from '@/constants/issue'
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
@@ -34,6 +36,7 @@ import { useBoardData } from '../composables/useBoardData'
 import { useBoardView } from '../composables/useBoardView'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const projects = useProjectsStore()
 const openIssue = useOpenIssue()
@@ -41,12 +44,59 @@ const confirm = useConfirm()
 const { isDesktop } = useDevice()
 
 const projectId = computed(() => route.params.projectId as string)
-const { project, issues, sprints, activeSprint, isScrum, isLoading, isDragging, loadError, hiddenCount, reload } = useBoardData(projectId)
+const preferredSprintId = computed(() => (typeof route.query.sprintId === 'string' ? route.query.sprintId : null))
+const {
+  project,
+  issues,
+  sprints,
+  boardSprints,
+  activeSprint,
+  viewedSprint,
+  selectedSprintId,
+  isHistorical,
+  isScrum,
+  isLoading,
+  isDragging,
+  loadError,
+  hiddenCount,
+  selectSprint,
+  reload,
+} = useBoardData(projectId, preferredSprintId)
 const { view, update: updateView, setField, toggleColumn, toggleLane, reset: resetView, isCustomized } = useBoardView(projectId)
 
-const canEdit = computed(() => projects.canEdit(projectId.value))
+const canEdit = computed(() => projects.canEdit(projectId.value) && !isHistorical.value)
 const canManageSprints = computed(() => projects.canManageSprints(projectId.value))
 const canConfigure = computed(() => projects.isAdmin(projectId.value))
+const sprintOptions = computed(() =>
+  boardSprints.value.map((sprint) => ({
+    value: sprint.id,
+    label: sprint.name,
+    description:
+      sprint.state === 'active'
+        ? 'Active'
+        : sprint.state === 'planned'
+          ? 'Planned'
+          : `Completed${sprint.endDate ? ` · ${formatDate(sprint.endDate, 'd MMM yyyy')}` : ''}`,
+  })),
+)
+
+function onSelectSprint(value: string | null | undefined) {
+  const sprintId = typeof value === 'string' ? value : null
+  if (!sprintId) return
+  void selectSprint(sprintId)
+  const query = { ...route.query, sprintId }
+  void router.replace({ query })
+}
+
+watch(selectedSprintId, (sprintId) => {
+  if (!isScrum.value) return
+  const current = typeof route.query.sprintId === 'string' ? route.query.sprintId : null
+  if (sprintId === current) return
+  const query = { ...route.query }
+  if (sprintId) query.sprintId = sprintId
+  else delete query.sprintId
+  void router.replace({ query })
+})
 const filters = ref<BoardFilterState>({ search: '', assigneeIds: [] })
 const isCompleteOpen = ref(false)
 const isFilterSheetOpen = ref(false)
@@ -167,7 +217,7 @@ const gridTemplate = computed(() => statuses.value.map((status) => (isCollapsed(
 
 /** A task added in a cell gets its status and its swimlane's assignee, priority, type or epic. */
 function cellDefaults(lane: Lane, status: Status): Partial<CreateIssueInput> {
-  const defaults: Partial<CreateIssueInput> = { statusId: status.id, sprintId: activeSprint.value?.id ?? null }
+  const defaults: Partial<CreateIssueInput> = { statusId: status.id, sprintId: viewedSprint.value?.id ?? null }
   if (view.value.groupBy === 'assignee') defaults.assigneeId = lane.user?.id ?? null
   if (view.value.groupBy === 'priority' && lane.priority) defaults.priority = lane.priority
   if (view.value.groupBy === 'type' && lane.type) defaults.type = lane.type
@@ -309,10 +359,10 @@ function moveOnMobile(issue: Issue, status: Status) {
     </EmptyState>
 
     <EmptyState
-      v-else-if="isScrum && !activeSprint"
+      v-else-if="isScrum && !viewedSprint"
       :icon="CalendarCheck"
-      title="No active sprint"
-      description="Plan a sprint in the backlog and start it to see its board here."
+      title="No sprint to show"
+      description="Start a sprint in the backlog, or complete one first so you can revisit it here."
       class="px-3 py-20"
     >
       <div class="flex flex-wrap items-center justify-center gap-2">
@@ -336,13 +386,38 @@ function moveOnMobile(issue: Issue, status: Status) {
             <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" />
           </div>
           <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:gap-3">
-            <template v-if="activeSprint">
-              <div class="flex min-w-0 items-center gap-2 text-[13px]" :title="activeSprint.goal ?? undefined">
-                <span class="size-1.5 shrink-0 rounded-full bg-success" />
-                <span class="max-w-40 truncate font-medium">{{ activeSprint.name }}</span>
-              </div>
-              <div class="hidden xl:block"><SprintProgress :sprint="activeSprint" :stats="sprintStats" inline /></div>
-              <Button v-if="canManageSprints" variant="outline" size="sm" @click="isCompleteOpen = true">Complete sprint</Button>
+            <template v-if="isScrum && boardSprints.length">
+              <SelectField
+                class="w-48 sm:w-56"
+                size="sm"
+                :model-value="selectedSprintId"
+                :options="sprintOptions"
+                aria-label="Sprint on this board"
+                placeholder="Choose sprint"
+                @update:model-value="onSelectSprint"
+              />
+              <span
+                v-if="viewedSprint"
+                class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                :class="
+                  isHistorical
+                    ? 'bg-muted text-muted-foreground'
+                    : viewedSprint.state === 'planned'
+                      ? 'bg-muted text-muted-foreground'
+                      : 'bg-success/15 text-success'
+                "
+              >
+                {{ isHistorical ? 'Completed' : viewedSprint.state === 'planned' ? 'Planned' : 'Active' }}
+              </span>
+              <div v-if="viewedSprint" class="hidden xl:block"><SprintProgress :sprint="viewedSprint" :stats="sprintStats" inline /></div>
+              <Button
+                v-if="canManageSprints && viewedSprint?.state === 'active'"
+                variant="outline"
+                size="sm"
+                @click="isCompleteOpen = true"
+              >
+                Complete sprint
+              </Button>
             </template>
             <div v-else-if="sprintStats.issueCount" class="hidden items-center gap-2 text-xs text-muted-foreground lg:flex" :title="`${sprintStats.doneCount} of ${sprintStats.issueCount} tasks done`">
               <span class="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
@@ -497,20 +572,44 @@ function moveOnMobile(issue: Issue, status: Status) {
             <button type="button" class="font-medium text-primary hover:underline" @click="filters = { search: '', assigneeIds: [] }">Clear</button>
           </p>
 
-          <div v-if="activeSprint" class="border-b border-border px-3 py-2">
-            <div class="mb-1.5 flex items-center justify-between gap-2">
-              <p class="min-w-0 truncate text-sm font-semibold">{{ activeSprint.name }}</p>
-              <Button v-if="canManageSprints" variant="outline" size="xs" class="shrink-0" @click="isCompleteOpen = true">Complete</Button>
+          <div v-if="isScrum && boardSprints.length" class="space-y-2 border-b border-border px-3 py-2">
+            <SelectField
+              size="sm"
+              :model-value="selectedSprintId"
+              :options="sprintOptions"
+              aria-label="Sprint on this board"
+              placeholder="Choose sprint"
+              @update:model-value="onSelectSprint"
+            />
+            <div v-if="viewedSprint" class="flex items-center justify-between gap-2">
+              <p class="min-w-0 truncate text-sm font-semibold">
+                {{ viewedSprint.name }}
+                <span class="ml-1 text-[11px] font-medium text-muted-foreground">
+                  · {{ isHistorical ? 'completed' : viewedSprint.state === 'planned' ? 'planned' : 'active' }}
+                </span>
+              </p>
+              <Button
+                v-if="canManageSprints && viewedSprint.state === 'active'"
+                variant="outline"
+                size="xs"
+                class="shrink-0"
+                @click="isCompleteOpen = true"
+              >
+                Complete
+              </Button>
             </div>
-            <SprintProgress :sprint="activeSprint" :stats="sprintStats" />
+            <SprintProgress v-if="viewedSprint" :sprint="viewedSprint" :stats="sprintStats" />
           </div>
 
           <MobileBoard
             :statuses="statuses"
             :issues="filteredIssues"
             :project-id="projectId"
-            :sprint-id="activeSprint?.id ?? null"
+            :sprint-id="viewedSprint?.id ?? null"
             :editable="canEdit"
+            :group-by="view.groupBy"
+            :lanes="shownLanes"
+            :lane-of="laneKeyOf"
             @open="openIssue"
             @move="moveOnMobile"
           />
@@ -532,7 +631,7 @@ function moveOnMobile(issue: Issue, status: Status) {
       <CompleteSprintDialog
         v-model:open="isCompleteOpen"
         :project-id="projectId"
-        :sprint="activeSprint ? { ...activeSprint, stats: sprintStats } : null"
+        :sprint="activeSprint && viewedSprint?.state === 'active' ? { ...activeSprint, stats: sprintStats } : null"
         :sprints="sprints"
         :carry-over-by-default="project.settings.carryOverIncomplete"
         @completed="reload"

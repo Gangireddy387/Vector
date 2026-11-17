@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
 import { ChevronDown, ClipboardList, Loader2, Sparkles, Video } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Button } from '@/components/ui/button'
-import { useAuthStore } from '@/modules/auth/auth.store'
-import { type DailyBriefing, aiApi } from '@/modules/issues/api/ai.api'
 import { getErrorMessage } from '@/lib/http'
+import { useAuthStore } from '@/modules/auth/auth.store'
+import { aiApi, aiSourceHint, type DailyBriefing } from '@/modules/issues/api/ai.api'
 
 const auth = useAuthStore()
 const briefing = ref<DailyBriefing | null>(null)
@@ -14,12 +14,19 @@ const isLoading = ref(false)
 const error = ref<string | null>(null)
 /** Collapsed by default so Home’s first viewport stays Loop + Today. */
 const expanded = useStorage('vector.home.briefingExpanded', false)
+const sourceHint = computed(() => aiSourceHint(briefing.value?.needsMe.source))
+const sourceLabel = computed(() => {
+  const source = briefing.value?.needsMe.source
+  if (source === 'openai') return null
+  if (source === 'degraded') return 'Smart briefing'
+  if (source === 'heuristic') return 'Smart briefing'
+  return null
+})
 
-async function load() {
-  if (!auth.hasFeature('aiAssistant')) return
+async function fetchBriefing() {
+  if (!auth.hasFeature('aiAssistant') || isLoading.value) return
   isLoading.value = true
   error.value = null
-  expanded.value = true
   try {
     briefing.value = await aiApi.dailyBriefing()
   } catch (problem) {
@@ -29,10 +36,19 @@ async function load() {
   }
 }
 
+async function load() {
+  expanded.value = true
+  await fetchBriefing()
+}
+
 function toggle() {
   expanded.value = !expanded.value
-  if (expanded.value && !briefing.value && !isLoading.value) void load()
+  if (expanded.value && !briefing.value && !isLoading.value) void fetchBriefing()
 }
+
+onMounted(() => {
+  if (auth.hasFeature('aiAssistant')) void fetchBriefing()
+})
 </script>
 
 <template>
@@ -58,11 +74,18 @@ function toggle() {
         <Button variant="outline" size="sm" @click="load">Try again</Button>
       </div>
       <div v-else-if="briefing" class="space-y-4 px-4 py-3">
+        <div
+          v-if="sourceHint"
+          class="rounded-lg border border-border bg-muted/50 px-3 py-2 text-[12px] text-muted-foreground"
+          role="status"
+        >
+          <span v-if="sourceLabel" class="mr-1.5 inline-flex rounded-md bg-background px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-foreground/80">
+            {{ sourceLabel }}
+          </span>
+          {{ sourceHint }}
+        </div>
         <div>
           <p class="text-[13.5px] font-medium">{{ briefing.needsMe.headline }}</p>
-          <p v-if="briefing.needsMe.source !== 'openai'" class="mt-1 text-[11px] text-muted-foreground">
-            {{ briefing.needsMe.source === 'degraded' ? 'OpenAI unavailable — smart briefing.' : 'Smart briefing — add an OpenAI key for richer AI.' }}
-          </p>
           <ul v-if="(briefing.needsMe.focusActions ?? briefing.needsMe.focus.map((text) => ({ text, issueKey: null as string | null }))).length" class="mt-2 space-y-1">
             <li
               v-for="(item, index) in briefing.needsMe.focusActions ?? briefing.needsMe.focus.map((text) => ({ text, issueKey: null as string | null }))"
@@ -121,6 +144,10 @@ function toggle() {
       </div>
       <div v-else class="px-4 py-5 text-sm text-muted-foreground">Nothing to brief yet.</div>
     </div>
-    <p v-else class="px-4 py-3 text-[12.5px] text-muted-foreground">Open for AI focus, standup drafts, and meeting prep.</p>
+    <p v-else class="px-4 py-3 text-[12.5px] text-muted-foreground">
+      <template v-if="isLoading && !briefing">Preparing briefing…</template>
+      <template v-else-if="briefing">Ready — open for focus, standup drafts, and meeting prep.</template>
+      <template v-else>Open for AI focus, standup drafts, and meeting prep.</template>
+    </p>
   </section>
 </template>

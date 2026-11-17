@@ -198,7 +198,12 @@ export async function runAutomations(trigger, { issue: eventIssue, changes = {},
           variables: templateVariables(issue, rule, actor),
         });
       }
-      await rule.update({ runCount: rule.runCount + 1, lastRunAt: new Date(), lastError: null });
+      const at = new Date();
+      const recentRuns = [
+        { at: at.toISOString(), ok: true, issueKey: eventIssue.key ?? null, trigger },
+        ...(Array.isArray(rule.recentRuns) ? rule.recentRuns : []),
+      ].slice(0, 25);
+      await rule.update({ runCount: rule.runCount + 1, lastRunAt: at, lastError: null, recentRuns });
       await logActivity({
         projectId: eventIssue.projectId,
         issueId: eventIssue.id,
@@ -208,7 +213,12 @@ export async function runAutomations(trigger, { issue: eventIssue, changes = {},
       });
     } catch (error) {
       console.error(`[automation] rule "${rule.name}" failed:`, error.message);
-      await rule.update({ lastRunAt: new Date(), lastError: String(error.message).slice(0, 500) });
+      const at = new Date();
+      const recentRuns = [
+        { at: at.toISOString(), ok: false, issueKey: eventIssue.key ?? null, trigger, error: String(error.message).slice(0, 200) },
+        ...(Array.isArray(rule.recentRuns) ? rule.recentRuns : []),
+      ].slice(0, 25);
+      await rule.update({ lastRunAt: at, lastError: String(error.message).slice(0, 500), recentRuns });
     }
   }
 }

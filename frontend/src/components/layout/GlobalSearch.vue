@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onClickOutside, watchDebounced } from '@vueuse/core'
-import { BarChart3, CalendarDays, ClipboardList, FolderKanban, House, Inbox, ListTodo, Loader2, MessageCircle, Moon, Plus, Search, Settings, Sparkles, Sun, User as UserIcon, Video, X } from 'lucide-vue-next'
+import { BarChart3, CalendarDays, ClipboardList, FolderKanban, Hash, House, Inbox, ListTodo, Loader2, MessageCircle, Moon, Plus, Search, Settings, Sparkles, Sun, User as UserIcon, Video, X } from 'lucide-vue-next'
 import { type Component, computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
@@ -132,6 +132,29 @@ const items = computed<SearchItem[]>(() => {
       icon: UserIcon,
       run: go({ name: 'issues', query: { assigneeId: person.id } }),
     })),
+    ...(found?.messages ?? []).map((message) => ({
+      id: `message-${message.id}`,
+      group: 'Messages',
+      label: message.title,
+      hint: message.snippet,
+      icon: MessageCircle,
+      run: () => {
+        rememberSearch(query.value)
+        go({ name: 'messages', params: { conversationId: message.conversationId } })()
+      },
+    })),
+    ...(found?.chat ?? []).map((message) => ({
+      id: `chat-${message.id}`,
+      group: 'Work chat',
+      label: message.project.name,
+      hint: message.snippet,
+      icon: Hash,
+      color: message.project.color,
+      run: () => {
+        rememberSearch(query.value)
+        go({ name: 'project-chat', params: { projectId: message.projectId }, query: { message: message.id } })()
+      },
+    })),
     ...matchingActions,
   ]
 })
@@ -227,7 +250,7 @@ function clearQuery() {
         v-model="query"
         type="text"
         class="h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
-        placeholder="Search tasks, projects, people…"
+        placeholder="Search tasks, projects, people, messages…"
         role="combobox"
         aria-label="Search"
         aria-controls="global-search-results"

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { getErrorMessage } from '@/lib/http'
 import { bindSocketEvents } from '@/lib/socket-events'
@@ -7,25 +7,49 @@ import { playSound } from '@/lib/sounds'
 import type { AppNotification } from '@/types/models'
 import { notificationsApi } from './notifications.api'
 
+const PAGE_SIZE = 50
+
 export const useNotificationsStore = defineStore('notifications', () => {
   const items = ref<AppNotification[]>([])
+  const total = ref(0)
   const unreadCount = ref(0)
   const isLoading = ref(false)
+  const isLoadingOlder = ref(false)
   /** Why the inbox list could not load (shown with retry), or null. */
   const loadError = ref<string | null>(null)
   let unbind: (() => void) | null = null
+
+  const hasMore = computed(() => items.value.length < total.value)
 
   async function fetchNotifications() {
     isLoading.value = true
     loadError.value = null
     try {
-      items.value = await notificationsApi.list()
+      const result = await notificationsApi.list({ limit: PAGE_SIZE, offset: 0 })
+      items.value = result.notifications
+      total.value = result.total
       unreadCount.value = items.value.filter((item) => !item.readAt).length
+      void refreshUnreadCount()
     } catch (problem) {
       loadError.value = getErrorMessage(problem)
       throw problem
     } finally {
       isLoading.value = false
+    }
+  }
+
+  async function loadOlder() {
+    if (!hasMore.value || isLoadingOlder.value || isLoading.value) return
+    isLoadingOlder.value = true
+    try {
+      const result = await notificationsApi.list({ limit: PAGE_SIZE, offset: items.value.length })
+      const seen = new Set(items.value.map((item) => item.id))
+      items.value = [...items.value, ...result.notifications.filter((item) => !seen.has(item.id))]
+      total.value = result.total
+    } catch (problem) {
+      toast.error(getErrorMessage(problem))
+    } finally {
+      isLoadingOlder.value = false
     }
   }
 
@@ -58,6 +82,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
   async function remove(notification: AppNotification) {
     items.value = items.value.filter((item) => item.id !== notification.id)
+    total.value = Math.max(0, total.value - 1)
     if (!notification.readAt) unreadCount.value = Math.max(0, unreadCount.value - 1)
     await notificationsApi.remove(notification.id)
   }
@@ -72,7 +97,10 @@ export const useNotificationsStore = defineStore('notifications', () => {
     unbind = bindSocketEvents(
       {
         'notification:created': (notification: AppNotification) => {
-          items.value.unshift(notification)
+          if (!items.value.some((item) => item.id === notification.id)) {
+            items.value.unshift(notification)
+            total.value += 1
+          }
           unreadCount.value += 1
           playSound('notification', { id: notification.id })
           toast(notification.title, {
@@ -100,6 +128,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
   function reset() {
     items.value = []
+    total.value = 0
     unreadCount.value = 0
     loadError.value = null
     unbind?.()
@@ -108,10 +137,14 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
   return {
     items,
+    total,
+    hasMore,
     unreadCount,
     isLoading,
+    isLoadingOlder,
     loadError,
     fetchNotifications,
+    loadOlder,
     refreshUnreadCount,
     markRead,
     openNotification,

@@ -429,6 +429,14 @@ export type AutomationTrigger =
   | 'comment.created'
   | 'issue.due_soon'
 
+export interface AutomationRunRecord {
+  at: string
+  ok: boolean
+  issueKey?: string | null
+  trigger?: string
+  error?: string
+}
+
 export interface AutomationRule {
   id: string
   projectId: string
@@ -441,6 +449,8 @@ export interface AutomationRule {
   runCount: number
   lastRunAt: string | null
   lastError: string | null
+  /** Newest-first snapshot of recent runs (up to 25). */
+  recentRuns?: AutomationRunRecord[]
   createdBy: UserSummary | null
 }
 

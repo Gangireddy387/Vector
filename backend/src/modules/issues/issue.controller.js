@@ -38,15 +38,23 @@ export const bulkUpdate = async (req, res) =>
 export const bulkDelete = async (req, res) => res.json(await issueService.bulkDelete(req.body.issueIds, req.user));
 
 export const watch = async (req, res) => {
-  const issue = await loadIssueWithAccess(req.params.issueId, req.user.id);
-  await issueService.setWatching(issue.id, req.user.id, true);
-  res.status(204).end();
+  const targetUserId = req.body?.userId ?? req.user.id;
+  const role = targetUserId === req.user.id ? 'viewer' : 'member';
+  const issue = await loadIssueWithAccess(req.params.issueId, req.user.id, role);
+  await issueService.addIssueWatcher(issue, targetUserId);
+  return respondWithDetail(res, issue.id, req.user.id);
 };
 
 export const unwatch = async (req, res) => {
   const issue = await loadIssueWithAccess(req.params.issueId, req.user.id);
   await issueService.setWatching(issue.id, req.user.id, false);
-  res.status(204).end();
+  return respondWithDetail(res, issue.id, req.user.id);
+};
+
+export const removeWatcher = async (req, res) => {
+  const issue = await loadIssueWithAccess(req.params.issueId, req.user.id, 'member');
+  await issueService.setWatching(issue.id, req.params.userId, false);
+  return respondWithDetail(res, issue.id, req.user.id);
 };
 
 export const createLink = async (req, res) => {

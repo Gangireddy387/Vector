@@ -18,6 +18,8 @@ AutomationRule.init(
     runCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     lastRunAt: { type: DataTypes.DATE, allowNull: true },
     lastError: { type: DataTypes.STRING(500), allowNull: true },
+    /** Newest-first history of recent runs: [{ at, ok, issueKey?, error? }]. */
+    recentRuns: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
     createdById: { type: DataTypes.UUID, allowNull: true },
   },
   { sequelize, modelName: 'AutomationRule', tableName: 'automation_rules', indexes: [{ fields: ['project_id'] }] },

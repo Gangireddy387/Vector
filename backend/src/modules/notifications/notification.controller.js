@@ -1,7 +1,6 @@
 import * as notificationService from './notification.service.js';
 
-export const list = async (req, res) =>
-  res.json({ notifications: await notificationService.listNotifications(req.user.id, req.filters) });
+export const list = async (req, res) => res.json(await notificationService.listNotifications(req.user.id, req.filters));
 
 export const unreadCount = async (req, res) => res.json({ count: await notificationService.countUnread(req.user.id) });
 

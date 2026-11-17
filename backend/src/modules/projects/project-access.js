@@ -30,13 +30,17 @@ async function projectWithOrganizationRole(projectId, userId) {
   return { project, organizationRole: membership?.role ?? null };
 }
 
-/** Department heads can view every project owned by a team in their department. */
+/**
+ * Department heads can work on every project owned by a team in their department
+ * (member-level: edit tasks, post standup) without an explicit project invite.
+ * Project admin / sprint management still needs a real membership or org admin.
+ */
 async function departmentHeadAccess(projectId, userId) {
   const project = await Project.findByPk(projectId, {
     attributes: ['id'],
     include: [{ model: Team, as: 'team', attributes: ['id'], required: true, include: [{ model: Department, as: 'department', attributes: ['headId'], required: true }] }],
   });
-  return project?.team?.department?.headId === userId ? { projectId, userId, role: 'viewer', viaDepartment: true } : null;
+  return project?.team?.department?.headId === userId ? { projectId, userId, role: 'member', viaDepartment: true } : null;
 }
 
 /** Projects owned by teams in departments the user heads, within an organization. */
@@ -113,7 +117,7 @@ export async function getMemberProjectIds(userId) {
   return [...new Set([...memberships.map((membership) => membership.projectId), ...headed])];
 }
 
-/** Projects a department head can view without being a member, for the project list. */
+/** Projects a department head can access without being a member, for the project list. */
 export const getHeadedProjectIds = (userId) => headedProjectIds(userId, currentOrganizationId());
 
 /** Whether a user may follow a project live: the same rule as opening it. */

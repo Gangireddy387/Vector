@@ -24,7 +24,7 @@ const props = defineProps<{ project: ProjectDetail }>()
 const ROLES: Array<{ value: ProjectRole; label: string; description: string }> = [
   { value: 'admin', label: 'Admin', description: 'Manage settings, members and automation' },
   { value: 'member', label: 'Member', description: 'Create and edit tasks' },
-  { value: 'viewer', label: 'Viewer', description: 'Read-only access' },
+  { value: 'viewer', label: 'Viewer', description: 'View work, comment, and post standup — chat is read-only' },
 ]
 
 const auth = useAuthStore()

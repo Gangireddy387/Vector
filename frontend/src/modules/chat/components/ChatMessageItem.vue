@@ -22,11 +22,13 @@ const props = withDefaults(
     members?: UserSummary[]
     canEdit: boolean
     canDelete: boolean
+    /** Members+ can reply/quote/react; viewers are read-only. */
+    canPost?: boolean
     grouped: boolean
     highlighted: boolean
     reply?: boolean
   }>(),
-  { members: () => [], reply: false },
+  { members: () => [], canPost: true, reply: false },
 )
 const emit = defineEmits<{
   edit: [body: string]
@@ -45,7 +47,7 @@ const time = computed(() => {
   const date = parseISO(props.message.createdAt)
   return isValid(date) ? format(date, 'HH:mm') : ''
 })
-const canReply = computed(() => !props.reply && props.message.kind === 'user' && !props.message.parentId)
+const canReply = computed(() => props.canPost && !props.reply && props.message.kind === 'user' && !props.message.parentId)
 
 /** For rich assistant replies the card carries the details, so only the opening sentence is shown as text. */
 const body = computed(() => {
@@ -144,14 +146,15 @@ function saveEdit() {
                   : 'border-border bg-background text-muted-foreground hover:border-input hover:text-foreground'
               "
               :aria-label="`${reaction.emoji} ${reaction.userIds.length}: ${reactedBy(reaction.userIds)}`"
-              @click="emit('react', reaction.emoji)"
+              :disabled="!canPost"
+              @click="canPost && emit('react', reaction.emoji)"
             >
               <span class="text-sm leading-none">{{ reaction.emoji }}</span> {{ reaction.userIds.length }}
             </button>
           </TooltipTrigger>
           <TooltipContent side="top">{{ reactedBy(reaction.userIds) }}</TooltipContent>
         </Tooltip>
-        <Popover>
+        <Popover v-if="canPost">
           <PopoverTrigger as-child>
             <button type="button" class="inline-flex h-6 items-center rounded-full border border-dashed border-border px-1.5 text-muted-foreground hover:border-input hover:text-foreground" aria-label="Add a reaction">
               <SmilePlus class="size-3.5" />
@@ -176,20 +179,22 @@ function saveEdit() {
     </div>
 
     <div v-if="!isEditing" class="absolute top-1 right-3 hidden items-center border bg-card shadow-soft group-focus-within:flex group-hover:flex">
-      <button
-        v-for="emoji in REACTIONS"
-        :key="emoji"
-        type="button"
-        class="flex size-7 items-center justify-center text-base transition-transform hover:scale-125 hover:bg-accent"
-        :aria-label="`React with ${emoji}`"
-        :title="`React with ${emoji}`"
-        @click="emit('react', emoji)"
-      >
-        {{ emoji }}
-      </button>
-      <span class="mx-0.5 h-4 w-px bg-border" />
-      <Button v-if="canReply" variant="ghost" size="icon-sm" aria-label="Reply" @click="emit('reply')"><MessageSquareReply /></Button>
-      <Button variant="ghost" size="icon-sm" aria-label="Quote message" @click="emit('quote')"><Quote /></Button>
+      <template v-if="canPost">
+        <button
+          v-for="emoji in REACTIONS"
+          :key="emoji"
+          type="button"
+          class="flex size-7 items-center justify-center text-base transition-transform hover:scale-125 hover:bg-accent"
+          :aria-label="`React with ${emoji}`"
+          :title="`React with ${emoji}`"
+          @click="emit('react', emoji)"
+        >
+          {{ emoji }}
+        </button>
+        <span class="mx-0.5 h-4 w-px bg-border" />
+        <Button v-if="canReply" variant="ghost" size="icon-sm" aria-label="Reply" @click="emit('reply')"><MessageSquareReply /></Button>
+        <Button variant="ghost" size="icon-sm" aria-label="Quote message" @click="emit('quote')"><Quote /></Button>
+      </template>
       <Button variant="ghost" size="icon-sm" aria-label="Copy message link" @click="emit('copyLink')"><Copy /></Button>
       <Button v-if="canEdit" variant="ghost" size="icon-sm" aria-label="Edit message" @click="startEditing"><Pencil /></Button>
       <Button v-if="canDelete" variant="ghost" size="icon-sm" aria-label="Delete message" class="text-destructive" @click="emit('remove')"><Trash2 /></Button>

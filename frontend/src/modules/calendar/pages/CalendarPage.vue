@@ -65,8 +65,10 @@ const selected = ref(now.value.date)
 const cursor = ref(parseISO(selected.value))
 const sheetTarget = ref<EventSheetTarget | null>(null)
 
+const TASK_LIMIT = 500
 const events = ref<CalendarEvent[]>([])
 const tasks = ref<Issue[]>([])
+const tasksHiddenCount = ref(0)
 const isLoading = ref(true)
 const loadError = ref('')
 
@@ -113,12 +115,13 @@ async function load() {
     const [loadedEvents, loadedTasks] = await Promise.all([
       calendarApi.list(from.value, to.value),
       showTasks.value
-        ? issuesApi.list({ assigneeId: 'me', dueFrom: from.value, dueTo: to.value, sort: 'dueDate', limit: 500 }).then((result) => result.issues)
-        : Promise.resolve([]),
+        ? issuesApi.list({ assigneeId: 'me', dueFrom: from.value, dueTo: to.value, sort: 'dueDate', limit: TASK_LIMIT })
+        : Promise.resolve({ issues: [] as Issue[], total: 0 }),
     ])
     if (current !== request) return
     events.value = loadedEvents
-    tasks.value = loadedTasks
+    tasks.value = loadedTasks.issues
+    tasksHiddenCount.value = showTasks.value ? Math.max(0, loadedTasks.total - loadedTasks.issues.length) : 0
   } catch (error) {
     if (current === request) {
       loadError.value = getErrorMessage(error)
@@ -266,6 +269,16 @@ useHotkeys({
         <Button variant="brand" class="max-sm:w-full" title="New event (N)" @click="createForSelected"><Plus /> New event</Button>
       </template>
     </PageHeader>
+
+    <p
+      v-if="showTasks && tasksHiddenCount"
+      class="shrink-0 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 dark:text-warning"
+      role="status"
+    >
+      Showing the first {{ TASK_LIMIT }} of {{ TASK_LIMIT + tasksHiddenCount }} tasks due in this range for speed;
+      {{ tasksHiddenCount }} more are in
+      <RouterLink :to="{ name: 'issues', query: { assigneeId: 'me' } }" class="font-medium underline-offset-2 hover:underline">My tasks</RouterLink>.
+    </p>
 
     <!-- Compact on tablet; full strip on wide screens -->
     <div class="grid shrink-0 grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">

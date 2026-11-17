@@ -97,7 +97,7 @@ export async function listProjects(userId, { includeArchived }) {
       ...others.filter((project) => !joined.has(project.id)).map((project) => ({ ...project.toJSON(), myRole: 'admin', isMember: false })),
     ];
   } else {
-    // Department heads can view their department's projects without joining them.
+    // Department heads can work on their department's projects without joining them.
     const joined = new Set(projects.map((project) => project.id));
     const headedIds = (await getHeadedProjectIds(userId)).filter((id) => !joined.has(id));
     if (headedIds.length) {
@@ -105,7 +105,7 @@ export async function listProjects(userId, { includeArchived }) {
         where: { id: headedIds, ...(includeArchived ? {} : { archivedAt: null }) },
         include: [{ model: User, as: 'lead', attributes: USER_SUMMARY_ATTRIBUTES }],
       });
-      projects = [...projects, ...headed.map((project) => ({ ...project.toJSON(), myRole: 'viewer', isMember: false }))];
+      projects = [...projects, ...headed.map((project) => ({ ...project.toJSON(), myRole: 'member', isMember: false }))];
     }
   }
 
@@ -183,7 +183,7 @@ export async function getProject(projectId, userId) {
   const myMembership = json.memberships.find((membership) => membership.userId === userId);
   const isOrganizationAdmin = isOrganizationAdminRequest() && json.organizationId === currentOrganizationId();
   const team = json.teamId ? (await owningTeams([json.teamId])).get(json.teamId) : null;
-  const headRole = !isOrganizationAdmin && !myMembership && (await getHeadedProjectIds(userId)).includes(json.id) ? 'viewer' : null;
+  const headRole = !isOrganizationAdmin && !myMembership && (await getHeadedProjectIds(userId)).includes(json.id) ? 'member' : null;
   const myRole = isOrganizationAdmin ? 'admin' : (myMembership?.role ?? headRole);
   return {
     ...json,

@@ -19,33 +19,57 @@ import { matchFieldLabel } from '@/modules/issues/lib/saved-filter-criteria'
 import { type SearchResults, type SearchScope, searchApi } from '../search.api'
 import { clearRecentSearches, readRecentSearches, rememberSearch } from '../search-recent'
 
-const SCOPES: Array<{ value: SearchScope; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: 'issues', label: 'Tasks' },
-  { value: 'projects', label: 'Projects' },
-  { value: 'people', label: 'People' },
-]
+/** Page size for the first fetch and each “Load more”. Backend max is 50. */
+const PAGE_SIZE = 25
 
 const { isDesktop } = useDevice()
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
+const scopes = computed<Array<{ value: SearchScope; label: string }>>(() => [
+  { value: 'all', label: 'All' },
+  { value: 'issues', label: 'Tasks' },
+  { value: 'projects', label: 'Projects' },
+  { value: 'people', label: 'People' },
+  ...((auth.hasFeature('directMessages') || auth.hasFeature('teamChat')
+    ? [{ value: 'messages' as const, label: 'Messages' }]
+    : [])),
+  ...(auth.hasFeature('chat') ? [{ value: 'chat' as const, label: 'Work chat' }] : []),
+])
+
 const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const scope = ref<SearchScope>(
-  typeof route.query.scope === 'string' && SCOPES.some((item) => item.value === route.query.scope)
+  typeof route.query.scope === 'string' && scopes.value.some((item) => item.value === route.query.scope)
     ? (route.query.scope as SearchScope)
     : 'all',
 )
 const results = ref<SearchResults | null>(null)
 const isSearching = ref(false)
+const isLoadingMore = ref(false)
 const searchError = ref<string | null>(null)
 const recent = ref(readRecentSearches())
 
 const latest = latestRequest()
 const totalHits = computed(() => {
   if (!results.value) return 0
-  return results.value.issues.length + results.value.projects.length + results.value.people.length
+  return (
+    results.value.issues.length +
+    results.value.projects.length +
+    results.value.people.length +
+    (results.value.messages?.length ?? 0) +
+    (results.value.chat?.length ?? 0)
+  )
+})
+const canLoadMore = computed(() => {
+  if (!results.value?.hasMore) return false
+  if (scope.value === 'issues') return results.value.hasMore.issues
+  if (scope.value === 'projects') return results.value.hasMore.projects
+  if (scope.value === 'people') return results.value.hasMore.people
+  if (scope.value === 'messages') return Boolean(results.value.hasMore.messages)
+  if (scope.value === 'chat') return Boolean(results.value.hasMore.chat)
+  // On “All”, only tasks paginate; other panes stay as a short preview.
+  return results.value.hasMore.issues
 })
 
 function personTo(personId: string) {
@@ -78,7 +102,7 @@ async function runSearch() {
   isSearching.value = true
   searchError.value = null
   try {
-    const found = await searchApi.search(term, 20, scope.value)
+    const found = await searchApi.search(term, PAGE_SIZE, scope.value, 0)
     if (!latest.isCurrent(ticket)) return
     results.value = found
     recent.value = rememberSearch(term)
@@ -89,6 +113,68 @@ async function runSearch() {
     }
   } finally {
     if (latest.isCurrent(ticket)) isSearching.value = false
+  }
+}
+
+async function loadMore() {
+  const term = query.value.trim()
+  if (!term || !results.value || !canLoadMore.value || isLoadingMore.value) return
+  const ticket = latest.start()
+  isLoadingMore.value = true
+  try {
+    const offset =
+      scope.value === 'projects'
+        ? results.value.projects.length
+        : scope.value === 'people'
+          ? results.value.people.length
+          : scope.value === 'messages'
+            ? (results.value.messages?.length ?? 0)
+            : scope.value === 'chat'
+              ? (results.value.chat?.length ?? 0)
+              : results.value.issues.length
+    const found = await searchApi.search(term, PAGE_SIZE, scope.value === 'all' ? 'issues' : scope.value, offset)
+    if (!latest.isCurrent(ticket) || !results.value) return
+    if (scope.value === 'projects') {
+      results.value = {
+        ...results.value,
+        projects: [...results.value.projects, ...found.projects],
+        hasMore: { ...results.value.hasMore!, projects: Boolean(found.hasMore?.projects) },
+      }
+    } else if (scope.value === 'people') {
+      results.value = {
+        ...results.value,
+        people: [...results.value.people, ...found.people],
+        hasMore: { ...results.value.hasMore!, people: Boolean(found.hasMore?.people) },
+      }
+    } else if (scope.value === 'messages') {
+      results.value = {
+        ...results.value,
+        messages: [...(results.value.messages ?? []), ...(found.messages ?? [])],
+        hasMore: { ...results.value.hasMore!, messages: Boolean(found.hasMore?.messages) },
+      }
+    } else if (scope.value === 'chat') {
+      results.value = {
+        ...results.value,
+        chat: [...(results.value.chat ?? []), ...(found.chat ?? [])],
+        hasMore: { ...results.value.hasMore!, chat: Boolean(found.hasMore?.chat) },
+      }
+    } else {
+      results.value = {
+        ...results.value,
+        issues: [...results.value.issues, ...found.issues],
+        hasMore: {
+          issues: Boolean(found.hasMore?.issues),
+          projects: results.value.hasMore?.projects ?? false,
+          people: results.value.hasMore?.people ?? false,
+          messages: results.value.hasMore?.messages ?? false,
+          chat: results.value.hasMore?.chat ?? false,
+        },
+      }
+    }
+  } catch (problem) {
+    if (latest.isCurrent(ticket)) searchError.value = getErrorMessage(problem)
+  } finally {
+    if (latest.isCurrent(ticket)) isLoadingMore.value = false
   }
 }
 
@@ -116,12 +202,12 @@ const rowClass =
     <PageHeader
       v-if="isDesktop"
       title="Search"
-      description="Find tasks by key, title, description, comments or labels — plus projects and people. Use operators like assignee:me or is:open."
+      description="Find tasks by key, title, description, comments or labels — plus projects, people, messages and work chat. Use operators like assignee:me or is:open."
     />
 
     <div class="relative">
       <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input v-model="query" type="search" placeholder="Search tasks, projects, people" class="h-11 pl-9 text-base" autofocus aria-label="Search" />
+      <Input v-model="query" type="search" placeholder="Search tasks, projects, people, messages" class="h-11 pl-9 text-base" autofocus aria-label="Search" />
     </div>
     <p class="px-1 text-xs text-muted-foreground">
       Operators:
@@ -138,7 +224,7 @@ const rowClass =
 
     <div class="flex flex-wrap gap-1.5" role="tablist" aria-label="Search scope">
       <Button
-        v-for="item in SCOPES"
+        v-for="item in scopes"
         :key="item.value"
         type="button"
         size="sm"
@@ -156,7 +242,7 @@ const rowClass =
       v-if="!query.trim()"
       :icon="Search"
       title="Find anything"
-      description="Try a task key (VEC-12), operators like assignee:me is:open type:bug, or words from a description, comment, label, project or teammate."
+      description="Try a task key (VEC-12), operators like assignee:me is:open type:bug, or words from a description, comment, label, project, message or teammate."
       class="rounded-xl border border-dashed border-border/80 bg-card/60 py-10"
     >
       <div v-if="recent.length" class="mx-auto mt-4 w-full max-w-md space-y-2 text-left">
@@ -180,7 +266,7 @@ const rowClass =
     </div>
 
     <EmptyState
-      v-else-if="searchError"
+      v-else-if="searchError && !results"
       :icon="Search"
       title="Search did not load"
       :description="searchError"
@@ -192,6 +278,7 @@ const rowClass =
     <template v-else-if="results">
       <p class="px-1 text-xs text-muted-foreground">
         {{ isSearching ? 'Updating…' : `${totalHits} result${totalHits === 1 ? '' : 's'}` }}
+        <template v-if="!isSearching && canLoadMore"> · more available</template>
       </p>
 
       <EmptyState
@@ -224,7 +311,17 @@ const rowClass =
       </section>
 
       <section v-if="results.projects.length" class="space-y-2">
-        <h2 class="px-1 text-xs font-medium text-muted-foreground">Projects</h2>
+        <div class="flex items-center justify-between gap-2 px-1">
+          <h2 class="text-xs font-medium text-muted-foreground">Projects</h2>
+          <button
+            v-if="scope === 'all' && results.projects.length >= 5"
+            type="button"
+            class="text-xs font-medium text-primary hover:underline"
+            @click="scope = 'projects'"
+          >
+            See all projects
+          </button>
+        </div>
         <ul class="min-w-0 divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card shadow-soft">
           <li v-for="project in results.projects" :key="project.id">
             <RouterLink :to="{ name: 'project-board', params: { projectId: project.id } }" :class="rowClass">
@@ -237,7 +334,17 @@ const rowClass =
       </section>
 
       <section v-if="results.people.length" class="space-y-2">
-        <h2 class="px-1 text-xs font-medium text-muted-foreground">People</h2>
+        <div class="flex items-center justify-between gap-2 px-1">
+          <h2 class="text-xs font-medium text-muted-foreground">People</h2>
+          <button
+            v-if="scope === 'all' && results.people.length >= 5"
+            type="button"
+            class="text-xs font-medium text-primary hover:underline"
+            @click="scope = 'people'"
+          >
+            See all people
+          </button>
+        </div>
         <ul class="min-w-0 divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card shadow-soft">
           <li v-for="person in results.people" :key="person.id">
             <RouterLink :to="personTo(person.id)" :class="rowClass">
@@ -250,6 +357,66 @@ const rowClass =
           </li>
         </ul>
       </section>
+
+      <section v-if="results.messages?.length" class="space-y-2">
+        <div class="flex items-center justify-between gap-2 px-1">
+          <h2 class="text-xs font-medium text-muted-foreground">Messages</h2>
+          <button
+            v-if="scope === 'all' && (results.messages?.length ?? 0) >= 5"
+            type="button"
+            class="text-xs font-medium text-primary hover:underline"
+            @click="scope = 'messages'"
+          >
+            See all messages
+          </button>
+        </div>
+        <ul class="min-w-0 divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+          <li v-for="message in results.messages" :key="message.id">
+            <RouterLink :to="{ name: 'messages', params: { conversationId: message.conversationId } }" :class="rowClass">
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-medium">{{ message.title }}</span>
+                <span class="block truncate text-xs text-muted-foreground">
+                  <template v-if="message.author">{{ message.author.name }} · </template>{{ message.snippet }}
+                </span>
+              </span>
+            </RouterLink>
+          </li>
+        </ul>
+      </section>
+
+      <section v-if="results.chat?.length" class="space-y-2">
+        <div class="flex items-center justify-between gap-2 px-1">
+          <h2 class="text-xs font-medium text-muted-foreground">Work chat</h2>
+          <button
+            v-if="scope === 'all' && (results.chat?.length ?? 0) >= 5"
+            type="button"
+            class="text-xs font-medium text-primary hover:underline"
+            @click="scope = 'chat'"
+          >
+            See all chat
+          </button>
+        </div>
+        <ul class="min-w-0 divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+          <li v-for="message in results.chat" :key="message.id">
+            <RouterLink
+              :to="{ name: 'project-chat', params: { projectId: message.projectId }, query: { message: message.id } }"
+              :class="rowClass"
+            >
+              <span class="size-3 shrink-0 rounded-sm" :style="{ backgroundColor: message.project.color }" />
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-medium">{{ message.project.name }}</span>
+                <span class="block truncate text-xs text-muted-foreground">
+                  <template v-if="message.author">{{ message.author.name }} · </template>{{ message.snippet }}
+                </span>
+              </span>
+            </RouterLink>
+          </li>
+        </ul>
+      </section>
+
+      <div v-if="canLoadMore" class="flex justify-center pt-1">
+        <Button variant="outline" :loading="isLoadingMore" @click="loadMore">Load more</Button>
+      </div>
     </template>
   </div>
 </template>

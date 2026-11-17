@@ -19,7 +19,14 @@ const STATE_META: Record<SprintProgress['state'], { label: string; tone: string 
 }
 
 const usePoints = computed(() => props.report.sprints.some((sprint) => sprint.committedPoints > 0))
-const chartSprints = computed(() => props.report.sprints.filter((sprint) => sprint.state !== 'planned').slice(0, 10).reverse())
+/** Show a long history on the chart (newest first in data → reverse for chronological columns). */
+const CHART_LIMIT = 40
+const chartSprints = computed(() =>
+  props.report.sprints.filter((sprint) => sprint.state !== 'planned').slice(0, CHART_LIMIT).reverse(),
+)
+const chartTruncated = computed(
+  () => props.report.sprints.filter((sprint) => sprint.state !== 'planned').length > CHART_LIMIT,
+)
 const velocityLabel = computed(() => {
   const { averageDeliveredPoints, averageDelivered } = props.report.totals
   if (usePoints.value) return averageDeliveredPoints === null ? '—' : `${averageDeliveredPoints} pts`
@@ -89,6 +96,7 @@ const completionTone = (value: number) => (value >= 85 ? 'text-success' : value 
           <CardTitle>Committed vs. delivered</CardTitle>
           <CardDescription>
             Each pair of bars is one sprint, oldest on the left ({{ usePoints ? 'story points' : 'issues' }}). When the bars match, the team delivered everything it planned.
+            <template v-if="chartTruncated"> Showing the latest {{ CHART_LIMIT }} sprints.</template>
           </CardDescription>
         </CardHeader>
         <CardContent>

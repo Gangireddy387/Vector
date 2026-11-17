@@ -1,8 +1,28 @@
 import { http } from '@/lib/http'
 import type { IssuePriority, IssueType, ProjectReference, ProjectType, StatusSummary, UserSummary } from '@/types/models'
 
-export type SearchScope = 'all' | 'issues' | 'projects' | 'people'
+export type SearchScope = 'all' | 'issues' | 'projects' | 'people' | 'messages' | 'chat'
 export type SearchMatchField = 'key' | 'title' | 'description' | 'comment' | 'label'
+
+export interface SearchMessageHit {
+  id: string
+  conversationId: string
+  kind: string
+  title: string
+  subject: string | null
+  snippet: string
+  author: UserSummary | null
+  createdAt: string
+}
+
+export interface SearchChatHit {
+  id: string
+  projectId: string
+  project: ProjectReference
+  snippet: string
+  author: UserSummary | null
+  createdAt: string
+}
 
 export interface SearchResults {
   issues: Array<{
@@ -18,9 +38,18 @@ export interface SearchResults {
   }>
   projects: Array<ProjectReference & { type: ProjectType }>
   people: UserSummary[]
+  messages?: SearchMessageHit[]
+  chat?: SearchChatHit[]
+  hasMore?: {
+    issues: boolean
+    projects: boolean
+    people: boolean
+    messages?: boolean
+    chat?: boolean
+  }
 }
 
 export const searchApi = {
-  search: (q: string, limit = 10, scope: SearchScope = 'all') =>
-    http.get<SearchResults>('/search', { params: { q, limit, scope } }).then((r) => r.data),
+  search: (q: string, limit = 10, scope: SearchScope = 'all', offset = 0) =>
+    http.get<SearchResults>('/search', { params: { q, limit, scope, offset } }).then((r) => r.data),
 }

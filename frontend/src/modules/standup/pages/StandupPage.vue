@@ -27,7 +27,7 @@ const { isDesktop } = useDevice()
 
 const projectId = computed(() => route.params.projectId as string)
 const project = computed(() => projects.details[projectId.value] ?? null)
-const canPost = computed(() => project.value?.myRole === 'admin' || project.value?.myRole === 'member')
+const canPost = computed(() => Boolean(project.value?.myRole))
 
 const today = todayInput()
 /** The day lives in the URL so a standup can be linked from chat, notifications and the record. */

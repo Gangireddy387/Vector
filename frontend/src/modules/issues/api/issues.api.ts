@@ -76,8 +76,11 @@ export const issuesApi = {
   bulkUpdate: (issueIds: string[], changes: BulkChanges) =>
     http.patch<{ updated: number }>('/issues/bulk', { issueIds, changes }).then((r) => r.data),
   bulkDelete: (issueIds: string[]) => http.post<{ deleted: number }>('/issues/bulk-delete', { issueIds }).then((r) => r.data),
-  watch: (issueId: string) => http.post(`/issues/${issueId}/watchers`),
-  unwatch: (issueId: string) => http.delete(`/issues/${issueId}/watchers`),
+  watch: (issueId: string, userId?: string) =>
+    http.post<{ issue: IssueDetail }>(`/issues/${issueId}/watchers`, userId ? { userId } : {}).then((r) => r.data.issue),
+  unwatch: (issueId: string) => http.delete<{ issue: IssueDetail }>(`/issues/${issueId}/watchers`).then((r) => r.data.issue),
+  removeWatcher: (issueId: string, userId: string) =>
+    http.delete<{ issue: IssueDetail }>(`/issues/${issueId}/watchers/${userId}`).then((r) => r.data.issue),
   addLink: (issueId: string, payload: { targetIssue: string; type: IssueLinkType }) =>
     http.post<{ issue: IssueDetail }>(`/issues/${issueId}/links`, payload).then((r) => r.data.issue),
   removeLink: (linkId: string) => http.delete(`/issue-links/${linkId}`),

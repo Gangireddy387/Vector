@@ -31,6 +31,8 @@ export function summarizeCriteria(criteria: SavedCriteria): string[] {
   if (criteria.sprintId === 'active') chips.push('Active sprint')
   else if (criteria.sprintId === 'backlog') chips.push('Backlog')
   else if (criteria.sprintId) chips.push('Sprint')
+  if (criteria.parentId === 'none') chips.push('No epic')
+  else if (criteria.parentId) chips.push('Epic')
   if (criteria.overdue === 'true' || criteria.overdue === true) chips.push('Overdue')
   if (criteria.sort === 'dueDate') chips.push('Sort: due date')
   else if (criteria.sort === 'priority') chips.push('Sort: priority')
