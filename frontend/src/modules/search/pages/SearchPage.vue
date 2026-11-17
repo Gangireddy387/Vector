@@ -209,7 +209,7 @@ const rowClass =
       <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
       <Input v-model="query" type="search" placeholder="Search tasks, projects, people, messages" class="h-11 pl-9 text-base" autofocus aria-label="Search" />
     </div>
-    <p class="px-1 text-xs text-muted-foreground">
+    <p v-if="isDesktop" class="px-1 text-xs text-muted-foreground">
       Operators:
       <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">assignee:me</code>
       <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">assignee:email</code>
@@ -221,6 +221,17 @@ const rowClass =
       <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">priority:high</code>
       — free text still matches title, key, description, comments and labels.
     </p>
+    <details v-else class="px-1 text-xs text-muted-foreground">
+      <summary class="cursor-pointer select-none font-medium text-foreground/80">Search operators</summary>
+      <p class="mt-1.5 leading-relaxed">
+        <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">assignee:me</code>
+        <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">is:open</code>
+        <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">project:KEY</code>
+        <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">type:bug</code>
+        <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">priority:high</code>
+        — also comments, labels, messages and work chat.
+      </p>
+    </details>
 
     <div class="flex flex-wrap gap-1.5" role="tablist" aria-label="Search scope">
       <Button
@@ -278,7 +289,8 @@ const rowClass =
     <template v-else-if="results">
       <p class="px-1 text-xs text-muted-foreground">
         {{ isSearching ? 'Updating…' : `${totalHits} result${totalHits === 1 ? '' : 's'}` }}
-        <template v-if="!isSearching && canLoadMore"> · more available</template>
+        <template v-if="!isSearching && canLoadMore && scope !== 'all'"> · more available</template>
+        <template v-else-if="!isSearching && scope === 'all'"> · open a tab for full lists</template>
       </p>
 
       <EmptyState

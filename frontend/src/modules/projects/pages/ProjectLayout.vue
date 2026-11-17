@@ -217,7 +217,7 @@ async function wipeSample() {
     <div
       class="min-w-0 overflow-x-hidden"
       :class="
-        isDesktop && fillHeight
+        fillHeight
           ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
           : isDesktop
             ? 'min-h-0 flex-1 overflow-y-auto'

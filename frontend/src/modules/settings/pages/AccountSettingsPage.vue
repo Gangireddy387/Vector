@@ -35,6 +35,8 @@ const route = useRoute()
 const router = useRouter()
 
 const { canInstall, install } = usePwaInstall()
+/** Show the Safari “Add to Home Screen” tip only on Apple devices when the install prompt is unavailable. */
+const isAppleHint = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && /Safari/.test(navigator.userAgent)
 
 const profile = reactive({
   name: auth.user?.name ?? '',
@@ -129,6 +131,7 @@ async function saveProfile() {
 async function setPreference(key: 'emailNotifications' | 'dailyDigest' | 'weeklyReportsEmail' | 'pushEnabled', value: boolean) {
   try {
     await auth.updateProfile({ preferences: { [key]: value } })
+    toast.success(value ? 'Preference saved' : 'Preference turned off')
   } catch (error) {
     toast.error(getErrorMessage(error))
   }
@@ -204,7 +207,11 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
                   <FormField label="Job title" for="profile-title" optional>
                     <Input id="profile-title" v-model="profile.title" placeholder="e.g. Product Designer" />
                   </FormField>
-                  <FormField label="Email" for="profile-email">
+                  <FormField
+                    label="Email"
+                    for="profile-email"
+                    hint="Sign-in email can’t be changed here. Ask an organization admin if you need it updated."
+                  >
                     <Input id="profile-email" :model-value="auth.user?.email" disabled />
                   </FormField>
                   <FormField label="Phone" for="profile-phone" optional>
@@ -275,9 +282,11 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
           <Card class="gap-3">
             <CardHeader class="border-b border-border/60 pb-3">
               <CardTitle>Notifications</CardTitle>
-              <CardDescription>In-app notifications are always on. Choose what also reaches your email and this device.</CardDescription>
+              <CardDescription>
+                In-app notifications are always on. These toggles control what Vector may also send by email or push — separate from allowing this browser to show alerts.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent class="space-y-3">
               <div class="overflow-hidden rounded-xl border border-border/70">
                 <label
                   v-for="(item, index) in NOTIFICATION_PREFS"
@@ -296,10 +305,14 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
                   />
                 </label>
               </div>
+              <div :class="!preferenceValue('pushEnabled') && 'pointer-events-none opacity-60'">
+                <PushPrompt context="settings" />
+                <p v-if="!preferenceValue('pushEnabled')" class="mt-2 text-xs text-muted-foreground">
+                  Turn on Push notifications above before enabling alerts on this device.
+                </p>
+              </div>
             </CardContent>
           </Card>
-
-          <PushPrompt context="settings" />
         </div>
       </template>
 
@@ -362,17 +375,20 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
             </CardContent>
           </Card>
 
-          <Card v-if="canInstall || !isStandalone" class="gap-3">
+          <Card v-if="canInstall" class="gap-3">
             <CardHeader class="border-b border-border/60 pb-3">
               <CardTitle>Install the app</CardTitle>
-              <CardDescription>
-                Add Vector to your home screen or desktop for a full-screen, app-like experience.
-                <template v-if="!canInstall"> On iPhone and iPad: tap Share → “Add to Home Screen”.</template>
-              </CardDescription>
+              <CardDescription>Add Vector to your home screen or desktop for a full-screen, app-like experience.</CardDescription>
             </CardHeader>
-            <CardContent v-if="canInstall">
+            <CardContent>
               <Button @click="install"><Download /> Install Vector</Button>
             </CardContent>
+          </Card>
+          <Card v-else-if="!isStandalone && isAppleHint" class="gap-3">
+            <CardHeader class="border-b border-border/60 pb-3">
+              <CardTitle>Add to Home Screen</CardTitle>
+              <CardDescription>On iPhone and iPad: tap Share → “Add to Home Screen” for an app-like experience.</CardDescription>
+            </CardHeader>
           </Card>
         </div>
       </template>

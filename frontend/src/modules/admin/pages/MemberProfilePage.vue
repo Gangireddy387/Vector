@@ -68,6 +68,13 @@ async function load() {
 }
 watch(() => props.userId, () => ((profile.value = null), (notFound.value = false), load()), { immediate: true })
 
+async function remindProfile(userId: string, name: string) {
+  const draft = `Hi ${name.split(' ')[0]} — could you add a short About on your Vector profile so teammates know what to ask you for?`
+  await copy(draft)
+  toast.success('Reminder copied', { description: 'Opening their chat — paste the message to send.' })
+  await messagePerson(userId)
+}
+
 const person = computed(() => profile.value?.person ?? null)
 const isSelf = computed(() => person.value?.id === auth.user?.id)
 const status = computed(() => (person.value?.status === 'invited' ? 'invited' : (person.value?.membershipStatus ?? 'active')))
@@ -245,9 +252,20 @@ async function copyEmail() {
           <section class="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-soft sm:p-5">
             <h2 class="mb-2 text-base font-semibold">About</h2>
             <p v-if="person.about" class="text-sm leading-relaxed whitespace-pre-line text-foreground/85">{{ person.about }}</p>
-            <p v-else class="text-sm text-muted-foreground">
-              {{ isSelf ? 'Tell your team what you work on. Add an about section in Settings.' : `${person.name.split(' ')[0]} has not written an about section yet.` }}
-            </p>
+            <div v-else class="space-y-2">
+              <p class="text-sm text-muted-foreground">
+                {{ isSelf ? 'Tell your team what you work on. Add an about section in Settings.' : `${person.name.split(' ')[0]} has not written an about section yet.` }}
+              </p>
+              <Button
+                v-if="!isSelf && auth.isOrganizationAdmin && canMessage(person.id)"
+                variant="outline"
+                size="sm"
+                :loading="openingId === person.id"
+                @click="remindProfile(person.id, person.name)"
+              >
+                <MessageCircle /> Remind to complete profile
+              </Button>
+            </div>
           </section>
 
           <!-- Organization -->

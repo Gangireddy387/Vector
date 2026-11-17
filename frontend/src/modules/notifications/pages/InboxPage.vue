@@ -317,15 +317,18 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
             :description="search ? 'Try other words or another folder.' : EMPTY[filter].description"
             class="px-4 py-14"
           >
-            <Button
-              v-if="notifications.hasMore"
-              variant="outline"
-              size="sm"
-              :loading="notifications.isLoadingOlder"
-              @click="notifications.loadOlder()"
-            >
-              Load older
-            </Button>
+            <div class="flex flex-wrap justify-center gap-2">
+              <Button v-if="search.trim()" variant="outline" size="sm" @click="search = ''">Clear search</Button>
+              <Button
+                v-if="notifications.hasMore && !search.trim()"
+                variant="outline"
+                size="sm"
+                :loading="notifications.isLoadingOlder"
+                @click="notifications.loadOlder()"
+              >
+                Load older
+              </Button>
+            </div>
           </EmptyState>
           <template v-else>
             <template v-for="section in sections" :key="section.label">

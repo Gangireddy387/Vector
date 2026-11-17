@@ -138,7 +138,13 @@ const burnupTooltips = computed(
                 </CardAction>
               </CardHeader>
               <CardContent>
-                <LineChart :labels="burnupLabels" :tooltip-labels="burnupTooltips" :series="burnupSeries" :height="240" />
+                <EmptyState
+                  v-if="!progress.burnup?.length || !progress.totals.done"
+                  title="Burnup appears as work completes"
+                  description="Complete a few tasks and this chart will show scope versus done over time."
+                  class="border-0 py-10 shadow-none"
+                />
+                <LineChart v-else :labels="burnupLabels" :tooltip-labels="burnupTooltips" :series="burnupSeries" :height="240" />
               </CardContent>
             </Card>
             <MilestoneTimeline :milestones="progress.milestones" />

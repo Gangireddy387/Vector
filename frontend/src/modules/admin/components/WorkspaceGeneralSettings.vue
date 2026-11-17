@@ -112,8 +112,12 @@ async function deleteOrganization() {
             :errors="fieldErrors"
             :current-slug="workspace.settings.slug"
           />
-          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div
+            class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
+            :class="isDirty && 'rounded-lg border border-primary/30 bg-primary/5 p-2.5'"
+          >
             <Button type="submit" class="max-sm:w-full" :loading="isSaving" :disabled="!isDirty || form.name.trim().length < 2 || !slugAvailable">Save</Button>
+            <span v-if="isDirty" class="text-xs font-medium text-primary">Unsaved changes</span>
             <Button type="button" variant="ghost" class="max-sm:w-full" :disabled="!workspace.settings.slug" @click="copyLink"><Copy /> Copy link</Button>
             <Button type="button" variant="outline" class="max-sm:w-full" :disabled="!workspace.settings.slug" @click="copyInvitePreview">
               <Copy /> Copy invite preview

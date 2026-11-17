@@ -54,9 +54,21 @@ onMounted(() => {
 <template>
   <section id="daily-briefing" v-if="auth.hasFeature('aiAssistant')" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
     <header class="flex h-12 items-center gap-2 border-b border-border px-4">
-      <button type="button" class="flex min-w-0 flex-1 items-center gap-2 text-left" @click="toggle">
+      <button
+        type="button"
+        class="flex min-w-0 flex-1 items-center gap-2 rounded-md text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25"
+        :aria-expanded="expanded"
+        aria-controls="daily-briefing-body"
+        @click="toggle"
+      >
         <Sparkles class="size-4 shrink-0 text-primary" />
         <h2 class="text-sm font-semibold">Daily briefing</h2>
+        <span
+          v-if="sourceLabel"
+          class="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+        >
+          {{ sourceLabel }}
+        </span>
         <ChevronDown class="size-4 text-muted-foreground transition-transform" :class="expanded && 'rotate-180'" />
       </button>
       <Button v-if="expanded" variant="ghost" size="sm" class="text-muted-foreground" :disabled="isLoading" @click="load">
@@ -65,7 +77,7 @@ onMounted(() => {
       </Button>
     </header>
 
-    <div v-if="expanded">
+    <div v-if="expanded" id="daily-briefing-body">
       <div v-if="isLoading && !briefing" class="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
         <Loader2 class="size-4 animate-spin" /> Preparing what needs you today…
       </div>

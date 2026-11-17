@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Columns3, Settings2, Tags, Users, Wand2 } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import SettingsLayout, { type SettingsSection } from '@/components/common/SettingsLayout.vue'
 import { useDevice } from '@/composables/useDevice'
@@ -13,6 +13,7 @@ import WorkflowSettings from '../components/settings/WorkflowSettings.vue'
 import { useProjectsStore } from '../projects.store'
 
 const route = useRoute()
+const router = useRouter()
 const projects = useProjectsStore()
 const { isDesktop } = useDevice()
 
@@ -24,8 +25,12 @@ const SECTIONS: SettingsSection[] = [
   { value: 'labels', label: 'Labels', icon: Tags },
   { value: 'smart-defaults', label: 'Smart defaults', icon: Wand2 },
 ]
-const tab = typeof route.query.tab === 'string' ? route.query.tab : ''
-const activeSection = ref(SECTIONS.some((section) => section.value === tab) ? tab : 'general')
+const activeSection = computed({
+  get: () => (SECTIONS.some((section) => section.value === route.query.tab) ? String(route.query.tab) : 'general'),
+  set: (tab: string) => {
+    void router.replace({ query: { ...route.query, tab: tab === 'general' ? undefined : tab } })
+  },
+})
 </script>
 
 <template>

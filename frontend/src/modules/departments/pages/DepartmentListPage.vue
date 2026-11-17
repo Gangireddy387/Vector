@@ -96,6 +96,18 @@ const STATS = computed(() => [
         :hint="stat.hint"
       />
     </div>
+    <p
+      v-if="isAdmin && structure.totals.unplaced"
+      class="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-800 dark:text-warning"
+      role="status"
+    >
+      {{ structure.totals.unplaced }}
+      {{ structure.totals.unplaced === 1 ? 'person is' : 'people are' }}
+      not in a team yet. Open a team and add them from Members, or invite them from
+      <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'people' } }" class="font-medium underline-offset-2 hover:underline">
+        Organization settings → People
+      </RouterLink>.
+    </p>
 
     <div v-if="structure.departments?.length" class="relative w-full max-w-md">
       <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />

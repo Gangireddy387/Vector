@@ -67,37 +67,37 @@ const subtaskText = computed({
         :model-value="action.type"
         :options="actionOptions"
         size="sm"
-        class="w-64"
+        class="min-w-0 flex-1 sm:max-w-64 sm:flex-none sm:w-64"
         aria-label="Action"
         @update:model-value="(value) => value && setType(value as AutomationActionType)"
       />
-      <Button variant="ghost" size="icon-sm" class="ml-auto" aria-label="Remove action" @click="$emit('remove')"><Trash2 /></Button>
+      <Button variant="ghost" size="icon-sm" class="ml-auto shrink-0" aria-label="Remove action" @click="$emit('remove')"><Trash2 /></Button>
     </div>
 
-    <div class="pl-8">
+    <div class="space-y-2 pl-0 sm:pl-8">
       <StatusSelect
         v-if="action.type === 'set_status'"
         :model-value="params.statusId ?? ''"
         :statuses="project.statuses"
         size="sm"
-        class="w-56"
+        class="w-full sm:w-56"
         @update:model-value="(value) => setParam('statusId', value)"
       />
 
-      <div v-else-if="action.type === 'set_priority'" class="w-48">
+      <div v-else-if="action.type === 'set_priority'" class="w-full sm:w-48">
         <PrioritySelect :model-value="(params.priority as IssuePriority) ?? 'high'" size="sm" @update:model-value="(value) => setParam('priority', value)" />
       </div>
 
-      <div v-else-if="action.type === 'assign'" class="flex flex-wrap gap-2">
+      <div v-else-if="action.type === 'assign'" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <SelectField
           :model-value="params.strategy ?? null"
           :options="strategyOptions"
           size="sm"
-          class="w-60"
+          class="w-full sm:w-60"
           aria-label="Assign to"
           @update:model-value="(value) => setParam('strategy', value)"
         />
-        <div v-if="params.strategy === 'user'" class="w-56">
+        <div v-if="params.strategy === 'user'" class="w-full sm:w-56">
           <MemberSelect :model-value="params.userId ?? null" :members="project.members" :allow-none="false" none-label="Choose person" size="sm" @update:model-value="(value) => setParam('userId', value)" />
         </div>
       </div>

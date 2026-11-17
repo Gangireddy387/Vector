@@ -202,7 +202,13 @@ export interface CalendarConnectionInfo {
   label: string
   /** The server has this calendar set up. */
   available: boolean
-  connection: { provider: CalendarProvider; accountEmail: string | null; connectedAt: string; needsReconnect: boolean } | null
+  connection: {
+    provider: CalendarProvider
+    accountEmail: string | null
+    connectedAt: string
+    needsReconnect: boolean
+    lastSyncedAt?: string | null
+  } | null
 }
 
 export interface MeetingUpdate {

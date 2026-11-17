@@ -30,18 +30,41 @@ const providerOf = (id) => {
 
 export const calendarSyncAvailable = () => Object.values(PROVIDERS).some((provider) => provider.configured());
 
-const connectionView = (connection) =>
-  connection ? { provider: connection.provider, accountEmail: connection.accountEmail, connectedAt: connection.createdAt, needsReconnect: Boolean(connection.brokenAt) } : null;
+const connectionView = (connection, lastSyncedAt = null) =>
+  connection
+    ? {
+        provider: connection.provider,
+        accountEmail: connection.accountEmail,
+        connectedAt: connection.createdAt,
+        needsReconnect: Boolean(connection.brokenAt),
+        lastSyncedAt,
+      }
+    : null;
 
 /** The calendars this server can connect, and which of them this person connected. */
 export async function listConnections(userId) {
   const connections = await CalendarConnection.findAll({ where: { userId } });
-  return Object.values(PROVIDERS).map((provider) => ({
-    provider: provider.id,
-    label: provider.label,
-    available: provider.configured(),
-    connection: connectionView(connections.find((connection) => connection.provider === provider.id)),
-  }));
+  const connectionIds = connections.map((connection) => connection.id);
+  const latestByConnection = new Map();
+  if (connectionIds.length) {
+    const links = await MeetingCalendarLink.findAll({
+      where: { connectionId: connectionIds, lastSyncedAt: { [Op.ne]: null } },
+      attributes: ['connectionId', 'lastSyncedAt'],
+      order: [['lastSyncedAt', 'DESC']],
+    });
+    for (const link of links) {
+      if (!latestByConnection.has(link.connectionId)) latestByConnection.set(link.connectionId, link.lastSyncedAt);
+    }
+  }
+  return Object.values(PROVIDERS).map((provider) => {
+    const connection = connections.find((row) => row.provider === provider.id);
+    return {
+      provider: provider.id,
+      label: provider.label,
+      available: provider.configured(),
+      connection: connectionView(connection, connection ? latestByConnection.get(connection.id) ?? null : null),
+    };
+  });
 }
 
 /** Where to send the person to allow access to their calendar. */

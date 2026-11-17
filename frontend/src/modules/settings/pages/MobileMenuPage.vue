@@ -102,16 +102,24 @@ const itemClass =
     <section class="space-y-2">
       <h2 class="px-1 text-xs font-medium text-muted-foreground">Projects</h2>
       <nav class="overflow-hidden rounded-xl border border-border/70 bg-card shadow-soft" aria-label="Projects">
-        <RouterLink
-          v-for="project in projects.joinedProjects"
-          :key="project.id"
-          :to="{ name: 'project-board', params: { projectId: project.id } }"
-          :class="itemClass"
-        >
-          <span class="size-3 shrink-0 rounded-sm" :style="{ backgroundColor: project.color }" />
-          <span class="flex-1 truncate">{{ project.name }}</span>
-          <span class="text-xs text-muted-foreground">{{ project.issueSummary?.open ?? 0 }} open</span>
-        </RouterLink>
+        <template v-if="projects.joinedProjects.length">
+          <RouterLink
+            v-for="project in projects.joinedProjects"
+            :key="project.id"
+            :to="{ name: 'project-board', params: { projectId: project.id } }"
+            :class="itemClass"
+          >
+            <span class="size-3 shrink-0 rounded-sm" :style="{ backgroundColor: project.color }" />
+            <span class="flex-1 truncate">{{ project.name }}</span>
+            <span class="text-xs text-muted-foreground">{{ project.issueSummary?.open ?? 0 }} open</span>
+          </RouterLink>
+        </template>
+        <div v-else class="space-y-2 px-4 py-3.5 text-sm text-muted-foreground">
+          <p>You’re not on a project yet.</p>
+          <div class="flex flex-wrap gap-2">
+            <RouterLink :to="{ name: 'projects' }" class="font-medium text-primary hover:underline">Browse projects</RouterLink>
+          </div>
+        </div>
       </nav>
     </section>
 

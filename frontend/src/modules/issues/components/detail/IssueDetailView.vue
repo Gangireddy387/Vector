@@ -253,7 +253,7 @@ function startLinking() {
             >
               <UserPlus /> Assign to me
             </Button>
-            <Button v-if="isDesktop && canUseAi" variant="outline" size="sm" @click="summaryRef?.generate()"><Sparkles class="text-primary" /> Summarize</Button>
+            <Button v-if="canUseAi" variant="outline" size="sm" @click="summaryRef?.generate()"><Sparkles class="text-primary" /> Summarize</Button>
             <Button v-if="isDesktop && canAttach" variant="outline" size="sm" @click="attachmentsRef?.openPicker()"><Paperclip /> Attach</Button>
             <Button v-if="isDesktop && canEdit" variant="outline" size="sm" @click="startLinking"><Link2 /> Link</Button>
           </div>

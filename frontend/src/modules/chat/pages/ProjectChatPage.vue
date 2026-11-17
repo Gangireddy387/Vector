@@ -450,6 +450,24 @@ const discussedTasks = computed(() => {
       </div>
 
       <div class="shrink-0 border-t bg-background px-4 pt-3 pb-3">
+        <div v-if="!embedded && (!isDesktop || discussedTasks.length)" class="mb-2 flex flex-wrap items-center gap-1.5">
+          <RouterLink
+            v-if="!isDesktop"
+            :to="{ name: 'project-standup', params: { projectId } }"
+            class="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 text-[11.5px] font-medium hover:bg-accent"
+          >
+            <ClipboardList class="size-3.5" /> Standup
+          </RouterLink>
+          <RouterLink
+            v-for="entry in discussedTasks.slice(0, isDesktop ? 6 : 4)"
+            :key="entry.issue.id"
+            :to="{ name: 'issue', params: { issueKey: entry.issue.key } }"
+            class="inline-flex h-7 max-w-[9rem] items-center gap-1 rounded-md border border-border px-2 text-[11.5px] font-medium hover:bg-accent"
+          >
+            <span class="size-1.5 shrink-0 rounded-full" :style="{ backgroundColor: entry.issue.status?.color ?? 'var(--muted-foreground)' }" />
+            <span class="truncate font-mono">{{ entry.issue.key }}</span>
+          </RouterLink>
+        </div>
         <div v-if="failedSend" class="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           <span class="min-w-0 flex-1">Last message didn’t send.</span>
           <Button size="sm" variant="outline" @click="retryFailedSend">Retry</Button>

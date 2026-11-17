@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
+import { formatDate, timeAgo } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type DashboardData, type StandupRollupItem, dashboardApi } from '@/modules/dashboard/dashboard.api'
@@ -22,6 +23,8 @@ const error = ref<string | null>(null)
 
 const needsAttention = computed(() => rows.value.filter((row) => row.missing.length || row.blockers.length))
 const complete = computed(() => rows.value.filter((row) => !row.missing.length && !row.blockers.length))
+const rollupDate = computed(() => rows.value[0]?.date ?? null)
+const lastLoadedAt = ref<Date | null>(null)
 const totals = computed(() => ({
   projects: rows.value.length,
   posted: rows.value.reduce((sum, row) => sum + row.posted, 0),
@@ -51,6 +54,7 @@ async function load() {
   try {
     const data: DashboardData = await dashboardApi.get()
     rows.value = data.standupRollup ?? []
+    lastLoadedAt.value = new Date()
   } catch (problem) {
     error.value = getErrorMessage(problem)
   } finally {
@@ -68,14 +72,22 @@ const percent = (row: StandupRollupItem) => (row.expected ? Math.round((row.post
     <PageHeader
       v-if="isDesktop"
       title="Standup rollup"
-      description="Manager morning view — clear blockers first, then chase missing posts across projects you lead."
+      :description="
+        rollupDate
+          ? `For ${formatDate(rollupDate, 'EEE d MMM')}${lastLoadedAt ? ` · updated ${timeAgo(lastLoadedAt)}` : ''} — clear blockers first, then chase missing posts.`
+          : 'Manager morning view — clear blockers first, then chase missing posts across projects you lead.'
+      "
     >
       <template #actions>
         <Button variant="outline" size="sm" :loading="isLoading" @click="load"><RefreshCw /> Refresh</Button>
       </template>
     </PageHeader>
     <div v-else class="flex items-center justify-between gap-2 px-1">
-      <p class="text-sm text-muted-foreground">Projects you lead or admin</p>
+      <p class="text-sm text-muted-foreground">
+        <template v-if="rollupDate">{{ formatDate(rollupDate, 'EEE d MMM') }}</template>
+        <template v-else>Projects you lead or admin</template>
+        <template v-if="lastLoadedAt"> · {{ timeAgo(lastLoadedAt) }}</template>
+      </p>
       <Button variant="ghost" size="icon-sm" aria-label="Refresh" @click="load"><RefreshCw /></Button>
     </div>
 
