@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { format, isThisWeek, isToday, isYesterday, parseISO } from 'date-fns'
-import { ArrowLeft, ArrowUpRight, BellOff, BellRing, CheckCheck, EllipsisVertical, Eraser, Inbox, MessageCircle, Search, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, ArrowUpRight, BellOff, CheckCheck, EllipsisVertical, Eraser, Inbox, MessageCircle, Search, Trash2 } from 'lucide-vue-next'
 import { computed, defineAsyncComponent, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
-import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -19,7 +18,6 @@ import SupportChatThread from '@/modules/support/components/SupportChatThread.vu
 import { organizationSupportApi } from '@/modules/support/support.api'
 import type { AppNotification } from '@/types/models'
 import NotificationDetail from '../components/NotificationDetail.vue'
-import NotificationItem from '../components/NotificationItem.vue'
 import { INBOX_FILTERS, type InboxFilter, kindOf, matchesFilter } from '../notification-kinds'
 import { useNotificationsStore } from '../notifications.store'
 
@@ -44,18 +42,10 @@ async function retryLoad() {
   }
 }
 
-const counts = computed(() =>
-  Object.fromEntries(INBOX_FILTERS.map((item) => [item.value, notifications.items.filter((notification) => matchesFilter(notification, item.value)).length])),
-)
 const unreadIn = (value: InboxFilter) => notifications.items.filter((notification) => !notification.readAt && matchesFilter(notification, value)).length
-/** Category chips only show when they have something in them (All, Unread and the open one always do). */
-const chips = computed(() => INBOX_FILTERS.filter((item) => item.value === 'all' || item.value === 'unread' || item.value === filter.value || counts.value[item.value]))
-const chipOptions = computed(() =>
-  chips.value.map((chip) => {
-    const unread = unreadIn(chip.value)
-    return { value: chip.value, label: chip.label, ...(unread ? { count: unread } : {}) }
-  }),
-)
+const totalIn = (value: InboxFilter) => notifications.items.filter((notification) => matchesFilter(notification, value)).length
+const folders = computed(() => INBOX_FILTERS)
+const activeFolder = computed(() => folders.value.find((folder) => folder.value === filter.value) ?? folders.value[0]!)
 function chooseFilter(value: InboxFilter) {
   filter.value = value
   selectedKey.value = null
@@ -162,7 +152,7 @@ async function removeEntry(entry: Entry) {
   await Promise.all(entry.items.map((item) => notifications.remove(item)))
 }
 
-/** Workspace shell: show it in the reading pane (and mark it read, like opening an email). Phones: go straight to it. */
+/** Workspace shell: show it in the reading pane. Phones: go straight to the linked place. */
 function select(entry: Entry) {
   const navigates = !isDesktop.value && Boolean(entry.latest.link)
   void markEntryRead(entry, navigates)
@@ -180,6 +170,9 @@ const listTime = (notification: AppNotification) => {
   return isToday(date) ? format(date, 'HH:mm') : format(date, 'd MMM')
 }
 
+const showFolderRail = computed(() => isDesktop.value && (isWide.value || !selected.value))
+const showList = computed(() => !isDesktop.value || isWide.value || !selected.value)
+
 const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
   all: { title: 'Nothing here yet', description: 'You will hear about tasks assigned to you, mentions, deadlines and work you watch.' },
   unread: { title: 'You are all caught up', description: 'New notifications show up here until you open them.' },
@@ -192,61 +185,128 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
 </script>
 
 <template>
-  <!-- Tablet + desktop: filters on the list, the list and a reading pane, fitted to the window -->
-  <div v-if="isDesktop" class="flex h-full w-full flex-col">
-    <header class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 sm:gap-3 sm:px-4">
-      <h1 class="flex min-w-0 items-center gap-2 text-[15px] font-semibold">
+  <!-- One adaptive shell: phone, tablet and desktop share the same folders + list language -->
+  <div class="flex h-full min-h-0 w-full flex-1 flex-col bg-background">
+    <header
+      class="flex shrink-0 items-center gap-2 border-b border-border px-3"
+      :class="isDesktop ? 'h-12 sm:gap-3 sm:px-4' : 'h-11 gap-2'"
+    >
+      <h1 v-if="isDesktop" class="flex min-w-0 items-center gap-2 text-[15px] font-semibold">
         Inbox
-        <span v-if="notifications.unreadCount" class="rounded-full bg-primary/12 px-1.5 text-[11px] font-semibold text-primary tabular-nums dark:bg-primary/20">{{ notifications.unreadCount }}</span>
+        <span
+          v-if="notifications.unreadCount"
+          class="rounded-full bg-primary/12 px-1.5 text-[11px] font-semibold text-primary tabular-nums dark:bg-primary/20"
+        >
+          {{ notifications.unreadCount }}
+        </span>
       </h1>
-      <div class="relative ml-auto w-36 sm:w-44 lg:w-60">
+      <div class="relative min-w-0 flex-1" :class="isDesktop ? 'ml-auto w-36 sm:w-44 lg:w-60 sm:flex-none' : ''">
         <Search class="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input v-model="search" class="h-7 pl-8" placeholder="Search" aria-label="Search notifications" />
+        <Input v-model="search" class="h-8 pl-8 sm:h-7" placeholder="Search notifications" aria-label="Search notifications" />
       </div>
-      <Button variant="outline" size="sm" class="shrink-0" :disabled="!notifications.unreadCount" @click="notifications.markAllRead()"><CheckCheck /> <span class="hidden sm:inline">Mark all read</span></Button>
+      <Button
+        variant="outline"
+        size="sm"
+        class="shrink-0"
+        :disabled="!notifications.unreadCount"
+        @click="notifications.markAllRead()"
+      >
+        <CheckCheck />
+        <span class="hidden sm:inline">Mark all read</span>
+      </Button>
     </header>
 
     <div class="flex min-h-0 flex-1 overflow-hidden">
-      <!-- List: full width on tablet until a notification is open; side rail on wide screens -->
-      <section
-        v-show="isWide || !selected"
-        class="flex min-w-0 flex-col border-border"
-        :class="isWide ? 'w-[min(26rem,38%)] shrink-0 border-r xl:w-[30rem]' : 'w-full'"
+      <!-- Desktop/tablet: vertical folders -->
+      <nav
+        v-if="showFolderRail"
+        class="flex w-[11.5rem] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border bg-muted/20 px-2 py-3 scrollbar-thin xl:w-[12.5rem]"
+        aria-label="Inbox folders"
       >
-        <div class="flex shrink-0 gap-1 overflow-x-auto px-2.5 pt-2.5 pb-1.5 scrollbar-none" role="tablist" aria-label="Filter notifications">
+        <p class="mb-1.5 px-2.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Folders</p>
+        <button
+          v-for="folder in folders"
+          :key="folder.value"
+          type="button"
+          class="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] font-medium transition-colors"
+          :class="
+            filter === folder.value
+              ? 'bg-card text-foreground shadow-soft ring-1 ring-border/80'
+              : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'
+          "
+          :aria-current="filter === folder.value ? 'page' : undefined"
+          @click="chooseFilter(folder.value)"
+        >
+          <component :is="folder.icon" class="size-4 shrink-0" :class="filter === folder.value && 'text-primary'" />
+          <span class="min-w-0 flex-1 truncate">{{ folder.label }}</span>
+          <span
+            v-if="unreadIn(folder.value)"
+            class="min-w-5 rounded-full bg-primary px-1.5 text-center text-[10px] font-semibold text-primary-foreground tabular-nums"
+            :aria-label="`${unreadIn(folder.value)} unread`"
+          >
+            {{ unreadIn(folder.value) }}
+          </span>
+          <span v-else-if="totalIn(folder.value)" class="text-[11px] font-medium text-muted-foreground/80 tabular-nums">
+            {{ totalIn(folder.value) }}
+          </span>
+        </button>
+      </nav>
+
+      <!-- List column -->
+      <section
+        v-show="showList"
+        class="flex min-w-0 flex-col border-border"
+        :class="isWide && selected ? 'w-[min(24rem,34%)] shrink-0 border-r xl:w-[26rem]' : 'min-w-0 flex-1'"
+      >
+        <!-- Phone: same folders as chips so the model matches desktop -->
+        <div
+          v-if="!isDesktop"
+          class="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border/70 px-3 py-2 scrollbar-none"
+          role="tablist"
+          aria-label="Inbox folders"
+        >
           <button
-            v-for="chip in chips"
-            :key="chip.value"
+            v-for="folder in folders"
+            :key="folder.value"
             type="button"
             role="tab"
-            class="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors"
-            :class="filter === chip.value ? 'bg-accent text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'"
-            :aria-selected="filter === chip.value"
-            @click="chooseFilter(chip.value)"
+            class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors"
+            :class="
+              filter === folder.value
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted/60 text-muted-foreground hover:bg-accent hover:text-foreground'
+            "
+            :aria-selected="filter === folder.value"
+            @click="chooseFilter(folder.value)"
           >
-            <component :is="chip.icon" class="size-3.5" />
-            {{ chip.label }}
+            <component :is="folder.icon" class="size-3.5" />
+            {{ folder.label }}
             <span
-              v-if="unreadIn(chip.value)"
+              v-if="unreadIn(folder.value)"
               class="min-w-4 rounded-full px-1 text-center text-[10px] font-semibold tabular-nums"
-              :class="'bg-primary text-primary-foreground'"
-              :aria-label="`${unreadIn(chip.value)} unread`"
+              :class="filter === folder.value ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary text-primary-foreground'"
             >
-              {{ unreadIn(chip.value) }}
+              {{ unreadIn(folder.value) }}
             </span>
           </button>
         </div>
 
+        <div v-else class="flex h-10 shrink-0 items-center gap-2 border-b border-border/70 px-3">
+          <component :is="activeFolder.icon" class="size-3.5 text-primary" />
+          <p class="min-w-0 flex-1 truncate text-[13px] font-semibold">{{ activeFolder.label }}</p>
+          <span class="text-[11px] text-muted-foreground tabular-nums">{{ entries.length }}</span>
+        </div>
+
         <div class="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
           <div v-if="notifications.isLoading && !notifications.items.length" class="space-y-2 p-3">
-            <Skeleton v-for="index in 7" :key="index" class="h-14 w-full" />
+            <Skeleton v-for="index in 7" :key="index" class="h-14 w-full rounded-lg" />
           </div>
           <EmptyState
             v-else-if="notifications.loadError && !notifications.items.length"
             :icon="Inbox"
             title="Inbox did not load"
             :description="notifications.loadError"
-            class="py-14"
+            class="px-4 py-14"
           >
             <Button variant="outline" @click="retryLoad">Try again</Button>
           </EmptyState>
@@ -254,8 +314,8 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
             v-else-if="!entries.length"
             :icon="search ? Search : filter === 'unread' ? Inbox : BellOff"
             :title="search ? `Nothing matches “${search}”` : EMPTY[filter].title"
-            :description="search ? 'Try other words or another filter.' : EMPTY[filter].description"
-            class="py-14"
+            :description="search ? 'Try other words or another folder.' : EMPTY[filter].description"
+            class="px-4 py-14"
           />
           <template v-for="section in sections" v-else :key="section.label">
             <p class="sticky top-0 z-10 bg-background/95 px-4 pt-3 pb-1 text-[11.5px] font-medium text-muted-foreground backdrop-blur">
@@ -265,18 +325,12 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
               v-for="entry in section.entries"
               :key="entry.key"
               type="button"
-              class="relative mx-1.5 flex w-[calc(100%-0.75rem)] items-start gap-3 rounded-md px-2.5 py-2.5 text-left transition-colors"
-              :class="
-                selectedKey === entry.key
-                  ? 'bg-accent'
-                  : isUnread(entry)
-                    ? 'hover:bg-accent/60'
-                    : 'hover:bg-accent/60'
-              "
+              class="relative mx-1.5 flex w-[calc(100%-0.75rem)] items-start gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-accent/60"
+              :class="selectedKey === entry.key && 'bg-accent'"
               @click="select(entry)"
             >
               <UserAvatar v-if="entry.latest.actor" :user="entry.latest.actor" size="md" class="mt-0.5 size-8" />
-              <span v-else class="mt-0.5 flex size-8 shrink-0 items-center justify-center" :class="kindOf(entry.latest.type).tone">
+              <span v-else class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg" :class="kindOf(entry.latest.type).tone">
                 <component :is="kindOf(entry.latest.type).icon" class="size-4" />
               </span>
               <span class="min-w-0 flex-1">
@@ -301,11 +355,11 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         </div>
       </section>
 
-      <!-- Reading pane: chat and tasks open right here, so you can reply without leaving the Inbox -->
-      <article v-if="selected && paneMode === 'chat'" class="flex min-w-0 flex-1 flex-col">
+      <!-- Reading pane (desktop/tablet only) -->
+      <article v-if="isDesktop && selected && paneMode === 'chat'" class="flex min-w-0 flex-1 flex-col">
         <div class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 sm:gap-3 sm:px-4">
           <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
-          <span class="flex size-9 items-center justify-center" :class="kindOf('support_message').tone"><MessageCircle class="size-4" /></span>
+          <span class="flex size-9 items-center justify-center rounded-lg" :class="kindOf('support_message').tone"><MessageCircle class="size-4" /></span>
           <span class="min-w-0 flex-1">
             <span class="block text-sm font-semibold">Vector team</span>
             <span class="block truncate text-xs text-muted-foreground">Your organization’s conversation with the portal team. Reply right here.</span>
@@ -333,12 +387,11 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         />
       </article>
 
-      <article v-else-if="selected && paneMode === 'task'" class="min-w-0 flex-1 overflow-hidden">
+      <article v-else-if="isDesktop && selected && paneMode === 'task'" class="min-w-0 flex-1 overflow-hidden">
         <IssueDetailView :key="taskKey!" :issue-key="taskKey!" mode="panel" class="h-full" @close="selectedKey = null" />
       </article>
 
-      <!-- A chat mention: the conversation itself, scrolled to the message, with the composer to answer -->
-      <article v-else-if="selected && paneMode === 'project-chat'" class="flex min-w-0 flex-1 flex-col">
+      <article v-else-if="isDesktop && selected && paneMode === 'project-chat'" class="flex min-w-0 flex-1 flex-col">
         <div class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 sm:gap-2.5 sm:px-4">
           <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
           <UserAvatar v-if="selected.latest.actor" :user="selected.latest.actor" size="md" class="size-7" />
@@ -352,7 +405,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         <ProjectChatPage :key="chatTarget!.projectId" :project-id="chatTarget!.projectId" :message-id="chatTarget!.messageId" embedded class="min-h-0 flex-1" />
       </article>
 
-      <article v-else-if="selected" class="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <article v-else-if="isDesktop && selected" class="flex min-w-0 flex-1 flex-col overflow-hidden">
         <div v-if="!isWide" class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
           <Button variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
           <span class="truncate text-sm font-semibold">Notification</span>
@@ -369,62 +422,6 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
           @select="selectNotification"
         />
       </article>
-
-      <article v-else-if="isWide" class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-        <span class="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><BellRing class="size-6" /></span>
-        <div class="space-y-1">
-          <p class="text-sm font-medium">{{ notifications.unreadCount ? `${notifications.unreadCount} unread` : 'You are all caught up' }}</p>
-          <p class="max-w-xs text-xs text-muted-foreground">Pick a notification. Tasks, chat mentions and Vector team messages open right here, so you can reply without leaving.</p>
-        </div>
-      </article>
     </div>
-  </div>
-
-  <!-- Phones: one list, tapping an item opens what it points to -->
-  <div v-else class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto p-3 sm:space-y-5">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <h1 class="text-lg font-bold">Inbox</h1>
-      <Button v-if="notifications.unreadCount" variant="ghost" size="sm" class="max-sm:w-full" @click="notifications.markAllRead()"><CheckCheck /> Read all</Button>
-    </div>
-    <div class="relative">
-      <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-      <Input v-model="search" class="pl-9" placeholder="Search notifications" aria-label="Search notifications" />
-    </div>
-    <MobileSectionSelect v-model="filter" :options="chipOptions" aria-label="Filter notifications" />
-    <div v-if="notifications.isLoading && !notifications.items.length" class="space-y-2">
-      <Skeleton v-for="index in 6" :key="index" class="h-16 w-full rounded-xl" />
-    </div>
-    <EmptyState
-      v-else-if="notifications.loadError && !notifications.items.length"
-      :icon="Inbox"
-      title="Inbox did not load"
-      :description="notifications.loadError"
-      class="border border-dashed bg-card/60 py-12"
-    >
-      <Button variant="outline" @click="retryLoad">Try again</Button>
-    </EmptyState>
-    <EmptyState
-      v-else-if="!entries.length"
-      :icon="filter === 'unread' ? Inbox : BellOff"
-      :title="search ? `Nothing matches “${search}”` : EMPTY[filter].title"
-      :description="search ? 'Try other words or another filter.' : EMPTY[filter].description"
-      class="border border-dashed bg-card/60 py-12"
-    />
-    <section v-for="section in sections" v-else :key="section.label" class="space-y-1.5">
-      <h2 class="px-1 text-xs font-medium text-muted-foreground">{{ section.label }}</h2>
-      <ul class="min-w-0 divide-y divide-border/60 overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft">
-        <li v-for="entry in section.entries" :key="entry.key">
-          <NotificationItem
-            :notification="entry.latest"
-            :count="entry.items.length"
-            :unread="isUnread(entry)"
-            dense
-            @open="select(entry)"
-            @read="markEntryRead(entry)"
-            @remove="removeEntry(entry)"
-          />
-        </li>
-      </ul>
-    </section>
   </div>
 </template>

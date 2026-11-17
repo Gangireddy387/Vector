@@ -304,7 +304,7 @@ function moveOnMobile(issue: Issue, status: Status) {
       <Skeleton v-for="index in 4" :key="index" class="h-96 w-64 shrink-0 rounded-xl sm:min-w-64 sm:flex-1" />
     </div>
 
-    <EmptyState v-else-if="loadError && !project" :icon="Columns3" title="The board did not load" :description="loadError" class="px-3 py-20">
+    <EmptyState v-else-if="loadError" :icon="Columns3" title="The board did not load" :description="loadError" class="px-3 py-20">
       <Button variant="outline" @click="reload">Try again</Button>
     </EmptyState>
 
@@ -315,9 +315,12 @@ function moveOnMobile(issue: Issue, status: Status) {
       description="Plan a sprint in the backlog and start it to see its board here."
       class="px-3 py-20"
     >
-      <Button as-child>
-        <RouterLink :to="{ name: 'project-backlog', params: { projectId } }">Go to backlog</RouterLink>
-      </Button>
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <Button as-child>
+          <RouterLink :to="{ name: 'project-backlog', params: { projectId } }">Go to backlog</RouterLink>
+        </Button>
+        <Button variant="outline" @click="reload">Refresh</Button>
+      </div>
     </EmptyState>
 
     <template v-else-if="project">

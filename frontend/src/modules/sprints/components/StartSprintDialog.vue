@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { addDays } from 'date-fns'
 import { computed, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,8 @@ import { toDateInput } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
 import type { Sprint } from '@/types/models'
 import { sprintsApi } from '../sprints.api'
+
+const router = useRouter()
 
 const props = withDefaults(defineProps<{ projectId: string; sprint: Sprint | null; sprintLengthDays?: number }>(), { sprintLengthDays: 14 })
 const open = defineModel<boolean>('open', { default: false })
@@ -39,7 +42,12 @@ async function start() {
       startDate: form.startDate,
       endDate: form.endDate,
     })
-    toast.success(`${sprint.name} started`)
+    toast.success(`${sprint.name} started`, {
+      action: {
+        label: 'Open board',
+        onClick: () => void router.push({ name: 'project-board', params: { projectId: props.projectId } }),
+      },
+    })
     emit('started', sprint)
     open.value = false
   } catch (error) {

@@ -9,7 +9,7 @@ import type { Issue, Sprint } from '@/types/models'
 
 /** The most tasks a board shows at once; beyond it the board says so and points to the list. */
 /** Soft cap so the board stays responsive; banner links to the full task list when exceeded. */
-export const BOARD_LIMIT = 2000
+export const BOARD_LIMIT = 1000
 
 /** Loads everything a board needs: project workflow, the active sprint (scrum) and its issues. */
 export function useBoardData(projectId: Ref<string>) {
@@ -33,12 +33,13 @@ export function useBoardData(projectId: Ref<string>) {
     const ticket = latest.start()
     const id = projectId.value
     try {
-      const detail = await projects.fetchProject(id)
+      const detail = await projects.fetchProject(id, true)
       const loadedSprints = detail.type === 'scrum' ? await sprintsApi.list(id) : []
+      if (!latest.isCurrent(ticket)) return
+      // Keep sprint state even if the issue list fails, so the board does not look like “no active sprint”.
+      sprints.value = loadedSprints
       const sprint = loadedSprints.find((item) => item.state === 'active') ?? null
       if (detail.type === 'scrum' && !sprint) {
-        if (!latest.isCurrent(ticket)) return
-        sprints.value = loadedSprints
         issues.value = []
         hiddenCount.value = 0
         loadError.value = null
@@ -46,7 +47,6 @@ export function useBoardData(projectId: Ref<string>) {
       }
       const result = await issuesApi.list({ projectId: id, sprintId: sprint?.id, sort: 'position', order: 'asc', limit: BOARD_LIMIT })
       if (!latest.isCurrent(ticket)) return
-      sprints.value = loadedSprints
       issues.value = result.issues.filter((issue) => issue.type !== 'epic')
       hiddenCount.value = Math.max(0, result.total - result.issues.length)
       loadError.value = null
