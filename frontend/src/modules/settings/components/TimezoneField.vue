@@ -54,10 +54,12 @@ const chooseZone = (zone: string | null | undefined) =>
 </script>
 
 <template>
-  <div class="space-y-3 border border-border/70 bg-muted/30 p-3">
+  <div class="space-y-3 rounded-xl border border-border/70 bg-muted/25 p-3.5">
     <div class="flex items-start justify-between gap-4">
       <div class="flex min-w-0 gap-2.5">
-        <Globe class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+        <span class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-card text-muted-foreground shadow-soft">
+          <Globe class="size-4" />
+        </span>
         <div class="min-w-0">
           <p class="text-sm font-medium">Time zone</p>
           <p class="text-xs text-muted-foreground">Used for due dates, reminders and your 8:00 daily digest.</p>
@@ -69,7 +71,7 @@ const chooseZone = (zone: string | null | undefined) =>
       </label>
     </div>
 
-    <div v-if="isAutomatic" class="flex items-center gap-3 border border-border/70 bg-card px-3 py-2">
+    <div v-if="isAutomatic" class="flex items-center gap-3 rounded-lg border border-border/70 bg-card px-3 py-2.5">
       <LocateFixed class="size-4 shrink-0 text-primary" />
       <div class="min-w-0 text-sm">
         <p class="truncate font-medium">{{ cityOf(current) }} <span class="font-normal text-muted-foreground">· {{ formatOffset(current, now) }}</span></p>

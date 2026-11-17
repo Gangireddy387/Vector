@@ -79,21 +79,21 @@ async function disconnect(item: CalendarConnectionInfo) {
 </script>
 
 <template>
-  <Card id="calendar" class="scroll-mt-20">
-    <CardHeader>
+  <Card id="calendar" class="gap-3">
+    <CardHeader class="border-b border-border/60 pb-3">
       <CardTitle class="flex items-center gap-2"><CalendarSync class="size-4" /> Connected calendars</CardTitle>
       <CardDescription>
         Meetings you host go to your calendar with everyone invited; their replies show in Vector, and moving or cancelling the event there changes the meeting.
       </CardDescription>
     </CardHeader>
-    <CardContent class="space-y-2">
+    <CardContent class="space-y-2.5">
       <template v-if="!calendars">
-        <Skeleton class="h-14 w-full" />
-        <Skeleton class="h-14 w-full" />
+        <Skeleton class="h-14 w-full rounded-xl" />
+        <Skeleton class="h-14 w-full rounded-xl" />
       </template>
-      <div v-for="item in calendars ?? []" :key="item.provider" class="flex flex-wrap items-center gap-3 border border-border/70 p-3">
+      <div v-for="item in calendars ?? []" :key="item.provider" class="flex flex-wrap items-center gap-3 rounded-xl border border-border/70 bg-muted/15 p-3.5 transition-colors hover:bg-muted/30">
         <span
-          class="flex size-9 shrink-0 items-center justify-center rounded-md"
+          class="flex size-9 shrink-0 items-center justify-center rounded-lg"
           :class="item.connection && !item.connection.needsReconnect ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground'"
         >
           <CircleAlert v-if="item.connection?.needsReconnect" class="size-4 text-amber-600" />

@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { Download, Monitor, Moon, Sun, SunDim, Trash2 } from 'lucide-vue-next'
-import { reactive, ref } from 'vue'
+import { Bell, CalendarDays, Download, KeyRound, Monitor, Moon, Palette, Sun, SunDim, Trash2, UserRound, Volume2 } from 'lucide-vue-next'
+import { computed, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import SettingsLayout, { type SettingsSection } from '@/components/common/SettingsLayout.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -29,6 +31,8 @@ const auth = useAuthStore()
 const { isDesktop, isStandalone } = useDevice()
 const { preference, isPersonal, followOrganization } = useTheme()
 const ORG_MODE_LABEL = { light: 'light', dark: 'dark', system: 'system' } as const
+const route = useRoute()
+const router = useRouter()
 
 const { canInstall, install } = usePwaInstall()
 
@@ -46,21 +50,58 @@ const passwords = reactive({ currentPassword: '', newPassword: '' })
 const isSavingProfile = ref(false)
 const isSavingPassword = ref(false)
 
-const THEMES: Array<{ value: ThemePreference; label: string; icon: typeof Sun }> = [
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dim', label: 'Dim', icon: SunDim },
-  { value: 'dark', label: 'Dark', icon: Moon },
-  { value: 'auto', label: 'System', icon: Monitor },
+const THEMES: Array<{ value: ThemePreference; label: string; hint: string; icon: typeof Sun }> = [
+  { value: 'light', label: 'Light', hint: 'Bright and clean', icon: Sun },
+  { value: 'dim', label: 'Dim', hint: 'Soft blue-grey', icon: SunDim },
+  { value: 'dark', label: 'Dark', hint: 'Easy on the eyes', icon: Moon },
+  { value: 'auto', label: 'System', hint: 'Match this device', icon: Monitor },
 ]
 
-const PAGE_SECTIONS = [
-  { id: 'profile', label: 'Profile' },
-  { id: 'notifications', label: 'Notifications' },
-  { id: 'sounds', label: 'Sounds' },
-  { id: 'calendar', label: 'Calendar' },
-  { id: 'appearance', label: 'Appearance' },
-  { id: 'data', label: 'Your data' },
-] as const
+const SECTIONS: SettingsSection[] = [
+  { value: 'profile', label: 'Profile', icon: UserRound },
+  { value: 'security', label: 'Security', icon: KeyRound },
+  { value: 'notifications', label: 'Notifications', icon: Bell },
+  { value: 'sounds', label: 'Sounds', icon: Volume2 },
+  { value: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { value: 'appearance', label: 'Appearance', icon: Palette },
+  { value: 'data', label: 'Your data', icon: Download },
+]
+
+/** Open calendar when returning from OAuth; otherwise honour ?tab=. */
+const activeSection = computed({
+  get: () => {
+    if (route.query.calendar) return 'calendar'
+    return SECTIONS.some((section) => section.value === route.query.tab) ? String(route.query.tab) : 'profile'
+  },
+  set: (tab: string) => {
+    const query = { ...route.query, tab: tab === 'profile' ? undefined : tab }
+    if (tab !== 'calendar') delete query.calendar
+    void router.replace({ query })
+  },
+})
+
+const NOTIFICATION_PREFS = [
+  {
+    key: 'emailNotifications' as const,
+    title: 'Email notifications',
+    description: 'Assignments, mentions, due-date reminders and completed work you watch.',
+  },
+  {
+    key: 'pushEnabled' as const,
+    title: 'Push notifications',
+    description: 'Mentions, standups, due dates and similar alerts on this device when Vector is closed.',
+  },
+  {
+    key: 'dailyDigest' as const,
+    title: 'Daily digest',
+    description: 'A short 8:00 email with what is overdue, due today and coming up.',
+  },
+  {
+    key: 'weeklyReportsEmail' as const,
+    title: 'Weekly reports email',
+    description: 'A Monday morning overview of open work, completions and overdue tasks.',
+  },
+]
 
 const isExporting = ref(false)
 const isDeleteOpen = ref(false)
@@ -131,208 +172,238 @@ async function changePassword() {
     isSavingPassword.value = false
   }
 }
+
+function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
+  const defaults = { emailNotifications: true, pushEnabled: true, dailyDigest: false, weeklyReportsEmail: false }
+  return auth.user?.preferences[key] ?? defaults[key]
+}
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <div class="w-full space-y-3" :class="isDesktop ? 'p-4 sm:p-5' : 'p-3'">
     <PageHeader v-if="isDesktop" title="Settings" description="Your profile, notifications and preferences." />
 
-    <div class="grid items-start gap-4 xl:grid-cols-[12rem_minmax(0,1fr)]">
-      <nav
-        class="sticky top-4 z-10 -mx-1 flex gap-1 overflow-x-auto px-1 scrollbar-none xl:mx-0 xl:flex-col xl:overflow-visible xl:px-0"
-        aria-label="On this page"
-      >
-        <p class="mb-1 hidden px-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase xl:block">On this page</p>
-        <a
-          v-for="section in PAGE_SECTIONS"
-          :key="section.id"
-          :href="`#${section.id}`"
-          class="shrink-0 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground xl:block"
-        >
-          {{ section.label }}
-        </a>
-      </nav>
+    <SettingsLayout v-model="activeSection" :sections="SECTIONS" aria-label="Account settings">
+      <template #profile>
+        <div class="w-full space-y-3">
+          <Card class="gap-3">
+            <CardHeader class="border-b border-border/60 pb-3">
+              <CardTitle>Profile</CardTitle>
+              <CardDescription>How teammates see you across projects and messages.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form class="space-y-4" @submit.prevent="saveProfile">
+                <div class="rounded-xl border border-border/70 bg-muted/25 p-3">
+                  <ProfilePhotoField v-model:color="profile.avatarColor" :preview-name="profile.name" />
+                </div>
 
-      <div class="grid min-w-0 items-start gap-4 xl:grid-cols-2">
-        <div class="space-y-4">
-        <Card id="profile" class="scroll-mt-20">
-          <CardHeader>
-            <CardTitle>Profile</CardTitle>
-            <CardDescription>How teammates see you.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form class="space-y-4" @submit.prevent="saveProfile">
-              <ProfilePhotoField v-model:color="profile.avatarColor" :preview-name="profile.name" />
-              <div class="grid gap-3 sm:grid-cols-2">
-                <FormField label="Full name" for="profile-name"><Input id="profile-name" v-model="profile.name" required /></FormField>
-                <FormField label="Job title" for="profile-title" optional><Input id="profile-title" v-model="profile.title" placeholder="e.g. Product Designer" /></FormField>
-                <FormField label="Email" for="profile-email" class="sm:col-span-2">
-                  <Input id="profile-email" :model-value="auth.user?.email" disabled />
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <FormField label="Full name" for="profile-name">
+                    <Input id="profile-name" v-model="profile.name" required />
+                  </FormField>
+                  <FormField label="Job title" for="profile-title" optional>
+                    <Input id="profile-title" v-model="profile.title" placeholder="e.g. Product Designer" />
+                  </FormField>
+                  <FormField label="Email" for="profile-email">
+                    <Input id="profile-email" :model-value="auth.user?.email" disabled />
+                  </FormField>
+                  <FormField label="Phone" for="profile-phone" optional>
+                    <Input id="profile-phone" v-model="profile.phone" type="tel" placeholder="e.g. +91 98765 43210" maxlength="40" />
+                  </FormField>
+                  <FormField label="Location" for="profile-location" optional class="sm:col-span-2">
+                    <Input id="profile-location" v-model="profile.location" placeholder="e.g. Hyderabad, India" maxlength="100" />
+                  </FormField>
+                  <FormField
+                    label="About"
+                    for="profile-about"
+                    optional
+                    class="sm:col-span-2"
+                    :hint="`What you work on and what people can come to you for · ${profile.about.length}/${ABOUT_LIMIT}`"
+                  >
+                    <Textarea
+                      id="profile-about"
+                      v-model="profile.about"
+                      rows="3"
+                      :maxlength="ABOUT_LIMIT"
+                      placeholder="e.g. Frontend engineer focused on the mobile app. Ask me about Vue, accessibility and design systems."
+                    />
+                  </FormField>
+                  <FormField label="Skills" for="profile-skills" optional class="sm:col-span-2" hint="Up to 15. Shown on your profile.">
+                    <SkillsInput id="profile-skills" v-model="profile.skills" />
+                  </FormField>
+                </div>
+
+                <TimezoneField />
+
+                <div class="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
+                  <Button type="submit" class="max-sm:w-full" :loading="isSavingProfile">Save profile</Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </template>
+
+      <template #security>
+        <div class="w-full space-y-3">
+          <Card class="gap-3">
+            <CardHeader class="border-b border-border/60 pb-3">
+              <CardTitle>Password</CardTitle>
+              <CardDescription>Change the password used to sign in to your account.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="changePassword">
+                <FormField label="Current password" for="current-password">
+                  <PasswordInput id="current-password" v-model="passwords.currentPassword" autocomplete="current-password" required />
                 </FormField>
-                <FormField label="Location" for="profile-location" optional>
-                  <Input id="profile-location" v-model="profile.location" placeholder="e.g. Hyderabad, India" maxlength="100" />
+                <FormField label="New password" for="new-password" hint="At least 8 characters.">
+                  <PasswordInput id="new-password" v-model="passwords.newPassword" autocomplete="new-password" required />
                 </FormField>
-                <FormField label="Phone" for="profile-phone" optional>
-                  <Input id="profile-phone" v-model="profile.phone" type="tel" placeholder="e.g. +91 98765 43210" maxlength="40" />
-                </FormField>
-                <FormField
-                  label="About"
-                  for="profile-about"
-                  optional
-                  class="sm:col-span-2"
-                  :hint="`What you work on and what people can come to you for · ${profile.about.length}/${ABOUT_LIMIT}`"
+                <div class="sm:col-span-2">
+                  <Button type="submit" variant="outline" class="max-sm:w-full" :loading="isSavingPassword">Change password</Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
+          <MfaSettingsCard />
+        </div>
+      </template>
+
+      <template #notifications>
+        <div class="w-full space-y-3">
+          <Card class="gap-3">
+            <CardHeader class="border-b border-border/60 pb-3">
+              <CardTitle>Notifications</CardTitle>
+              <CardDescription>In-app notifications are always on. Choose what also reaches your email and this device.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div class="overflow-hidden rounded-xl border border-border/70">
+                <label
+                  v-for="(item, index) in NOTIFICATION_PREFS"
+                  :key="item.key"
+                  class="flex cursor-pointer items-start justify-between gap-4 px-3.5 py-3 transition-colors hover:bg-muted/35"
+                  :class="index > 0 && 'border-t border-border/70'"
                 >
-                  <Textarea
-                    id="profile-about"
-                    v-model="profile.about"
-                    rows="4"
-                    :maxlength="ABOUT_LIMIT"
-                    placeholder="e.g. Frontend engineer focused on the mobile app. Ask me about Vue, accessibility and design systems."
+                  <span class="min-w-0">
+                    <span class="block text-sm font-medium">{{ item.title }}</span>
+                    <span class="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{{ item.description }}</span>
+                  </span>
+                  <Switch
+                    class="mt-0.5"
+                    :model-value="preferenceValue(item.key)"
+                    @update:model-value="(value: boolean) => setPreference(item.key, value)"
                   />
-                </FormField>
-                <FormField label="Skills" for="profile-skills" optional class="sm:col-span-2" hint="Up to 15. Shown on your profile.">
-                  <SkillsInput id="profile-skills" v-model="profile.skills" />
-                </FormField>
+                </label>
               </div>
-              <Button type="submit" class="max-sm:w-full" :loading="isSavingProfile">Save profile</Button>
-            </form>
-            <TimezoneField class="mt-5" />
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader><CardTitle>Password</CardTitle></CardHeader>
-          <CardContent>
-            <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="changePassword">
-              <FormField label="Current password" for="current-password">
-                <PasswordInput id="current-password" v-model="passwords.currentPassword" autocomplete="current-password" required />
-              </FormField>
-              <FormField label="New password" for="new-password" hint="At least 8 characters.">
-                <PasswordInput id="new-password" v-model="passwords.newPassword" autocomplete="new-password" required />
-              </FormField>
-              <div class="sm:col-span-2"><Button type="submit" variant="outline" class="max-sm:w-full" :loading="isSavingPassword">Change password</Button></div>
-            </form>
-          </CardContent>
-        </Card>
+          <PushPrompt context="settings" />
+        </div>
+      </template>
 
-        <MfaSettingsCard />
-      </div>
+      <template #sounds>
+        <div class="w-full">
+          <SoundSettingsCard />
+        </div>
+      </template>
 
-      <div class="space-y-4">
-        <Card id="notifications" class="scroll-mt-20">
-          <CardHeader>
-            <CardTitle>Notifications</CardTitle>
-            <CardDescription>In-app notifications are always on. Choose what also reaches your email.</CardDescription>
-          </CardHeader>
-          <CardContent class="space-y-4">
-            <label class="flex items-start justify-between gap-4">
-              <span>
-                <span class="block text-sm font-medium">Email notifications</span>
-                <span class="block text-xs text-muted-foreground">Assignments, mentions, due-date reminders and completed work you watch.</span>
-              </span>
-              <Switch :model-value="auth.user?.preferences.emailNotifications ?? true" @update:model-value="(value: boolean) => setPreference('emailNotifications', value)" />
-            </label>
-            <label class="flex items-start justify-between gap-4">
-              <span>
-                <span class="block text-sm font-medium">Push notifications</span>
-                <span class="block text-xs text-muted-foreground">Mentions, standups, due dates and similar alerts on this device when Vector is closed.</span>
-              </span>
-              <Switch :model-value="auth.user?.preferences.pushEnabled ?? true" @update:model-value="(value: boolean) => setPreference('pushEnabled', value)" />
-            </label>
-            <label class="flex items-start justify-between gap-4">
-              <span>
-                <span class="block text-sm font-medium">Daily digest</span>
-                <span class="block text-xs text-muted-foreground">A short 8:00 email with what is overdue, due today and coming up.</span>
-              </span>
-              <Switch :model-value="auth.user?.preferences.dailyDigest ?? false" @update:model-value="(value: boolean) => setPreference('dailyDigest', value)" />
-            </label>
-            <label class="flex items-start justify-between gap-4">
-              <span>
-                <span class="block text-sm font-medium">Weekly reports email</span>
-                <span class="block text-xs text-muted-foreground">A Monday morning overview of open work, completions and overdue tasks.</span>
-              </span>
-              <Switch
-                :model-value="auth.user?.preferences.weeklyReportsEmail ?? false"
-                @update:model-value="(value: boolean) => setPreference('weeklyReportsEmail', value)"
-              />
-            </label>
-          </CardContent>
-        </Card>
+      <template #calendar>
+        <div class="w-full">
+          <CalendarConnectionsCard />
+        </div>
+      </template>
 
-        <SoundSettingsCard />
-
-        <PushPrompt context="settings" />
-
-        <CalendarConnectionsCard />
-
-        <Card id="appearance" class="scroll-mt-20">
-          <CardHeader>
-            <CardTitle>Appearance</CardTitle>
-            <CardDescription>Light, dark, or follow your device. Saved on this device and kept even when your organization changes its default.</CardDescription>
-          </CardHeader>
-          <CardContent class="space-y-3">
-            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Colour mode">
-              <button
-                v-for="theme in THEMES"
-                :key="theme.value"
-                type="button"
-                role="radio"
-                :aria-checked="preference === theme.value"
-                class="flex flex-col items-center gap-2 border p-3 text-sm transition-all"
-                :class="preference === theme.value ? 'border-primary bg-primary/5 ring-4 ring-primary/10' : 'border-border/70 hover:border-primary/30 hover:bg-accent/40'"
-                @click="preference = theme.value"
-              >
-                <component :is="theme.icon" class="size-5" /> {{ theme.label }}
-              </button>
-            </div>
-            <div v-if="auth.organization" class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <template v-if="isPersonal">
-                <span class="min-w-0 flex-1">Your own choice. {{ auth.organization.name }}’s default is {{ ORG_MODE_LABEL[auth.organization.defaultMode] }}.</span>
-                <Button variant="link" size="xs" class="h-auto p-0" @click="followOrganization(auth.organization.defaultMode)">Use the organization default</Button>
-              </template>
-              <span v-else>Following {{ auth.organization.name }}’s default ({{ ORG_MODE_LABEL[auth.organization.defaultMode] }}). Pick one above to make it your own.</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card v-if="canInstall || !isStandalone">
-          <CardHeader>
-            <CardTitle>Install the app</CardTitle>
-            <CardDescription>
-              Add Vector to your home screen or desktop for a full-screen, app-like experience.
-              <template v-if="!canInstall"> On iPhone and iPad: tap Share → “Add to Home Screen”.</template>
-            </CardDescription>
-          </CardHeader>
-          <CardContent v-if="canInstall">
-            <Button @click="install"><Download /> Install Vector</Button>
-          </CardContent>
-        </Card>
-
-        <Card id="data" class="scroll-mt-20">
-          <CardHeader>
-            <CardTitle>Your data</CardTitle>
-            <CardDescription>Download a copy of your account data, or permanently disable this account.</CardDescription>
-          </CardHeader>
-          <CardContent class="space-y-4">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p class="text-sm font-medium">Export data</p>
-                <p class="text-xs text-muted-foreground">JSON with your profile, memberships, preferences and assigned task keys.</p>
+      <template #appearance>
+        <div class="w-full space-y-3">
+          <Card class="gap-3">
+            <CardHeader class="border-b border-border/60 pb-3">
+              <CardTitle>Appearance</CardTitle>
+              <CardDescription>Light, dark, or follow your device. Saved on this device even when your organization changes its default.</CardDescription>
+            </CardHeader>
+            <CardContent class="space-y-3">
+              <div class="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Colour mode">
+                <button
+                  v-for="theme in THEMES"
+                  :key="theme.value"
+                  type="button"
+                  role="radio"
+                  :aria-checked="preference === theme.value"
+                  class="group flex flex-col items-start gap-2.5 rounded-xl border p-3 text-left transition-all"
+                  :class="
+                    preference === theme.value
+                      ? 'border-primary bg-primary/5 shadow-[0_0_0_1px_var(--primary)]'
+                      : 'border-border/70 hover:border-primary/35 hover:bg-accent/40'
+                  "
+                  @click="preference = theme.value"
+                >
+                  <span
+                    class="flex size-8 items-center justify-center rounded-lg transition-colors"
+                    :class="preference === theme.value ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground group-hover:bg-accent'"
+                  >
+                    <component :is="theme.icon" class="size-4" />
+                  </span>
+                  <span>
+                    <span class="block text-sm font-medium">{{ theme.label }}</span>
+                    <span class="block text-[11.5px] text-muted-foreground">{{ theme.hint }}</span>
+                  </span>
+                </button>
               </div>
-              <Button variant="outline" :loading="isExporting" @click="exportData"><Download /> Export data</Button>
-            </div>
-            <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-4">
-              <div>
-                <p class="text-sm font-medium text-destructive">Delete account</p>
-                <p class="text-xs text-muted-foreground">Disables your account and anonymizes your email. This cannot be undone.</p>
+              <div v-if="auth.organization" class="rounded-xl border border-border/70 bg-muted/25 px-3.5 py-2.5 text-xs text-muted-foreground">
+                <template v-if="isPersonal">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="min-w-0 flex-1">Your own choice. {{ auth.organization.name }}’s default is {{ ORG_MODE_LABEL[auth.organization.defaultMode] }}.</span>
+                    <Button variant="link" size="xs" class="h-auto p-0" @click="followOrganization(auth.organization.defaultMode)">Use the organization default</Button>
+                  </div>
+                </template>
+                <span v-else>Following {{ auth.organization.name }}’s default ({{ ORG_MODE_LABEL[auth.organization.defaultMode] }}). Pick one above to make it your own.</span>
               </div>
-              <Button variant="destructive" @click="isDeleteOpen = true"><Trash2 /> Delete account</Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      </div>
-    </div>
+            </CardContent>
+          </Card>
+
+          <Card v-if="canInstall || !isStandalone" class="gap-3">
+            <CardHeader class="border-b border-border/60 pb-3">
+              <CardTitle>Install the app</CardTitle>
+              <CardDescription>
+                Add Vector to your home screen or desktop for a full-screen, app-like experience.
+                <template v-if="!canInstall"> On iPhone and iPad: tap Share → “Add to Home Screen”.</template>
+              </CardDescription>
+            </CardHeader>
+            <CardContent v-if="canInstall">
+              <Button @click="install"><Download /> Install Vector</Button>
+            </CardContent>
+          </Card>
+        </div>
+      </template>
+
+      <template #data>
+        <div class="w-full">
+          <Card class="gap-3">
+            <CardHeader class="border-b border-border/60 pb-3">
+              <CardTitle>Your data</CardTitle>
+              <CardDescription>Download a copy of your account data, or permanently disable this account.</CardDescription>
+            </CardHeader>
+            <CardContent class="space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3">
+                <div class="min-w-0">
+                  <p class="text-sm font-medium">Export data</p>
+                  <p class="mt-0.5 text-xs text-muted-foreground">JSON with your profile, memberships, preferences and assigned task keys.</p>
+                </div>
+                <Button variant="outline" :loading="isExporting" @click="exportData"><Download /> Export data</Button>
+              </div>
+              <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/5 px-3.5 py-3">
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-destructive">Delete account</p>
+                  <p class="mt-0.5 text-xs text-muted-foreground">Disables your account and anonymizes your email. This cannot be undone.</p>
+                </div>
+                <Button variant="destructive" @click="isDeleteOpen = true"><Trash2 /> Delete account</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </template>
+    </SettingsLayout>
 
     <Dialog v-model:open="isDeleteOpen">
       <DialogContent>

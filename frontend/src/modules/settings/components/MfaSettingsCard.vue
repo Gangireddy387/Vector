@@ -116,8 +116,8 @@ async function copyCodes() {
 </script>
 
 <template>
-  <Card>
-    <CardHeader>
+  <Card class="gap-3">
+    <CardHeader class="border-b border-border/60 pb-3">
       <CardTitle class="flex items-center gap-2">
         <ShieldCheck class="size-4 text-primary" /> Two-factor authentication
       </CardTitle>
@@ -126,12 +126,17 @@ async function copyCodes() {
       </CardDescription>
     </CardHeader>
     <CardContent class="space-y-4">
-      <p class="text-sm text-muted-foreground">
-        Status:
-        <span class="font-medium" :class="enabled ? 'text-success' : 'text-foreground'">{{ enabled ? 'On' : 'Off' }}</span>
-      </p>
+      <div class="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3">
+        <span class="text-sm font-medium">Status</span>
+        <span
+          class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+          :class="enabled ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'"
+        >
+          {{ enabled ? 'On' : 'Off' }}
+        </span>
+      </div>
 
-      <div v-if="recoveryCodes?.length" class="space-y-2 border border-amber-500/40 bg-amber-500/10 p-3">
+      <div v-if="recoveryCodes?.length" class="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5">
         <p class="text-sm font-medium text-amber-800 dark:text-amber-200">Save these recovery codes now — they are shown only once.</p>
         <ul class="grid gap-1 font-mono text-xs sm:grid-cols-2">
           <li v-for="code in recoveryCodes" :key="code">{{ code }}</li>

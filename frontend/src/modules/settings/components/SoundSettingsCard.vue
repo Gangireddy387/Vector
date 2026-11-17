@@ -114,22 +114,22 @@ const SOUND_GROUPS: Array<{ kind: SoundKind; title: string; hint: string; option
 </script>
 
 <template>
-  <Card id="sounds" class="scroll-mt-20">
-    <CardHeader>
+  <Card id="sounds" class="gap-3">
+    <CardHeader class="border-b border-border/60 pb-3">
       <CardTitle>Sounds &amp; ringtone</CardTitle>
       <CardDescription>How calls, messages and notifications sound for you. Your choices follow you on every device.</CardDescription>
     </CardHeader>
-    <CardContent class="space-y-6">
+    <CardContent class="space-y-5">
       <!-- On/off and loudness: always available -->
-      <div class="grid gap-4 sm:grid-cols-2">
-        <label class="flex items-start justify-between gap-4 rounded-lg border border-border p-3">
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label class="flex items-start justify-between gap-4 rounded-xl border border-border/70 bg-muted/20 p-3.5 transition-colors hover:bg-muted/35">
           <span>
             <span class="block text-sm font-medium">Message &amp; notification sounds</span>
-            <span class="block text-xs text-muted-foreground">Quiet while you are on “Do not disturb”. Saved on this device. Calls always ring.</span>
+            <span class="mt-0.5 block text-xs leading-relaxed text-muted-foreground">Quiet while you are on “Do not disturb”. Saved on this device. Calls always ring.</span>
           </span>
-          <Switch v-model="soundsEnabled" />
+          <Switch class="mt-0.5" v-model="soundsEnabled" />
         </label>
-        <div class="space-y-2.5 rounded-lg border border-border p-3">
+        <div class="space-y-2.5 rounded-xl border border-border/70 bg-muted/20 p-3.5">
           <div class="flex items-center justify-between gap-2">
             <span class="text-sm font-medium">Volume</span>
             <span class="text-xs text-muted-foreground tabular-nums">{{ volume[0] }}%</span>
@@ -165,10 +165,10 @@ const SOUND_GROUPS: Array<{ kind: SoundKind; title: string; hint: string; option
             :aria-checked="chosen.ringtone === tone.id"
             :aria-disabled="!allowed"
             :tabindex="allowed ? 0 : -1"
-            class="group flex items-center gap-3 rounded-lg border bg-card p-2.5 transition-[border-color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+            class="group flex items-center gap-3 rounded-xl border bg-card p-3 transition-[border-color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
             :class="[
-              chosen.ringtone === tone.id ? 'border-primary shadow-[0_0_0_1px_var(--primary)]' : 'border-border',
-              allowed ? 'cursor-pointer hover:border-input' : 'opacity-60',
+              chosen.ringtone === tone.id ? 'border-primary bg-primary/5 shadow-[0_0_0_1px_var(--primary)]' : 'border-border/70',
+              allowed ? 'cursor-pointer hover:border-input hover:bg-accent/30' : 'opacity-60',
             ]"
             @click="chooseRingtone(tone.id)"
             @keydown.enter.prevent="chooseRingtone(tone.id)"
@@ -203,10 +203,10 @@ const SOUND_GROUPS: Array<{ kind: SoundKind; title: string; hint: string; option
             :aria-checked="chosen.ringtone === CUSTOM_RINGTONE"
             :aria-disabled="!allowed"
             :tabindex="allowed ? 0 : -1"
-            class="group flex items-center gap-3 rounded-lg border bg-card p-2.5 transition-[border-color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 sm:col-span-2 xl:col-span-3"
+            class="group flex items-center gap-3 rounded-xl border bg-card p-3 transition-[border-color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 sm:col-span-2 xl:col-span-3"
             :class="[
-              chosen.ringtone === CUSTOM_RINGTONE ? 'border-primary shadow-[0_0_0_1px_var(--primary)]' : 'border-border',
-              allowed ? 'cursor-pointer hover:border-input' : 'opacity-60',
+              chosen.ringtone === CUSTOM_RINGTONE ? 'border-primary bg-primary/5 shadow-[0_0_0_1px_var(--primary)]' : 'border-border/70',
+              allowed ? 'cursor-pointer hover:border-input hover:bg-accent/30' : 'opacity-60',
             ]"
             @click="chooseRingtone(CUSTOM_RINGTONE)"
             @keydown.enter.prevent="chooseRingtone(CUSTOM_RINGTONE)"
@@ -249,7 +249,7 @@ const SOUND_GROUPS: Array<{ kind: SoundKind; title: string; hint: string; option
           <button
             v-else
             type="button"
-            class="flex items-center gap-3 rounded-lg border border-dashed border-input bg-transparent p-2.5 text-left transition-colors outline-none hover:border-primary/60 hover:bg-primary/5 focus-visible:ring-[3px] focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-60"
+            class="flex items-center gap-3 rounded-xl border border-dashed border-input bg-transparent p-3 text-left transition-colors outline-none hover:border-primary/60 hover:bg-primary/5 focus-visible:ring-[3px] focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-60"
             :disabled="!allowed || isUploading"
             @click="toneInput?.click()"
           >
