@@ -7,6 +7,7 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import MeetButton from '@/modules/meetings/components/MeetButton.vue'
@@ -19,6 +20,7 @@ import { useStructureStore } from '../departments.store'
 const props = defineProps<{ team: Team }>()
 const structure = useStructureStore()
 const auth = useAuthStore()
+const confirm = useConfirm()
 const isAdmin = computed(() => auth.isOrganizationAdmin)
 const { canMessage, messagePerson, openingId } = useDirectMessage()
 
@@ -50,7 +52,16 @@ async function save(nextIds: string[], changes: { leadId?: string | null } = {},
 }
 
 const makeLead = (member: UserSummary) => save(memberIds.value, { leadId: member.id }, `${member.name} is now the team lead`)
-const removeMember = (member: UserSummary) => save(memberIds.value.filter((id) => id !== member.id), {}, `${member.name} removed from ${props.team.name}`)
+async function removeMember(member: UserSummary) {
+  const ok = await confirm({
+    title: `Remove ${member.name}?`,
+    description: `They leave ${props.team.name}. Project access that came only from this team is removed.`,
+    confirmLabel: 'Remove',
+    destructive: true,
+  })
+  if (!ok) return
+  await save(memberIds.value.filter((id) => id !== member.id), {}, `${member.name} removed from ${props.team.name}`)
+}
 
 function openAdd() {
   search.value = ''

@@ -7,16 +7,30 @@ import { config } from '../../config/index.js';
  * accepted as a sign-in. Sign-in tokens also carry the account's `tokenVersion`: changing or resetting the password
  * raises it, which signs out every other session.
  */
-export const TOKEN_TYPES = Object.freeze({ access: 'access', guest: 'guest', recording: 'recording', file: 'file', oauth: 'oauth' });
+export const TOKEN_TYPES = Object.freeze({
+  access: 'access',
+  guest: 'guest',
+  recording: 'recording',
+  file: 'file',
+  oauth: 'oauth',
+  /** Short-lived: password was accepted; a TOTP or recovery code is still required. */
+  mfa: 'mfa',
+});
 
 export const signAccessToken = (user) =>
   jwt.sign({ sub: user.id, email: user.email, typ: TOKEN_TYPES.access, ver: user.tokenVersion ?? 0 }, config.jwt.secret, { expiresIn: config.jwt.expiresIn });
+
+/** After password check when MFA is on — only accepted by `POST /auth/login/mfa`. */
+export const signMfaToken = (user) =>
+  jwt.sign({ sub: user.id, email: user.email, typ: TOKEN_TYPES.mfa, ver: user.tokenVersion ?? 0 }, config.jwt.secret, { expiresIn: '5m' });
 
 /** Any valid token; check `typ` with `isAccessToken` (or the purpose-specific helpers) before trusting it. */
 export const verifyAccessToken = (token) => jwt.verify(token, config.jwt.secret);
 
 /** Sign-in tokens issued before tokens had a type count as sign-in tokens. */
 export const isAccessToken = (payload) => payload?.typ === TOKEN_TYPES.access || payload?.typ === undefined;
+
+export const isMfaToken = (payload) => payload?.typ === TOKEN_TYPES.mfa;
 
 /** Whether a sign-in token was issued before the account's latest password change. */
 export const isRevoked = (payload, user) => (payload.ver ?? 0) !== (user.tokenVersion ?? 0);

@@ -112,6 +112,14 @@ const backToMain = () => call.moveToRoom(null, null).catch((error: Error) => toa
       <div v-if="call.status.value === 'reconnecting'" class="mx-4 mb-2 flex items-center justify-center gap-2 rounded-lg bg-amber-500/15 px-3 py-2 text-sm text-amber-200" role="status">
         <LoaderCircle class="size-4 animate-spin" /> Your connection dropped. Reconnecting to the call…
       </div>
+      <div
+        v-else-if="call.quality.value === 'poor' || call.quality.value === 'lost'"
+        class="mx-4 mb-2 flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm"
+        :class="call.quality.value === 'lost' ? 'bg-red-500/15 text-red-200' : 'bg-amber-500/15 text-amber-200'"
+        role="status"
+      >
+        Connection is {{ call.quality.value === 'lost' ? 'unstable' : 'poor' }}. Video or audio may stutter until your network recovers.
+      </div>
       <div v-if="firstWaiting" class="mx-4 mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-sky-500/15 px-3 py-2 text-sm text-sky-100" role="status">
         <DoorOpen class="size-4 shrink-0" />
         <span class="min-w-0 flex-1 truncate">

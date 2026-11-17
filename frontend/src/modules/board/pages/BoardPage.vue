@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ISSUE_TYPE_META, ISSUE_TYPES, PRIORITIES, PRIORITY_META } from '@/constants/issue'
+import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
 import { rankBetween } from '@/lib/utils'
@@ -36,6 +37,7 @@ const route = useRoute()
 const auth = useAuthStore()
 const projects = useProjectsStore()
 const openIssue = useOpenIssue()
+const confirm = useConfirm()
 const { isDesktop } = useDevice()
 
 const projectId = computed(() => route.params.projectId as string)
@@ -193,7 +195,30 @@ const sprintStats = computed(() => {
 const donePercent = computed(() => (sprintStats.value.issueCount ? Math.round((sprintStats.value.doneCount / sprintStats.value.issueCount) * 100) : 0))
 
 // --- Moving cards ------------------------------------------------------------
+/** Column card count excluding the card being moved (so WIP checks the destination after the drop). */
+function columnCount(statusId: string, excludingId?: string) {
+  let total = 0
+  for (const laneCells of Object.values(cells.value)) {
+    for (const card of laneCells[statusId] ?? []) if (card.id !== excludingId) total += 1
+  }
+  return total
+}
+
 async function persistMove(issue: Issue, status: Status, position: number, lane: Lane | null = null) {
+  if (status.wipLimit && issue.statusId !== status.id) {
+    const nextCount = columnCount(status.id, issue.id) + 1
+    if (nextCount > status.wipLimit) {
+      const ok = await confirm({
+        title: `${status.name} is over its WIP limit`,
+        description: `This column is limited to ${status.wipLimit} cards and would have ${nextCount}. Move anyway?`,
+        confirmLabel: 'Move anyway',
+      })
+      if (!ok) {
+        rebuildCells()
+        return
+      }
+    }
+  }
   const previous = { statusId: issue.statusId, status: issue.status, position: issue.position, assigneeId: issue.assigneeId, assignee: issue.assignee, priority: issue.priority }
   const changes: { assigneeId?: string | null; priority?: IssuePriority } = {}
   if (lane && view.value.groupBy === 'assignee' && (lane.user?.id ?? null) !== issue.assigneeId) changes.assigneeId = lane.user?.id ?? null

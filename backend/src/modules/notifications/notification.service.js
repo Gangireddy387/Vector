@@ -42,16 +42,20 @@ export async function notifyUsers({ userIds, actorId = null, type, title, body =
   );
   notifications.forEach((notification) => emitToUser(notification.userId, 'notification:created', notification.toJSON()));
 
+  const users = await User.findAll({ where: { id: recipients, status: 'active' } });
+
   if (PUSH_TYPES.has(type)) {
-    await pushToUsers(
-      recipients,
-      { kind: type, title, body: body ?? '', url: link ?? '/', tag: `${type}-${notifications[0]?.id ?? Date.now()}` },
-      { ttlSeconds: 60 * 60 * 12 },
-    ).catch((error) => console.warn(`[push] notifyUsers ${type}:`, error.message));
+    const pushRecipients = users.filter((user) => user.preferences?.pushEnabled !== false).map((user) => user.id);
+    if (pushRecipients.length) {
+      await pushToUsers(
+        pushRecipients,
+        { kind: type, title, body: body ?? '', url: link ?? '/', tag: `${type}-${notifications[0]?.id ?? Date.now()}` },
+        { ttlSeconds: 60 * 60 * 12 },
+      ).catch((error) => console.warn(`[push] notifyUsers ${type}:`, error.message));
+    }
   }
 
   if (email && (!projectId || (await projectHasFeature(projectId, EMAIL_FEATURE_BY_TYPE[type] ?? 'emailNotifications')))) {
-    const users = await User.findAll({ where: { id: recipients, status: 'active' } });
     await Promise.all(
       users
         .filter((user) => user.preferences?.emailNotifications !== false)

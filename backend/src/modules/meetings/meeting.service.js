@@ -11,6 +11,7 @@ import {
   MeetingRecording,
   MeetingTranscriptLine,
   MeetingUpdate,
+  Organization,
   OrganizationMember,
   Project,
   Team,
@@ -22,6 +23,7 @@ import { localDateTime } from '../../shared/utils/timezone.js';
 import { appUrl } from '../../shared/services/email-templates.js';
 import { deleteStoredFile } from '../attachments/attachment.storage.js';
 import { createIssue } from '../issues/issue.service.js';
+import { entitlementsFor, withPlan } from '../plans/plan.service.js';
 import { assertProjectRole, projectRoleOf } from '../projects/project-access.js';
 import { calendarSendsInvites, pullCalendarChanges, pushMeetingLater } from '../calendar-sync/calendar-sync.service.js';
 import { notifyUsers } from '../notifications/notification.service.js';
@@ -209,6 +211,8 @@ async function activeMemberIds(organizationId, userIds) {
 async function syncCalendar(meeting) {
   await CalendarEvent.destroy({ where: { meetingId: meeting.id } });
   if (meeting.status === 'cancelled') return;
+  const organization = await Organization.findByPk(meeting.organizationId, { include: withPlan() });
+  if (!entitlementsFor(organization).features.calendar) return;
   const people = await User.findAll({ where: { id: [meeting.hostId, ...meeting.participants.map((participant) => participant.userId)].filter(Boolean) }, attributes: ['id', 'timezone'] });
   const finish = endsAt(meeting);
   await CalendarEvent.bulkCreate(

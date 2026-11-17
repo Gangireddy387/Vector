@@ -24,6 +24,8 @@ export interface UserSummary {
 export interface UserPreferences {
   emailNotifications: boolean
   dailyDigest: boolean
+  /** Device push for mentions, standups, due dates and similar. Missing means on. */
+  pushEnabled?: boolean
   /** Monday morning email with a reports overview summary. */
   weeklyReportsEmail?: boolean
   /** Follow the device's time zone automatically; `false` keeps the zone the user picked. Missing means true. */
@@ -157,6 +159,8 @@ export interface User extends UserSummary {
   isSuperAdmin?: boolean
   /** Signed in with a temporary password from a one-click invitation: must choose their own first. */
   mustChangePassword?: boolean
+  /** Authenticator app required after password on sign-in. */
+  mfaEnabled?: boolean
   status: 'active' | 'invited' | 'disabled'
   timezone: string
   preferences: UserPreferences

@@ -98,8 +98,8 @@ frontend/src
 ├── stores/            global UI store
 ├── types/             API models
 └── modules/<name>/    <name>.api.ts · <name>.store.ts · <name>.routes.ts · pages/ · components/ · composables/
-    auth · automation · backlog · board · dashboard · issues · notifications · projects
-    reports · search · settings · sprints
+    admin · auth · automation · backlog · board · dashboard · departments · issues · meetings · messages
+    notifications · projects · reports · search · settings · sprints · standup · support
 ```
 
 ### How the backend fits together
@@ -110,7 +110,13 @@ frontend/src
 - **Automation engine** (`modules/automations/automation.engine.js`) evaluates conditions and runs actions with an increasing depth counter, so rules cannot loop forever.
 - **Ordering** uses a fractional `position` rank shared by board columns and the backlog, so a drag only updates one row.
 
-More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (how it fits together) and [docs/SECURITY.md](docs/SECURITY.md) (accounts, organization isolation, checklist for changes).
+More detail:
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — how the pieces fit
+- [docs/SECURITY.md](docs/SECURITY.md) — accounts, organization isolation, checklist for changes
+- [docs/API.md](docs/API.md) — auth headers, conventions, departments/teams endpoints
+- [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — local setup, module layout, tests, PR checks
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — production (Nginx, PostgreSQL, systemd, coturn)
 
 ## Checks
 

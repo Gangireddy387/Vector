@@ -43,6 +43,18 @@ async function bootstrap() {
       })
     },
   })
+
+  let offlineToastShown = false
+  window.addEventListener('offline', () => {
+    if (offlineToastShown) return
+    offlineToastShown = true
+    toast.error('You are offline', { description: 'Changes may not save until you reconnect.', id: 'network-status' })
+  })
+  window.addEventListener('online', () => {
+    if (!offlineToastShown) return
+    offlineToastShown = false
+    toast.success('Back online', { id: 'network-status' })
+  })
 }
 
 void bootstrap()

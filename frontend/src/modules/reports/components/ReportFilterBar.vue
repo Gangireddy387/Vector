@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CalendarRange, FolderKanban, RotateCcw, UserRound, Users } from 'lucide-vue-next'
 import { computed } from 'vue'
-import { SelectField, type SelectFieldOption } from '@/components/forms'
+import { DatePicker, SelectField, type SelectFieldOption } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { useDevice } from '@/composables/useDevice'
 import { ISSUE_TYPE_META, ISSUE_TYPES, PRIORITIES, PRIORITY_META } from '@/constants/issue'
@@ -12,11 +12,14 @@ const props = defineProps<{ projects: Project[]; members: UserSummary[]; lockPro
 const filters = defineModel<ReportFilters>({ required: true })
 const { isDesktop, isWide } = useDevice()
 
-const PERIOD_OPTIONS: SelectFieldOption[] = [7, 14, 30, 90, 180].map((days) => ({
-  value: String(days),
-  label: days === 180 ? 'Last 6 months' : days === 90 ? 'Last 3 months' : `Last ${days} days`,
-  icon: CalendarRange,
-}))
+const PERIOD_OPTIONS: SelectFieldOption[] = [
+  ...[7, 14, 30, 90, 180].map((days) => ({
+    value: String(days),
+    label: days === 180 ? 'Last 6 months' : days === 90 ? 'Last 3 months' : `Last ${days} days`,
+    icon: CalendarRange,
+  })),
+  { value: 'custom', label: 'Custom range…', icon: CalendarRange },
+]
 
 const projectOptions = computed<SelectFieldOption[]>(() => [
   { value: null, label: 'All projects', icon: FolderKanban },
@@ -42,16 +45,51 @@ const priorityOptions: SelectFieldOption[] = [
   })),
 ]
 
+const isCustom = computed(() => Boolean(filters.value.from && filters.value.to))
+const periodValue = computed(() => (isCustom.value ? 'custom' : String(filters.value.days)))
+
 const isFiltered = computed(
-  () => (!props.lockProject && Boolean(filters.value.projectId)) || filters.value.days !== 30 || Boolean(filters.value.assigneeId || filters.value.type || filters.value.priority),
+  () =>
+    (!props.lockProject && Boolean(filters.value.projectId)) ||
+    filters.value.days !== 30 ||
+    isCustom.value ||
+    Boolean(filters.value.assigneeId || filters.value.type || filters.value.priority),
 )
 
 function set<K extends keyof ReportFilters>(key: K, value: ReportFilters[K]) {
   filters.value = { ...filters.value, [key]: value }
 }
 
+function setPeriod(value?: string | null) {
+  if (!value) return
+  if (value === 'custom') {
+    const to = filters.value.to ?? new Date().toISOString().slice(0, 10)
+    const from =
+      filters.value.from ??
+      new Date(Date.now() - 29 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    filters.value = { ...filters.value, from, to }
+    return
+  }
+  filters.value = { ...filters.value, days: Number(value), from: undefined, to: undefined }
+}
+
+function setCustomDate(key: 'from' | 'to', value: string) {
+  if (!value) return
+  const next = { ...filters.value, [key]: value }
+  if (next.from && next.to && next.from > next.to) {
+    if (key === 'from') next.to = value
+    else next.from = value
+  }
+  filters.value = next
+}
+
 function reset() {
-  filters.value = { days: 30, projectId: props.lockProject ? filters.value.projectId : undefined }
+  filters.value = {
+    days: 30,
+    projectId: props.lockProject ? filters.value.projectId : undefined,
+    from: undefined,
+    to: undefined,
+  }
 }
 </script>
 
@@ -72,13 +110,34 @@ function reset() {
       @update:model-value="(value) => set('projectId', value ?? undefined)"
     />
     <SelectField
-      :model-value="String(filters.days)"
+      :model-value="periodValue"
       :options="PERIOD_OPTIONS"
       size="sm"
       class="max-sm:w-full sm:w-44"
       aria-label="Period"
-      @update:model-value="(value) => value && set('days', Number(value))"
+      @update:model-value="setPeriod"
     />
+    <template v-if="isCustom">
+      <DatePicker
+        :model-value="filters.from!"
+        size="sm"
+        class="max-sm:w-full sm:w-40"
+        :clearable="false"
+        display-format="d MMM yyyy"
+        aria-label="From"
+        @update:model-value="(value) => value && setCustomDate('from', value)"
+      />
+      <span class="hidden text-xs text-muted-foreground sm:inline">to</span>
+      <DatePicker
+        :model-value="filters.to!"
+        size="sm"
+        class="max-sm:w-full sm:w-40"
+        :clearable="false"
+        display-format="d MMM yyyy"
+        aria-label="To"
+        @update:model-value="(value) => value && setCustomDate('to', value)"
+      />
+    </template>
     <SelectField
       :model-value="filters.assigneeId ?? null"
       :options="assigneeOptions"

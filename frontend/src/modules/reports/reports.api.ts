@@ -13,6 +13,9 @@ export interface ProjectSummaryReport {
 export interface ReportFilters {
   projectId?: string
   days: number
+  /** Custom range (YYYY-MM-DD); when both are set the API uses them instead of rolling `days`. */
+  from?: string
+  to?: string
   assigneeId?: string
   type?: string
   priority?: string

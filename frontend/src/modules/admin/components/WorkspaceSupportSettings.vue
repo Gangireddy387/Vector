@@ -14,7 +14,10 @@ const chat = useTemplateRef<InstanceType<typeof SupportChatThread>>('chat')
 </script>
 
 <template>
-  <Card v-if="auth.organization" class="flex h-[min(42rem,calc(100dvh-14rem))] flex-col gap-0 overflow-hidden py-0 max-sm:h-[min(36rem,calc(100dvh-11.5rem-env(safe-area-inset-bottom,0px)))]">
+  <Card
+    v-if="auth.organization"
+    class="flex min-h-[22rem] flex-1 flex-col gap-0 overflow-hidden py-0 h-[min(42rem,calc(100dvh-14rem))] max-sm:min-h-[min(28rem,70dvh)] max-sm:h-[calc(100dvh-10.5rem-env(safe-area-inset-bottom,0px))]"
+  >
     <CardHeader class="shrink-0 border-b border-border/70 py-4">
       <CardTitle class="flex items-center gap-2"><ShieldCheck class="size-4 text-primary" /> Vector support</CardTitle>
       <CardDescription>

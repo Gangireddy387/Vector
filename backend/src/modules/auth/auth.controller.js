@@ -2,6 +2,7 @@ import * as authService from './auth.service.js';
 
 export const register = async (req, res) => res.status(201).json(await authService.register(req.body));
 export const login = async (req, res) => res.json(await authService.login(req.body));
+export const verifyMfaLogin = async (req, res) => res.json(await authService.verifyMfaLogin(req.body));
 export const me = async (req, res) =>
   res.json(await authService.describeSession(req.user, req.organizationMemberships.find((membership) => membership.organizationId === req.organization?.id), req.organizationMemberships));
 
@@ -23,6 +24,27 @@ export const updateProfile = async (req, res) => {
 
 /** Other sessions are signed out; this one continues with the returned token. */
 export const changePassword = async (req, res) => res.json(await authService.changePassword(req.user, req.body));
+
+export const setupMfa = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(await authService.setupMfa(req.user));
+};
+export const confirmMfa = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const result = await authService.confirmMfa(req.user, req.body);
+  res.json({
+    recoveryCodes: result.recoveryCodes,
+    user: { ...result.user, workspaceRole: req.organizationRole ?? 'member' },
+  });
+};
+export const disableMfa = async (req, res) => {
+  const result = await authService.disableMfa(req.user, req.body);
+  res.json({ user: { ...result.user, workspaceRole: req.organizationRole ?? 'member' } });
+};
+export const regenerateMfaRecovery = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(await authService.regenerateMfaRecovery(req.user, req.body));
+};
 
 export const exportAccount = async (req, res) => {
   const payload = await authService.exportAccount(req.user);

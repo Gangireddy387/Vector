@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Sparkles, Trash2 } from 'lucide-vue-next'
+import { CalendarOff, Sparkles, Trash2 } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -102,6 +102,26 @@ async function remove() {
   }
 }
 
+/** Explicit empty day (time off / OOO) so the ritual does not keep nudging. */
+async function skipToday() {
+  const ok = await confirm({
+    title: 'Skip standup for this day?',
+    description: 'Use this for time off or when you have nothing to post. You can still write an update later.',
+    confirmLabel: 'Skip today',
+  })
+  if (!ok) return
+  isSaving.value = true
+  try {
+    await standupApi.save(props.projectId, { date: props.date, yesterday: '', today: '', blockers: '', skipped: true })
+    toast.success('Standup skipped for today')
+    emit('saved')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isSaving.value = false
+  }
+}
+
 const FIELDS = computed(() => [
   { key: 'yesterday' as const, label: `Since ${formatDate(props.previousDate, 'EEEE')}`, placeholder: '- Finished VEC-12 checkout flow\n- Reviewed VEC-15', tone: '' },
   { key: 'today' as const, label: 'Today', placeholder: '- Continue VEC-18 payments\n- Pair with Mei on VEC-20', tone: '' },
@@ -131,6 +151,7 @@ const FIELDS = computed(() => [
 
     <footer class="flex flex-wrap items-center gap-2 border-t px-4 py-3">
       <Button size="sm" :loading="isSaving" :disabled="isEmpty || !isDirty" @click="save">{{ update ? 'Save changes' : 'Post update' }}</Button>
+      <Button size="sm" variant="outline" :loading="isSaving" @click="skipToday"><CalendarOff /> Skip today</Button>
       <Button v-if="update" size="sm" variant="ghost" @click="emit('cancel')">Cancel</Button>
       <span v-if="update" class="text-xs text-muted-foreground">Last saved {{ formatDate(update.updatedAt, 'd MMM, HH:mm') }}</span>
       <Button v-if="update" size="sm" variant="ghost" class="ml-auto text-destructive" @click="remove"><Trash2 /> Delete</Button>

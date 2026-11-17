@@ -136,15 +136,19 @@ export async function getStandupDay(projectId, date, { days = 30 } = {}) {
 
 const clean = (value) => (typeof value === 'string' && value.trim() ? value.trim() : null);
 
-export async function saveStandup(projectId, user, { date, yesterday, today, blockers }) {
+export async function saveStandup(projectId, user, { date, yesterday, today, blockers, skipped = false }) {
   assertStandupDate(date);
-  const values = { yesterday: clean(yesterday), today: clean(today), blockers: clean(blockers) };
   const existing = await StandupUpdate.findOne({ where: { projectId, userId: user.id, date } });
 
-  if (!values.yesterday && !values.today && !values.blockers) {
+  if (skipped) {
     if (existing) await existing.destroy();
     emitToProject(projectId, 'standup:changed', { date, userId: user.id });
     return null;
+  }
+
+  const values = { yesterday: clean(yesterday), today: clean(today), blockers: clean(blockers) };
+  if (!values.yesterday && !values.today && !values.blockers) {
+    throw ApiError.badRequest('Write at least one section, or mark the standup as skipped');
   }
 
   const refs = await resolveIssueRefs(user.id, values.yesterday, values.today, values.blockers);

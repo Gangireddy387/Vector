@@ -38,6 +38,12 @@ unexpected ones are logged with the request id and answered generically.
 through `modules/projects/project-access.js` (`projectRoleOf`), which also requires an active membership of the
 project's organization. See [SECURITY.md](SECURITY.md).
 
+**Organization structure (`modules/departments`):** departments (optional head) contain teams (optional lead + members).
+A project may belong to at most one team (`Project.teamId`). When a project is assigned to a team, every team member
+gets a `ProjectMember` with `viaTeam: true`; leaving the team removes only that kind of membership. Department heads
+see every team under their department; ordinary members see only teams they belong to. List/CRUD live in
+`department.service.js` / `department.routes.js`; REST details are in [API.md](API.md).
+
 **Transactions:** multi-step writes run in `writeTransaction` (`database/connection.js`). Task numbers come from the
 project's counter under a row lock, backed by a unique `(project_id, number)` index.
 

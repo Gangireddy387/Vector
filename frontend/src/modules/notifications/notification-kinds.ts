@@ -85,12 +85,13 @@ export const INBOX_FILTERS: Array<{ value: InboxFilter; label: string; icon: Com
     icon: AlarmClock,
     types: ['due_soon', 'standup_blocker', 'meeting_reminder', 'standup_reminder', 'standup_digest', 'workday_nudge'],
   },
-  { value: 'support', label: 'Vector team', icon: MessageCircle, types: ['support_message'] },
+  { value: 'support', label: 'Vector team', icon: MessageCircle, types: ['support_message', 'support_call'] },
 ]
 
 /** What the reading pane's main button says for a notification's link. */
 export function openLabel(notification: AppNotification) {
   if (notification.type === 'support_message') return 'Open chat'
+  if (notification.type === 'support_call') return 'Join call'
   if (notification.type === 'channel_reply') return 'Open conversation'
   if (notification.link?.startsWith('/meetings/')) return 'Open meeting'
   if (notification.link?.startsWith('/issues/') || notification.link?.includes('issue=')) return 'Open task'

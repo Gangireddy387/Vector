@@ -198,9 +198,23 @@ export async function getReportOverview(userId, filters) {
   const isDone = (issue) => categoryOf.get(issue.statusId) === 'done';
   const today = toDateOnly(new Date());
   const inAWeek = toDateOnly(addDays(new Date(), 7));
-  const periodStart = addDays(new Date(), -days);
-  const previousStart = addDays(new Date(), -2 * days);
-  const inPeriod = (date) => date && date >= periodStart;
+  const dateOnlyToDate = (value) => new Date(`${value}T00:00:00`);
+  let periodStart;
+  let previousStart;
+  let periodTo = today;
+  let periodEndExclusive = null;
+  let periodDays = days;
+  if (filters.from && filters.to) {
+    periodStart = dateOnlyToDate(filters.from);
+    periodEndExclusive = addDays(dateOnlyToDate(filters.to), 1);
+    periodDays = Math.max(1, Math.round((periodEndExclusive - periodStart) / DAY_MS));
+    previousStart = new Date(periodStart.getTime() - (periodEndExclusive - periodStart));
+    periodTo = filters.to;
+  } else {
+    periodStart = addDays(new Date(), -days);
+    previousStart = addDays(new Date(), -2 * days);
+  }
+  const inPeriod = (date) => date && date >= periodStart && (!periodEndExclusive || date < periodEndExclusive);
   const inPrevious = (date) => date && date >= previousStart && date < periodStart;
 
   const summarize = (list) => {
@@ -268,10 +282,10 @@ export async function getReportOverview(userId, filters) {
   }));
 
   return {
-    period: { days, from: toDateOnly(periodStart), to: today },
+    period: { days: periodDays, from: toDateOnly(periodStart), to: periodTo },
     projects: projects.map((project) => project.toJSON()),
     totals,
-    timeline: buildTimeline(issues, isDone, days),
+    timeline: buildTimeline(issues, isDone, periodDays),
     byStatusCategory: categoryCounts,
     byStatus:
       projects.length === 1
@@ -281,7 +295,7 @@ export async function getReportOverview(userId, filters) {
     byPriority: ISSUE_PRIORITIES.map((priority) => ({ priority, count: countWhere(all.openList, (issue) => issue.priority === priority) })),
     byProject,
     workload,
-    insights: buildInsights({ days, totals, byProject, workload, isAllProjects }),
+    insights: buildInsights({ days: periodDays, totals, byProject, workload, isAllProjects }),
   };
 }
 

@@ -178,6 +178,7 @@ export async function deletePlan(planId) {
   const plan = await Plan.findByPk(planId);
   if (!plan) throw ApiError.notFound('Plan not found');
   if (plan.isDefault) throw ApiError.badRequest('The default plan cannot be deleted. Make another plan the default first.');
+  if ((await Plan.count()) <= 1) throw ApiError.badRequest('The last plan cannot be deleted.');
   const inUse = await Organization.count({ where: { planId } });
   if (inUse) throw ApiError.badRequest(`${inUse} organization${inUse === 1 ? ' is' : 's are'} on this plan. Move them to another plan first.`);
   await plan.destroy();

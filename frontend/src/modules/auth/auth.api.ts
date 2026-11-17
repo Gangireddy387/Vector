@@ -12,6 +12,16 @@ export interface Session extends SessionState {
   token: string
 }
 
+/** Password accepted; authenticator or recovery code still required. */
+export interface MfaChallenge {
+  mfaRequired: true
+  mfaToken: string
+}
+
+export type LoginResult = Session | MfaChallenge
+
+export const isMfaChallenge = (result: LoginResult): result is MfaChallenge => 'mfaRequired' in result && result.mfaRequired === true
+
 export interface RegisterPayload {
   name: string
   email: string
@@ -40,7 +50,15 @@ export interface ProfileChanges {
 }
 
 export const authApi = {
-  login: (payload: { email: string; password: string }) => http.post<Session>('/auth/login', payload).then((r) => r.data),
+  login: (payload: { email: string; password: string }) => http.post<LoginResult>('/auth/login', payload).then((r) => r.data),
+  verifyMfaLogin: (payload: { mfaToken: string; code?: string; recoveryCode?: string }) =>
+    http.post<Session>('/auth/login/mfa', payload).then((r) => r.data),
+  setupMfa: () => http.post<{ secret: string; otpauthUrl: string }>('/auth/me/mfa/setup').then((r) => r.data),
+  confirmMfa: (code: string) => http.post<{ recoveryCodes: string[]; user: User }>('/auth/me/mfa/confirm', { code }).then((r) => r.data),
+  disableMfa: (payload: { password: string; code?: string; recoveryCode?: string }) =>
+    http.post<{ user: User }>('/auth/me/mfa/disable', payload).then((r) => r.data.user),
+  regenerateMfaRecovery: (payload: { password: string; code: string }) =>
+    http.post<{ recoveryCodes: string[] }>('/auth/me/mfa/recovery', payload).then((r) => r.data.recoveryCodes),
   register: (payload: RegisterPayload) => http.post<Session>('/auth/register', payload).then((r) => r.data),
   forgotPassword: (email: string) => http.post<{ message: string }>('/auth/forgot-password', { email }).then((r) => r.data),
   resetPassword: (payload: { token: string; password: string }) =>

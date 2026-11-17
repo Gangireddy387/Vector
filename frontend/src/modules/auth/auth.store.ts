@@ -13,7 +13,16 @@ import {
 import type { PlanFeatureKey } from '@/lib/plan-features'
 import { connectRealtime, disconnectRealtime } from '@/lib/realtime'
 import type { OrganizationSummary, User, WorkspaceSettings } from '@/types/models'
-import { authApi, organizationsApi, type ProfileChanges, type RegisterPayload, type Session, type SessionState } from './auth.api'
+import {
+  authApi,
+  isMfaChallenge,
+  organizationsApi,
+  type LoginResult,
+  type ProfileChanges,
+  type RegisterPayload,
+  type Session,
+  type SessionState,
+} from './auth.api'
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(getStoredToken())
@@ -121,7 +130,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   const refreshSession = async () => applyState(await authApi.me())
 
-  const login = async (payload: { email: string; password: string }) => applySession(await authApi.login(payload))
+  /** Returns an MFA challenge when two-factor is on; otherwise applies the session. */
+  async function login(payload: { email: string; password: string }): Promise<LoginResult> {
+    const result = await authApi.login(payload)
+    if (!isMfaChallenge(result)) applySession(result)
+    return result
+  }
+  const verifyMfaLogin = async (payload: { mfaToken: string; code?: string; recoveryCode?: string }) =>
+    applySession(await authApi.verifyMfaLogin(payload))
   const register = async (payload: RegisterPayload) => applySession(await authApi.register(payload))
   const resetPassword = async (payload: { token: string; password: string }) => applySession(await authApi.resetPassword(payload))
   const acceptInvite = async (payload: { token: string; name: string; password: string }) =>
@@ -217,6 +233,7 @@ export const useAuthStore = defineStore('auth', () => {
     restoreSession,
     refreshSession,
     login,
+    verifyMfaLogin,
     register,
     resetPassword,
     acceptInvite,

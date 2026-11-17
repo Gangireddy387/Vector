@@ -17,19 +17,32 @@ const recurringFields = {
   enabled: z.boolean(),
 };
 
-export const createRecurringTaskSchema = z.object({
-  ...recurringFields,
-  description: recurringFields.description.optional(),
-  issueType: recurringFields.issueType.default('task'),
-  priority: recurringFields.priority.default('medium'),
-  assigneeId: recurringFields.assigneeId.optional(),
-  labelIds: recurringFields.labelIds.default([]),
-  frequency: recurringFields.frequency.default('weekly'),
-  dayOfWeek: recurringFields.dayOfWeek.optional(),
-  dayOfMonth: recurringFields.dayOfMonth.optional(),
-  timeOfDay: recurringFields.timeOfDay.default('09:00'),
-  dueInDays: recurringFields.dueInDays.optional(),
-  enabled: recurringFields.enabled.default(true),
-});
+const scheduleDayRules = (schema) =>
+  schema
+    .refine((data) => data.frequency !== 'weekly' || data.dayOfWeek != null, {
+      message: 'Pick a day of the week for weekly tasks',
+      path: ['dayOfWeek'],
+    })
+    .refine((data) => data.frequency !== 'monthly' || data.dayOfMonth != null, {
+      message: 'Pick a day of the month for monthly tasks',
+      path: ['dayOfMonth'],
+    });
 
-export const updateRecurringTaskSchema = z.object(recurringFields).partial();
+export const createRecurringTaskSchema = scheduleDayRules(
+  z.object({
+    ...recurringFields,
+    description: recurringFields.description.optional(),
+    issueType: recurringFields.issueType.default('task'),
+    priority: recurringFields.priority.default('medium'),
+    assigneeId: recurringFields.assigneeId.optional(),
+    labelIds: recurringFields.labelIds.default([]),
+    frequency: recurringFields.frequency.default('weekly'),
+    dayOfWeek: recurringFields.dayOfWeek.optional(),
+    dayOfMonth: recurringFields.dayOfMonth.optional(),
+    timeOfDay: recurringFields.timeOfDay.default('09:00'),
+    dueInDays: recurringFields.dueInDays.optional(),
+    enabled: recurringFields.enabled.default(true),
+  }),
+);
+
+export const updateRecurringTaskSchema = scheduleDayRules(z.object(recurringFields).partial());

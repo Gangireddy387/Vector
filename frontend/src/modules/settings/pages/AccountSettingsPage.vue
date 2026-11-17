@@ -19,6 +19,7 @@ import { useAuthStore } from '@/modules/auth/auth.store'
 import PasswordInput from '@/modules/auth/components/PasswordInput.vue'
 import PushPrompt from '@/modules/meetings/components/PushPrompt.vue'
 import CalendarConnectionsCard from '../components/CalendarConnectionsCard.vue'
+import MfaSettingsCard from '../components/MfaSettingsCard.vue'
 import ProfilePhotoField from '../components/ProfilePhotoField.vue'
 import SoundSettingsCard from '../components/SoundSettingsCard.vue'
 import SkillsInput from '../components/SkillsInput.vue'
@@ -84,7 +85,7 @@ async function saveProfile() {
   }
 }
 
-async function setPreference(key: 'emailNotifications' | 'dailyDigest' | 'weeklyReportsEmail', value: boolean) {
+async function setPreference(key: 'emailNotifications' | 'dailyDigest' | 'weeklyReportsEmail' | 'pushEnabled', value: boolean) {
   try {
     await auth.updateProfile({ preferences: { [key]: value } })
   } catch (error) {
@@ -213,6 +214,8 @@ async function changePassword() {
             </form>
           </CardContent>
         </Card>
+
+        <MfaSettingsCard />
       </div>
 
       <div class="space-y-4">
@@ -228,6 +231,13 @@ async function changePassword() {
                 <span class="block text-xs text-muted-foreground">Assignments, mentions, due-date reminders and completed work you watch.</span>
               </span>
               <Switch :model-value="auth.user?.preferences.emailNotifications ?? true" @update:model-value="(value: boolean) => setPreference('emailNotifications', value)" />
+            </label>
+            <label class="flex items-start justify-between gap-4">
+              <span>
+                <span class="block text-sm font-medium">Push notifications</span>
+                <span class="block text-xs text-muted-foreground">Mentions, standups, due dates and similar alerts on this device when Vector is closed.</span>
+              </span>
+              <Switch :model-value="auth.user?.preferences.pushEnabled ?? true" @update:model-value="(value: boolean) => setPreference('pushEnabled', value)" />
             </label>
             <label class="flex items-start justify-between gap-4">
               <span>

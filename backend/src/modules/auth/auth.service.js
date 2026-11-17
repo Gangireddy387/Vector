@@ -7,7 +7,15 @@ import { ApiError } from '../../shared/errors/api-error.js';
 import { disconnectUser } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { accountReadyEmail, passwordResetEmail } from '../../shared/services/email-templates.js';
-import { createOneTimeToken, hashOneTimeToken, signAccessToken } from './token.js';
+import {
+  consumeRecoveryCode,
+  createRecoveryCodes,
+  createTotpSecret,
+  decryptSecret,
+  encryptSecret,
+  verifyTotp,
+} from './mfa.js';
+import { createOneTimeToken, hashOneTimeToken, isMfaToken, isRevoked, signAccessToken, signMfaToken, verifyAccessToken } from './token.js';
 import { listMyOrganizations, resolveOrganization, toPublicOrganization } from '../organizations/index.js';
 import { checkSlug, createOrganization } from '../organizations/organization.service.js';
 import { isSuperAdmin } from '../super-admin/super-admin.service.js';
@@ -67,7 +75,91 @@ export async function login({ email, password }) {
   if (user.status !== 'active') throw ApiError.forbidden('This account is not active');
   // Passwords saved with a weaker setting are strengthened the next time they are used.
   if (bcrypt.getRounds(user.passwordHash) < PASSWORD_HASH_ROUNDS) await user.update({ passwordHash: await hashPassword(password) });
+  if (user.mfaEnabled && user.mfaSecret) {
+    return { mfaRequired: true, mfaToken: signMfaToken(user) };
+  }
   return buildSession(user);
+}
+
+async function loadMfaChallenge(mfaToken) {
+  let payload;
+  try {
+    payload = verifyAccessToken(mfaToken);
+  } catch {
+    throw ApiError.unauthorized('This sign-in step expired. Enter your password again.');
+  }
+  if (!isMfaToken(payload)) throw ApiError.unauthorized('This sign-in step expired. Enter your password again.');
+  const user = await User.scope('withSecrets').findByPk(payload.sub);
+  if (!user || user.status !== 'active' || !user.mfaEnabled || !user.mfaSecret || isRevoked(payload, user)) {
+    throw ApiError.unauthorized('This sign-in step expired. Enter your password again.');
+  }
+  return user;
+}
+
+/** Completes sign-in after password when MFA is on: authenticator code or a one-time recovery code. */
+export async function verifyMfaLogin({ mfaToken, code, recoveryCode }) {
+  const user = await loadMfaChallenge(mfaToken);
+  if (recoveryCode) {
+    const remaining = consumeRecoveryCode(user.mfaRecoveryCodes, recoveryCode);
+    if (!remaining) throw ApiError.unauthorized('That recovery code is invalid or already used');
+    await user.update({ mfaRecoveryCodes: remaining });
+    return buildSession(user);
+  }
+  const secret = decryptSecret(user.mfaSecret);
+  if (!code || !verifyTotp(secret, code)) throw ApiError.unauthorized('Incorrect authenticator code');
+  return buildSession(user);
+}
+
+/** Starts MFA setup: returns a secret + otpauth URL once; confirm with a code before it is required on login. */
+export async function setupMfa(actor) {
+  const user = await User.scope('withSecrets').findByPk(actor.id);
+  if (!user?.passwordHash) throw ApiError.badRequest('Set a password before turning on two-factor authentication');
+  if (user.mfaEnabled) throw ApiError.badRequest('Two-factor authentication is already on. Turn it off first to set it up again.');
+  const { secret, otpauthUrl } = createTotpSecret(user.email);
+  await user.update({ mfaSecret: encryptSecret(secret), mfaRecoveryCodes: null, mfaEnabled: false });
+  return { secret, otpauthUrl };
+}
+
+/** Confirms the authenticator app and enables MFA; returns recovery codes once. */
+export async function confirmMfa(actor, { code }) {
+  const user = await User.scope('withSecrets').findByPk(actor.id);
+  if (!user?.mfaSecret) throw ApiError.badRequest('Start setup from Settings before confirming');
+  if (user.mfaEnabled) throw ApiError.badRequest('Two-factor authentication is already on');
+  const secret = decryptSecret(user.mfaSecret);
+  if (!verifyTotp(secret, code)) throw ApiError.badRequest('Incorrect authenticator code', [{ path: 'code', message: 'Incorrect authenticator code' }]);
+  const { codes, hashes } = createRecoveryCodes();
+  await user.update({ mfaEnabled: true, mfaRecoveryCodes: hashes });
+  return { recoveryCodes: codes, user: { ...user.toJSON(), mfaEnabled: true } };
+}
+
+/** Turns MFA off after password + a current authenticator or recovery code. */
+export async function disableMfa(actor, { password, code, recoveryCode }) {
+  const user = await User.scope('withSecrets').findByPk(actor.id);
+  if (!user?.mfaEnabled) throw ApiError.badRequest('Two-factor authentication is not on');
+  if (!(await bcrypt.compare(password, user.passwordHash ?? DUMMY_HASH))) {
+    throw ApiError.unauthorized('Incorrect password');
+  }
+  if (recoveryCode) {
+    const remaining = consumeRecoveryCode(user.mfaRecoveryCodes, recoveryCode);
+    if (!remaining) throw ApiError.badRequest('That recovery code is invalid or already used', [{ path: 'recoveryCode', message: 'Invalid recovery code' }]);
+  } else {
+    const secret = decryptSecret(user.mfaSecret);
+    if (!code || !verifyTotp(secret, code)) throw ApiError.badRequest('Incorrect authenticator code', [{ path: 'code', message: 'Incorrect authenticator code' }]);
+  }
+  await user.update({ mfaEnabled: false, mfaSecret: null, mfaRecoveryCodes: null });
+  return { user: { ...user.toJSON(), mfaEnabled: false } };
+}
+
+/** Replaces recovery codes (password + TOTP). Codes are shown once. */
+export async function regenerateMfaRecovery(actor, { password, code }) {
+  const user = await User.scope('withSecrets').findByPk(actor.id);
+  if (!user?.mfaEnabled || !user.mfaSecret) throw ApiError.badRequest('Two-factor authentication is not on');
+  if (!(await bcrypt.compare(password, user.passwordHash ?? DUMMY_HASH))) throw ApiError.unauthorized('Incorrect password');
+  const secret = decryptSecret(user.mfaSecret);
+  if (!verifyTotp(secret, code)) throw ApiError.badRequest('Incorrect authenticator code', [{ path: 'code', message: 'Incorrect authenticator code' }]);
+  const { codes, hashes } = createRecoveryCodes();
+  await user.update({ mfaRecoveryCodes: hashes });
+  return { recoveryCodes: codes };
 }
 
 /** Answers the same way, and as fast, whether or not the email is registered; the email goes out in the background. */

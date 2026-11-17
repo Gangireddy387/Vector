@@ -151,6 +151,21 @@ describe('organization isolation', () => {
     await call('PATCH', `/workspace/members/${bob.user.id}`, { status: 'active' }, alice.token, alice.organizationId);
     assert.equal((await call('GET', `/projects/${project.id}`, null, bob.token, alice.organizationId)).status, 200, 'access returns with reactivation');
   });
+
+  it('keeps other organizations out of departments and blocks non-admins from mutating them', async () => {
+    const created = await call('POST', '/departments', { name: `SecDept-${stamp}` }, alice.token, alice.organizationId);
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    const department = created.body.departments.find((item) => item.name === `SecDept-${stamp}`);
+    assert.ok(department);
+
+    const eve = await signUp('eve-dept');
+    const eveList = await call('GET', '/departments', null, eve.token);
+    assert.equal(eveList.status, 200);
+    assert.ok(!eveList.body.departments?.some((item) => item.id === department.id));
+    // Forged org header falls back to Eve's org, so the department id is simply not found.
+    assert.equal((await call('PATCH', `/departments/${department.id}`, { name: 'Hijacked' }, eve.token, alice.organizationId)).status, 404);
+    assert.equal((await call('POST', '/departments', { name: 'Bob dept' }, bob.token, alice.organizationId)).status, 403);
+  });
 });
 
 describe('data integrity', () => {

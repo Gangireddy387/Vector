@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { attendanceCsv, attendanceDuration } from './attendance'
 import { callShortcutFor, isTalkKey } from './call/shortcuts'
+import { rate, worstQuality } from './call/stats'
 import type { AttendanceEntry } from './meetings.api'
 import { boardBounds, noteFill, textLines } from './whiteboard'
 
@@ -66,6 +67,26 @@ describe('attendance report', () => {
     expect(lines[1]).toBe('"Ann","ann@example.com","Member","2026-10-30T09:00:00.000Z","2026-10-30T09:30:00.000Z","30","1"')
     expect(lines[2]).toContain(`"'=HYPERLINK(""http://evil"")"`)
     expect(lines[2]).toContain('"Still in the call"')
+  })
+})
+
+describe('connection quality', () => {
+  it('rates good, fair and poor from rtt and loss', () => {
+    expect(rate(80, 0.5)).toBe('good')
+    expect(rate(400, 3)).toBe('fair')
+    expect(rate(900, 1)).toBe('poor')
+    expect(rate(100, 12)).toBe('poor')
+  })
+
+  it('treats missing samples as zero', () => {
+    expect(rate(null, null)).toBe('good')
+    expect(rate(500, null)).toBe('fair')
+  })
+
+  it('picks the worst quality across peers', () => {
+    expect(worstQuality(['good', 'fair', null, 'poor'])).toBe('poor')
+    expect(worstQuality([null, undefined, 'good'])).toBe('good')
+    expect(worstQuality([])).toBeNull()
   })
 })
 

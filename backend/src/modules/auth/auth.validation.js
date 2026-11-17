@@ -43,6 +43,8 @@ export const updateProfileSchema = z.object({
     .object({
       emailNotifications: z.boolean().optional(),
       dailyDigest: z.boolean().optional(),
+      /** Device push for mentions, standups, due dates and similar (default on). */
+      pushEnabled: z.boolean().optional(),
       /** Weekly reports overview email (picked up by the digest-style job). */
       weeklyReportsEmail: z.boolean().optional(),
       /** Follow the device's time zone automatically (default) instead of a fixed one. */
@@ -73,4 +75,43 @@ export const acceptInviteQuickSchema = z.object({ token: z.string().min(10) });
 
 export const deleteAccountSchema = z.object({
   password: z.string().min(1, 'Password is required'),
+});
+
+const totpCode = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, 'Enter the 6-digit code from your authenticator app');
+const recoveryCode = z
+  .string()
+  .trim()
+  .min(8, 'Enter a recovery code')
+  .max(32);
+
+export const mfaLoginSchema = z
+  .object({
+    mfaToken: z.string().min(20),
+    code: totpCode.optional(),
+    recoveryCode: recoveryCode.optional(),
+  })
+  .refine((body) => Boolean(body.code) !== Boolean(body.recoveryCode), {
+    message: 'Enter either an authenticator code or a recovery code',
+    path: ['code'],
+  });
+
+export const mfaConfirmSchema = z.object({ code: totpCode });
+
+export const mfaDisableSchema = z
+  .object({
+    password: z.string().min(1, 'Password is required'),
+    code: totpCode.optional(),
+    recoveryCode: recoveryCode.optional(),
+  })
+  .refine((body) => Boolean(body.code) !== Boolean(body.recoveryCode), {
+    message: 'Enter either an authenticator code or a recovery code',
+    path: ['code'],
+  });
+
+export const mfaRegenerateSchema = z.object({
+  password: z.string().min(1, 'Password is required'),
+  code: totpCode,
 });

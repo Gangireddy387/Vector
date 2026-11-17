@@ -1,7 +1,7 @@
 import { DataTypes, Model } from 'sequelize';
 import { sequelize } from '../../database/connection.js';
 
-const SECRET_FIELDS = ['passwordHash', 'inviteToken', 'resetToken', 'resetTokenExpiresAt'];
+const SECRET_FIELDS = ['passwordHash', 'inviteToken', 'resetToken', 'resetTokenExpiresAt', 'mfaSecret', 'mfaRecoveryCodes'];
 
 /** Fields that are safe to embed whenever a user is referenced (assignee, author, ...). */
 export const USER_SUMMARY_ATTRIBUTES = ['id', 'name', 'email', 'avatarColor', 'avatarUrl', 'title'];
@@ -58,6 +58,12 @@ User.init(
     presenceStatus: { type: DataTypes.STRING(10), allowNull: true },
     /** Raised on every password change or reset; sign-in tokens with an older version stop working. */
     tokenVersion: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    /** Authenticator app (TOTP) is required after the password on sign-in. */
+    mfaEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    /** Encrypted TOTP secret (AES-256-GCM); never returned to browsers. */
+    mfaSecret: { type: DataTypes.TEXT, allowNull: true },
+    /** Hashed one-time recovery codes (JSON array); never returned after they are shown once. */
+    mfaRecoveryCodes: { type: DataTypes.JSON, allowNull: true },
     /** The local date (YYYY-MM-DD) the daily digest was last sent, so it goes out once a day. */
     digestSentOn: { type: DataTypes.STRING(10), allowNull: true },
   },

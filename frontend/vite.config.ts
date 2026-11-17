@@ -38,7 +38,7 @@ export default defineConfig(({ command, mode }) => ({
         ],
         shortcuts: [
           { name: 'Home', url: '/' },
-          { name: 'Create issue', url: '/issues/new' },
+          { name: 'My tasks', url: '/issues' },
           { name: 'Inbox', url: '/inbox' },
         ],
       },

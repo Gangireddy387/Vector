@@ -92,6 +92,7 @@ export async function disconnect(userId, providerId) {
   // Events already sent stay on the calendars; the meetings just stop following them.
   await MeetingCalendarLink.destroy({ where: { connectionId: connection.id } });
   await connection.destroy();
+  emitToUser(userId, 'calendar:connections', {});
 }
 
 /** A working access token for the connection (refreshed when it is about to expire). */

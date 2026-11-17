@@ -10,6 +10,7 @@ import { useIssueActions } from '@/modules/issues/composables/useIssueActions'
 import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import type { Issue } from '@/types/models'
 import { useDashboardData } from '../composables/useDashboardData'
+import { useHomeLayout } from '../composables/useHomeLayout'
 import { consumeStartDayQuery } from '../composables/useStartDayHighlight'
 import { bucketOf } from '../my-work'
 import { copyShareWorkday } from '../share-workday'
@@ -17,6 +18,7 @@ import CreateProjectDialog from '@/modules/projects/components/CreateProjectDial
 import DailyBriefingCard from './DailyBriefingCard.vue'
 import HabitCoachCard from './HabitCoachCard.vue'
 import HabitNudgeBanner from './HabitNudgeBanner.vue'
+import HomeCustomizeMenu from './HomeCustomizeMenu.vue'
 import HomeDayLoop from './HomeDayLoop.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
 import HomeLoadingShell from './HomeLoadingShell.vue'
@@ -35,6 +37,8 @@ const router = useRouter()
 const actions = useIssueActions()
 const openIssue = useOpenIssue()
 const { data, isLoading, error, reload } = useDashboardData()
+const home = useHomeLayout()
+const show = (key: Parameters<typeof home.isHidden>[0]) => !home.isHidden(key)
 const isCreateProjectOpen = ref(false)
 const segment = ref<Segment>('today')
 /** Invite deep-link: shared highlight survives clearing ?startDay=1 from the URL. */
@@ -82,7 +86,8 @@ async function complete(issue: Issue) {
         <p class="text-lg font-semibold">Hi {{ auth.user?.name.split(' ')[0] }}</p>
         <p class="text-sm" :class="data?.stats.overdue ? 'text-destructive' : 'text-muted-foreground'">{{ summary }}</p>
       </div>
-      <div class="flex self-end gap-1 sm:self-start">
+      <div class="flex self-end items-center gap-1 sm:self-start">
+        <HomeCustomizeMenu :hidden="home.layout.hidden" :customized="home.isCustomized" @toggle="home.toggle" @reset="home.reset" />
         <Button
           variant="ghost"
           size="icon"
@@ -95,26 +100,26 @@ async function complete(issue: Issue) {
       </div>
     </div>
 
-    <SetupChecklist v-if="data" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
-    <HabitCoachCard v-if="data" :data="data" @create-project="isCreateProjectOpen = true" />
-    <HabitNudgeBanner v-if="data?.habitNudge" :nudge="data.habitNudge" />
-    <TeamDensityCard v-if="data" :data="data" />
+    <SetupChecklist v-if="data && show('setup')" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
+    <HabitCoachCard v-if="data && show('habit')" :data="data" @create-project="isCreateProjectOpen = true" />
+    <HabitNudgeBanner v-if="data?.habitNudge && show('habit')" :nudge="data.habitNudge" />
+    <TeamDensityCard v-if="data && show('density')" :data="data" />
     <CreateProjectDialog v-model:open="isCreateProjectOpen" />
 
-    <QuickCapture stacked />
+    <QuickCapture v-if="show('quickCapture')" stacked />
 
-    <HomeDayLoop v-if="data" :data="data" :highlight="startDay" />
-    <HomeFocusCards v-if="data" :data="data" @changed="reload" />
-    <PlanUnlocksCard />
-    <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
+    <HomeDayLoop v-if="data && show('dayLoop')" :data="data" :highlight="startDay" />
+    <HomeFocusCards v-if="data && show('focus')" :data="data" @changed="reload" />
+    <PlanUnlocksCard v-if="show('planUnlocks')" />
+    <HomeTodayPanel v-if="data && show('today')" :data="data" @changed="reload" />
 
     <HomeLoadingShell v-if="isLoading && !data" variant="mobile" />
     <EmptyState v-else-if="error && !data" :icon="RefreshCw" title="Your tasks did not load" :description="error">
       <Button variant="outline" @click="reload">Try again</Button>
     </EmptyState>
     <template v-else-if="data">
-      <WeeklyPulseCard :data="data" />
-      <DailyBriefingCard />
+      <WeeklyPulseCard v-if="show('pulse')" :data="data" />
+      <DailyBriefingCard v-if="show('briefing')" />
 
       <div class="grid w-full grid-cols-4 gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Task groups">
         <button

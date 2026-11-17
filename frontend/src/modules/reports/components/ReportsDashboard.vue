@@ -36,20 +36,33 @@ const auth = useAuthStore()
 
 const queryText = (key: string) => (typeof route.query[key] === 'string' && route.query[key] ? (route.query[key] as string) : undefined)
 const PERIODS = [7, 14, 30, 90, 180]
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 /** Filters live in the URL so a report can be bookmarked or shared. */
 const filters = computed<ReportFilters>({
-  get: () => ({
-    projectId: props.lockedProjectId ?? queryText('project'),
-    days: PERIODS.includes(Number(queryText('days'))) ? Number(queryText('days')) : 30,
-    assigneeId: queryText('assignee'),
-    type: queryText('type'),
-    priority: queryText('priority'),
-  }),
+  get: () => {
+    const from = queryText('from')
+    const to = queryText('to')
+    const custom = from && to && DATE_PATTERN.test(from) && DATE_PATTERN.test(to) && from <= to
+    return {
+      projectId: props.lockedProjectId ?? queryText('project'),
+      days: PERIODS.includes(Number(queryText('days'))) ? Number(queryText('days')) : 30,
+      from: custom ? from : undefined,
+      to: custom ? to : undefined,
+      assigneeId: queryText('assignee'),
+      type: queryText('type'),
+      priority: queryText('priority'),
+    }
+  },
   set: (next) => {
     const query: Record<string, string> = {}
     if (!props.lockedProjectId && next.projectId) query.project = next.projectId
-    if (next.days !== 30) query.days = String(next.days)
+    if (next.from && next.to) {
+      query.from = next.from
+      query.to = next.to
+    } else if (next.days !== 30) {
+      query.days = String(next.days)
+    }
     if (next.assigneeId) query.assignee = next.assigneeId
     if (next.type) query.type = next.type
     if (next.priority) query.priority = next.priority
@@ -85,6 +98,9 @@ watch(
 
 const singleProject = computed(() => (report.value?.projects.length === 1 ? report.value.projects[0] : null))
 const periodLabel = computed(() => {
+  if (filters.value.from && filters.value.to) {
+    return `${formatDate(filters.value.from, 'd MMM')} – ${formatDate(filters.value.to, 'd MMM yyyy')}`
+  }
   const days = filters.value.days
   return days === 180 ? 'last 6 months' : days === 90 ? 'last 3 months' : `last ${days} days`
 })

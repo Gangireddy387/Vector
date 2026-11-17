@@ -5,6 +5,8 @@ Report a suspected vulnerability privately to the development team; do not open 
 
 ## Accounts and sign-in
 
+**Two-factor authentication (TOTP):** each person can turn on an authenticator app in Settings. After the password on sign-in, Vector issues a short-lived `typ: mfa` token (not a session) and asks for a 6-digit code or a one-time recovery code. The TOTP secret is stored encrypted (AES-256-GCM); recovery codes are stored hashed and shown only once. MFA challenge tokens cannot call `/auth/me` or open Socket.IO.
+
 | Topic | How it works | Where |
 |---|---|---|
 | Passwords | bcrypt with cost 12; older hashes are upgraded at the next sign-in | `backend/src/modules/auth/auth.service.js` |
@@ -25,6 +27,7 @@ Every organization's work is visible only to its active members:
 - **Links between tasks** stay inside one organization.
 - **Removed members** stop following the organization's tasks (watchers are removed) and receive no further notifications about them.
 - **Meetings:** only the host, invited people and organization admins open a meeting; guests come with a pass for one meeting and wait in a lobby until someone lets them in.
+- **Departments / teams:** only organization admins create, edit, delete or assign projects; members receive a filtered list (teams they are in, plus departments they head). Cross-organization department ids must not be visible (404 / empty list), covered in `security.integration.test.js` and `departments.integration.test.js`.
 
 Tested by `backend/test/security.integration.test.js` against a real server (`npm test` in `backend`).
 

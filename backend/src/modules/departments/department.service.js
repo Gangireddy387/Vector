@@ -240,15 +240,22 @@ async function assertMembers(organizationId, userIds, field) {
 }
 
 /** Names are unique regardless of letter case. */
-const nameLike = (name) => (sequelize.getDialect() === 'postgres' ? { [Op.iLike]: name } : name);
+async function findNameClash(Model, scope, name, exceptId) {
+  if (sequelize.getDialect() === 'postgres') {
+    return Model.findOne({ where: { ...scope, name: { [Op.iLike]: name }, ...(exceptId ? { id: { [Op.ne]: exceptId } } : {}) } });
+  }
+  const rows = await Model.findAll({ where: scope, attributes: ['id', 'name'] });
+  const needle = name.toLowerCase();
+  return rows.find((row) => row.name.toLowerCase() === needle && row.id !== exceptId) ?? null;
+}
 
 async function assertDepartmentName(organizationId, name, exceptId) {
-  const clash = await Department.findOne({ where: { organizationId, name: nameLike(name), ...(exceptId ? { id: { [Op.ne]: exceptId } } : {}) } });
+  const clash = await findNameClash(Department, { organizationId }, name, exceptId);
   if (clash) throw ApiError.badRequest(`A department called “${name}” already exists`, [{ path: 'name', message: 'This name is already used' }]);
 }
 
 async function assertTeamName(departmentId, name, exceptId) {
-  const clash = await Team.findOne({ where: { departmentId, name: nameLike(name), ...(exceptId ? { id: { [Op.ne]: exceptId } } : {}) } });
+  const clash = await findNameClash(Team, { departmentId }, name, exceptId);
   if (clash) throw ApiError.badRequest(`This department already has a team called “${name}”`, [{ path: 'name', message: 'This name is already used' }]);
 }
 
@@ -264,7 +271,7 @@ export async function createDepartment(organizationId, { name, description = nul
 export async function updateDepartment(organizationId, departmentId, changes) {
   const department = await findDepartment(organizationId, departmentId);
   if (changes.name !== undefined) await assertDepartmentName(organizationId, changes.name, department.id);
-  if (changes.headId) await assertMembers(organizationId, [changes.headId], 'headId');
+  if (changes.headId !== undefined) await assertMembers(organizationId, [changes.headId], 'headId');
   await department.update(changes);
 }
 

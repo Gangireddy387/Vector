@@ -66,6 +66,8 @@ export interface StandupInput {
   yesterday: string
   today: string
   blockers: string
+  /** Explicit empty day (time off) — clears any posted update for the date. */
+  skipped?: boolean
 }
 
 export const standupApi = {

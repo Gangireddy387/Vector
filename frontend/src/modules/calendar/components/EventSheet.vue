@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useIntervalFn, useNow } from '@vueuse/core'
 import { addDays, differenceInCalendarDays, format, getISODay, parseISO } from 'date-fns'
-import { CalendarPlus, CircleCheck, CircleSlash, Clock3, PencilLine, Trash2, X } from 'lucide-vue-next'
+import { CalendarPlus, CircleCheck, CircleSlash, Clock3, ExternalLink, PencilLine, Trash2, X } from 'lucide-vue-next'
 import { computed, reactive, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
 import { DatePicker, SelectField, TimeField, type SelectFieldOption } from '@/components/forms'
@@ -38,6 +39,16 @@ const tick = useNow({ scheduler: (callback) => useIntervalFn(callback, 30_000) }
 const now = computed(() => clockIn(auth.user?.timezone, tick.value))
 
 const editing = computed(() => target.value?.event ?? null)
+/** Meeting and task-due entries are mirrored from elsewhere; editing them here would be overwritten. */
+const isLinked = computed(() => Boolean(editing.value?.meetingId || editing.value?.issueId))
+const linkedKind = computed(() => (editing.value?.meetingId ? 'meeting' : editing.value?.issueId ? 'task' : null))
+const linkedTo = computed(() => {
+  if (editing.value?.meetingId) return { name: 'meeting-room' as const, params: { meetingId: editing.value.meetingId } }
+  // Issue-due events are titled "KEY · …"; that key opens the task.
+  const key = editing.value?.issueId ? /^([A-Z][A-Z0-9]+-\d+)\s*·/.exec(editing.value.title)?.[1] : null
+  if (key) return { name: 'issue' as const, params: { issueKey: key } }
+  return null
+})
 const isOpen = computed({
   get: () => target.value !== null,
   set: (open) => {
@@ -247,15 +258,22 @@ async function remove(scope: 'one' | 'following') {
           <CalendarPlus v-else class="size-4" />
         </span>
         <div class="min-w-0 flex-1">
-          <SheetTitle class="truncate text-base font-semibold">{{ editing ? 'Edit event' : 'New event' }}</SheetTitle>
+          <SheetTitle class="truncate text-base font-semibold">{{ editing ? (isLinked ? 'Linked event' : 'Edit event') : 'New event' }}</SheetTitle>
           <SheetDescription class="truncate text-xs">Only you see the events in your calendar.</SheetDescription>
         </div>
         <Button variant="ghost" size="icon-sm" aria-label="Close" @click="isOpen = false"><X /></Button>
       </header>
 
       <form class="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5" @submit.prevent="save">
+        <p v-if="isLinked" class="border border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          This comes from a {{ linkedKind }}. Schedule changes are managed there and would be overwritten if edited here.
+          <RouterLink v-if="linkedTo" :to="linkedTo" class="ml-1 inline-flex items-center gap-1 font-medium text-foreground underline-offset-2 hover:underline" @click="isOpen = false">
+            Open {{ linkedKind }} <ExternalLink class="size-3" />
+          </RouterLink>
+        </p>
+
         <FormField label="Title" for="event-title" :error="errorFor('title')">
-          <Input id="event-title" v-model="form.title" placeholder="e.g. Weekly sync with team leads" maxlength="160" autofocus />
+          <Input id="event-title" v-model="form.title" placeholder="e.g. Weekly sync with team leads" maxlength="160" :disabled="isLinked" autofocus />
         </FormField>
 
         <div class="grid gap-1.5">
@@ -265,10 +283,11 @@ async function remove(scope: 'one' | 'following') {
               v-for="category in EVENT_CATEGORIES"
               :key="category.value"
               type="button"
-              class="flex items-center gap-2 border px-2.5 py-2 text-left text-xs font-medium transition-colors hover:bg-accent"
+              class="flex items-center gap-2 border px-2.5 py-2 text-left text-xs font-medium transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-60"
               :class="form.category === category.value ? 'border-transparent ring-2' : 'border-border/80'"
               :style="form.category === category.value ? { backgroundColor: `${category.color}1a`, '--tw-ring-color': category.color } : undefined"
               :aria-pressed="form.category === category.value"
+              :disabled="isLinked"
               @click="form.category = category.value"
             >
               <component :is="category.icon" class="size-4 shrink-0" :style="{ color: category.color }" />
@@ -279,9 +298,9 @@ async function remove(scope: 'one' | 'following') {
 
         <div class="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
           <FormField label="Day" for="event-date" :error="errorFor('date')">
-            <DatePicker id="event-date" v-model="form.date" :clearable="false" :min="now.date" />
+            <DatePicker id="event-date" v-model="form.date" :clearable="false" :min="now.date" :disabled="isLinked" />
           </FormField>
-          <label class="flex h-9 items-center gap-2 text-sm"><Switch v-model="form.allDay" aria-label="All day" /> All day</label>
+          <label class="flex h-9 items-center gap-2 text-sm"><Switch v-model="form.allDay" aria-label="All day" :disabled="isLinked" /> All day</label>
         </div>
 
         <div v-if="!form.allDay" class="grid gap-4 sm:grid-cols-2">
@@ -291,6 +310,7 @@ async function remove(scope: 'one' | 'following') {
               v-model="form.startTime"
               aria-label="Start time"
               :min="startsToday ? now.time : undefined"
+              :disabled="isLinked"
               empty-text="No times left today. Pick another day."
             />
           </FormField>
@@ -301,11 +321,12 @@ async function remove(scope: 'one' | 'following') {
               aria-label="End time"
               placeholder="Choose an end time"
               :min="fromMinutes(Math.min(toMinutes(form.startTime) + 15, LAST_SLOT))"
+              :disabled="isLinked"
             />
           </FormField>
         </div>
 
-        <div v-if="!editing" class="grid gap-4 sm:grid-cols-2">
+        <div v-if="!editing && !isLinked" class="grid gap-4 sm:grid-cols-2">
           <FormField label="Repeat" for="event-repeat">
             <SelectField
               id="event-repeat"
@@ -331,7 +352,7 @@ async function remove(scope: 'one' | 'following') {
           This day is over. You can still update the status and notes, or move the event to today or a later day.
         </p>
 
-        <div v-if="editing" class="grid gap-1.5">
+        <div v-if="editing && !isLinked" class="grid gap-1.5">
           <span class="text-sm font-medium">Status</span>
           <div class="grid grid-cols-3 gap-2">
             <button
@@ -359,24 +380,24 @@ async function remove(scope: 'one' | 'following') {
 
         <div class="grid gap-4 sm:grid-cols-2">
           <FormField label="Where" for="event-location" optional>
-            <Input id="event-location" v-model="form.location" placeholder="Room 4B or a meeting link" maxlength="300" />
+            <Input id="event-location" v-model="form.location" placeholder="Room 4B or a meeting link" maxlength="300" :disabled="isLinked" />
           </FormField>
           <FormField label="Project" for="event-project" optional>
-            <SelectField id="event-project" v-model="form.projectId" :options="PROJECT_OPTIONS" placeholder="No project" />
+            <SelectField id="event-project" v-model="form.projectId" :options="PROJECT_OPTIONS" placeholder="No project" :disabled="isLinked" />
           </FormField>
         </div>
 
         <FormField label="Notes" for="event-notes" optional>
-          <Textarea id="event-notes" v-model="form.description" rows="4" placeholder="Agenda, people to invite, what to prepare…" maxlength="4000" />
+          <Textarea id="event-notes" v-model="form.description" rows="4" placeholder="Agenda, people to invite, what to prepare…" maxlength="4000" :disabled="isLinked" />
         </FormField>
 
         <button type="submit" class="hidden" aria-hidden="true" tabindex="-1" />
       </form>
 
       <footer class="flex shrink-0 flex-wrap items-center gap-2 border-t border-border/70 px-5 py-3">
-        <Button variant="brand" :loading="isSaving" @click="save">{{ editing ? 'Save changes' : 'Schedule event' }}</Button>
-        <Button variant="ghost" @click="isOpen = false">Cancel</Button>
-        <template v-if="editing">
+        <Button v-if="!isLinked" variant="brand" :loading="isSaving" @click="save">{{ editing ? 'Save changes' : 'Schedule event' }}</Button>
+        <Button variant="ghost" @click="isOpen = false">{{ isLinked ? 'Close' : 'Cancel' }}</Button>
+        <template v-if="editing && !isLinked">
           <Button variant="ghost" class="ml-auto text-destructive" @click="remove('one')"><Trash2 /> Delete</Button>
           <Button v-if="editing.seriesId" variant="ghost" class="text-destructive" @click="remove('following')">Delete later repeats too</Button>
         </template>

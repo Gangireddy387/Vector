@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, Ellipsis, LayoutTemplate, Pencil, Play, Plus, Repeat, Trash2, TriangleAlert, Workflow } from 'lucide-vue-next'
+import { ChevronDown, Copy, Ellipsis, LayoutTemplate, Pencil, Play, Plus, Repeat, Trash2, TriangleAlert, Workflow } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -114,6 +114,18 @@ function openRule(rule: AutomationRule | null = null, draft: RuleInput | null = 
   isRuleDialogOpen.value = true
 }
 
+/** Copy a rule into the editor as a new draft (name gets a “copy” suffix). */
+function duplicateRule(rule: AutomationRule) {
+  openRule(null, {
+    name: `${rule.name} (copy)`,
+    trigger: rule.trigger,
+    conditions: JSON.parse(JSON.stringify(rule.conditions)),
+    actions: JSON.parse(JSON.stringify(rule.actions)),
+    enabled: false,
+    description: rule.description ?? null,
+  })
+}
+
 const useRecipe = (recipe: AutomationRecipe) => project.value && openRule(null, recipe.build(project.value))
 
 async function toggleRule(rule: AutomationRule, enabled: boolean) {
@@ -224,9 +236,12 @@ async function removeRecurring(task: RecurringTask) {
               <p class="text-xs text-muted-foreground">
                 Ran {{ rule.runCount }} time{{ rule.runCount === 1 ? '' : 's' }}<template v-if="rule.lastRunAt"> · last {{ timeAgo(rule.lastRunAt) }}</template>
               </p>
-              <p v-if="rule.lastError" class="flex items-start gap-1 text-xs text-destructive">
-                <TriangleAlert class="mt-0.5 size-3.5 shrink-0" />
-                <span>{{ rule.lastError }} — clears on the next successful run.</span>
+              <p v-if="rule.lastError" class="flex flex-wrap items-start gap-x-2 gap-y-1 text-xs text-destructive">
+                <span class="inline-flex items-start gap-1">
+                  <TriangleAlert class="mt-0.5 size-3.5 shrink-0" />
+                  <span>{{ rule.lastError }} — clears on the next successful run.</span>
+                </span>
+                <button type="button" class="font-medium underline-offset-2 hover:underline" @click="openRule(rule)">Edit rule</button>
               </p>
               <button
                 type="button"
@@ -256,6 +271,7 @@ async function removeRecurring(task: RecurringTask) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem @select="openRule(rule)"><Pencil /> Edit</DropdownMenuItem>
+                <DropdownMenuItem @select="duplicateRule(rule)"><Copy /> Duplicate</DropdownMenuItem>
                 <DropdownMenuItem variant="destructive" @select="removeRule(rule)"><Trash2 /> Delete</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

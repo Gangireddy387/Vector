@@ -39,9 +39,11 @@ import { consumeStartDayQuery } from '../composables/useStartDayHighlight'
 import { useTodayAgenda } from '../composables/useTodayAgenda'
 import { groupMyWork } from '../my-work'
 import { copyShareWorkday } from '../share-workday'
+import { useHomeLayout } from '../composables/useHomeLayout'
 import DailyBriefingCard from './DailyBriefingCard.vue'
 import HabitCoachCard from './HabitCoachCard.vue'
 import HabitNudgeBanner from './HabitNudgeBanner.vue'
+import HomeCustomizeMenu from './HomeCustomizeMenu.vue'
 import HomeDayLoop from './HomeDayLoop.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
 import HomeLoadingShell from './HomeLoadingShell.vue'
@@ -60,6 +62,8 @@ const openIssue = useOpenIssue()
 const issueActions = useIssueActions()
 const { data, isLoading, error, reload } = useDashboardData()
 const agenda = useTodayAgenda()
+const home = useHomeLayout()
+const show = (key: Parameters<typeof home.isHidden>[0]) => !home.isHidden(key)
 /** Invite deep-link: shared highlight survives clearing ?startDay=1 from the URL. */
 const startDay = consumeStartDayQuery(route, router)
 
@@ -151,6 +155,7 @@ const daysLeft = (endDate: string | null) => {
         <p v-if="summary" class="mt-1 text-[13.5px] text-muted-foreground">{{ summary }}</p>
       </div>
       <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+        <HomeCustomizeMenu :hidden="home.layout.hidden" :customized="home.isCustomized" @toggle="home.toggle" @reset="home.reset" />
         <Button variant="outline" size="sm" class="max-lg:flex-1" @click="copyShareWorkday(auth.organization?.slug)">
           <Share2 /> Share workday
         </Button>
@@ -160,18 +165,18 @@ const daysLeft = (endDate: string | null) => {
       </div>
     </header>
 
-    <SetupChecklist v-if="data" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
-    <HabitCoachCard v-if="data" :data="data" @create-project="isCreateProjectOpen = true" />
-    <HabitNudgeBanner v-if="data?.habitNudge" :nudge="data.habitNudge" />
-    <TeamDensityCard v-if="data" :data="data" />
+    <SetupChecklist v-if="data && show('setup')" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
+    <HabitCoachCard v-if="data && show('habit')" :data="data" @create-project="isCreateProjectOpen = true" />
+    <HabitNudgeBanner v-if="data?.habitNudge && show('habit')" :nudge="data.habitNudge" />
+    <TeamDensityCard v-if="data && show('density')" :data="data" />
 
-    <QuickCapture />
+    <QuickCapture v-if="show('quickCapture')" />
 
     <!-- Primary: day loop → focus → today. Secondary lists load below. -->
-    <HomeDayLoop v-if="data" :data="data" :highlight="startDay" />
-    <HomeFocusCards v-if="data" :data="data" @changed="reload" />
-    <PlanUnlocksCard />
-    <HomeTodayPanel v-if="data" :data="data" @changed="reload" />
+    <HomeDayLoop v-if="data && show('dayLoop')" :data="data" :highlight="startDay" />
+    <HomeFocusCards v-if="data && show('focus')" :data="data" @changed="reload" />
+    <PlanUnlocksCard v-if="show('planUnlocks')" />
+    <HomeTodayPanel v-if="data && show('today')" :data="data" @changed="reload" />
 
     <HomeLoadingShell v-if="isLoading && !data" />
 
@@ -180,7 +185,7 @@ const daysLeft = (endDate: string | null) => {
     </EmptyState>
 
     <template v-else-if="data">
-      <div class="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <div v-if="show('stats')" class="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-5">
         <RouterLink
           v-for="stat in stats"
           :key="stat.label"
@@ -196,7 +201,7 @@ const daysLeft = (endDate: string | null) => {
       <div class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] xl:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(24rem,30rem)]">
         <div class="min-w-0 space-y-5">
           <!-- My work -->
-          <section class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+          <section v-if="show('myWork')" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
             <header class="flex min-h-12 flex-wrap items-center gap-2 border-b border-border px-4 py-2 sm:gap-3 sm:py-0">
               <h2 class="text-sm font-semibold">My work</h2>
               <div class="flex h-7 shrink-0 items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="My work">
@@ -259,7 +264,7 @@ const daysLeft = (endDate: string | null) => {
           </section>
 
           <!-- Projects: jump into the board (or standup if still due) -->
-          <section v-if="data.projects.length" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+          <section v-if="show('projects') && data.projects.length" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
             <header class="flex h-12 items-center gap-2 border-b border-border px-4">
               <h2 class="text-sm font-semibold">Projects</h2>
               <span class="rounded-full bg-muted px-1.5 text-[11px] font-medium text-muted-foreground tabular-nums">{{ data.projects.length }}</span>
@@ -306,9 +311,9 @@ const daysLeft = (endDate: string | null) => {
           </section>
         </div>
 
-        <div class="min-w-0 space-y-5">
+        <div v-if="show('projects') || show('pulse')" class="min-w-0 space-y-5">
           <!-- Sprints and activity share one card, one tab at a time -->
-          <section class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+          <section v-if="show('projects')" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
             <header class="flex h-12 items-center gap-3 border-b border-border px-4">
               <div class="flex h-7 items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="Sprints and activity">
                 <button
@@ -369,11 +374,11 @@ const daysLeft = (endDate: string | null) => {
           </section>
 
           <!-- Pulse sits below the fold with activity, not competing with Day loop -->
-          <WeeklyPulseCard :data="data" />
+          <WeeklyPulseCard v-if="show('pulse')" :data="data" />
         </div>
       </div>
 
-      <DailyBriefingCard />
+      <DailyBriefingCard v-if="show('briefing')" />
     </template>
 
     <CreateProjectDialog v-model:open="isCreateProjectOpen" />

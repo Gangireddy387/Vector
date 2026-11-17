@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Sparkles, X } from 'lucide-vue-next'
+import { RotateCw, Sparkles, X } from 'lucide-vue-next'
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getErrorMessage } from '@/lib/http'
 import { aiApi, type IssueSummary } from '../../api/ai.api'
@@ -50,6 +51,9 @@ defineExpose({ generate })
           <li v-for="step in summary.nextSteps" :key="step">{{ step }}</li>
         </ul>
       </div>
+      <Button v-if="summary.source === 'degraded'" type="button" variant="outline" size="sm" class="mt-1" :loading="isLoading" @click="generate">
+        <RotateCw /> Retry
+      </Button>
     </template>
   </div>
 </template>

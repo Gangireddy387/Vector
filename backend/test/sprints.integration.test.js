@@ -75,4 +75,27 @@ describe('sprint management', () => {
     assert.equal(completed.status, 200, JSON.stringify(completed.body));
     assert.equal(completed.body.sprint.state, 'completed');
   });
+
+  it('carries unfinished work into a new sprint when completing', async () => {
+    const next = await asAlice('POST', `/projects/${project.id}/sprints`, { name: 'Sprint 2' });
+    assert.equal(next.status, 201, JSON.stringify(next.body));
+    const active = next.body.sprint;
+    assert.equal((await asAlice('POST', `/projects/${project.id}/sprints/${active.id}/start`, {})).status, 200);
+
+    const made = await asAlice('POST', '/issues', { projectId: project.id, title: 'Carry me', sprintId: active.id });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    const issue = made.body.issue ?? made.body;
+    assert.equal(issue.sprintId, active.id);
+
+    const completed = await asAlice('POST', `/projects/${project.id}/sprints/${active.id}/complete`, { moveIncompleteTo: 'new_sprint' });
+    assert.equal(completed.status, 200, JSON.stringify(completed.body));
+    assert.equal(completed.body.sprint.state, 'completed');
+    assert.ok(completed.body.sprint.summary?.carriedOverCount >= 1);
+
+    const refreshed = await asAlice('GET', `/issues/${issue.id}`);
+    assert.equal(refreshed.status, 200, JSON.stringify(refreshed.body));
+    const moved = refreshed.body.issue ?? refreshed.body;
+    assert.ok(moved.sprintId);
+    assert.notEqual(moved.sprintId, active.id);
+  });
 });

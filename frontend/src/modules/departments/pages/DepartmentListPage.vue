@@ -33,10 +33,23 @@ async function load() {
 }
 onMounted(load)
 
+const matches = (value: string | null | undefined, term: string) => Boolean(value?.toLowerCase().includes(term))
+
 const visible = computed(() => {
   const term = search.value.trim().toLowerCase()
+  if (!term) return structure.departments ?? []
   return (structure.departments ?? []).filter(
-    (department) => !term || department.name.toLowerCase().includes(term) || department.teams.some((team) => team.name.toLowerCase().includes(term)),
+    (department) =>
+      matches(department.name, term) ||
+      matches(department.description, term) ||
+      matches(department.head?.name, term) ||
+      department.teams.some(
+        (team) =>
+          matches(team.name, term) ||
+          matches(team.description, term) ||
+          matches(team.lead?.name, term) ||
+          team.members.some((member) => matches(member.name, term) || matches(member.email, term)),
+      ),
   )
 })
 
