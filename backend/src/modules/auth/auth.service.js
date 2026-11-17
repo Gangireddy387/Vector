@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { Op } from 'sequelize';
 import { config } from '../../config/index.js';
-import { Issue, Organization, OrganizationMember, Project, User } from '../../database/models.js';
+import { Comment, Issue, Organization, OrganizationMember, Project, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { disconnectUser } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
@@ -32,8 +32,10 @@ const DUMMY_HASH = bcrypt.hashSync('vector-timing-equalizer', PASSWORD_HASH_ROUN
  * current organization), the current organization and every organization they can switch to.
  */
 export async function describeSession(user, membership, memberships) {
+  const org = membership?.organization ?? null;
+  const mfaSetupRequired = Boolean(org?.requireMfa && !user.mfaEnabled);
   return {
-    user: { ...user.toJSON(), workspaceRole: membership?.role ?? 'member', isSuperAdmin: isSuperAdmin(user) },
+    user: { ...user.toJSON(), workspaceRole: membership?.role ?? 'member', isSuperAdmin: isSuperAdmin(user), mfaSetupRequired },
     organization: membership ? { ...toPublicOrganization(membership.organization), role: membership.role } : null,
     organizations: await listMyOrganizations(memberships),
   };
@@ -136,6 +138,13 @@ export async function confirmMfa(actor, { code }) {
 export async function disableMfa(actor, { password, code, recoveryCode }) {
   const user = await User.scope('withSecrets').findByPk(actor.id);
   if (!user?.mfaEnabled) throw ApiError.badRequest('Two-factor authentication is not on');
+  const enforced = await OrganizationMember.findOne({
+    where: { userId: actor.id, status: 'active' },
+    include: [{ model: Organization, as: 'organization', where: { requireMfa: true }, required: true }],
+  });
+  if (enforced) {
+    throw ApiError.badRequest('Your organization requires two-factor authentication. Ask an admin to turn that off first.');
+  }
   if (!(await bcrypt.compare(password, user.passwordHash ?? DUMMY_HASH))) {
     throw ApiError.unauthorized('Incorrect password');
   }
@@ -253,21 +262,54 @@ export async function changePassword(user, { currentPassword, newPassword }) {
   return { token: signAccessToken(withSecrets) };
 }
 
+/** Signs out every other browser/session; this request continues with a fresh access token. */
+export async function revokeOtherSessions(user) {
+  const withSecrets = await User.scope('withSecrets').findByPk(user.id);
+  await withSecrets.update({ tokenVersion: (withSecrets.tokenVersion ?? 0) + 1 });
+  return { token: signAccessToken(withSecrets) };
+}
+
 /**
- * JSON export of the signed-in person's profile, organization memberships, preferences, and assigned issue keys.
+ * JSON export of the signed-in person's profile, memberships, preferences, assigned/reported/watched issues, and comment count.
  */
 export async function exportAccount(user) {
   const memberships = await OrganizationMember.findAll({
     where: { userId: user.id },
     include: [{ model: Organization, as: 'organization', attributes: ['id', 'name', 'slug', 'status'] }],
   });
-  const assigned = await Issue.findAll({
-    where: { assigneeId: user.id },
-    attributes: ['key', 'title', 'projectId', 'updatedAt'],
-    include: [{ model: Project, as: 'project', attributes: ['key', 'name'] }],
-    order: [['updatedAt', 'DESC']],
-    limit: 2000,
+  const issueAttrs = ['key', 'title', 'projectId', 'updatedAt'];
+  const issueInclude = [{ model: Project, as: 'project', attributes: ['key', 'name'] }];
+  const mapIssue = (issue) => ({
+    key: issue.key,
+    title: issue.title,
+    projectKey: issue.project?.key ?? null,
+    projectName: issue.project?.name ?? null,
+    updatedAt: issue.updatedAt,
   });
+  const [assigned, reported, watched, commentsAuthored] = await Promise.all([
+    Issue.findAll({
+      where: { assigneeId: user.id },
+      attributes: issueAttrs,
+      include: issueInclude,
+      order: [['updatedAt', 'DESC']],
+      limit: 2000,
+    }),
+    Issue.findAll({
+      where: { reporterId: user.id },
+      attributes: issueAttrs,
+      include: issueInclude,
+      order: [['updatedAt', 'DESC']],
+      limit: 2000,
+    }),
+    user.getWatchedIssues({
+      attributes: issueAttrs,
+      include: issueInclude,
+      order: [['updatedAt', 'DESC']],
+      limit: 2000,
+      joinTableAttributes: [],
+    }),
+    Comment.count({ where: { authorId: user.id } }),
+  ]);
   return {
     exportedAt: new Date().toISOString(),
     profile: {
@@ -283,6 +325,7 @@ export async function exportAccount(user) {
       avatarColor: user.avatarColor,
       avatarUrl: user.avatarUrl ?? null,
       status: user.status,
+      mfaEnabled: Boolean(user.mfaEnabled),
       createdAt: user.createdAt,
       lastSeenAt: user.lastSeenAt,
     },
@@ -301,13 +344,10 @@ export async function exportAccount(user) {
           }
         : null,
     })),
-    assignedIssues: assigned.map((issue) => ({
-      key: issue.key,
-      title: issue.title,
-      projectKey: issue.project?.key ?? null,
-      projectName: issue.project?.name ?? null,
-      updatedAt: issue.updatedAt,
-    })),
+    assignedIssues: assigned.map(mapIssue),
+    reportedIssues: reported.map(mapIssue),
+    watchedIssues: watched.map(mapIssue),
+    commentsAuthored,
   };
 }
 

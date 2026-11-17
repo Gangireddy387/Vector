@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { History } from 'lucide-vue-next'
+import { Download, History } from 'lucide-vue-next'
 import { onMounted, ref } from 'vue'
+import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
@@ -13,6 +14,7 @@ import { type WorkspaceAuditEntry, workspaceApi } from '../admin.api'
 const entries = ref<WorkspaceAuditEntry[]>([])
 const isLoading = ref(true)
 const isLoadingMore = ref(false)
+const isExporting = ref(false)
 const errorMessage = ref('')
 const hasMore = ref(false)
 
@@ -67,14 +69,31 @@ async function load(reset = true) {
   }
 }
 
+async function exportCsv() {
+  isExporting.value = true
+  try {
+    await workspaceApi.exportAuditLogCsv()
+    toast.success('Audit log downloaded')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isExporting.value = false
+  }
+}
+
 onMounted(() => void load())
 </script>
 
 <template>
   <Card>
-    <CardHeader>
-      <CardTitle>Audit log</CardTitle>
-      <CardDescription>Admin actions in this organization — invites, role changes, settings and plan updates.</CardDescription>
+    <CardHeader class="flex flex-row flex-wrap items-start justify-between gap-3 space-y-0">
+      <div class="space-y-1.5">
+        <CardTitle>Audit log</CardTitle>
+        <CardDescription>Admin actions in this organization — invites, role changes, settings and plan updates.</CardDescription>
+      </div>
+      <Button variant="outline" size="sm" :loading="isExporting" :disabled="isLoading" @click="exportCsv">
+        <Download /> Export CSV
+      </Button>
     </CardHeader>
     <CardContent class="space-y-3">
       <div v-if="isLoading" class="space-y-2">

@@ -71,6 +71,9 @@ const unlocks = computed(() =>
         <Button v-else variant="outline" as-child>
           <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'plan' } }">See plan</RouterLink>
         </Button>
+        <Button variant="ghost" as-child>
+          <RouterLink :to="{ name: 'pricing' }" target="_blank">Compare plans</RouterLink>
+        </Button>
       </div>
     </EmptyState>
 

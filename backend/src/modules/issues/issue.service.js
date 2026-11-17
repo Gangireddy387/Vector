@@ -261,6 +261,38 @@ export async function listIssues(userId, filters) {
   return { issues: await decorateIssues(rows), total: count };
 }
 
+/** CSV of the filtered task list (capped) for portability / reporting. */
+export async function exportIssuesCsv(userId, filters) {
+  const limit = Math.min(Number(filters.limit) || 1000, 1000);
+  const { issues } = await listIssues(userId, { ...filters, limit, offset: 0 });
+  const escape = (value) => {
+    const text = value == null ? '' : String(value);
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const header = ['key', 'title', 'type', 'status', 'priority', 'assignee', 'dueDate', 'storyPoints', 'labels', 'project', 'updatedAt'];
+  const lines = [
+    header.join(','),
+    ...issues.map((issue) =>
+      [
+        issue.key,
+        issue.title,
+        issue.type,
+        issue.status?.name ?? '',
+        issue.priority,
+        issue.assignee?.name ?? '',
+        issue.dueDate ?? '',
+        issue.storyPoints ?? '',
+        (issue.labels ?? []).map((label) => label.name).join('; '),
+        issue.project?.key ?? '',
+        issue.updatedAt ?? '',
+      ]
+        .map(escape)
+        .join(','),
+    ),
+  ];
+  return lines.join('\n');
+}
+
 /** Everything assigned to the user that is still open, plus work finished in the last 7 days. */
 export async function listMyWork(userId) {
   const projectIds = await getMemberProjectIds(userId);

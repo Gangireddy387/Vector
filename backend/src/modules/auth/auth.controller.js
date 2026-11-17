@@ -1,3 +1,4 @@
+import * as apiTokenService from './api-token.service.js';
 import * as authService from './auth.service.js';
 
 export const register = async (req, res) => res.status(201).json(await authService.register(req.body));
@@ -24,6 +25,7 @@ export const updateProfile = async (req, res) => {
 
 /** Other sessions are signed out; this one continues with the returned token. */
 export const changePassword = async (req, res) => res.json(await authService.changePassword(req.user, req.body));
+export const revokeOtherSessions = async (req, res) => res.json(await authService.revokeOtherSessions(req.user));
 
 export const setupMfa = async (req, res) => {
   res.set('Cache-Control', 'no-store');
@@ -57,3 +59,7 @@ export const deleteAccount = async (req, res) => {
   await authService.deleteAccount(req.user, req.body);
   res.status(204).end();
 };
+
+export const listApiTokens = async (req, res) => res.json(await apiTokenService.listApiTokens(req.user.id));
+export const createApiToken = async (req, res) => res.status(201).json(await apiTokenService.createApiToken(req.user.id, req.body));
+export const revokeApiToken = async (req, res) => res.json(await apiTokenService.revokeApiToken(req.user.id, req.params.tokenId));

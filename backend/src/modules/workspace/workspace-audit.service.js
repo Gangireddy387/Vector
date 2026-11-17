@@ -48,3 +48,30 @@ export async function listAuditLog(organizationId, { limit = 50, before } = {}) 
     })),
   };
 }
+
+/** CSV of recent admin actions for download (up to 5 000 rows). */
+export async function exportAuditLogCsv(organizationId) {
+  const rows = await WorkspaceAuditLog.findAll({
+    where: { organizationId },
+    include: [{ model: User, as: 'actor', attributes: USER_SUMMARY_ATTRIBUTES, required: false }],
+    order: [
+      ['createdAt', 'DESC'],
+      ['id', 'DESC'],
+    ],
+    limit: 5000,
+  });
+  const escape = (value) => {
+    const text = value == null ? '' : String(value);
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const header = ['at', 'actor', 'action', 'targetType', 'targetId', 'meta'];
+  const lines = [
+    header.join(','),
+    ...rows.map((row) =>
+      [row.createdAt?.toISOString?.() ?? row.createdAt, row.actor?.email ?? row.actor?.name ?? '', row.action, row.targetType ?? '', row.targetId ?? '', row.meta ? JSON.stringify(row.meta) : '']
+        .map(escape)
+        .join(','),
+    ),
+  ];
+  return lines.join('\n');
+}

@@ -150,6 +150,25 @@ const subtaskText = computed({
         <p class="text-xs text-muted-foreground">Variables: {{ TEMPLATE_VARIABLES.join(' ') }}</p>
       </div>
 
+      <div v-else-if="action.type === 'send_webhook'" class="space-y-2">
+        <Input
+          :model-value="(params.url as string) ?? ''"
+          type="url"
+          placeholder="https://example.com/hooks/vector"
+          class="h-8"
+          aria-label="Webhook URL"
+          @update:model-value="(value: string) => setParam('url', value)"
+        />
+        <Input
+          :model-value="(params.secret as string) ?? ''"
+          placeholder="Optional HMAC secret (x-vector-signature)"
+          class="h-8"
+          aria-label="Webhook secret"
+          @update:model-value="(value: string) => setParam('secret', value)"
+        />
+        <p class="text-xs text-muted-foreground">Sends a JSON payload with the task key, title, status and rule name. Private/local URLs are blocked.</p>
+      </div>
+
       <div v-else-if="action.type === 'set_due_date'" class="flex items-center gap-2 text-sm">
         <NumberField
           :model-value="String(params.daysFromNow ?? 3)"

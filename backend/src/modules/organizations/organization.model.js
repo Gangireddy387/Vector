@@ -38,6 +38,8 @@ Organization.init(
     supportDisappearHours: { type: DataTypes.INTEGER, allowNull: true },
     /** Support chat: when each person cleared it for themselves, `{ [userId]: ISO date }`; they only see newer messages. */
     supportClearedAt: { type: DataTypes.JSON, allowNull: true },
+    /** When true, members must enable two-factor authentication to use this organization. */
+    requireMfa: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     createdById: { type: DataTypes.UUID, allowNull: true },
     updatedById: { type: DataTypes.UUID, allowNull: true },
   },

@@ -16,7 +16,13 @@ const brandColor = z
   .nullable();
 
 export const updateOrganizationSchema = z
-  .object({ name: organizationName, slug: organizationSlug, defaultMode: z.enum(COLOR_MODES), brandColor })
+  .object({
+    name: organizationName,
+    slug: organizationSlug,
+    defaultMode: z.enum(COLOR_MODES),
+    brandColor,
+    requireMfa: z.boolean(),
+  })
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one setting');
 

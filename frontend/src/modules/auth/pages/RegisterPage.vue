@@ -70,7 +70,7 @@ async function submit() {
       step === 1
         ? fromGuest
           ? 'You joined a meeting as a guest. Create a free workspace for your own team next.'
-          : 'Start free. You will set up your organization next.'
+          : 'Start on Free: board, backlog and tasks. Chat, standup, automation and AI unlock on Pro.'
         : 'Your team’s own space in Vector, with its own address. Invite people and Start my day right after.'
     "
   />
@@ -131,5 +131,7 @@ async function submit() {
   <p class="mt-6 text-center text-sm text-muted-foreground short:mt-4">
     Already have an account?
     <RouterLink :to="{ name: 'login' }" class="font-medium text-primary hover:underline">Sign in</RouterLink>
+    ·
+    <RouterLink :to="{ name: 'pricing' }" class="font-medium text-primary hover:underline">See pricing</RouterLink>
   </p>
 </template>

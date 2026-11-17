@@ -358,6 +358,8 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
             <div class="auth-card-body">
               <RouterView />
               <nav class="mt-3 flex items-center justify-center gap-3 text-xs text-muted-foreground" aria-label="Legal">
+                <RouterLink :to="{ name: 'pricing' }" class="hover:text-foreground hover:underline">Pricing</RouterLink>
+                <span aria-hidden="true">·</span>
                 <RouterLink :to="{ name: 'privacy' }" class="hover:text-foreground hover:underline">Privacy</RouterLink>
                 <span aria-hidden="true">·</span>
                 <RouterLink :to="{ name: 'terms' }" class="hover:text-foreground hover:underline">Terms</RouterLink>

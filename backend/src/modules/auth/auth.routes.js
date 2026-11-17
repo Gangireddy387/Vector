@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
 import { authenticate } from '../../shared/middleware/authenticate.js';
 import { validate } from '../../shared/middleware/validate.js';
 import * as controller from './auth.controller.js';
@@ -54,10 +55,24 @@ router.get('/me', authenticate, controller.me);
 router.get('/me/export', authenticate, controller.exportAccount);
 router.patch('/me', authenticate, validate({ body: updateProfileSchema }), controller.updateProfile);
 router.patch('/me/password', authenticate, validate({ body: changePasswordSchema }), controller.changePassword);
+router.post('/me/sessions/revoke-others', authenticate, controller.revokeOtherSessions);
 router.post('/me/mfa/setup', authenticate, controller.setupMfa);
 router.post('/me/mfa/confirm', authenticate, validate({ body: mfaConfirmSchema }), mfaLimiter, controller.confirmMfa);
 router.post('/me/mfa/disable', authenticate, validate({ body: mfaDisableSchema }), mfaLimiter, controller.disableMfa);
 router.post('/me/mfa/recovery', authenticate, validate({ body: mfaRegenerateSchema }), mfaLimiter, controller.regenerateMfaRecovery);
+router.get('/me/tokens', authenticate, controller.listApiTokens);
+router.post(
+  '/me/tokens',
+  authenticate,
+  validate({
+    body: z.object({
+      name: z.string().trim().min(2).max(80),
+      expiresInDays: z.number().int().min(1).max(365).nullable().optional(),
+    }),
+  }),
+  controller.createApiToken,
+);
+router.delete('/me/tokens/:tokenId', authenticate, controller.revokeApiToken);
 router.delete('/me', authenticate, validate({ body: deleteAccountSchema }), controller.deleteAccount);
 
 export default router;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { CalendarCheck2, CalendarSync, CircleAlert, Sparkles, Unplug } from 'lucide-vue-next'
-import { computed, onMounted, ref } from 'vue'
+import { CalendarCheck2, CalendarSync, CircleAlert, Unplug } from 'lucide-vue-next'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -12,8 +12,6 @@ import { useConfirm } from '@/composables/useConfirm'
 import { timeAgo } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
 import { useSocketEvents } from '@/lib/socket-events'
-import { useAuthStore } from '@/modules/auth/auth.store'
-import { aiApi } from '@/modules/issues/api/ai.api'
 import { type CalendarConnectionInfo, type CalendarProvider, calendarSyncApi } from '@/modules/meetings/meetings.api'
 
 /**
@@ -22,19 +20,10 @@ import { type CalendarConnectionInfo, type CalendarProvider, calendarSyncApi } f
  */
 const route = useRoute()
 const router = useRouter()
-const auth = useAuthStore()
 const confirm = useConfirm()
 const calendars = ref<CalendarConnectionInfo[] | null>(null)
 const loadError = ref<string | null>(null)
 const busy = ref<CalendarProvider | null>(null)
-const aiStatus = ref<{ enabled: boolean; provider: 'openai' | 'heuristic' } | null>(null)
-
-const statusLabel = computed(() => {
-  if (!aiStatus.value) return null
-  if (!aiStatus.value.enabled) return { text: 'AI assistant off for this plan', tone: 'muted' as const }
-  if (aiStatus.value.provider === 'openai') return { text: 'AI: OpenAI connected', tone: 'ok' as const }
-  return { text: 'AI: smart fallback (no OpenAI key on server)', tone: 'warn' as const }
-})
 
 async function load() {
   loadError.value = null
@@ -43,15 +32,6 @@ async function load() {
   } catch (error) {
     calendars.value = null
     loadError.value = getErrorMessage(error)
-  }
-}
-
-async function loadAiStatus() {
-  if (!auth.hasFeature('aiAssistant')) return
-  try {
-    aiStatus.value = await aiApi.status()
-  } catch {
-    aiStatus.value = null
   }
 }
 
@@ -69,7 +49,7 @@ onMounted(async () => {
     else toast.error(result.message)
     void router.replace({ query: { ...route.query, calendar: undefined, provider: undefined }, hash: route.hash })
   }
-  await Promise.all([load(), loadAiStatus()])
+  await load()
 })
 useSocketEvents({ 'calendar:connections': () => void load() })
 
@@ -182,15 +162,9 @@ function connectionSubtitle(item: CalendarConnectionInfo) {
         </template>
       </div>
 
-      <div class="rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3 text-xs text-muted-foreground">
-        <p class="flex items-start gap-2">
-          <Sparkles class="mt-0.5 size-3.5 shrink-0" />
-          <span class="min-w-0">
-            <span class="font-medium text-foreground">{{ statusLabel?.text ?? 'AI status unavailable' }}</span>
-            <span class="mt-0.5 block">Email digests and automation emails need a mail provider (e.g. SendGrid) on the server. Calendar OAuth needs Google/Microsoft client IDs in the backend env.</span>
-          </span>
-        </p>
-      </div>
+      <p class="text-xs text-muted-foreground">
+        Google/Microsoft Connect needs OAuth client IDs on the server. AI and email status live in Server capabilities below.
+      </p>
     </CardContent>
   </Card>
 </template>

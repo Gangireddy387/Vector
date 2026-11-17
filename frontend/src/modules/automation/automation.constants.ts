@@ -74,6 +74,7 @@ export const ACTION_OPTIONS: Array<{ value: AutomationActionType; label: string 
   { value: 'add_comment', label: 'Add a comment' },
   { value: 'notify', label: 'Send in-app notification' },
   { value: 'send_email', label: 'Send email' },
+  { value: 'send_webhook', label: 'Send webhook' },
   { value: 'set_due_date', label: 'Set due date' },
   { value: 'set_story_points', label: 'Set story points' },
   { value: 'move_to_active_sprint', label: 'Move to active sprint' },
@@ -113,6 +114,8 @@ export function defaultParams(type: AutomationActionType): Record<string, unknow
       return { recipients: ['assignee'], userIds: [], message: '{{issue.key}} needs your attention' }
     case 'send_email':
       return { recipients: ['assignee'], userIds: [], subject: 'Update on {{issue.key}}', message: '' }
+    case 'send_webhook':
+      return { url: '', secret: '' }
     case 'set_due_date':
       return { daysFromNow: 3 }
     case 'set_story_points':
@@ -181,6 +184,8 @@ export function describeAction(action: AutomationAction, project: ProjectDetail)
       return `notify ${((params.recipients as string[]) ?? []).map((item) => item.replace('_', ' ')).join(', ') || 'selected people'}`
     case 'send_email':
       return `email ${((params.recipients as string[]) ?? []).map((item) => item.replace('_', ' ')).join(', ') || 'selected people'}`
+    case 'send_webhook':
+      return `POST webhook${params.url ? ` to ${String(params.url).slice(0, 48)}` : ''}`
     case 'set_due_date':
       return `set due date to ${params.daysFromNow} day(s) from now`
     case 'set_story_points':

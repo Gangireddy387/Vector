@@ -70,6 +70,8 @@ export interface WorkspaceSettings {
   logoUrl?: string | null
   /** Theme colour for everyone in the organization: a named theme or a hex colour (null = Vector's own). */
   brandColor?: string | null
+  /** When true, members must enable two-factor authentication. */
+  requireMfa?: boolean
   status?: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements
@@ -84,6 +86,7 @@ export interface OrganizationSummary {
   defaultMode: ColorMode
   logoUrl?: string | null
   brandColor?: string | null
+  requireMfa?: boolean
   status: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements
@@ -161,6 +164,8 @@ export interface User extends UserSummary {
   mustChangePassword?: boolean
   /** Authenticator app required after password on sign-in. */
   mfaEnabled?: boolean
+  /** Current organization requires MFA and this account has not enabled it yet. */
+  mfaSetupRequired?: boolean
   status: 'active' | 'invited' | 'disabled'
   timezone: string
   preferences: UserPreferences
@@ -410,6 +415,7 @@ export type AutomationActionType =
   | 'add_comment'
   | 'notify'
   | 'send_email'
+  | 'send_webhook'
   | 'set_due_date'
   | 'set_story_points'
   | 'move_to_active_sprint'

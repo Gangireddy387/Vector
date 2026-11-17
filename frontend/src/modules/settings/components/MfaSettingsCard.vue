@@ -59,7 +59,7 @@ async function confirmSetup() {
   busy.value = true
   try {
     const result = await authApi.confirmMfa(confirmCode.value.trim())
-    auth.user = { ...auth.user!, ...result.user, mfaEnabled: true }
+    auth.user = { ...auth.user!, ...result.user, mfaEnabled: true, mfaSetupRequired: false }
     recoveryCodes.value = result.recoveryCodes
     setup.value = null
     confirmCode.value = ''

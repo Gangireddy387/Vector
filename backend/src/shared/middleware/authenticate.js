@@ -1,4 +1,5 @@
 import { ApiError } from '../errors/api-error.js';
+import { resolveApiToken } from '../../modules/auth/api-token.service.js';
 import { isAccessToken, isRevoked, verifyAccessToken } from '../../modules/auth/token.js';
 import { User } from '../../database/models.js';
 import { resolveOrganization } from '../../modules/organizations/organization-access.js';
@@ -11,17 +12,26 @@ export async function authenticate(req, _res, next) {
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) throw ApiError.unauthorized();
 
-  let payload;
-  try {
-    payload = verifyAccessToken(token);
-  } catch {
-    throw ApiError.unauthorized('Your session has expired. Please sign in again.');
-  }
-  if (!isAccessToken(payload)) throw ApiError.unauthorized();
+  let user = null;
+  if (token.startsWith('vtk_')) {
+    user = await resolveApiToken(token);
+    if (!user) throw ApiError.unauthorized('Invalid or expired API token');
+    req.authVia = 'api_token';
+  } else {
+    let payload;
+    try {
+      payload = verifyAccessToken(token);
+    } catch {
+      throw ApiError.unauthorized('Your session has expired. Please sign in again.');
+    }
+    if (!isAccessToken(payload)) throw ApiError.unauthorized();
 
-  const user = await User.findByPk(payload.sub);
-  if (!user || user.status !== 'active') throw ApiError.unauthorized();
-  if (isRevoked(payload, user)) throw ApiError.unauthorized('Your password was changed. Please sign in again.');
+    user = await User.findByPk(payload.sub);
+    if (!user || user.status !== 'active') throw ApiError.unauthorized();
+    if (isRevoked(payload, user)) throw ApiError.unauthorized('Your password was changed. Please sign in again.');
+    req.authVia = 'session';
+  }
+
   // "Last seen" follows real use, not just sign-in; at most one write a minute per person.
   if (!user.lastSeenAt || Date.now() - user.lastSeenAt.getTime() > LAST_SEEN_INTERVAL_MS) {
     user.lastSeenAt = new Date();

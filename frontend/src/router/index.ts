@@ -170,6 +170,14 @@ router.beforeEach((to) => {
   if (needsOrganization && auth.isAuthenticated && !auth.organization) return { name: auth.isSuperAdmin ? 'super-admin' : 'organization-create' }
   if (needsOrganization && auth.isOrganizationBlocked) return { name: 'organization-pending' }
   if (to.name === 'organization-pending' && !auth.isOrganizationBlocked) return { name: 'home' }
+  if (
+    auth.isAuthenticated &&
+    auth.user?.mfaSetupRequired &&
+    to.name !== 'settings' &&
+    !to.matched.some((record) => record.meta.guestOnly || record.meta.allowWithoutOrganization)
+  ) {
+    return { name: 'settings', query: { tab: 'security' } }
+  }
   const requiredFeatures = to.meta.requiresFeature
   if (requiredFeatures?.length && !requiredFeatures.some(auth.hasFeature)) {
     return { name: 'feature-locked', query: { feature: requiredFeatures } }

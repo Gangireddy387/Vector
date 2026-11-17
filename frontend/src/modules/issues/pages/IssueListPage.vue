@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { CalendarDays, Flag, Hash, History, LayoutGrid, List, ListTodo, SlidersHorizontal, Sparkles } from 'lucide-vue-next'
+import { CalendarDays, Download, Flag, Hash, History, LayoutGrid, List, ListTodo, SlidersHorizontal, Sparkles } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { type LocationQuery, useRoute, useRouter } from 'vue-router'
+import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
@@ -67,6 +68,25 @@ const sprints = ref<Sprint[]>([])
 const epics = ref<Array<{ id: string; key: string; title: string }>>([])
 const collaborators = ref<UserSummary[]>([])
 const isFilterSheetOpen = ref(false)
+const isExporting = ref(false)
+
+async function exportCsv() {
+  isExporting.value = true
+  try {
+    await issuesApi.exportCsv({
+      ...filters.value,
+      projectId: projectId.value,
+      sort: sort.value,
+      order: sort.value === 'priority' ? 'desc' : 'asc',
+      limit: 1000,
+    })
+    toast.success('CSV downloaded', { description: 'Up to 1,000 tasks matching your filters.' })
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isExporting.value = false
+  }
+}
 
 const readQuery = (query: LocationQuery) =>
   Object.fromEntries(FILTER_KEYS.map((key) => [key, typeof query[key] === 'string' ? (query[key] as string) : undefined])) as Pick<IssueFilters, FilterKey>
@@ -291,11 +311,13 @@ useHotkeys({
           </Tooltip>
         </div>
         <SavedFiltersMenu :project-id="projectId" :criteria="filters" @apply="applySaved" />
+        <Button variant="outline" size="sm" :loading="isExporting" @click="exportCsv"><Download /> Export CSV</Button>
       </div>
     </div>
 
     <!-- Phone toolbar (cards only — list/grid toggle is for tablet+) -->
     <div v-else class="flex items-center gap-2">
+      <Button variant="outline" size="sm" class="shrink-0" :loading="isExporting" aria-label="Export CSV" @click="exportCsv"><Download /></Button>
       <Button variant="outline" size="sm" class="flex-1" @click="isFilterSheetOpen = true">
         <SlidersHorizontal /> Filters<span v-if="activeFilterCount" class="text-primary">({{ activeFilterCount }})</span>
       </Button>

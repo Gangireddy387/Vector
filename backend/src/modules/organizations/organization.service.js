@@ -65,6 +65,7 @@ export const toPublicOrganization = (organization) => ({
   defaultMode: organization.defaultMode,
   logoUrl: organization.logoUrl ?? null,
   brandColor: organization.brandColor ?? null,
+  requireMfa: Boolean(organization.requireMfa),
   status: organization.status ?? 'approved',
   rejectionReason: organization.status === 'rejected' ? (organization.rejectionReason ?? null) : null,
   // Only when the plan was loaded; otherwise clients keep the entitlements they already have.
@@ -185,9 +186,10 @@ export async function updateOrganization(organization, actor, changes) {
     slug: organization.slug,
     defaultMode: organization.defaultMode,
     brandColor: organization.brandColor ?? null,
+    requireMfa: Boolean(organization.requireMfa),
   };
   await organization.update(updates);
-  const changed = Object.keys(changes).filter((key) => ['name', 'slug', 'defaultMode', 'brandColor'].includes(key));
+  const changed = Object.keys(changes).filter((key) => ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa'].includes(key));
   if (changed.length) {
     await logWorkspaceAction({
       organizationId: organization.id,
@@ -195,7 +197,17 @@ export async function updateOrganization(organization, actor, changes) {
       action: 'settings.updated',
       targetType: 'organization',
       targetId: organization.id,
-      meta: { fields: changed, before, after: { name: organization.name, slug: organization.slug, defaultMode: organization.defaultMode, brandColor: organization.brandColor ?? null } },
+      meta: {
+        fields: changed,
+        before,
+        after: {
+          name: organization.name,
+          slug: organization.slug,
+          defaultMode: organization.defaultMode,
+          brandColor: organization.brandColor ?? null,
+          requireMfa: Boolean(organization.requireMfa),
+        },
+      },
     });
   }
   return broadcastOrganization(organization);

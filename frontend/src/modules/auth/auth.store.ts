@@ -175,12 +175,19 @@ export const useAuthStore = defineStore('auth', () => {
       defaultMode: settings.defaultMode,
       logoUrl: settings.logoUrl !== undefined ? settings.logoUrl : organization.value.logoUrl,
       brandColor: settings.brandColor !== undefined ? settings.brandColor : organization.value.brandColor,
+      requireMfa: settings.requireMfa !== undefined ? settings.requireMfa : organization.value.requireMfa,
       status: settings.status ?? organization.value.status,
       entitlements: settings.entitlements ?? organization.value.entitlements,
       rejectionReason: settings.rejectionReason !== undefined ? settings.rejectionReason : organization.value.rejectionReason,
     }
     organization.value = next
     organizations.value = organizations.value.map((item) => (item.id === next.id ? { ...item, ...next } : item))
+    if (user.value) {
+      user.value = {
+        ...user.value,
+        mfaSetupRequired: Boolean(next.requireMfa && !user.value.mfaEnabled),
+      }
+    }
   }
 
   /** Profile responses carry the role in the current organization; keep it whatever endpoint answered. */
@@ -219,6 +226,13 @@ export const useAuthStore = defineStore('auth', () => {
     connectRealtime()
   }
 
+  async function revokeOtherSessions() {
+    const { token: next } = await authApi.revokeOtherSessions()
+    token.value = next
+    localStorage.setItem(currentTokenKey(), next)
+    connectRealtime()
+  }
+
   return {
     token,
     user,
@@ -247,6 +261,7 @@ export const useAuthStore = defineStore('auth', () => {
     uploadRingtone,
     removeRingtone,
     changePassword,
+    revokeOtherSessions,
     logout,
   }
 })

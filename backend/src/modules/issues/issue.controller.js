@@ -5,6 +5,12 @@ const respondWithDetail = async (res, issueId, userId, status = 200) =>
   res.status(status).json({ issue: await issueService.getIssueDetail(issueId, userId) });
 
 export const list = async (req, res) => res.json(await issueService.listIssues(req.user.id, req.filters));
+export const exportCsv = async (req, res) => {
+  const csv = await issueService.exportIssuesCsv(req.user.id, req.filters);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="vector-tasks.csv"');
+  res.send(csv);
+};
 export const myWork = async (req, res) => res.json({ issues: await issueService.listMyWork(req.user.id) });
 export const show = async (req, res) => respondWithDetail(res, req.params.issueId, req.user.id);
 

@@ -155,6 +155,56 @@ const ACTION_HANDLERS = {
       await createIssue({ projectId: issue.projectId, title, parentId: issue.id, type: 'subtask', assigneeId: issue.assigneeId }, null, context);
     }
   },
+
+  async send_webhook({ issue, params, variables, rule }) {
+    const url = String(params.url || '').trim();
+    if (!url) return;
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new Error('Webhook URL is invalid');
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Webhook URL must be http(s)');
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === 'localhost' ||
+      host === 'metadata.google.internal' ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal') ||
+      /^127\./.test(host) ||
+      /^10\./.test(host) ||
+      /^192\.168\./.test(host) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
+      host === '::1' ||
+      host === '0.0.0.0'
+    ) {
+      throw new Error('Webhook URL cannot target a private or local address');
+    }
+
+    const body = JSON.stringify({
+      event: 'automation',
+      rule: rule.name,
+      issue: {
+        id: issue.id,
+        key: issue.key,
+        title: issue.title,
+        type: issue.type,
+        priority: issue.priority,
+        status: issue.status?.name ?? null,
+        projectId: issue.projectId,
+      },
+      variables,
+      at: new Date().toISOString(),
+    });
+    const headers = { 'content-type': 'application/json', 'user-agent': 'Vector-Automation/1.0' };
+    if (params.secret) {
+      const { createHmac } = await import('node:crypto');
+      headers['x-vector-signature'] = createHmac('sha256', String(params.secret)).update(body).digest('hex');
+    }
+    const response = await fetch(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error(`Webhook returned ${response.status}`);
+  },
 };
 
 // ---------------------------------------------------------------------------

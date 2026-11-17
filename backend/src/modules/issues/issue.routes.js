@@ -15,6 +15,7 @@ import {
 const router = Router();
 
 router.get('/issues', validate({ query: listIssuesQuery }), controller.list);
+router.get('/issues/export', validate({ query: listIssuesQuery }), controller.exportCsv);
 router.post('/issues', validate({ body: createIssueSchema }), controller.create);
 router.get('/issues/my-work', controller.myWork);
 router.patch('/issues/bulk', validate({ body: bulkUpdateSchema }), controller.bulkUpdate);

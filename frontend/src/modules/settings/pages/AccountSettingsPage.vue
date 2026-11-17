@@ -20,7 +20,9 @@ import { authApi } from '@/modules/auth/auth.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import PasswordInput from '@/modules/auth/components/PasswordInput.vue'
 import PushPrompt from '@/modules/meetings/components/PushPrompt.vue'
+import ApiTokensCard from '../components/ApiTokensCard.vue'
 import CalendarConnectionsCard from '../components/CalendarConnectionsCard.vue'
+import IntegrationsHealthCard from '../components/IntegrationsHealthCard.vue'
 import MfaSettingsCard from '../components/MfaSettingsCard.vue'
 import ProfilePhotoField from '../components/ProfilePhotoField.vue'
 import SoundSettingsCard from '../components/SoundSettingsCard.vue'
@@ -109,6 +111,19 @@ const isExporting = ref(false)
 const isDeleteOpen = ref(false)
 const deletePassword = ref('')
 const isDeleting = ref(false)
+const isRevokingSessions = ref(false)
+
+async function revokeSessions() {
+  isRevokingSessions.value = true
+  try {
+    await auth.revokeOtherSessions()
+    toast.success('Other sessions signed out', { description: 'This device stays signed in.' })
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isRevokingSessions.value = false
+  }
+}
 
 async function saveProfile() {
   isSavingProfile.value = true
@@ -253,6 +268,13 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
 
       <template #security>
         <div class="w-full space-y-3">
+          <div
+            v-if="auth.user?.mfaSetupRequired"
+            class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-3 text-sm text-amber-950 dark:text-amber-100"
+            role="status"
+          >
+            {{ auth.organization?.name ?? 'This organization' }} requires two-factor authentication. Turn it on below to keep using Vector here.
+          </div>
           <Card class="gap-3">
             <CardHeader class="border-b border-border/60 pb-3">
               <CardTitle>Password</CardTitle>
@@ -274,6 +296,19 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
           </Card>
 
           <MfaSettingsCard />
+          <ApiTokensCard />
+
+          <Card class="gap-3">
+            <CardHeader class="border-b border-border/60 pb-3">
+              <CardTitle>Sessions</CardTitle>
+              <CardDescription>
+                Sign out every other browser or device using your account. This device stays signed in. Vector does not list device names yet.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" :loading="isRevokingSessions" @click="revokeSessions">Sign out other sessions</Button>
+            </CardContent>
+          </Card>
         </div>
       </template>
 
@@ -323,8 +358,9 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
       </template>
 
       <template #calendar>
-        <div class="w-full">
+        <div class="w-full space-y-3">
           <CalendarConnectionsCard />
+          <IntegrationsHealthCard />
         </div>
       </template>
 

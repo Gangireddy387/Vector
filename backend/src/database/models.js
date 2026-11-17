@@ -4,6 +4,7 @@
  */
 import { sequelize } from './connection.js';
 import { User } from '../modules/users/user.model.js';
+import { ApiToken } from '../modules/auth/api-token.model.js';
 import { Project } from '../modules/projects/project.model.js';
 import { ProjectMember } from '../modules/projects/project-member.model.js';
 import { Status } from '../modules/statuses/status.model.js';
@@ -258,6 +259,10 @@ CalendarConnection.hasMany(MeetingCalendarLink, { as: 'links', foreignKey: 'conn
 // Devices that receive this person's push notifications
 User.hasMany(PushSubscription, { as: 'pushSubscriptions', foreignKey: 'userId', ...cascade });
 
+// Personal API tokens (scripting / integrations)
+User.hasMany(ApiToken, { as: 'apiTokens', foreignKey: 'userId', ...cascade });
+ApiToken.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+
 // Portal-wide configuration
 WorkspaceSetting.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
 
@@ -269,6 +274,7 @@ WorkspaceAuditLog.belongsTo(User, { as: 'actor', foreignKey: 'actorId', onDelete
 export {
   sequelize,
   User,
+  ApiToken,
   Project,
   ProjectMember,
   Status,

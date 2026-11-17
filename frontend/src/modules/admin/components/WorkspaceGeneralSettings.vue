@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { useTheme } from '@/composables/useTheme'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -125,6 +126,29 @@ async function deleteOrganization() {
             <span v-if="form.slug !== workspace.settings.slug" class="text-xs text-muted-foreground">Old links that use the previous address stop working.</span>
           </div>
         </form>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Security</CardTitle>
+        <CardDescription>Require every member to turn on two-factor authentication before they can use {{ workspace.settings.name }}.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-border/70 px-3.5 py-3">
+          <span class="min-w-0">
+            <span class="block text-sm font-medium">Require two-factor authentication</span>
+            <span class="mt-0.5 block text-xs text-muted-foreground">
+              Members without MFA are sent to Account settings → Security until they enable it. Admins can still turn this off.
+            </span>
+          </span>
+          <Switch
+            class="mt-0.5"
+            :model-value="Boolean(workspace.settings.requireMfa)"
+            :disabled="isSaving"
+            @update:model-value="(value: boolean) => save({ requireMfa: value }, value ? 'Two-factor authentication required' : 'Two-factor requirement turned off')"
+          />
+        </label>
       </CardContent>
     </Card>
 

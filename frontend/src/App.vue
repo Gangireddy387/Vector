@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import OfflineBanner from '@/components/common/OfflineBanner.vue'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useDevice } from '@/composables/useDevice'
@@ -21,7 +22,12 @@ const { resolvedTheme } = useTheme()
     Skip to main content
   </a>
   <TooltipProvider :delay-duration="250">
-    <RouterView />
+    <div class="flex min-h-dvh flex-col">
+      <OfflineBanner class="shrink-0" />
+      <div class="min-h-0 flex-1">
+        <RouterView />
+      </div>
+    </div>
     <ConfirmDialog />
     <CallHost />
     <Toaster

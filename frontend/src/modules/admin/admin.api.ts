@@ -97,6 +97,12 @@ export const workspaceApi = {
   /** Organization admin audit trail (invites, roles, settings, plan). */
   auditLog: (params?: { limit?: number; before?: string }) =>
     http.get<{ entries: WorkspaceAuditEntry[] }>('/workspace/audit-log', { params }).then((r) => r.data),
+  exportAuditLogCsv: async () => {
+    const response = await http.get<Blob>('/workspace/audit-log/export', { responseType: 'blob' })
+    const url = URL.createObjectURL(response.data)
+    Object.assign(document.createElement('a'), { href: url, download: 'vector-audit-log.csv' }).click()
+    URL.revokeObjectURL(url)
+  },
 }
 
 export interface WorkspaceAuditEntry {

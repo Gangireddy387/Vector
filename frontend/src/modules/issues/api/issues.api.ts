@@ -65,6 +65,12 @@ const clean = (filters: IssueFilters) =>
 export const issuesApi = {
   list: (filters: IssueFilters) =>
     http.get<{ issues: Issue[]; total: number }>('/issues', { params: clean(filters) }).then((r) => r.data),
+  exportCsv: async (filters: IssueFilters = {}) => {
+    const response = await http.get<Blob>('/issues/export', { params: clean({ ...filters, limit: 1000 }), responseType: 'blob' })
+    const url = URL.createObjectURL(response.data)
+    Object.assign(document.createElement('a'), { href: url, download: 'vector-tasks.csv' }).click()
+    URL.revokeObjectURL(url)
+  },
   myWork: () => http.get<{ issues: Issue[] }>('/issues/my-work').then((r) => r.data.issues),
   get: (idOrKey: string) => http.get<{ issue: IssueDetail }>(`/issues/${idOrKey}`).then((r) => r.data.issue),
   create: (input: CreateIssueInput) => http.post<{ issue: IssueDetail }>('/issues', input).then((r) => r.data.issue),

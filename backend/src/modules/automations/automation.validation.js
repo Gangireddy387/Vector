@@ -44,6 +44,13 @@ const actionSchema = z.discriminatedUnion('type', [
     type: z.literal('create_subtasks'),
     params: z.object({ titles: z.array(z.string().trim().min(1).max(255)).min(1).max(20) }),
   }),
+  z.object({
+    type: z.literal('send_webhook'),
+    params: z.object({
+      url: z.string().trim().url().max(2000),
+      secret: z.string().trim().max(200).optional().nullable(),
+    }),
+  }),
 ]);
 
 const ruleFields = {

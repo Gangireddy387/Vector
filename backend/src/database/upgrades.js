@@ -74,6 +74,7 @@ const ADDED_COLUMNS = [
   { table: 'saved_filters', column: 'is_default', definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false } },
   { table: 'chat_messages', column: 'parent_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'automation_rules', column: 'recent_runs', definition: { type: DataTypes.JSON, allowNull: false, defaultValue: [] } },
+  { table: 'organizations', column: 'require_mfa', definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */
