@@ -410,7 +410,7 @@
  * so the last list item can scroll fully into view.
  */
 @utility pb-mobile-tab {
-  padding-bottom: calc(8.5rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(9.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Mobile toasts: fit the viewport and keep the close control on the toast, not floating beside it. */
