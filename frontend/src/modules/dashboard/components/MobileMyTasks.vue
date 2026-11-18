@@ -79,7 +79,7 @@ async function complete(issue: Issue) {
 </script>
 
 <template>
-  <div class="w-full space-y-3.5 p-3 pb-2 sm:space-y-4">
+  <div class="w-full space-y-3.5 p-3 sm:space-y-4">
     <div class="flex flex-col gap-2 px-1 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <p class="text-[11px] font-medium text-muted-foreground">Your workday</p>
@@ -143,7 +143,7 @@ async function complete(issue: Issue) {
         :title="segment === 'done' ? 'Nothing completed yet this week' : 'All clear here'"
         :description="segment === 'today' ? 'No overdue or urgent work. Capture something above or check Upcoming.' : undefined"
       />
-      <ul v-else class="space-y-2">
+      <ul v-else class="stagger-in space-y-2">
         <li v-for="issue in visible" :key="issue.id">
           <IssueCard :issue="issue" show-project completable @open="openIssue" @complete="complete" />
         </li>

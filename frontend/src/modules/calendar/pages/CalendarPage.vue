@@ -44,7 +44,7 @@ import YearView from '../components/YearView.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { isDesktop } = useDevice()
+const { isDesktop, isWide } = useDevice()
 const auth = useAuthStore()
 const tick = useNow({ scheduler: (callback) => useIntervalFn(callback, 30_000) })
 const now = computed(() => clockIn(auth.user?.timezone, tick.value))
@@ -286,10 +286,9 @@ useHotkeys({
       <StatCard variant="card" label="Completed" :value="`${stats.percent}%`" :icon="CalendarCheck2" tone="success" :hint="`${stats.done} of ${stats.planned} done`">
         <Progress :model-value="stats.percent" class="mt-2.5 h-1.5" indicator-class="bg-success" />
       </StatCard>
-      <StatCard variant="card" class="max-lg:hidden" label="Time scheduled" :value="formatHours(stats.minutes)" :icon="Clock3" tone="warning" :hint="periodLabel" />
+      <StatCard variant="card" label="Time scheduled" :value="formatHours(stats.minutes)" :icon="Clock3" tone="warning" :hint="periodLabel" />
       <StatCard
         variant="card"
-        class="max-lg:hidden"
         label="Your tasks due"
         :value="showTasks ? stats.tasks : '–'"
         :icon="ListTodo"
@@ -300,7 +299,7 @@ useHotkeys({
 
     <div class="grid min-h-0 gap-4 sm:gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <section class="relative flex min-h-[28rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft lg:min-h-0">
-        <div v-if="isLoading" class="absolute inset-x-0 top-0 z-30 h-0.5 animate-pulse bg-brand" aria-hidden="true" />
+        <div v-if="isLoading" class="loading-shimmer-bar absolute inset-x-0 top-0 z-30" aria-hidden="true" />
         <div
           v-if="isLoading && !events.length"
           class="absolute inset-0 z-20 flex flex-col gap-3 bg-card/80 p-4 backdrop-blur-[1px]"
@@ -332,7 +331,7 @@ useHotkeys({
           <div class="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto">
             <label class="flex items-center gap-2 text-xs text-muted-foreground"><Switch v-model="showTasks" aria-label="Show my tasks due" /> My tasks</label>
             <MobileSectionSelect
-              v-if="!isDesktop"
+              v-if="!isWide"
               :model-value="view"
               :options="VIEWS"
               aria-label="Calendar view"
@@ -360,7 +359,7 @@ useHotkeys({
         </div>
 
         <TimeGrid
-          v-if="view === 'day' || (view === 'week' && isDesktop)"
+          v-if="view === 'day' || (view === 'week' && isWide)"
           class="min-h-0 flex-1"
           :days="days"
           :selected="selected"

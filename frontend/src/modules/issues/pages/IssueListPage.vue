@@ -52,7 +52,7 @@ const router = useRouter()
 const projects = useProjectsStore()
 const ui = useUiStore()
 const openIssue = useOpenIssue()
-const { isDesktop } = useDevice()
+const { isDesktop, isWide } = useDevice()
 
 /** List (dense rows) or grid (cards). Remembered per device. */
 const layout = useStorage<LayoutMode>('vector.tasks.layout', 'list')
@@ -210,8 +210,8 @@ const applySaved = (criteria: Record<string, string>) => {
   })
 }
 
-const showList = computed(() => layout.value === 'list' && isDesktop.value)
-const showGrid = computed(() => layout.value === 'grid' || !isDesktop.value)
+const showList = computed(() => layout.value === 'list' && isWide.value)
+const showGrid = computed(() => layout.value === 'grid' || !isWide.value)
 
 /** Keyboard focus index for j/k and arrow navigation on the loaded page. */
 const focusedIndex = ref(-1)
@@ -274,7 +274,7 @@ useHotkeys({
       />
       <div class="flex flex-wrap items-center gap-2">
         <SelectField :model-value="sort" :options="SORT_OPTIONS" size="sm" class="w-44 lg:w-48" aria-label="Sort by" @update:model-value="setSort" />
-        <div class="inline-flex h-8 items-center rounded-md border border-border bg-muted/40 p-0.5" role="group" aria-label="Layout">
+        <div v-if="isWide" class="inline-flex h-8 items-center rounded-md border border-border bg-muted/40 p-0.5" role="group" aria-label="Layout">
           <Tooltip>
             <TooltipTrigger as-child>
               <Button
@@ -334,13 +334,15 @@ useHotkeys({
 
     <div
       v-if="isLoading"
+      aria-busy="true"
+      aria-label="Loading tasks"
       :class="
         layout === 'grid'
           ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
           : 'space-y-2'
       "
     >
-      <Skeleton v-for="index in 8" :key="index" :class="layout === 'grid' ? 'h-36 w-full rounded-lg' : 'h-11 w-full'" />
+      <Skeleton v-for="index in 8" :key="index" :class="layout === 'grid' ? 'h-36 w-full rounded-xl' : 'h-11 w-full rounded-lg'" />
     </div>
 
     <EmptyState v-else-if="loadError && !issues.length" :icon="ListTodo" title="Tasks did not load" :description="loadError">
@@ -357,9 +359,9 @@ useHotkeys({
       <Button v-else @click="ui.openCreateIssue({ projectId })">Create task</Button>
     </EmptyState>
 
-    <!-- Dense list (tablet + desktop) -->
+    <!-- Dense list on wide screens. Phone and tablet stay on cards. -->
     <div v-else-if="showList" class="overflow-x-auto rounded-xl border border-border shadow-soft">
-      <div class="min-w-[36rem]">
+      <div class="min-w-0">
         <div class="flex h-9 items-center gap-2 border-b bg-muted/40 px-2 text-xs font-medium text-muted-foreground">
           <Checkbox :model-value="allSelected" aria-label="Select all" @update:model-value="toggleAll" />
           <span class="w-4" />
@@ -386,7 +388,7 @@ useHotkeys({
     <!-- Grid cards (and phone list = stacked cards) -->
     <div
       v-else-if="showGrid"
-      class="grid gap-2.5 sm:gap-3"
+      class="stagger-in grid gap-2.5 sm:gap-3"
       :class="
         layout === 'grid'
           ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'

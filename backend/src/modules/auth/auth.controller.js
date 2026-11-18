@@ -9,7 +9,7 @@ export const me = async (req, res) =>
 
 export const forgotPassword = async (req, res) => {
   await authService.requestPasswordReset(req.body);
-  res.json({ message: 'If an account exists for that email, a reset link is on its way.' });
+  res.json({ message: 'A reset link is on its way.' });
 };
 
 export const resetPassword = async (req, res) => res.json(await authService.resetPassword(req.body));

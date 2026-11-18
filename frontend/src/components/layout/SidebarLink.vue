@@ -32,8 +32,10 @@ withDefaults(
           :aria-current="(exact ? isExactActive : isActive) ? 'page' : undefined"
           :class="
             cn(
-              'group relative flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] text-sidebar-foreground/75 transition-colors hover:bg-sidebar-accent/70 hover:text-sidebar-foreground',
-              (exact ? isExactActive : isActive) && !locked && 'bg-sidebar-accent font-medium text-sidebar-foreground',
+              'group relative flex h-8 items-center gap-2.5 rounded-lg px-2 text-[13px] text-sidebar-foreground/75 transition-[background-color,color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-sidebar-accent/70 hover:text-sidebar-foreground active:scale-[0.98]',
+              (exact ? isExactActive : isActive) &&
+                !locked &&
+                'bg-sidebar-accent font-medium text-sidebar-foreground shadow-[inset_3px_0_0_0_var(--primary)]',
               nested && 'h-7 pl-7 text-[12.5px]',
               collapsed && 'justify-center px-0',
               locked && 'opacity-70',
@@ -41,22 +43,22 @@ withDefaults(
           "
           @click="navigate"
         >
-          <span v-if="color" class="size-2.5 shrink-0 rounded-[3px]" :style="{ backgroundColor: color }" />
+          <span v-if="color" class="size-2.5 shrink-0 rounded-[3px] transition-transform duration-200 group-hover:scale-110" :style="{ backgroundColor: color }" />
           <component
             :is="icon"
             v-else-if="icon"
-            class="size-4 shrink-0 transition-colors"
-            :class="(exact ? isExactActive : isActive) && !locked ? 'text-primary' : 'text-muted-foreground group-hover:text-sidebar-foreground'"
+            class="size-4 shrink-0 transition-[color,transform] duration-200"
+            :class="(exact ? isExactActive : isActive) && !locked ? 'scale-110 text-primary' : 'text-muted-foreground group-hover:text-sidebar-foreground'"
           />
           <span v-if="!collapsed" class="min-w-0 flex-1 truncate">{{ label }}</span>
           <span v-if="locked && !collapsed" class="rounded bg-muted px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Pro</span>
           <span
             v-if="badge && !collapsed"
-            class="ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary/12 px-1.5 text-[10.5px] leading-none font-semibold text-primary tabular-nums dark:bg-primary/20"
+            class="pop-in ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary/12 px-1.5 text-[10.5px] leading-none font-semibold text-primary tabular-nums dark:bg-primary/20"
           >
             {{ badge > 99 ? '99+' : badge }}
           </span>
-          <span v-else-if="badge && collapsed" class="absolute top-1 right-1.5 size-1.5 rounded-full bg-primary" />
+          <span v-else-if="badge && collapsed" class="absolute top-1 right-1.5 size-1.5 animate-pulse rounded-full bg-primary" />
           <span
             v-else-if="shortcut && !collapsed"
             class="ml-auto hidden items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 lg:flex"

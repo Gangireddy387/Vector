@@ -211,7 +211,7 @@ async function remove() {
               <Crown class="size-4 shrink-0 text-amber-500" />
               <dd v-if="department.head" class="flex min-w-0 items-center gap-2">
                 <UserAvatar :user="department.head" size="sm" />
-                <span class="min-w-0 truncate"><span class="font-medium">{{ department.head.name }}</span> <span class="text-muted-foreground max-sm:hidden">· Department head</span></span>
+                <span class="min-w-0 truncate"><span class="font-medium">{{ department.head.name }}</span> <span class="text-muted-foreground">· Department head</span></span>
               </dd>
               <dd v-else class="text-muted-foreground">No department head yet</dd>
             </div>

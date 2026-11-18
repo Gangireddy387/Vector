@@ -272,7 +272,7 @@ const rowClass =
       </div>
     </EmptyState>
 
-    <div v-else-if="isSearching && !results" class="space-y-2">
+    <div v-else-if="isSearching && !results" class="space-y-2" aria-busy="true" aria-label="Searching">
       <Skeleton v-for="index in 5" :key="index" class="h-14 w-full rounded-xl" />
     </div>
 

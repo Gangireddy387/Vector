@@ -14,8 +14,27 @@ const maxOpen = computed(() => Math.max(1, ...props.rows.map((row) => row.open))
       <CardTitle>Team workload</CardTitle>
       <CardDescription>Who is carrying what right now, and what each person finished in the last {{ days }} days.</CardDescription>
     </CardHeader>
-    <CardContent class="overflow-x-auto px-0">
-      <table v-if="rows.length" class="w-full min-w-[34rem] text-sm">
+    <CardContent class="px-0">
+      <p v-if="!rows.length" class="px-4 py-8 text-center text-sm text-muted-foreground">Nobody has work matching these filters.</p>
+      <ul v-else class="divide-y xl:hidden">
+        <li v-for="row in rows" :key="row.user?.id ?? 'unassigned'" class="space-y-2 px-4 py-3">
+          <span class="flex min-w-0 items-center gap-2.5">
+            <UserAvatar :user="row.user" size="sm" />
+            <span class="min-w-0 flex-1 truncate" :class="!row.user && 'text-muted-foreground italic'">{{ row.user?.name ?? 'Unassigned' }}</span>
+            <span class="shrink-0 text-sm font-semibold tabular-nums">{{ row.open }} open</span>
+          </span>
+          <span class="block h-1.5 bg-muted">
+            <span class="block h-full bg-primary" :style="{ width: `${(row.open / maxOpen) * 100}%` }" />
+          </span>
+          <span class="grid grid-cols-3 gap-2 text-xs">
+            <span><span class="block text-muted-foreground">Points</span><span class="font-medium tabular-nums">{{ row.openPoints || '—' }}</span></span>
+            <span><span class="block text-muted-foreground">Overdue</span><span class="font-medium tabular-nums" :class="row.overdue ? 'text-destructive' : ''">{{ row.overdue }}</span></span>
+            <span><span class="block text-muted-foreground">Completed</span><span class="font-medium tabular-nums">{{ row.completedInPeriod }}</span></span>
+          </span>
+        </li>
+      </ul>
+      <div v-if="rows.length" class="hidden overflow-x-auto xl:block">
+      <table class="w-full text-sm">
         <thead>
           <tr class="border-y bg-muted/40 text-left text-xs font-medium text-muted-foreground">
             <th class="px-4 py-2 font-semibold">Person</th>
@@ -47,7 +66,7 @@ const maxOpen = computed(() => Math.max(1, ...props.rows.map((row) => row.open))
           </tr>
         </tbody>
       </table>
-      <p v-else class="px-4 py-8 text-center text-sm text-muted-foreground">Nobody has work matching these filters.</p>
+      </div>
     </CardContent>
   </Card>
 </template>

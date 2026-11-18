@@ -25,7 +25,7 @@ function goToSection(id: string) {
 <template>
   <div class="min-h-dvh bg-background">
     <header class="glass sticky top-0 z-30 border-b border-border/60 pt-safe">
-      <div class="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-5">
+      <div class="mx-auto flex h-14 w-full max-w-[90rem] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <AppLogo />
         <RouterLink :to="backTo" class="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
           <ArrowLeft class="size-4" /> Back to {{ LEGAL.productName }}
@@ -33,7 +33,7 @@ function goToSection(id: string) {
       </div>
     </header>
 
-    <div class="mx-auto grid max-w-6xl gap-10 px-5 py-10 lg:grid-cols-[14rem_minmax(0,1fr)]">
+    <div class="mx-auto grid w-full max-w-[90rem] gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:px-8">
       <div class="lg:hidden">
         <label class="mb-1.5 block text-xs font-semibold tracking-wider text-muted-foreground uppercase" for="legal-toc">On this page</label>
         <div class="relative">
@@ -64,7 +64,7 @@ function goToSection(id: string) {
         </div>
       </nav>
 
-      <article class="legal-body max-w-3xl">
+      <article class="legal-body min-w-0 max-w-4xl">
         <p class="text-xs font-semibold tracking-wider text-primary uppercase">Legal</p>
         <h1>{{ title }}</h1>
         <p class="text-sm text-muted-foreground">Effective {{ LEGAL.effectiveDate }} · {{ LEGAL.companyName }}</p>
@@ -74,7 +74,7 @@ function goToSection(id: string) {
     </div>
 
     <footer class="border-t border-border/60">
-      <div class="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-5 text-xs text-muted-foreground">
+      <div class="mx-auto flex h-14 w-full max-w-[90rem] items-center justify-between gap-4 px-4 text-xs text-muted-foreground sm:px-6 lg:px-8">
         <span>© {{ year }} {{ LEGAL.companyName }}</span>
         <nav class="flex gap-4" aria-label="Legal">
           <RouterLink :to="{ name: 'privacy' }" class="hover:text-foreground" active-class="text-foreground">Privacy Policy</RouterLink>

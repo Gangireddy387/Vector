@@ -123,7 +123,7 @@ async function save() {
     </EmptyState>
 
     <form v-else class="space-y-4 sm:space-y-5" novalidate @submit.prevent="save">
-      <div class="grid items-start gap-4 sm:gap-5 lg:grid-cols-2">
+      <div class="grid items-start gap-4 sm:gap-5 md:grid-cols-2">
       <div class="space-y-4 sm:space-y-5">
       <section class="space-y-4 rounded-xl border border-border/80 bg-card p-4 shadow-soft sm:p-5 lg:p-6">
         <h2 class="flex items-center gap-2 text-sm font-semibold"><UsersRound class="size-4 text-primary" /> Details</h2>

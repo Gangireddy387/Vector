@@ -213,11 +213,15 @@ async function setWeeklyEmail(value: boolean) {
       <Button variant="outline" size="sm" @click="load">Retry</Button>
     </div>
 
-    <div v-if="isLoading && !report" class="space-y-4">
+    <div v-if="isLoading && !report" class="space-y-4" aria-busy="true" aria-label="Loading reports">
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-        <Skeleton v-for="index in 6" :key="index" class="h-32" />
+        <Skeleton v-for="index in 6" :key="index" class="h-32 rounded-xl" />
       </div>
-      <Skeleton class="h-72 w-full" />
+      <Skeleton class="h-72 w-full rounded-2xl" />
+      <div class="grid gap-3 lg:grid-cols-2">
+        <Skeleton class="h-48 rounded-xl" />
+        <Skeleton class="h-48 rounded-xl" />
+      </div>
     </div>
 
     <EmptyState

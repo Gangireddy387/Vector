@@ -29,10 +29,17 @@ const route = useRoute()
 const projects = useProjectsStore()
 const ui = useUiStore()
 const auth = useAuthStore()
-const { isDesktop } = useDevice()
+const { isDesktop, isPhone, isWide } = useDevice()
 const notFound = ref(false)
-/** Chat (and similar) fill the phone viewport; board and the rest scroll with the page. */
-const fillHeight = computed(() => route.matched.some((record) => record.meta.fillHeight))
+/**
+ * Chat and similar fill the phone viewport. The board opts out on phone so one page
+ * scrolls in MobileShell — otherwise ProjectLayout stays h-full and nests a second scrollbar.
+ */
+const fillHeight = computed(
+  () =>
+    !(isPhone.value && route.name === 'project-board') &&
+    route.matched.some((record) => record.meta.fillHeight),
+)
 
 const project = computed(() => projects.details[props.projectId])
 const meetPreset = computed<MeetingPreset | null>(() =>
@@ -121,11 +128,15 @@ async function wipeSample() {
 
   <div
     v-else
-    class="flex min-h-0 min-w-0 flex-col overflow-x-hidden"
-    :class="isDesktop || fillHeight ? 'h-full min-h-0' : 'min-h-0'"
+    class="flex min-w-0 flex-col"
+    :class="
+      isDesktop || fillHeight
+        ? 'h-full min-h-0 overflow-hidden'
+        : 'min-h-0 overflow-visible'
+    "
   >
     <!-- Desktop header -->
-    <header v-if="isDesktop" class="shrink-0 border-b border-border px-3 pt-2.5 sm:px-4">
+    <header v-if="isWide" class="shrink-0 border-b border-border px-3 pt-2.5 sm:px-4">
       <div class="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
         <span class="flex size-7 shrink-0 items-center justify-center rounded-[7px] text-[11px] font-bold text-white shadow-glow" :style="{ backgroundColor: project.color }">
           {{ project.key.slice(0, 2) }}
@@ -165,8 +176,24 @@ async function wipeSample() {
       </nav>
     </header>
 
-    <!-- Mobile section switcher: dropdown (no hidden horizontal scroll) -->
-    <nav v-else class="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-20 shrink-0 border-b bg-background px-3 py-2" aria-label="Project sections">
+    <!--
+      Section switcher. On phone the page scrolls in MobileShell — do not make this sticky.
+      Sticky with a topbar offset left a gap under the real top bar where content slid through.
+      Tablet keeps sticky top-0 inside the desktop shell scroll.
+    -->
+    <nav
+      v-else
+      class="z-20 shrink-0 border-b bg-background px-3 py-2"
+      :class="!isPhone && 'sticky top-0'"
+      aria-label="Project sections"
+    >
+      <div v-if="!isPhone" class="mb-2 flex min-w-0 items-center gap-2">
+        <span class="flex size-7 shrink-0 items-center justify-center rounded-[7px] text-[11px] font-bold text-white shadow-glow" :style="{ backgroundColor: project.color }">
+          {{ project.key.slice(0, 2) }}
+        </span>
+        <h1 class="min-w-0 flex-1 truncate text-[15px] font-semibold">{{ project.name }}</h1>
+        <UserAvatarStack :users="project.members" :max="3" />
+      </div>
       <div class="flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
@@ -215,13 +242,13 @@ async function wipeSample() {
     </div>
 
     <div
-      class="min-w-0 overflow-x-hidden"
+      class="min-w-0"
       :class="
         fillHeight
           ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
           : isDesktop
             ? 'min-h-0 flex-1 overflow-y-auto'
-            : 'w-full'
+            : 'w-full overflow-visible'
       "
     >
       <RouterView />

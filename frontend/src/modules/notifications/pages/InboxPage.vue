@@ -298,7 +298,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         </div>
 
         <div class="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-          <div v-if="notifications.isLoading && !notifications.items.length" class="space-y-2 p-3">
+          <div v-if="notifications.isLoading && !notifications.items.length" class="space-y-2 p-3" aria-busy="true" aria-label="Loading inbox">
             <Skeleton v-for="index in 7" :key="index" class="h-14 w-full rounded-lg" />
           </div>
           <EmptyState

@@ -28,7 +28,7 @@ const STATUS_CATEGORIES = Object.keys(STATUS_CATEGORY_META) as StatusCategory[]
 <template>
   <div
     v-if="count"
-    class="fixed inset-x-2 bottom-[calc(6.25rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-3xl flex-wrap items-center gap-2 border bg-popover p-2 shadow-xl sm:inset-x-3 sm:bottom-[calc(6.75rem+env(safe-area-inset-bottom))] lg:bottom-6"
+    class="fixed inset-x-2 bottom-[calc(var(--mobile-tab-clearance)+0.25rem)] z-40 mx-auto flex max-w-3xl flex-wrap items-center gap-2 border bg-popover p-2 shadow-xl sm:inset-x-3 lg:bottom-6"
     role="toolbar"
     aria-label="Bulk actions"
   >

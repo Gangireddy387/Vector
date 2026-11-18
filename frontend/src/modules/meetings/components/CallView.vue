@@ -60,53 +60,64 @@ const shownCaptions = computed(() => (call.transcribing.value && call.showCaptio
 const speakerName = (caption: { socketId: string; speaker: { name: string } }) => (caption.socketId === call.selfId.value ? 'You' : caption.speaker.name)
 
 const backToMain = () => call.moveToRoom(null, null).catch((error: Error) => toast.error(error.message))
+const hasStatusChips = computed(
+  () => Boolean(call.roomName.value || call.locked.value || call.recording.value || call.transcribing.value?.mode === 'ai' || call.uploadProgress.value !== null),
+)
 </script>
 
 <template>
   <div class="flex min-h-0 flex-1 overflow-hidden bg-[#0d1017] text-white">
     <div class="flex min-w-0 flex-1 flex-col">
-      <header class="flex shrink-0 items-center gap-3 px-4 py-3">
-        <span class="relative flex size-2.5"><span class="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75" /><span class="relative inline-flex size-2.5 rounded-full bg-red-500" /></span>
-        <h1 class="min-w-0 truncate text-sm font-semibold">{{ title }}</h1>
-        <span v-if="call.roomName.value" class="shrink-0 rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-200">{{ call.roomName.value }}</span>
-        <span class="font-mono text-xs text-white/60 tabular-nums">{{ elapsed }}</span>
-        <span
-          v-if="call.locked.value"
-          class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-200"
-          title="Nobody new can join until the call is unlocked"
-        >
-          <Lock class="size-3" /> Locked
-        </span>
-        <span
-          v-if="call.recording.value"
-          class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-red-500/20 px-2 py-0.5 text-[11px] font-semibold text-red-200"
-          :title="`${call.recording.value.by} is recording this call`"
-          role="status"
-        >
-          <span class="size-2 animate-pulse rounded-full bg-red-500" /> REC
-        </span>
-        <span
-          v-if="call.transcribing.value?.mode === 'ai'"
-          class="inline-flex shrink-0 items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-[11px] font-semibold text-violet-200"
-          :title="`${call.transcribing.value.by} turned on AI notes: what is said becomes captions and the meeting's transcript`"
-          role="status"
-        >
-          <Sparkles class="size-3" /> AI notes
-        </span>
-        <span v-if="call.uploadProgress.value !== null" class="inline-flex shrink-0 items-center gap-1 text-[11px] text-white/70" role="status">
-          <CloudUpload class="size-3.5" /> Saving recording {{ call.uploadProgress.value }}%
-        </span>
-        <span class="ml-auto inline-flex items-center gap-1.5 text-xs text-white/70"><UsersRound class="size-3.5" /> {{ tiles.length }} {{ call.room.value ? 'in this room' : 'in the call' }}</span>
-        <button
-          type="button"
-          class="-my-1 flex size-8 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-          :aria-label="fullscreen.active.value ? 'Exit full screen' : 'Full screen'"
-          :title="fullscreen.active.value ? 'Exit full screen' : 'Full screen'"
-          @click="fullscreen.toggle()"
-        >
-          <Minimize2 v-if="fullscreen.active.value" class="size-4" />
-          <Maximize2 v-else class="size-4" />
-        </button>
+      <header class="flex shrink-0 flex-col gap-2 px-3 py-2.5 sm:px-4 sm:py-3">
+        <div class="flex min-w-0 items-center gap-2">
+          <span class="relative flex size-2.5 shrink-0"><span class="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75" /><span class="relative inline-flex size-2.5 rounded-full bg-red-500" /></span>
+          <h1 class="min-w-0 flex-1 truncate text-sm font-semibold">{{ title }}</h1>
+          <span class="shrink-0 font-mono text-xs text-white/60 tabular-nums">{{ elapsed }}</span>
+          <span class="inline-flex shrink-0 items-center gap-1 text-xs text-white/70" :title="`${tiles.length} ${call.room.value ? 'in this room' : 'in the call'}`">
+            <UsersRound class="size-3.5" />
+            <span class="tabular-nums">{{ tiles.length }}</span>
+            <span class="hidden sm:inline">{{ call.room.value ? 'in this room' : 'in the call' }}</span>
+          </span>
+          <button
+            type="button"
+            class="flex size-8 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            :aria-label="fullscreen.active.value ? 'Exit full screen' : 'Full screen'"
+            :title="fullscreen.active.value ? 'Exit full screen' : 'Full screen'"
+            @click="fullscreen.toggle()"
+          >
+            <Minimize2 v-if="fullscreen.active.value" class="size-4" />
+            <Maximize2 v-else class="size-4" />
+          </button>
+        </div>
+        <div v-if="hasStatusChips" class="flex flex-wrap items-center gap-1.5">
+          <span v-if="call.roomName.value" class="rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-200">{{ call.roomName.value }}</span>
+          <span
+            v-if="call.locked.value"
+            class="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[11px] font-medium text-amber-200"
+            title="Nobody new can join until the call is unlocked"
+          >
+            <Lock class="size-3" /> Locked
+          </span>
+          <span
+            v-if="call.recording.value"
+            class="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 px-2 py-0.5 text-[11px] font-semibold text-red-200"
+            :title="`${call.recording.value.by} is recording this call`"
+            role="status"
+          >
+            <span class="size-2 animate-pulse rounded-full bg-red-500" /> REC
+          </span>
+          <span
+            v-if="call.transcribing.value?.mode === 'ai'"
+            class="inline-flex items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-[11px] font-semibold text-violet-200"
+            :title="`${call.transcribing.value.by} turned on AI notes: what is said becomes captions and the meeting's transcript`"
+            role="status"
+          >
+            <Sparkles class="size-3" /> AI notes
+          </span>
+          <span v-if="call.uploadProgress.value !== null" class="inline-flex items-center gap-1 text-[11px] text-white/70" role="status">
+            <CloudUpload class="size-3.5" /> Saving recording {{ call.uploadProgress.value }}%
+          </span>
+        </div>
       </header>
 
       <div v-if="call.status.value === 'reconnecting'" class="mx-4 mb-2 flex items-center justify-center gap-2 rounded-lg bg-amber-500/15 px-3 py-2 text-sm text-amber-200" role="status">
@@ -180,13 +191,19 @@ const backToMain = () => call.moveToRoom(null, null).catch((error: Error) => toa
       </div>
       </div>
 
+      <aside
+        v-if="panelOpen && !isWide"
+        class="flex max-h-[min(42vh,22rem)] min-h-0 shrink-0 flex-col overflow-y-auto border-t border-white/10 text-foreground"
+      >
+        <slot name="panel" :open-breakouts="() => (breakoutsOpen = true)" />
+      </aside>
+
       <CallControls :panel-open="panelOpen" :can-end="canEnd" @panel="panelOpen = !panelOpen" @leave="emit('leave')" @end="emit('end')" @breakouts="breakoutsOpen = true" />
     </div>
 
     <aside
-      v-if="panelOpen"
-      class="flex min-h-0 shrink-0 flex-col border-l border-white/10 text-foreground"
-      :class="isWide ? 'w-[min(20rem,34vw)] xl:w-[340px]' : 'fixed inset-x-0 bottom-0 z-40 h-[min(60vh,28rem)] w-full rounded-t-2xl shadow-2xl'"
+      v-if="panelOpen && isWide"
+      class="flex min-h-0 w-[min(20rem,34vw)] shrink-0 flex-col border-l border-white/10 text-foreground xl:w-[340px]"
     >
       <slot name="panel" :open-breakouts="() => (breakoutsOpen = true)" />
     </aside>

@@ -374,7 +374,7 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
 
     <!-- Tablets and phones: the headline, the team and the feature cards, in a panel under the form. -->
     <section
-      class="auth-showcase relative z-10 mx-3 mb-3 mt-1 space-y-4 overflow-hidden rounded-2xl bg-brand px-4 py-5 text-white shadow-xl shadow-black/15 sm:mx-12 sm:mt-2 sm:space-y-5 sm:rounded-[1.5rem] sm:px-8 sm:py-6 lg:hidden"
+      class="auth-showcase relative z-10 mx-3 mb-3 mt-1 space-y-4 overflow-hidden rounded-2xl bg-brand px-4 py-5 text-white shadow-xl shadow-black/15 sm:mx-12 sm:mt-2 sm:space-y-5 sm:rounded-[1.5rem] sm:px-8 sm:py-6 md:hidden"
       aria-hidden="true"
     >
       <div class="space-y-2.5 sm:space-y-3">

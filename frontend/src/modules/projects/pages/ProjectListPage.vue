@@ -144,8 +144,8 @@ async function onShowArchived(value: boolean) {
       </label>
     </div>
 
-    <div v-if="isLoading" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      <Skeleton v-for="index in 3" :key="index" class="h-40" />
+    <div v-if="isLoading" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label="Loading projects">
+      <Skeleton v-for="index in 3" :key="index" class="h-40 rounded-2xl" />
     </div>
 
     <EmptyState
@@ -171,12 +171,12 @@ async function onShowArchived(value: boolean) {
       <Button v-else @click="isCreateOpen = true"><Plus /> New project</Button>
     </EmptyState>
 
-    <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div v-else class="stagger-in grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       <RouterLink
         v-for="project in visible"
         :key="project.id"
         :to="{ name: 'project-board', params: { projectId: project.id } }"
-        class="surface-hover group flex min-w-0 flex-col gap-4 rounded-xl border border-border/70 bg-card p-4 shadow-soft focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-5"
+        class="surface-hover card-modern group flex min-w-0 flex-col gap-4 rounded-2xl p-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:p-5"
         :class="project.archivedAt && 'opacity-80'"
       >
         <div class="flex items-start gap-3">

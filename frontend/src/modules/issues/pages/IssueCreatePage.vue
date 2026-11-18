@@ -14,7 +14,7 @@ const route = useRoute()
 const router = useRouter()
 const ui = useUiStore()
 const projects = useProjectsStore()
-const { isDesktop } = useDevice()
+const { isDesktop, isWide } = useDevice()
 const formRef = ref<InstanceType<typeof IssueCreateForm> | null>(null)
 
 const queryValue = (key: string) => (typeof route.query[key] === 'string' && route.query[key] ? (route.query[key] as string) : undefined)
@@ -67,7 +67,7 @@ function onCreated(issue: IssueDetail) {
         <div class="min-w-0 flex-1">
           <h1 class="truncate text-lg font-bold tracking-tight sm:text-xl">Create task</h1>
           <p class="text-[13px] text-muted-foreground sm:text-sm">
-            {{ projectName ? `New task in ${projectName}` : isDesktop ? 'Capture the task, then fine-tune the details on the right.' : 'Fill in the essentials below.' }}
+            {{ projectName ? `New task in ${projectName}` : isWide ? 'Capture the task, then fine-tune the details on the right.' : 'Fill in the essentials below.' }}
           </p>
         </div>
       </div>
@@ -77,7 +77,7 @@ function onCreated(issue: IssueDetail) {
       ref="formRef"
       class="flex-1"
       :defaults="defaults"
-      :compact="!isDesktop"
+      :compact="!isWide"
       @created="onCreated"
       @cancel="leave()"
     />

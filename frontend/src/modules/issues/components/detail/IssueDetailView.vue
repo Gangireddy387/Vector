@@ -149,10 +149,15 @@ function startLinking() {
 </script>
 
 <template>
-  <div v-if="isLoading" class="space-y-4 p-6">
+  <div v-if="isLoading" class="space-y-4 p-6" aria-busy="true" aria-label="Loading task">
     <Skeleton class="h-5 w-40" />
     <Skeleton class="h-8 w-3/4" />
-    <Skeleton class="h-32 w-full" />
+    <Skeleton class="h-32 w-full rounded-xl" />
+    <div class="grid gap-3 sm:grid-cols-2">
+      <Skeleton class="h-24 rounded-xl" />
+      <Skeleton class="h-24 rounded-xl" />
+    </div>
+    <Skeleton class="h-40 w-full rounded-xl" />
   </div>
 
   <EmptyState v-else-if="loadError && !issue" title="This task did not load" :description="loadError" class="py-20">
@@ -254,8 +259,8 @@ function startLinking() {
               <UserPlus /> Assign to me
             </Button>
             <Button v-if="canUseAi" variant="outline" size="sm" @click="summaryRef?.generate()"><Sparkles class="text-primary" /> Summarize</Button>
-            <Button v-if="isDesktop && canAttach" variant="outline" size="sm" @click="attachmentsRef?.openPicker()"><Paperclip /> Attach</Button>
-            <Button v-if="isDesktop && canEdit" variant="outline" size="sm" @click="startLinking"><Link2 /> Link</Button>
+            <Button v-if="canAttach" variant="outline" size="sm" @click="attachmentsRef?.openPicker()"><Paperclip /> Attach</Button>
+            <Button v-if="canEdit" variant="outline" size="sm" @click="startLinking"><Link2 /> Link</Button>
           </div>
         </div>
 

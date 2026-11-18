@@ -169,7 +169,7 @@ const subtaskText = computed({
         <p class="text-xs text-muted-foreground">Sends a JSON payload with the task key, title, status and rule name. Private/local URLs are blocked.</p>
       </div>
 
-      <div v-else-if="action.type === 'set_due_date'" class="flex items-center gap-2 text-sm">
+      <div v-else-if="action.type === 'set_due_date'" class="flex flex-wrap items-center gap-2 text-sm">
         <NumberField
           :model-value="String(params.daysFromNow ?? 3)"
           :min="0"

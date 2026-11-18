@@ -87,7 +87,7 @@ async function save() {
     </EmptyState>
 
     <form v-else class="space-y-5" novalidate @submit.prevent="save">
-      <div class="grid items-start gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_min(100%,24rem)]">
+      <div class="grid items-start gap-4 sm:gap-5 md:grid-cols-2">
       <section class="space-y-4 rounded-xl border border-border/80 bg-card p-4 shadow-soft sm:p-5 lg:p-6">
         <h2 class="flex items-center gap-2 text-sm font-semibold"><Building2 class="size-4 text-primary" /> Details</h2>
         <FormField label="Department name" for="department-name" :error="fieldErrors.name">

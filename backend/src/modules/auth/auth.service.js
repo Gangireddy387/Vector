@@ -171,10 +171,14 @@ export async function regenerateMfaRecovery(actor, { password, code }) {
   return { recoveryCodes: codes };
 }
 
-/** Answers the same way, and as fast, whether or not the email is registered; the email goes out in the background. */
+/** Sends a reset link only when an active account exists. Unknown and inactive emails get a specific error. */
 export async function requestPasswordReset({ email }) {
-  const user = await User.findOne({ where: { email, status: 'active' } });
-  if (!user) return;
+  const user = await User.findOne({ where: { email } });
+  if (!user) throw ApiError.notFound('No account found for that email');
+  if (user.status === 'invited') {
+    throw ApiError.badRequest('This email has a pending invitation. Open the invitation link to set up your account.');
+  }
+  if (user.status !== 'active') throw ApiError.badRequest('This account is not active');
   const { raw, hash } = createOneTimeToken();
   await user.update({ resetToken: hash, resetTokenExpiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS) });
   void sendEmail({ to: user.email, ...passwordResetEmail({ name: user.name, token: raw }) }).catch((error) =>

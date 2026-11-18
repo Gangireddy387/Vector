@@ -41,7 +41,7 @@ const auth = useAuthStore()
 const projects = useProjectsStore()
 const openIssue = useOpenIssue()
 const confirm = useConfirm()
-const { isDesktop } = useDevice()
+const { isPhone, isWide } = useDevice()
 
 const projectId = computed(() => route.params.projectId as string)
 const preferredSprintId = computed(() => (typeof route.query.sprintId === 'string' ? route.query.sprintId : null))
@@ -346,11 +346,11 @@ function moveOnMobile(issue: Issue, status: Status) {
 
 <template>
   <div
-    class="flex w-full flex-col overflow-x-hidden"
-    :class="isDesktop ? 'h-full min-h-0' : 'w-full'"
+    class="flex w-full flex-col"
+    :class="isPhone ? 'w-full overflow-visible' : 'h-full min-h-0 overflow-x-clip'"
   >
     <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
-    <div v-if="isLoading" class="flex gap-3 overflow-x-auto p-3 sm:p-4">
+    <div v-if="isLoading" class="flex gap-3 overflow-x-auto p-3 sm:p-4" aria-busy="true" aria-label="Loading board">
       <Skeleton v-for="index in 4" :key="index" class="h-96 w-64 shrink-0 rounded-xl sm:min-w-64 sm:flex-1" />
     </div>
 
@@ -380,7 +380,7 @@ function moveOnMobile(issue: Issue, status: Status) {
       </p>
 
       <!-- Desktop: the whole workflow at a glance -->
-      <template v-if="isDesktop">
+      <template v-if="isWide">
         <div class="flex flex-col gap-2 border-b border-border px-3 py-2.5 lg:flex-row lg:items-start lg:gap-3 lg:px-4">
           <div class="min-w-0 flex-1">
             <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" />
@@ -532,9 +532,9 @@ function moveOnMobile(issue: Issue, status: Status) {
         </div>
       </template>
 
-      <!-- Mobile: one status at a time; page scrolls (no nested board scrollbar) -->
+      <!-- Phone and tablet: one status at a time. Phone scrolls the page; tablet scrolls inside the shell. -->
       <template v-else>
-        <div class="flex w-full min-w-0 flex-col">
+        <div class="flex w-full min-w-0 flex-col" :class="isPhone ? '' : 'h-full min-h-0 overflow-y-auto'">
           <div class="flex items-center gap-2 border-b border-border px-3 py-2">
             <div class="relative min-w-0 flex-1">
               <Search class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />

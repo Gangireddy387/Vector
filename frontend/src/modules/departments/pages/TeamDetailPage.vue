@@ -174,7 +174,7 @@ async function remove() {
               <Crown class="size-4 shrink-0 text-amber-500" />
               <dd v-if="team.lead" class="flex min-w-0 items-center gap-2">
                 <UserAvatar :user="team.lead" size="sm" />
-                <span class="min-w-0 truncate"><span class="font-medium">{{ team.lead.name }}</span> <span class="text-muted-foreground max-sm:hidden">· Team lead</span></span>
+                <span class="min-w-0 truncate"><span class="font-medium">{{ team.lead.name }}</span> <span class="text-muted-foreground">· Team lead</span></span>
               </dd>
               <dd v-else class="text-muted-foreground">No team lead yet</dd>
             </div>

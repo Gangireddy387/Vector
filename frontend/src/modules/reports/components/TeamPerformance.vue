@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Award, Bug, CircleCheck, Clock, Download, FolderKanban, Info, MessageSquare, RotateCcw, Timer, Trophy, Users, Zap } from 'lucide-vue-next'
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, Award, Bug, CircleCheck, Clock, Download, FolderKanban, Info, MessageSquare, RotateCcw, Timer, Trophy, Users, Zap } from 'lucide-vue-next'
 import { type Component, computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -113,6 +113,56 @@ const COLUMNS: Array<{ key: SortKey; label: string; hint: string; align?: 'right
   { key: 'open', label: 'Open now', hint: 'Work assigned right now (overdue in red)', align: 'right' },
 ]
 
+const sortOptions = computed<SelectFieldOption[]>(() => COLUMNS.map((column) => ({ value: column.key, label: column.label, description: column.hint })))
+const sortSelection = computed({
+  get: () => sortKey.value,
+  set: (value: string | null | undefined) => {
+    if (value && COLUMNS.some((column) => column.key === value)) setSort(value as SortKey)
+  },
+})
+
+function setSort(key: SortKey) {
+  if (sortKey.value === key) return
+  sortKey.value = key
+  sortAscending.value = LOWER_IS_BETTER.includes(key)
+}
+
+function roleLine(row: MemberPerformance) {
+  return row.user.title || row.roles.map((role) => role[0]!.toUpperCase() + role.slice(1)).join(', ')
+}
+
+type MetricTone = 'danger' | 'success' | 'muted'
+
+function metricsFor(row: MemberPerformance): Array<{ label: string; value: string; detail?: string; tone?: MetricTone }> {
+  return [
+    { label: 'Delivered', value: String(row.completed), detail: row.completedPoints ? `${row.completedPoints} pts` : undefined },
+    {
+      label: 'On time',
+      value: row.onTimeRate === null ? '—' : `${row.onTimeRate}%`,
+      detail: row.onTimeRate === null ? undefined : `${row.onTime}/${row.withDueDate}`,
+      tone: row.onTimeRate === null ? 'muted' : row.onTimeRate >= 80 ? 'success' : row.onTimeRate < 50 ? 'danger' : undefined,
+    },
+    { label: 'Cycle', value: row.averageCycleDays === null ? '—' : `${row.averageCycleDays}d`, tone: row.averageCycleDays === null ? 'muted' : undefined },
+    { label: 'Bugs', value: String(row.bugsFixed), tone: row.bugsFixed ? undefined : 'muted' },
+    { label: 'Reopened', value: String(row.reopened), tone: row.reopened ? 'danger' : 'muted' },
+    { label: 'Logged', value: hours(row.loggedMinutes), tone: row.loggedMinutes ? undefined : 'muted' },
+    { label: 'Comments', value: String(row.comments), tone: row.comments ? undefined : 'muted' },
+    {
+      label: 'Open now',
+      value: String(row.open),
+      detail: row.overdue ? `${row.overdue} overdue` : undefined,
+      tone: row.overdue ? 'danger' : row.open ? undefined : 'muted',
+    },
+  ]
+}
+
+function metricClass(tone?: MetricTone) {
+  if (tone === 'danger') return 'text-destructive'
+  if (tone === 'success') return 'text-success'
+  if (tone === 'muted') return 'text-muted-foreground'
+  return ''
+}
+
 const hours = (minutes: number) => (minutes ? `${Math.round((minutes / 60) * 10) / 10}h` : '—')
 const scoreTone = (score: number) => (score >= 80 ? 'bg-success' : score >= 55 ? 'bg-primary' : 'bg-warning')
 const rankTone = (rank: number | null) =>
@@ -188,7 +238,7 @@ function exportCsv() {
           <PopoverTrigger as-child>
             <Button variant="ghost" size="sm" class="max-sm:w-full"><Info /> How scores work</Button>
           </PopoverTrigger>
-          <PopoverContent align="end" class="w-80 space-y-2 text-sm">
+          <PopoverContent align="end" class="w-[min(20rem,calc(100vw-2rem))] space-y-2 text-sm">
             <p class="font-semibold">Contribution score (0–100)</p>
             <p class="text-muted-foreground">Compares people who completed work in this period, on the same projects:</p>
             <ul class="space-y-1 text-muted-foreground">
@@ -209,11 +259,11 @@ function exportCsv() {
       <Button variant="outline" size="sm" @click="load">Retry</Button>
     </div>
 
-    <div v-if="isLoading && !report" class="space-y-4">
+    <div v-if="isLoading && !report" class="space-y-4" aria-busy="true" aria-label="Loading team performance">
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <Skeleton v-for="index in 5" :key="index" class="h-32" />
+        <Skeleton v-for="index in 5" :key="index" class="h-32 rounded-xl" />
       </div>
-      <Skeleton class="h-80 w-full" />
+      <Skeleton class="h-80 w-full rounded-2xl" />
     </div>
 
     <div v-else-if="report" class="space-y-4 transition-opacity" :class="isLoading && 'opacity-60'">
@@ -245,6 +295,7 @@ function exportCsv() {
         />
         <ReportKpiCard label="Time logged" :value="hours(report.totals.loggedMinutes)" :icon="Clock" explanation="Hours recorded on issues in this period." />
         <ReportKpiCard
+          class="col-span-2 lg:col-span-1"
           label="Reopened"
           :value="report.totals.reopened"
           :icon="RotateCcw"
@@ -287,19 +338,79 @@ function exportCsv() {
       />
 
       <section v-else class="border border-border/70 bg-card shadow-soft">
-        <header class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-          <div>
+        <header class="flex flex-col gap-3 border-b px-3 py-3 sm:px-4 xl:flex-row xl:items-center xl:justify-between">
+          <div class="min-w-0">
             <h2 class="text-sm font-semibold">Member review</h2>
-            <p class="text-xs text-muted-foreground">Click a column to sort. Click a person for their full review: every task they finished, by module and sprint.</p>
+            <p class="text-xs text-muted-foreground xl:hidden">Tap a person for their full review. Sort with the menu.</p>
+            <p class="hidden text-xs text-muted-foreground xl:block">Click a column to sort. Click a person for their full review: every task they finished, by module and sprint.</p>
+          </div>
+          <div class="flex w-full min-w-0 items-center gap-2 xl:hidden">
+            <SelectField v-model="sortSelection" :options="sortOptions" size="sm" class="min-w-0 flex-1" aria-label="Sort members" />
+            <Button
+              variant="outline"
+              size="icon-lg"
+              class="shrink-0"
+              :aria-pressed="sortAscending"
+              :aria-label="sortAscending ? 'Sorted lowest first' : 'Sorted highest first'"
+              :title="sortAscending ? 'Lowest first' : 'Highest first'"
+              @click="sortAscending = !sortAscending"
+            >
+              <ArrowUpNarrowWide v-if="sortAscending" />
+              <ArrowDownWideNarrow v-else />
+            </Button>
           </div>
         </header>
-        <div class="overflow-x-auto">
-          <table class="w-full min-w-[60rem] text-sm">
+
+        <ul class="divide-y xl:hidden">
+          <li v-for="row in rows" :key="row.user.id">
+            <button
+              type="button"
+              class="w-full px-3 py-3 text-left transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none sm:px-4"
+              :aria-label="`Open review for ${row.user.name}`"
+              @click="reviewUserId = row.user.id"
+            >
+              <span class="flex items-center gap-2.5">
+                <span v-if="row.rank" class="inline-flex size-6 shrink-0 items-center justify-center text-xs font-bold tabular-nums" :class="rankTone(row.rank)">{{ row.rank }}</span>
+                <span v-else class="inline-flex size-6 shrink-0 items-center justify-center text-xs text-muted-foreground">—</span>
+                <UserAvatar :user="row.user" size="md" />
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate font-medium">{{ row.user.name }}</span>
+                  <span class="block truncate text-xs text-muted-foreground">{{ roleLine(row) }}</span>
+                </span>
+                <span v-if="row.score !== null" class="shrink-0 text-right">
+                  <span class="block text-lg leading-none font-semibold tabular-nums">{{ row.score }}</span>
+                  <span class="mt-1 block h-1.5 w-14 bg-muted"><span class="block h-full" :class="scoreTone(row.score)" :style="{ width: `${row.score}%` }" /></span>
+                </span>
+                <span v-else class="max-w-24 shrink-0 text-right text-xs text-muted-foreground">No completed work</span>
+              </span>
+              <span class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
+                <span v-for="metric in metricsFor(row)" :key="metric.label" class="min-w-0">
+                  <span class="block text-[11px] text-muted-foreground">{{ metric.label }}</span>
+                  <span class="block text-sm font-medium tabular-nums" :class="metricClass(metric.tone)">{{ metric.value }}</span>
+                  <span v-if="metric.detail" class="block truncate text-[11px]" :class="metric.tone === 'danger' ? 'font-medium text-destructive' : 'text-muted-foreground'">{{ metric.detail }}</span>
+                </span>
+              </span>
+              <span v-if="row.trend.length > 1" class="mt-3 flex items-center justify-between gap-3">
+                <span class="text-[11px] text-muted-foreground">Completed per {{ report.buckets[0]?.unit ?? 'week' }}</span>
+                <TrendSparkline :values="row.trend" :label="`Completed per ${report.buckets[0]?.unit ?? 'week'}: ${row.trend.map((value, index) => `${bucketLabels[index]} ${value}`).join(', ')}`" />
+              </span>
+            </button>
+          </li>
+        </ul>
+
+        <div class="hidden overflow-x-auto xl:block">
+          <table class="w-full text-sm">
             <thead>
               <tr class="border-b bg-muted/40 text-left text-xs font-medium text-muted-foreground">
                 <th class="w-12 px-4 py-2 font-semibold">#</th>
                 <th class="px-3 py-2 font-semibold">Person</th>
-                <th v-for="column in COLUMNS" :key="column.key" class="px-3 py-2 font-semibold" :class="column.align === 'right' && 'text-right'" :aria-sort="sortKey === column.key ? (sortAscending ? 'ascending' : 'descending') : 'none'">
+                <th
+                  v-for="column in COLUMNS"
+                  :key="column.key"
+                  class="px-3 py-2 font-semibold whitespace-nowrap"
+                  :class="column.align === 'right' && 'text-right'"
+                  :aria-sort="sortKey === column.key ? (sortAscending ? 'ascending' : 'descending') : 'none'"
+                >
                   <button
                     type="button"
                     class="inline-flex items-center gap-1 uppercase transition-colors hover:text-foreground"
@@ -333,7 +444,7 @@ function exportCsv() {
                     <UserAvatar :user="row.user" size="md" />
                     <span class="min-w-0">
                       <span class="block truncate font-medium">{{ row.user.name }}</span>
-                      <span class="block truncate text-xs text-muted-foreground">{{ row.user.title || row.roles.map((role) => role[0]!.toUpperCase() + role.slice(1)).join(', ') }}</span>
+                      <span class="block truncate text-xs text-muted-foreground">{{ roleLine(row) }}</span>
                     </span>
                   </span>
                 </td>

@@ -70,44 +70,40 @@ const multiValue = computed({
 </script>
 
 <template>
-  <div class="flex flex-col gap-2 border bg-muted/30 p-2 sm:flex-row sm:flex-wrap sm:items-center">
-    <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-      <SelectField
-        :model-value="condition.field"
-        :options="fieldOptions"
-        size="sm"
-        class="min-w-0 flex-1 basis-[8rem] sm:max-w-44 sm:flex-none sm:w-44"
-        aria-label="Field"
-        @update:model-value="(value) => value && setField(value as ConditionField)"
-      />
-      <SelectField
-        :model-value="condition.operator"
-        :options="operatorOptions"
-        size="sm"
-        class="min-w-0 flex-1 basis-[7rem] sm:max-w-40 sm:flex-none sm:w-40"
-        aria-label="Operator"
-        @update:model-value="(value) => value && setOperator(value as ConditionOperator)"
-      />
+  <div class="flex flex-col gap-2 border bg-muted/30 p-2 sm:flex-row sm:items-center">
+    <SelectField
+      :model-value="condition.field"
+      :options="fieldOptions"
+      size="sm"
+      class="w-full sm:w-44 sm:shrink-0"
+      aria-label="Field"
+      @update:model-value="(value) => value && setField(value as ConditionField)"
+    />
+    <SelectField
+      :model-value="condition.operator"
+      :options="operatorOptions"
+      size="sm"
+      class="w-full sm:w-40 sm:shrink-0"
+      aria-label="Operator"
+      @update:model-value="(value) => value && setOperator(value as ConditionOperator)"
+    />
 
-      <template v-if="needsValue">
-        <div class="min-w-0 w-full sm:w-auto">
-          <FilterDropdown v-if="isMulti" v-model="multiValue" label="Choose values" :options="valueOptions" />
-          <SelectField
-            v-else-if="valueOptions.length"
-            :model-value="singleValue || null"
-            :options="valueOptions"
-            placeholder="Choose…"
-            size="sm"
-            class="w-full sm:w-48"
-            aria-label="Value"
-            @update:model-value="(value) => (singleValue = value ?? '')"
-          />
-          <NumberField v-else-if="field.kind === 'number'" v-model="singleValue" :min="0" size="sm" class="w-full sm:w-32" aria-label="Value" />
-          <Input v-else v-model="singleValue" class="h-8 w-full sm:w-48" placeholder="Value" aria-label="Value" />
-        </div>
-      </template>
+    <div v-if="needsValue" class="min-w-0 w-full sm:w-auto sm:flex-1">
+      <FilterDropdown v-if="isMulti" v-model="multiValue" label="Choose values" :options="valueOptions" />
+      <SelectField
+        v-else-if="valueOptions.length"
+        :model-value="singleValue || null"
+        :options="valueOptions"
+        placeholder="Choose…"
+        size="sm"
+        class="w-full"
+        aria-label="Value"
+        @update:model-value="(value) => (singleValue = value ?? '')"
+      />
+      <NumberField v-else-if="field.kind === 'number'" v-model="singleValue" :min="0" size="sm" class="w-full sm:w-32" aria-label="Value" />
+      <Input v-else v-model="singleValue" class="h-10 w-full sm:h-8 sm:max-w-48" placeholder="Value" aria-label="Value" />
     </div>
 
-    <Button variant="ghost" size="icon-sm" class="ml-auto shrink-0 self-end sm:self-center" aria-label="Remove condition" @click="$emit('remove')"><Trash2 /></Button>
+    <Button variant="ghost" size="icon-lg" class="self-end sm:size-7 sm:self-center" aria-label="Remove condition" @click="$emit('remove')"><Trash2 /></Button>
   </div>
 </template>

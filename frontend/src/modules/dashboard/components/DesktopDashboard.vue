@@ -185,7 +185,7 @@ const daysLeft = (endDate: string | null) => {
     </EmptyState>
 
     <template v-else-if="data">
-      <div v-if="show('stats')" class="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <div v-if="show('stats')" class="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5">
         <RouterLink
           v-for="stat in stats"
           :key="stat.label"

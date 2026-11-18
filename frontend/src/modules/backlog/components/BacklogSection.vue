@@ -41,7 +41,7 @@ const emit = defineEmits<{
   moveTo: [issue: Issue, targetKey: string]
 }>()
 
-const { isDesktop } = useDevice()
+const { isWide } = useDevice()
 const isCollapsed = ref(props.startCollapsed)
 
 const points = computed(() => issues.value.reduce((total, issue) => total + (issue.storyPoints ?? 0), 0))
@@ -79,15 +79,15 @@ const STATE_BADGE = { active: 'success', planned: 'secondary', completed: 'outli
         :disabled="!editable"
         handle=".drag-handle"
         ghost-class="opacity-40"
-        :delay="isDesktop ? 0 : 180"
+        :delay="isWide ? 0 : 180"
         :delay-on-touch-only="true"
         :data-section-key="sectionKey"
         class="min-h-10"
-        :class="!isDesktop && 'space-y-2 p-2'"
+        :class="!isWide && 'space-y-2 p-2'"
         @start="emit('dragStart')"
         @end="(event: SortableEvent) => emit('dragEnd', event)"
       >
-        <template v-if="isDesktop">
+        <template v-if="isWide">
           <IssueRow
             v-for="issue in issues"
             :key="issue.id"

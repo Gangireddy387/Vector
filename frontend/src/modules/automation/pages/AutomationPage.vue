@@ -189,7 +189,7 @@ async function removeRecurring(task: RecurringTask) {
 
 <template>
   <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
-    <div v-if="isLoading" class="space-y-3">
+    <div v-if="isLoading" class="space-y-3" aria-busy="true" aria-label="Loading automation">
       <Skeleton class="h-10 w-full max-w-md" />
       <Skeleton v-for="index in 4" :key="index" class="h-20 w-full rounded-xl" />
     </div>
@@ -310,12 +310,12 @@ async function removeRecurring(task: RecurringTask) {
 
         <section v-if="isAdmin" class="space-y-3">
           <h3 class="text-sm font-semibold">Recipes</h3>
-          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div class="stagger-in grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <button
               v-for="recipe in visibleRecipes"
               :key="recipe.id"
               type="button"
-              class="surface-hover flex min-w-0 flex-col gap-2 rounded-xl border border-border/70 bg-card p-4 text-left shadow-soft disabled:pointer-events-none disabled:opacity-60"
+              class="surface-hover card-modern flex min-w-0 flex-col gap-2 rounded-2xl p-4 text-left disabled:pointer-events-none disabled:opacity-60"
               :disabled="usedRecipeNames.has(recipe.name)"
               @click="useRecipe(recipe)"
             >

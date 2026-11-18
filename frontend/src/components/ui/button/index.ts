@@ -3,15 +3,15 @@ import { cva, type VariantProps } from 'class-variance-authority'
 export { default as Button } from './Button.vue'
 
 export const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap text-[13px] font-medium tracking-[-0.006em] transition-[background-color,border-color,color,box-shadow,filter] duration-150 outline-none select-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 focus-visible:ring-[3px] focus-visible:ring-ring/30 aria-invalid:ring-destructive/20",
+  "inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap text-[13px] font-medium tracking-[-0.006em] transition-[background-color,border-color,color,box-shadow,filter,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] outline-none select-none active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 focus-visible:ring-[3px] focus-visible:ring-ring/30 aria-invalid:ring-destructive/20",
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-glow hover:bg-primary/90',
+        default: 'bg-primary text-primary-foreground shadow-glow hover:bg-primary/90 hover:brightness-[1.03]',
         brand:
           'bg-[linear-gradient(180deg,color-mix(in_oklch,var(--primary)_86%,white),var(--primary))] text-primary-foreground shadow-glow hover:brightness-110 dark:bg-[linear-gradient(180deg,color-mix(in_oklch,var(--primary)_92%,white),color-mix(in_oklch,var(--primary)_88%,black))]',
         destructive: 'bg-destructive text-white shadow-glow hover:bg-destructive/90 focus-visible:ring-destructive/25',
-        outline: 'border border-border bg-card text-foreground shadow-soft hover:border-input hover:bg-accent dark:bg-card',
+        outline: 'border border-border bg-card text-foreground shadow-soft hover:border-primary/25 hover:bg-accent dark:bg-card',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-accent',
         soft: 'bg-primary/10 text-primary hover:bg-primary/15 dark:bg-primary/15 dark:hover:bg-primary/20',
         ghost: 'text-foreground/80 hover:bg-accent hover:text-foreground',

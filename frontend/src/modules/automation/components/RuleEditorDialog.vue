@@ -66,7 +66,7 @@ async function save() {
 
 <template>
   <Dialog v-model:open="open">
-    <DialogContent class="sm:max-w-3xl">
+    <DialogContent class="w-[calc(100%-1rem)] p-4 sm:max-w-3xl sm:p-6">
       <DialogHeader>
         <DialogTitle>{{ rule ? 'Edit rule' : 'New automation rule' }}</DialogTitle>
         <DialogDescription>Rules run instantly in the background whenever their trigger happens.</DialogDescription>

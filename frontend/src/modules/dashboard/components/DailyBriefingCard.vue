@@ -4,6 +4,7 @@ import { ChevronDown, ClipboardList, Loader2, Sparkles, Video } from 'lucide-vue
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { aiApi, aiSourceHint, type DailyBriefing } from '@/modules/issues/api/ai.api'
@@ -78,8 +79,15 @@ onMounted(() => {
     </header>
 
     <div v-if="expanded" id="daily-briefing-body">
-      <div v-if="isLoading && !briefing" class="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
-        <Loader2 class="size-4 animate-spin" /> Preparing what needs you today…
+      <div v-if="isLoading && !briefing" class="space-y-3 px-4 py-5" aria-busy="true" aria-label="Preparing briefing">
+        <Skeleton class="h-3 w-40" />
+        <Skeleton class="h-4 w-full" />
+        <Skeleton class="h-4 w-5/6" />
+        <Skeleton class="h-4 w-2/3" />
+        <div class="flex gap-2 pt-1">
+          <Skeleton class="h-8 w-24 rounded-md" />
+          <Skeleton class="h-8 w-28 rounded-md" />
+        </div>
       </div>
       <div v-else-if="error && !briefing" class="space-y-3 px-4 py-5">
         <p class="text-sm text-destructive">{{ error }}</p>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, Copy, LoaderCircle, Mail } from 'lucide-vue-next'
+import { ArrowRight, Copy, Mail } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -7,6 +7,7 @@ import BrandMark from '@/components/layout/BrandMark.vue'
 import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
 import ThemeSwitch from '@/components/layout/ThemeSwitch.vue'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { assetUrl, getErrorMessage } from '@/lib/http'
 import { organizationsApi } from '@/modules/auth/auth.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -80,9 +81,16 @@ async function copyWorkspaceLink() {
       </header>
 
       <main class="flex flex-1 flex-col justify-center gap-6 py-10">
-        <div v-if="loading" class="flex flex-col items-center gap-3 py-10 text-center">
-          <LoaderCircle class="size-8 animate-spin text-primary" />
-          <p class="font-medium">Loading workspace…</p>
+        <div v-if="loading" class="mx-auto flex w-full max-w-md flex-col items-center gap-4 py-10" aria-busy="true" aria-label="Loading workspace">
+          <Skeleton class="size-12 rounded-2xl" />
+          <Skeleton class="h-7 w-56" />
+          <Skeleton class="h-4 w-72 max-w-full" />
+          <Skeleton class="h-4 w-64 max-w-full" />
+          <div class="mt-2 grid w-full grid-cols-3 gap-2">
+            <Skeleton class="h-20 rounded-xl" />
+            <Skeleton class="h-20 rounded-xl" />
+            <Skeleton class="h-20 rounded-xl" />
+          </div>
         </div>
 
         <template v-else-if="org">

@@ -405,8 +405,8 @@ async function leaveChannel(conversation: ConversationSummary) {
         </div>
 
         <div class="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-          <div v-if="store.conversations === null && !store.loadError" class="space-y-2 p-3">
-            <Skeleton v-for="index in 6" :key="index" class="h-14 w-full" />
+          <div v-if="store.conversations === null && !store.loadError" class="space-y-2 p-3" aria-busy="true" aria-label="Loading messages">
+            <Skeleton v-for="index in 6" :key="index" class="h-14 w-full rounded-lg" />
           </div>
           <EmptyState
             v-else-if="store.loadError && store.conversations === null"
@@ -596,7 +596,7 @@ async function leaveChannel(conversation: ConversationSummary) {
               <Input v-model="channelSearch" class="h-8 pr-8 pl-9" :placeholder="`Search in ${headerTitle(selected)}`" aria-label="Search in this channel" autofocus @keydown.esc="closeSearch" />
               <button type="button" class="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label="Close search" @click="closeSearch"><X class="size-4" /></button>
             </div>
-            <nav v-else-if="isWide" class="ml-2 flex h-full min-w-0 flex-1 flex-wrap items-stretch gap-1" aria-label="Channel tabs">
+            <nav v-else class="ml-1 flex h-full min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto scrollbar-none" aria-label="Channel tabs">
               <button
                 v-for="item in channelTabs"
                 :key="item.value"
@@ -613,8 +613,8 @@ async function leaveChannel(conversation: ConversationSummary) {
             <Button v-if="!isSearching && view === 'posts'" variant="ghost" size="icon-sm" class="shrink-0" title="Search in this channel" aria-label="Search in this channel" @click="isSearching = true"><Search /></Button>
           </template>
 
-          <MeetButton v-if="isWide && meetPreset && conversationPeople.length" :key="selected.id" :preset="meetPreset" />
-          <Button v-if="isWide && selected.kind === 'channel'" variant="ghost" size="sm" class="shrink-0" title="People in this channel" @click="membersOpen = true">
+          <MeetButton v-if="meetPreset && conversationPeople.length" :key="selected.id" :preset="meetPreset" :compact="!isWide" />
+          <Button v-if="selected.kind === 'channel'" variant="ghost" size="sm" class="shrink-0" title="People in this channel" @click="membersOpen = true">
             <UsersRound /> {{ selected.memberCount ?? 0 }}
           </Button>
           <DropdownMenu>

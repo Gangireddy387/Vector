@@ -172,7 +172,7 @@ onMounted(async () => {
     <PushPrompt />
 
     <template v-if="!searching">
-      <div v-if="isLoading" class="space-y-3">
+      <div v-if="isLoading" class="space-y-3" aria-busy="true" aria-label="Loading meetings">
         <Skeleton v-for="index in 3" :key="index" class="h-28 w-full rounded-xl" />
       </div>
 
@@ -234,11 +234,11 @@ onMounted(async () => {
                 </div>
                 <p class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                   <span class="inline-flex items-center gap-1"><Clock3 class="size-3.5" /> {{ timeRange(meeting) }} · {{ durationLabel(meeting.durationMinutes) }}</span>
-                  <span v-if="meeting.host" class="inline-flex items-center gap-1.5 max-sm:hidden"><UserAvatar :user="meeting.host" size="xs" /> Hosted by {{ meeting.host.name }}</span>
+                  <span v-if="meeting.host" class="inline-flex min-w-0 items-center gap-1.5"><UserAvatar :user="meeting.host" size="xs" /> <span class="truncate">Hosted by {{ meeting.host.name }}</span></span>
                   <span v-if="meeting.recurrence" class="inline-flex items-center gap-1"><Repeat class="size-3.5" /> {{ recurrenceLabel(meeting.recurrence, meeting.startsAt) }}</span>
-                  <span v-if="meeting.guestAccess" class="inline-flex items-center gap-1 max-sm:hidden"><Link2 class="size-3.5" /> Guests can join</span>
+                  <span v-if="meeting.guestAccess" class="inline-flex items-center gap-1"><Link2 class="size-3.5" /> Guests can join</span>
                 </p>
-                <p v-if="meeting.agenda" class="line-clamp-1 text-sm text-muted-foreground/90 max-sm:hidden">{{ meeting.agenda }}</p>
+                <p v-if="meeting.agenda" class="line-clamp-2 text-sm text-muted-foreground/90">{{ meeting.agenda }}</p>
               </div>
             </div>
 

@@ -340,14 +340,14 @@ const discussedTasks = computed(() => {
 </script>
 
 <template>
-  <div class="flex min-h-0 w-full flex-1">
+  <div class="flex min-h-0 w-full flex-1 flex-col lg:flex-row">
     <section class="flex min-w-0 flex-1 flex-col">
       <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-3">
         <!-- Stick the thread to the bottom so a short chat sits above the composer, not under a tall empty gap. -->
         <div class="flex min-h-full flex-col justify-end">
-          <div v-if="isLoading" class="space-y-4 p-4">
+          <div v-if="isLoading" class="space-y-4 p-4" aria-busy="true" aria-label="Loading work chat">
             <div v-for="index in 5" :key="index" class="flex gap-3">
-              <Skeleton class="size-9 shrink-0" />
+              <Skeleton class="size-9 shrink-0 rounded-full" />
               <div class="flex-1 space-y-2"><Skeleton class="h-3 w-40" /><Skeleton class="h-4 w-3/4" /></div>
             </div>
           </div>
@@ -490,7 +490,7 @@ const discussedTasks = computed(() => {
       </div>
     </section>
 
-    <aside v-if="isDesktop && !embedded" class="hidden w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l bg-muted/20 p-4 xl:flex">
+    <aside v-if="!embedded" class="flex max-h-56 shrink-0 flex-col gap-4 overflow-y-auto border-t bg-muted/20 p-3 lg:max-h-none lg:w-72 lg:border-t-0 lg:border-l lg:p-4">
       <section>
         <h2 class="mb-2 text-xs font-medium text-muted-foreground">Daily standup</h2>
         <RouterLink

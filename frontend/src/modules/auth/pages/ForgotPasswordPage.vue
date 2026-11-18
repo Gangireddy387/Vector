@@ -32,7 +32,7 @@ async function submit() {
     <div class="mb-6 flex size-12 items-center justify-center bg-success/15 text-success">
       <MailCheck class="size-6" />
     </div>
-    <AuthHeading title="Check your inbox" :description="`If an account exists for ${email}, we sent a link to reset your password.`" />
+    <AuthHeading title="Check your inbox" :description="`We sent a link to reset your password to ${email}.`" />
     <Button variant="outline" class="w-full" as-child>
       <RouterLink :to="{ name: 'login' }">Back to sign in</RouterLink>
     </Button>
@@ -44,7 +44,9 @@ async function submit() {
         <Input id="email" v-model="email" type="email" autocomplete="email" placeholder="you@company.com" required />
       </FormField>
       <p v-if="errorMessage" class=" bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
-      <Button type="submit" variant="brand" class="w-full" size="lg" :loading="isSubmitting">Send reset link</Button>
+      <Button type="submit" variant="brand" class="w-full" size="lg" :loading="isSubmitting">
+        {{ isSubmitting ? 'Sending…' : 'Send reset link' }}
+      </Button>
     </form>
     <p class="mt-6 text-center text-sm">
       <RouterLink :to="{ name: 'login' }" class="text-primary hover:underline">Back to sign in</RouterLink>

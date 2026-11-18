@@ -24,53 +24,66 @@
    * Light and dark keep separate lightness, chroma and text colour so the accent stays readable on both.
    */
   --brand-h: 275;
-  --brand-c: 0.2;
-  --brand-l: 0.55;
+  --brand-c: 0.22;
+  --brand-l: 0.54;
   --brand-fg: oklch(0.99 0 0);
-  --brand-c-dark: 0.17;
-  --brand-l-dark: 0.67;
+  --brand-c-dark: 0.18;
+  --brand-l-dark: 0.7;
   --brand-fg-dark: oklch(0.99 0 0);
-  --brand-shift: 30;
+  --brand-shift: 34;
 
   --tint-h: var(--brand-h);
-  --tint-c: 0.006;
+  /* Stronger brand tint so the canvas reads as a product, not a grey sheet. */
+  --tint-c: 0.014;
   --primary: oklch(var(--brand-l) var(--brand-c) var(--brand-h));
   --primary-foreground: var(--brand-fg);
-  --brand-from: oklch(calc(var(--brand-l) + 0.01) calc(var(--brand-c) * 1.08) var(--brand-h));
-  --brand-to: oklch(calc(var(--brand-l) + 0.05) calc(var(--brand-c) * 1.08) calc(var(--brand-h) + var(--brand-shift)));
+  --brand-from: oklch(calc(var(--brand-l) + 0.02) calc(var(--brand-c) * 1.12) var(--brand-h));
+  --brand-to: oklch(calc(var(--brand-l) + 0.07) calc(var(--brand-c) * 1.1) calc(var(--brand-h) + var(--brand-shift)));
 
-  --background: oklch(0.995 calc(var(--tint-c) * 0.3) var(--tint-h));
-  --foreground: oklch(0.21 calc(var(--tint-c) * 2) var(--tint-h));
-  --sidebar: oklch(0.966 calc(var(--tint-c) * 1.6) var(--tint-h));
-  --card: oklch(1 0 0);
+  --background: oklch(0.985 calc(var(--tint-c) * 0.9) var(--tint-h));
+  --foreground: oklch(0.2 calc(var(--tint-c) * 2.2) var(--tint-h));
+  --sidebar: oklch(0.955 calc(var(--tint-c) * 2.4) var(--tint-h));
+  --card: oklch(0.998 calc(var(--tint-c) * 0.2) var(--tint-h));
   --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
   --popover-foreground: var(--foreground);
-  --muted: oklch(0.967 var(--tint-c) var(--tint-h));
-  --muted-foreground: oklch(0.52 calc(var(--tint-c) * 2.5) var(--tint-h));
-  --secondary: oklch(0.955 var(--tint-c) var(--tint-h));
-  --secondary-foreground: oklch(0.27 calc(var(--tint-c) * 2) var(--tint-h));
-  --accent: oklch(0.955 calc(var(--tint-c) * 1.4) var(--tint-h));
+  --muted: oklch(0.955 calc(var(--tint-c) * 1.6) var(--tint-h));
+  --muted-foreground: oklch(0.48 calc(var(--tint-c) * 2.8) var(--tint-h));
+  --secondary: oklch(0.94 calc(var(--tint-c) * 1.8) var(--tint-h));
+  --secondary-foreground: oklch(0.26 calc(var(--tint-c) * 2.2) var(--tint-h));
+  --accent: oklch(0.945 calc(var(--tint-c) * 2.4) var(--tint-h));
   --accent-foreground: var(--foreground);
-  --border: oklch(0.915 calc(var(--tint-c) * 1.2) var(--tint-h));
-  --input: oklch(0.89 calc(var(--tint-c) * 1.4) var(--tint-h));
+  --border: oklch(0.9 calc(var(--tint-c) * 1.8) var(--tint-h));
+  --input: oklch(0.875 calc(var(--tint-c) * 2) var(--tint-h));
   --ring: var(--primary);
-  --destructive: oklch(0.6 0.21 25);
+  --destructive: oklch(0.58 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --success: oklch(0.62 0.16 152);
-  --warning: oklch(0.76 0.16 70);
-  --info: oklch(0.6 0.17 250);
+  --success: oklch(0.58 0.17 152);
+  --warning: oklch(0.74 0.17 70);
+  --info: oklch(0.58 0.18 250);
 
   --sidebar-foreground: var(--foreground);
-  --sidebar-accent: oklch(0.928 calc(var(--tint-c) * 2.2) var(--tint-h));
+  --sidebar-accent: oklch(0.915 calc(var(--tint-c) * 3.2) var(--tint-h));
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
 
   /* Veil behind dialogs and side sheets: a light frost in light mode, never black. */
-  --scrim: color-mix(in oklch, var(--sidebar) 55%, transparent);
+  --scrim: color-mix(in oklch, var(--sidebar) 52%, transparent);
 
-  /* Decorative layer painted behind the app canvas (see bg-app): kept flat, the panel carries the depth. */
-  --app-backdrop: none;
+  /*
+   * Soft brand mesh behind the app canvas. Keeps depth without fighting content.
+   * Org theme colour flows through --brand-* / --tint-*.
+   */
+  --app-backdrop:
+    radial-gradient(120% 80% at 0% -10%, color-mix(in oklch, var(--primary) 16%, transparent), transparent 55%),
+    radial-gradient(90% 70% at 100% 0%, color-mix(in oklch, var(--brand-to) 12%, transparent), transparent 50%),
+    radial-gradient(70% 50% at 50% 100%, color-mix(in oklch, var(--primary) 8%, transparent), transparent 55%);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --motion-fast: 160ms;
+  --motion-base: 240ms;
+  --motion-slow: 360ms;
 
   color: var(--foreground);
 }
@@ -78,28 +91,32 @@
 .dark {
   --primary: oklch(var(--brand-l-dark) var(--brand-c-dark) var(--brand-h));
   --primary-foreground: var(--brand-fg-dark);
-  --brand-from: oklch(calc(var(--brand-l-dark) - 0.04) calc(var(--brand-c-dark) * 1.1) var(--brand-h));
-  --brand-to: oklch(calc(var(--brand-l-dark) - 0.01) calc(var(--brand-c-dark) * 1.15) calc(var(--brand-h) + var(--brand-shift)));
+  --brand-from: oklch(calc(var(--brand-l-dark) - 0.04) calc(var(--brand-c-dark) * 1.12) var(--brand-h));
+  --brand-to: oklch(calc(var(--brand-l-dark) - 0.01) calc(var(--brand-c-dark) * 1.18) calc(var(--brand-h) + var(--brand-shift)));
 
-  --background: oklch(0.172 calc(var(--tint-c) * 1.6) var(--tint-h));
-  --foreground: oklch(0.955 calc(var(--tint-c) * 0.6) var(--tint-h));
-  --sidebar: oklch(0.142 calc(var(--tint-c) * 2.2) var(--tint-h));
-  --card: oklch(0.198 calc(var(--tint-c) * 1.8) var(--tint-h));
-  --popover: oklch(0.215 calc(var(--tint-c) * 1.8) var(--tint-h));
-  --muted: oklch(0.215 calc(var(--tint-c) * 1.8) var(--tint-h));
-  --muted-foreground: oklch(0.7 calc(var(--tint-c) * 2) var(--tint-h));
-  --secondary: oklch(0.24 calc(var(--tint-c) * 1.8) var(--tint-h));
+  --background: oklch(0.168 calc(var(--tint-c) * 2) var(--tint-h));
+  --foreground: oklch(0.96 calc(var(--tint-c) * 0.7) var(--tint-h));
+  --sidebar: oklch(0.136 calc(var(--tint-c) * 2.6) var(--tint-h));
+  --card: oklch(0.205 calc(var(--tint-c) * 2.1) var(--tint-h));
+  --popover: oklch(0.22 calc(var(--tint-c) * 2.1) var(--tint-h));
+  --muted: oklch(0.22 calc(var(--tint-c) * 2.1) var(--tint-h));
+  --muted-foreground: oklch(0.72 calc(var(--tint-c) * 2.2) var(--tint-h));
+  --secondary: oklch(0.245 calc(var(--tint-c) * 2.1) var(--tint-h));
   --secondary-foreground: var(--foreground);
-  --accent: oklch(0.245 calc(var(--tint-c) * 2.2) var(--tint-h));
+  --accent: oklch(0.255 calc(var(--tint-c) * 2.8) var(--tint-h));
   --accent-foreground: var(--foreground);
-  --border: oklch(0.265 calc(var(--tint-c) * 2) var(--tint-h));
-  --input: oklch(0.3 calc(var(--tint-c) * 2) var(--tint-h));
+  --border: oklch(0.28 calc(var(--tint-c) * 2.4) var(--tint-h));
+  --input: oklch(0.315 calc(var(--tint-c) * 2.4) var(--tint-h));
   --destructive: oklch(0.68 0.19 22);
   --success: oklch(0.72 0.17 152);
   --warning: oklch(0.82 0.15 80);
   --info: oklch(0.7 0.14 250);
-  --sidebar-accent: oklch(0.215 calc(var(--tint-c) * 2.2) var(--tint-h));
+  --sidebar-accent: oklch(0.225 calc(var(--tint-c) * 2.8) var(--tint-h));
   --scrim: oklch(0 0 0 / 0.55);
+  --app-backdrop:
+    radial-gradient(110% 80% at 0% -10%, color-mix(in oklch, var(--primary) 22%, transparent), transparent 55%),
+    radial-gradient(90% 70% at 100% 0%, color-mix(in oklch, var(--brand-to) 16%, transparent), transparent 50%),
+    radial-gradient(70% 50% at 50% 110%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 55%);
 }
 
 /*
@@ -157,20 +174,29 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-scrim: var(--scrim);
 
-  --radius-xs: 3px;
-  --radius-sm: 5px;
-  --radius-md: 7px;
-  --radius-lg: 9px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-  --radius-3xl: 22px;
-  --radius-4xl: 28px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 11px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --radius-3xl: 24px;
+  --radius-4xl: 30px;
 
-  --shadow-soft: 0 1px 2px 0 oklch(0 0 0 / 0.045);
-  --shadow-elevated: 0 0 0 1px oklch(0 0 0 / 0.03), 0 4px 12px -4px oklch(0 0 0 / 0.1), 0 18px 40px -16px oklch(0 0 0 / 0.22);
-  /* Primary buttons: a crisp edge and a faint top highlight instead of a coloured glow. */
-  --shadow-glow: 0 1px 2px 0 oklch(0 0 0 / 0.18), inset 0 1px 0 0 oklch(1 0 0 / 0.16);
-  --shadow-panel: 0 0 0 1px var(--border), 0 1px 3px 0 oklch(0 0 0 / 0.04);
+  --shadow-soft: 0 1px 2px 0 oklch(0 0 0 / 0.04), 0 1px 3px -1px oklch(var(--brand-h) 0.08 0.04 / 0.06);
+  --shadow-elevated:
+    0 0 0 1px color-mix(in oklch, var(--primary) 8%, transparent),
+    0 8px 20px -8px oklch(0 0 0 / 0.12),
+    0 22px 44px -18px oklch(var(--brand-h) calc(var(--brand-c) * 0.35) var(--brand-l) / 0.18);
+  /* Primary buttons: edge + brand-tinted lift. */
+  --shadow-glow:
+    0 1px 2px 0 oklch(0 0 0 / 0.16),
+    0 6px 16px -6px color-mix(in oklch, var(--primary) 45%, transparent),
+    inset 0 1px 0 0 oklch(1 0 0 / 0.2);
+  --shadow-panel:
+    0 0 0 1px var(--border),
+    0 1px 2px 0 oklch(0 0 0 / 0.03),
+    0 10px 28px -16px oklch(var(--brand-h) 0.06 0.4 / 0.12);
 }
 
 @layer base {
@@ -347,19 +373,171 @@
   color: transparent;
 }
 @utility glass {
-  background-color: color-mix(in oklch, var(--card) 78%, transparent);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  background-color: color-mix(in oklch, var(--card) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(1.55);
+  -webkit-backdrop-filter: blur(18px) saturate(1.55);
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--border) 70%, transparent),
+    0 10px 30px -18px oklch(0 0 0 / 0.18);
 }
 @utility surface-hover {
   transition:
-    transform 160ms ease,
-    box-shadow 160ms ease,
-    border-color 160ms ease;
+    transform var(--motion-base) var(--ease-out-soft),
+    box-shadow var(--motion-base) var(--ease-out-soft),
+    border-color var(--motion-fast) ease,
+    background-color var(--motion-fast) ease;
   &:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     box-shadow: var(--shadow-elevated);
-    border-color: color-mix(in oklch, var(--primary) 30%, var(--border));
+    border-color: color-mix(in oklch, var(--primary) 34%, var(--border));
+  }
+  &:active {
+    transform: translateY(-1px);
+  }
+}
+
+/* Soft card treatment used across lists, recipes, and dashboards. */
+@utility card-modern {
+  border: 1px solid color-mix(in oklch, var(--border) 88%, var(--primary));
+  background-color: color-mix(in oklch, var(--card) 92%, var(--primary));
+  box-shadow: var(--shadow-soft);
+  transition:
+    transform var(--motion-base) var(--ease-out-soft),
+    box-shadow var(--motion-base) var(--ease-out-soft),
+    border-color var(--motion-fast) ease;
+}
+
+/* Route / panel enter — used by AppShell page transitions. */
+.page-enter-active {
+  transition:
+    opacity var(--motion-slow) var(--ease-out-soft),
+    transform 420ms var(--ease-out-soft),
+    filter 420ms var(--ease-out-soft);
+}
+.page-leave-active {
+  transition:
+    opacity var(--motion-fast) ease,
+    transform var(--motion-fast) ease;
+}
+.page-enter-from {
+  opacity: 0;
+  filter: blur(4px);
+  transform: translateY(1rem) scale(0.98);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-0.35rem) scale(0.995);
+}
+
+/* Staggered list / card entrance — put on a grid or ul. */
+@utility stagger-in {
+  & > * {
+    animation: motion-rise 480ms var(--ease-out-soft) both;
+  }
+  & > *:nth-child(1) {
+    animation-delay: 30ms;
+  }
+  & > *:nth-child(2) {
+    animation-delay: 70ms;
+  }
+  & > *:nth-child(3) {
+    animation-delay: 110ms;
+  }
+  & > *:nth-child(4) {
+    animation-delay: 150ms;
+  }
+  & > *:nth-child(5) {
+    animation-delay: 190ms;
+  }
+  & > *:nth-child(6) {
+    animation-delay: 230ms;
+  }
+  & > *:nth-child(7) {
+    animation-delay: 270ms;
+  }
+  & > *:nth-child(8) {
+    animation-delay: 310ms;
+  }
+  & > *:nth-child(9) {
+    animation-delay: 350ms;
+  }
+  & > *:nth-child(10) {
+    animation-delay: 390ms;
+  }
+  & > *:nth-child(11) {
+    animation-delay: 430ms;
+  }
+  & > *:nth-child(12) {
+    animation-delay: 470ms;
+  }
+}
+
+@utility pop-in {
+  animation: motion-pop 520ms var(--ease-spring) both;
+}
+
+@utility rise-in {
+  animation: motion-rise 520ms var(--ease-out-soft) both;
+}
+
+@keyframes motion-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.85rem) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes motion-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes motion-pulse-ring {
+  0%,
+  100% {
+    box-shadow:
+      0 1px 2px 0 oklch(0 0 0 / 0.16),
+      0 6px 16px -6px color-mix(in oklch, var(--primary) 45%, transparent),
+      inset 0 1px 0 0 oklch(1 0 0 / 0.2),
+      0 0 0 0 color-mix(in oklch, var(--primary) 35%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 1px 2px 0 oklch(0 0 0 / 0.16),
+      0 6px 16px -6px color-mix(in oklch, var(--primary) 45%, transparent),
+      inset 0 1px 0 0 oklch(1 0 0 / 0.2),
+      0 0 0 10px color-mix(in oklch, var(--primary) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active,
+  .page-leave-active {
+    transition: none;
+  }
+  .page-enter-from,
+  .page-leave-to {
+    filter: none;
+    transform: none;
+  }
+  .stagger-in > *,
+  .pop-in,
+  .rise-in {
+    animation: none !important;
   }
 }
 
@@ -405,12 +583,23 @@
 @utility pt-safe {
   padding-top: max(env(safe-area-inset-top), 0px);
 }
+
 /*
- * Clears the floating mobile tab bar (bar + raised create button + bottom inset + gap)
- * so the last list item can scroll fully into view.
+ * Space that clears the floating mobile tab bar:
+ * bottom inset (0.5–0.75rem) + bar (3.5–4rem) + raised create button (1.5rem) + breathing room.
+ * Used by MobileShell (spacer / fill padding), lists, and bars that sit above the tab bar.
  */
+:root {
+  /* Bar + raised create button + gap so the last card clears the floating tab bar. */
+  --mobile-tab-clearance: calc(9rem + env(safe-area-inset-bottom, 0px));
+}
+
 @utility pb-mobile-tab {
-  padding-bottom: calc(9.75rem + env(safe-area-inset-bottom, 0px));
+  padding-bottom: var(--mobile-tab-clearance);
+}
+
+@utility scroll-pb-mobile-tab {
+  scroll-padding-bottom: var(--mobile-tab-clearance);
 }
 
 /* Mobile toasts: fit the viewport and keep the close control on the toast, not floating beside it. */
@@ -444,9 +633,109 @@
   }
 }
 
-@keyframes shimmer {
+/*
+ * Premium loading shimmer used by Skeleton (and any .skeleton-shimmer surface).
+ * Brand-tinted sweep so every screen feels polished while data loads.
+ */
+.skeleton-shimmer {
+  background-color: color-mix(in oklch, var(--muted) 88%, var(--primary));
+  background-image: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 38%,
+    color-mix(in oklch, var(--primary) 14%, white) 50%,
+    transparent 62%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: skeleton-shimmer 1.45s ease-in-out infinite;
+}
+
+.dark .skeleton-shimmer,
+.dim .skeleton-shimmer {
+  background-image: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 38%,
+    color-mix(in oklch, var(--primary) 28%, transparent) 50%,
+    transparent 62%,
+    transparent 100%
+  );
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
   100% {
-    transform: translateX(100%);
+    background-position: -120% 0;
+  }
+}
+
+/* Stagger the sweep inside loading shells so the screen feels alive, not flat. */
+[aria-busy='true'] .skeleton-shimmer:nth-child(1) {
+  animation-delay: 0ms;
+}
+[aria-busy='true'] .skeleton-shimmer:nth-child(2) {
+  animation-delay: 70ms;
+}
+[aria-busy='true'] .skeleton-shimmer:nth-child(3) {
+  animation-delay: 140ms;
+}
+[aria-busy='true'] .skeleton-shimmer:nth-child(4) {
+  animation-delay: 210ms;
+}
+[aria-busy='true'] .skeleton-shimmer:nth-child(5) {
+  animation-delay: 280ms;
+}
+[aria-busy='true'] .skeleton-shimmer:nth-child(6) {
+  animation-delay: 350ms;
+}
+[aria-busy='true'] .skeleton-shimmer:nth-child(7) {
+  animation-delay: 420ms;
+}
+[aria-busy='true'] .skeleton-shimmer:nth-child(8) {
+  animation-delay: 490ms;
+}
+[aria-busy='true'] .skeleton-shimmer:nth-child(n + 9) {
+  animation-delay: 560ms;
+}
+
+/* Thin top progress shimmer for screens that keep content visible while refreshing. */
+@utility loading-shimmer-bar {
+  position: relative;
+  overflow: hidden;
+  height: 2px;
+  background: color-mix(in oklch, var(--primary) 18%, transparent);
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    animation: loading-bar-sweep 1.1s ease-in-out infinite;
+  }
+}
+
+@keyframes loading-bar-sweep {
+  0% {
+    left: -40%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer {
+    animation: none;
+    background-image: none;
+  }
+  .loading-shimmer-bar::after {
+    animation: none;
+    left: 30%;
+    opacity: 0.7;
   }
 }
 

@@ -124,8 +124,8 @@ const STATS = computed(() => [
       <Button variant="outline" @click="load">Retry</Button>
     </EmptyState>
 
-    <div v-else-if="structure.departments === null" class="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      <Skeleton v-for="index in 3" :key="index" class="h-52 w-full sm:h-56" />
+    <div v-else-if="structure.departments === null" class="grid gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label="Loading departments">
+      <Skeleton v-for="index in 3" :key="index" class="h-52 w-full rounded-2xl sm:h-56" />
     </div>
 
     <EmptyState

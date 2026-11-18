@@ -200,7 +200,7 @@ const LOOP = [
         </span>
       </header>
 
-      <main class="mx-auto grid w-full max-w-5xl flex-1 content-center gap-6 p-5 lg:grid-cols-[1.4fr_1fr]">
+      <main class="mx-auto grid w-full max-w-5xl flex-1 content-center gap-4 p-4 sm:gap-6 sm:p-6 lg:grid-cols-[1.4fr_1fr]">
         <template v-if="isLoading">
           <Skeleton class="aspect-video w-full" />
           <Skeleton class="h-64 w-full" />

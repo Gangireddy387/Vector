@@ -55,7 +55,7 @@ function planHas(plan: (typeof PLANS)[number], key: PlanFeatureKey) {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-5xl space-y-8 p-4 sm:p-6 lg:p-8">
+  <div class="mx-auto w-full max-w-[90rem] space-y-8 p-4 sm:p-6 lg:p-8">
     <PageHeader
       title="Pricing"
       description="Free covers the core work loop. Collaboration, automation, reports and AI unlock on Pro — no surprises after sign-up."
@@ -98,8 +98,23 @@ function planHas(plan: (typeof PLANS)[number], key: PlanFeatureKey) {
         <h2 class="text-sm font-semibold">Feature comparison</h2>
         <p class="text-xs text-muted-foreground">Core board and tasks are on every plan. These switches are plan-gated.</p>
       </header>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[36rem] text-left text-sm">
+      <ul class="divide-y lg:hidden">
+        <li v-for="feature in appFeatures" :key="feature.key" class="px-4 py-3">
+          <p class="font-medium">{{ feature.label }}</p>
+          <p class="text-xs text-muted-foreground">{{ feature.description }}</p>
+          <div class="mt-2 grid grid-cols-3 gap-2 text-xs">
+            <span class="flex items-center gap-1.5">
+              <Check v-if="planHas(PLANS[0]!, feature.key)" class="size-3.5 text-success" />
+              <X v-else class="size-3.5 text-muted-foreground/50" />
+              Free
+            </span>
+            <span class="flex items-center gap-1.5"><Check class="size-3.5 text-success" /> Pro</span>
+            <span class="flex items-center gap-1.5"><Check class="size-3.5 text-success" /> Enterprise</span>
+          </div>
+        </li>
+      </ul>
+      <div class="hidden lg:block">
+        <table class="w-full text-left text-sm">
           <thead class="bg-muted/40 text-xs text-muted-foreground">
             <tr>
               <th class="px-4 py-2.5 font-medium">Feature</th>

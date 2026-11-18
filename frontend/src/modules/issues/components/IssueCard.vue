@@ -35,7 +35,7 @@ const visibleLabels = computed(() => props.issue.labels.slice(0, props.grid ? 4 
   <article
     :class="
       cn(
-        'group cursor-pointer rounded-lg border border-border bg-card text-left shadow-soft transition-[border-color,box-shadow,background-color] duration-150 hover:border-input hover:shadow-[0_2px_8px_-2px_oklch(0_0_0/0.1)] focus-visible:ring-[3px] focus-visible:ring-ring/25 focus-visible:outline-none dark:hover:border-muted-foreground/30',
+        'group cursor-pointer rounded-xl border border-border/80 bg-card text-left shadow-soft transition-[border-color,box-shadow,background-color,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-elevated focus-visible:ring-[3px] focus-visible:ring-ring/25 focus-visible:outline-none active:translate-y-0 dark:hover:border-primary/30',
         grid ? 'flex h-full flex-col gap-3 p-3.5' : 'p-3',
         selected && 'border-primary/40 bg-accent/50',
         props.class,

@@ -61,7 +61,7 @@ function signOut() {
       You’ll be the admin — invite people and start the workday loop next.
     </p>
     <Button type="submit" variant="brand" class="w-full" size="lg" :loading="isSubmitting" :disabled="form.name.trim().length < 2 || !slugAvailable">
-      Create organization
+      {{ isSubmitting ? 'Creating…' : 'Create organization' }}
     </Button>
   </form>
   <div class="mt-6 flex justify-center short:mt-4">

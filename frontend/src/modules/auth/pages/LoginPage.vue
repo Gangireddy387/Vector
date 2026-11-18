@@ -247,7 +247,11 @@ if (redirectSlug) {
     </template>
     <p v-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
     <Button type="submit" variant="brand" class="group w-full" size="lg" :loading="isSubmitting" :disabled="!canSubmit">
-      {{ mfaStep ? 'Verify and sign in' : 'Sign in' }} <ArrowRight class="transition-transform group-hover:translate-x-0.5" />
+      <template v-if="isSubmitting">{{ mfaStep ? 'Verifying…' : 'Signing in…' }}</template>
+      <template v-else>
+        {{ mfaStep ? 'Verify and sign in' : 'Sign in' }}
+        <ArrowRight class="transition-transform group-hover:translate-x-0.5" />
+      </template>
     </Button>
     <Button v-if="mfaStep" type="button" variant="ghost" class="w-full" @click="backToPassword">Back</Button>
   </form>

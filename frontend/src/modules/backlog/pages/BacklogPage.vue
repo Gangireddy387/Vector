@@ -40,7 +40,7 @@ const route = useRoute()
 const projects = useProjectsStore()
 const openIssue = useOpenIssue()
 const confirm = useConfirm()
-const { isDesktop } = useDevice()
+const { isDesktop, isWide } = useDevice()
 
 const projectId = computed(() => route.params.projectId as string)
 const project = computed(() => projects.details[projectId.value])
@@ -200,8 +200,8 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
 
 <template>
   <div class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
-    <div v-if="isLoading" class="space-y-3">
-      <Skeleton v-for="index in 3" :key="index" class="h-40 w-full" />
+    <div v-if="isLoading" class="space-y-3" aria-busy="true" aria-label="Loading backlog">
+      <Skeleton v-for="index in 3" :key="index" class="h-40 w-full rounded-xl" />
     </div>
 
     <EmptyState v-else-if="loadError && !project" title="The backlog did not load" :description="loadError">
@@ -217,7 +217,7 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
     <template v-else>
       <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div v-if="epics.length" class="min-w-0 sm:flex sm:flex-wrap sm:items-center sm:gap-1.5">
-          <MobileSectionSelect v-if="!isDesktop" v-model="epicSelect" :options="epicOptions" aria-label="Filter by epic" />
+          <MobileSectionSelect v-if="!isWide" v-model="epicSelect" :options="epicOptions" aria-label="Filter by epic" />
           <template v-else>
             <span class="flex shrink-0 items-center gap-1 text-xs font-medium text-muted-foreground"><Zap class="size-3.5" /> Epics</span>
             <Button size="xs" class="shrink-0" :variant="epicFilter === null ? 'secondary' : 'ghost'" @click="epicFilter = null">All</Button>

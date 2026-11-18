@@ -117,7 +117,7 @@ async function submit() {
         :loading="isSubmitting"
         :disabled="form.organizationName.trim().length < 2 || !slugAvailable"
       >
-        Create organization
+        {{ isSubmitting ? 'Creating…' : 'Create organization' }}
       </Button>
     </div>
     <p class="text-center text-xs text-muted-foreground">

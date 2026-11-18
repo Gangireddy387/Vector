@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import DesktopShell from '@/components/layout/DesktopShell.vue'
@@ -28,6 +28,10 @@ import type { AppNotification } from '@/types/models'
 const { isDesktop } = useDevice()
 const route = useRoute()
 const router = useRouter()
+/** Full-height panes (chat, board on desktop) skip enter animation so the flex height chain stays intact. */
+const pageTransition = computed(() =>
+  route.name !== 'project-board' && route.matched.some((record) => record.meta.fillHeight) ? undefined : 'page',
+)
 const ui = useUiStore()
 const projects = useProjectsStore()
 const notifications = useNotificationsStore()
@@ -98,10 +102,18 @@ useHotkeys({
 
 <template>
   <DesktopShell v-if="isDesktop" :bare="callFullscreen.active.value" @show-shortcuts="isShortcutsOpen = true">
-    <RouterView />
+    <RouterView v-slot="{ Component, route: viewRoute }">
+      <Transition :name="pageTransition" mode="out-in">
+        <component :is="Component" :key="viewRoute.name ?? viewRoute.path" />
+      </Transition>
+    </RouterView>
   </DesktopShell>
   <MobileShell v-else :bare="callFullscreen.active.value">
-    <RouterView />
+    <RouterView v-slot="{ Component, route: viewRoute }">
+      <Transition :name="pageTransition" mode="out-in">
+        <component :is="Component" :key="viewRoute.name ?? viewRoute.path" />
+      </Transition>
+    </RouterView>
   </MobileShell>
 
   <IssueDetailSheet v-if="isDesktop" />

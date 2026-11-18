@@ -10,7 +10,7 @@ const curl = `curl -s https://your-vector.example/api/issues \\\\
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-3xl space-y-8 p-4 sm:p-6 lg:p-8">
+  <div class="mx-auto w-full max-w-[90rem] space-y-8 p-4 sm:p-6 lg:p-8">
     <PageHeader
       title="Developers"
       description="Call Vector with a personal API token. Same APIs the app uses — scoped to your organization."
@@ -34,7 +34,7 @@ const curl = `curl -s https://your-vector.example/api/issues \\\\
     <section class="space-y-3 rounded-xl border bg-card p-5 shadow-soft">
       <h2 class="flex items-center gap-2 text-sm font-semibold"><Code2 class="size-4" /> Quickstart</h2>
       <p class="text-sm text-muted-foreground">List issues in the current organization:</p>
-      <pre class="overflow-x-auto rounded-lg bg-muted/50 p-3 text-xs leading-relaxed">{{ curl }}</pre>
+      <pre class="overflow-x-auto rounded-lg bg-muted/50 p-3 text-xs leading-relaxed whitespace-pre-wrap break-all">{{ curl }}</pre>
       <p class="text-sm text-muted-foreground">
         Create: <code class="rounded bg-muted px-1 py-0.5 text-[11px]">POST /api/issues</code> with
         <code class="rounded bg-muted px-1 py-0.5 text-[11px]">{ projectId, title }</code>.

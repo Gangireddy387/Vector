@@ -149,12 +149,12 @@ async function copySummary() {
         <Button v-if="date !== today" variant="ghost" size="sm" @click="date = today">Today</Button>
       </div>
       <div class="min-w-0 flex-1 space-y-1.5">
-        <div class="-mx-1 flex min-w-0 gap-1 overflow-x-auto px-1 scrollbar-none sm:flex-wrap sm:overflow-visible" aria-label="Recent standups">
+        <div class="flex min-w-0 flex-wrap gap-1" aria-label="Recent standups">
           <button
             v-for="entry in recentDays"
             :key="entry.date"
             type="button"
-            class="flex shrink-0 flex-col items-center rounded-lg border px-2.5 py-1.5 text-[11px] leading-tight transition-colors"
+            class="flex flex-col items-center rounded-lg border px-2.5 py-1.5 text-[11px] leading-tight transition-colors"
             :class="entry.date === date ? 'border-primary bg-primary/10 text-primary' : 'border-transparent text-muted-foreground hover:border-border hover:bg-muted'"
             :title="`${formatDate(entry.date, 'EEE, d MMM')}: ${entry.count} update${entry.count === 1 ? '' : 's'}`"
             @click="date = entry.date"
@@ -172,9 +172,13 @@ async function copySummary() {
 
     <p v-if="errorMessage" class="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
 
-    <div v-if="isLoading" class="space-y-4">
-      <Skeleton class="h-20 w-full" />
-      <Skeleton class="h-56 w-full" />
+    <div v-if="isLoading" class="space-y-4" aria-busy="true" aria-label="Loading standup">
+      <Skeleton class="h-20 w-full rounded-xl" />
+      <Skeleton class="h-56 w-full rounded-xl" />
+      <div class="grid gap-3 sm:grid-cols-2">
+        <Skeleton class="h-28 rounded-xl" />
+        <Skeleton class="h-28 rounded-xl" />
+      </div>
     </div>
 
     <template v-else-if="day">
