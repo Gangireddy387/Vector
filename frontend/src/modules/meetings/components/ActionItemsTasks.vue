@@ -74,17 +74,25 @@ const peopleOptions = computed<SelectFieldOption[]>(() => {
 const open = computed(() => props.summary.actionItems.map((item, index) => ({ item, index })).filter(({ item }) => !item.issue))
 const done = computed(() => props.summary.actionItems.filter((item): item is MeetingActionItem & { issue: NonNullable<MeetingActionItem['issue']> } => Boolean(item.issue)))
 const chosenCount = computed(() => open.value.filter(({ index }) => rows[index]?.chosen && rows[index]?.title.trim()).length)
+const creatingIndex = ref<number | null>(null)
 
-async function create() {
+async function createItems(indexes: number[]) {
   if (!projectId.value) return toast.error('Choose the project for the tasks')
   const items = open.value
-    .filter(({ index }) => rows[index]?.chosen && rows[index]?.title.trim())
+    .filter(({ index }) => indexes.includes(index) && rows[index]?.title.trim())
     .map(({ item, index }) => {
       const row = rows[index]!
-      return { index, title: row.title.trim(), assigneeId: row.assigneeId === NOBODY ? null : row.assigneeId, dueDate: row.dueDate || null, priority: item.priority ?? null }
+      return {
+        index,
+        title: row.title.trim(),
+        assigneeId: row.assigneeId === NOBODY ? null : row.assigneeId,
+        dueDate: row.dueDate || null,
+        priority: item.priority ?? null,
+      }
     })
   if (!items.length) return
   isCreating.value = true
+  if (indexes.length === 1) creatingIndex.value = indexes[0]!
   try {
     const result = await meetingsApi.createTasks(props.meeting.id, { projectId: projectId.value, items })
     emit('summary', result.summary)
@@ -101,7 +109,16 @@ async function create() {
     toast.error(getErrorMessage(error))
   } finally {
     isCreating.value = false
+    creatingIndex.value = null
   }
+}
+
+function create() {
+  void createItems(open.value.filter(({ index }) => rows[index]?.chosen && rows[index]?.title.trim()).map(({ index }) => index))
+}
+
+function createOne(index: number) {
+  void createItems([index])
 }
 </script>
 
@@ -124,8 +141,12 @@ async function create() {
       :class="highlight ? 'border-primary ring-2 ring-primary/20' : 'border-border/70'"
     >
       <p v-if="highlight" class="text-xs font-medium text-primary">Turn these into owned tasks — review, then create.</p>
-      <div v-for="{ item, index } in open" :key="index" class="grid gap-2 sm:grid-cols-[auto_1fr_10rem_9.5rem] sm:items-center">
-        <Checkbox v-if="rows[index]" v-model="rows[index].chosen" :aria-label="`Create a task for ${item.text}`" />
+      <div
+        v-for="{ item, index } in open"
+        :key="index"
+        class="grid gap-2 sm:grid-cols-[auto_1fr_10rem_9.5rem_auto] sm:items-center"
+      >
+        <Checkbox v-if="rows[index]" v-model="rows[index].chosen" :aria-label="`Include ${item.text} in batch create`" />
         <Input v-if="rows[index]" v-model="rows[index].title" class="h-8 text-sm" maxlength="255" :disabled="!rows[index].chosen" :aria-label="`Title for ${item.text}`" />
         <SelectField
           v-if="rows[index]"
@@ -137,6 +158,18 @@ async function create() {
           @update:model-value="(value) => rows[index] && (rows[index].assigneeId = value ?? NOBODY)"
         />
         <DatePicker v-if="rows[index]" v-model="rows[index].dueDate" :disabled="!rows[index].chosen" aria-label="Due date" />
+        <Button
+          v-if="rows[index]"
+          type="button"
+          variant="outline"
+          size="sm"
+          class="justify-self-start sm:justify-self-end"
+          :loading="creatingIndex === index"
+          :disabled="isCreating || !projectId || !rows[index].title.trim()"
+          @click="createOne(index)"
+        >
+          Create task
+        </Button>
       </div>
       <div class="flex flex-wrap items-center gap-2 border-t border-border/60 pt-2">
         <span class="text-xs text-muted-foreground">Create in</span>
