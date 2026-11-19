@@ -1,4 +1,6 @@
 import { AutomationRule, Issue, IssueWatcher, ProjectMember, Sprint, User } from '../../database/models.js';
+import { logger } from '../../shared/logger.js';
+import { recordFail, recordOk } from '../../shared/ops/signals.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { notificationEmail } from '../../shared/services/email-templates.js';
 import { addDays, interpolate, toDateOnly } from '../../shared/utils/query.js';
@@ -260,6 +262,7 @@ export async function runAutomations(trigger, { issue: eventIssue, changes = {},
         ...(Array.isArray(rule.recentRuns) ? rule.recentRuns : []),
       ].slice(0, 25);
       await rule.update({ runCount: rule.runCount + 1, lastRunAt: at, lastError: null, recentRuns });
+      recordOk('automations', 'rule');
       await logActivity({
         projectId: eventIssue.projectId,
         issueId: eventIssue.id,
@@ -268,7 +271,14 @@ export async function runAutomations(trigger, { issue: eventIssue, changes = {},
         meta: { ruleId: rule.id, trigger },
       });
     } catch (error) {
-      console.error(`[automation] rule "${rule.name}" failed:`, error.message);
+      recordFail('automations', 'rule', error);
+      logger.error(`automation rule failed`, {
+        area: 'automations',
+        ruleId: rule.id,
+        ruleName: rule.name,
+        projectId: eventIssue.projectId,
+        error,
+      });
       const at = new Date();
       const recentRuns = [
         { at: at.toISOString(), ok: false, issueKey: eventIssue.key ?? null, trigger, error: String(error.message).slice(0, 200) },

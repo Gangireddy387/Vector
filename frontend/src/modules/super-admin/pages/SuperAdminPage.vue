@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  Activity,
   ArrowRight,
   Ban,
   Building2,
@@ -52,6 +53,7 @@ import type { OrganizationStatus } from '@/types/models'
 import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import OrganizationDetailSheet from '../components/OrganizationDetailSheet.vue'
+import OpsPanel from '../components/OpsPanel.vue'
 import PlansPanel from '../components/PlansPanel.vue'
 import SuperAdminProfile from '../components/SuperAdminProfile.vue'
 import { type Plan, type ReviewedOrganization, superAdminApi } from '../super-admin.api'
@@ -69,7 +71,7 @@ const themeLabel = computed(() => ({ light: 'Light', dim: 'Dim', dark: 'Dark', a
 const themeIcon = computed(() => ({ light: Sun, dim: SunDim, dark: Moon, auto: Monitor })[preference.value])
 const cycleTheme = () => (preference.value = THEME_CYCLE[preference.value])
 
-const SECTION_VALUES = ['organizations', 'plans', 'profile'] as const
+const SECTION_VALUES = ['organizations', 'plans', 'ops', 'profile'] as const
 type SuperAdminSection = (typeof SECTION_VALUES)[number]
 /** The open section lives in the address (?section=plans) so links land on it. */
 const section = computed<SuperAdminSection>({
@@ -97,12 +99,14 @@ const sidebarOrganizations = computed(() => {
 const SECTIONS = [
   { value: 'organizations', label: 'Organizations', short: 'Orgs', icon: Building2 },
   { value: 'plans', label: 'Plans', short: 'Plans', icon: Gem },
+  { value: 'ops', label: 'Ops', short: 'Ops', icon: Activity },
   { value: 'profile', label: 'Your profile', short: 'Profile', icon: UserRound },
 ] as const
 
 const HEADINGS = {
   organizations: { title: 'Organizations', text: 'Review every team that signs up, approve or reject it, and choose the plan it is on.' },
   plans: { title: 'Plans & access', text: 'Create plans, decide what each one includes, and set the default for new signups.' },
+  ops: { title: 'Ops signals', text: 'Stripe webhooks, background jobs and automation failures on this backend.' },
   profile: { title: 'Your profile', text: 'Your name and photo, as organization admins see them in the Vector team chat.' },
 } as const
 
@@ -457,6 +461,7 @@ function signOut() {
       </section>
 
       <PlansPanel v-if="section === 'plans'" :plans="plans" @changed="load" />
+      <OpsPanel v-else-if="section === 'ops'" />
       <SuperAdminProfile v-else-if="section === 'profile'" />
 
       <template v-else>

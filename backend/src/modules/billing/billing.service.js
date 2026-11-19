@@ -2,6 +2,8 @@ import Stripe from 'stripe';
 import { config } from '../../config/index.js';
 import { Organization, Plan } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
+import { logger } from '../../shared/logger.js';
+import { recordFail, recordOk } from '../../shared/ops/signals.js';
 import { appUrl } from '../../shared/services/email-templates.js';
 import { setOrganizationPlan, usageFor, withPlan } from '../plans/plan.service.js';
 import { broadcastOrganization } from '../organizations/organization.service.js';
@@ -219,44 +221,57 @@ export async function handleStripeWebhook(rawBody, signature) {
   try {
     event = client.webhooks.constructEvent(rawBody, signature, config.stripe.webhookSecret);
   } catch (error) {
+    recordFail('stripe', 'webhook', error);
+    logger.error('stripe webhook signature failed', { area: 'stripe', error });
     throw ApiError.badRequest(`Webhook signature failed: ${error.message}`);
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const organizationId = session.client_reference_id || session.metadata?.organizationId;
-    if (organizationId && session.mode === 'subscription') {
-      let seats = Number.parseInt(session.metadata?.seats, 10) || null;
-      const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
-      if (subscriptionId && !seats) {
-        const subscription = await client.subscriptions.retrieve(subscriptionId);
-        seats = subscriptionSeats(subscription);
+  try {
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const organizationId = session.client_reference_id || session.metadata?.organizationId;
+      if (organizationId && session.mode === 'subscription') {
+        let seats = Number.parseInt(session.metadata?.seats, 10) || null;
+        const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+        if (subscriptionId && !seats) {
+          const subscription = await client.subscriptions.retrieve(subscriptionId);
+          seats = subscriptionSeats(subscription);
+        }
+        await applyPro(organizationId, {
+          customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
+          subscriptionId,
+          seats,
+          actorId: session.metadata?.userId ?? null,
+        });
       }
-      await applyPro(organizationId, {
-        customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
-        subscriptionId,
-        seats,
-        actorId: session.metadata?.userId ?? null,
-      });
     }
-  }
 
-  if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
-    const subscription = event.data.object;
-    const organizationId = await organizationIdFromSubscription(subscription);
-    if (!organizationId) return { received: true };
-    // cancel_at_period_end keeps status active/trialing until the period ends — stay on Pro until then.
-    const active = ['active', 'trialing'].includes(subscription.status);
-    if (active) {
-      await applyPro(organizationId, {
-        customerId: typeof subscription.customer === 'string' ? subscription.customer : null,
-        subscriptionId: subscription.id,
-        seats: subscriptionSeats(subscription),
-      });
-    } else if (event.type === 'customer.subscription.deleted' || ['canceled', 'unpaid', 'incomplete_expired'].includes(subscription.status)) {
-      await applyFree(organizationId);
+    if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object;
+      const organizationId = await organizationIdFromSubscription(subscription);
+      if (!organizationId) {
+        recordOk('stripe', 'webhook');
+        return { received: true };
+      }
+      // cancel_at_period_end keeps status active/trialing until the period ends — stay on Pro until then.
+      const active = ['active', 'trialing'].includes(subscription.status);
+      if (active) {
+        await applyPro(organizationId, {
+          customerId: typeof subscription.customer === 'string' ? subscription.customer : null,
+          subscriptionId: subscription.id,
+          seats: subscriptionSeats(subscription),
+        });
+      } else if (event.type === 'customer.subscription.deleted' || ['canceled', 'unpaid', 'incomplete_expired'].includes(subscription.status)) {
+        await applyFree(organizationId);
+      }
     }
-  }
 
-  return { received: true };
+    recordOk('stripe', 'webhook');
+    logger.info('stripe webhook handled', { area: 'stripe', eventType: event.type });
+    return { received: true };
+  } catch (error) {
+    recordFail('stripe', 'webhook', error);
+    logger.error('stripe webhook handler failed', { area: 'stripe', eventType: event?.type, error });
+    throw error;
+  }
 }

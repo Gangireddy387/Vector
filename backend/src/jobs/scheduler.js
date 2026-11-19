@@ -13,6 +13,8 @@ import { settleIdleMeetings } from '../modules/meetings/meeting.signaling.js';
 import { sendStandupDigests } from '../modules/standups/standup-digest.job.js';
 import { sendStandupReminders } from '../modules/standups/standup-reminder.job.js';
 import { purgeExpiredMessages } from '../modules/support/support.service.js';
+import { logger } from '../shared/logger.js';
+import { recordFail, recordOk } from '../shared/ops/signals.js';
 
 const JOBS = [
   { name: 'recurring-tasks', schedule: '* * * * *', run: runDueRecurringTasks },
@@ -38,7 +40,7 @@ const JOBS = [
   { name: 'transcript-retention', schedule: '30 3 * * *', run: () => purgeOldTranscripts(config.meetings.transcriptDays) },
 ];
 
-/** Wraps a job so overlapping executions are skipped and failures are logged. */
+/** Wraps a job so overlapping executions are skipped; successes/failures feed ops signals + structured logs. */
 function guard(job) {
   let running = false;
   return async () => {
@@ -46,9 +48,11 @@ function guard(job) {
     running = true;
     try {
       const result = await job.run();
-      if (result) console.info(`[jobs] ${job.name} processed ${result} item(s)`);
+      recordOk('jobs', job.name);
+      if (result) logger.info(`job ${job.name} processed items`, { area: 'jobs', job: job.name, count: result });
     } catch (error) {
-      console.error(`[jobs] ${job.name} failed:`, error);
+      recordFail('jobs', job.name, error);
+      logger.error(`job ${job.name} failed`, { area: 'jobs', job: job.name, error });
     } finally {
       running = false;
     }
@@ -59,11 +63,11 @@ const tasks = [];
 
 export function startScheduler() {
   if (!config.jobs.enabled) {
-    console.info('[jobs] background jobs disabled (JOBS_ENABLED=false)');
+    logger.info('background jobs disabled (JOBS_ENABLED=false)', { area: 'jobs' });
     return;
   }
   JOBS.forEach((job) => tasks.push(cron.schedule(job.schedule, guard(job))));
-  console.info(`[jobs] scheduled: ${JOBS.map((job) => job.name).join(', ')}`);
+  logger.info(`scheduled jobs: ${JOBS.map((job) => job.name).join(', ')}`, { area: 'jobs' });
 }
 
 /** Stops scheduling new runs (a run in progress finishes). */

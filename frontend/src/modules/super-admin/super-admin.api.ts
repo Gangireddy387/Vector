@@ -77,7 +77,48 @@ export interface Plan {
 
 export type PlanInput = Omit<Plan, 'id' | 'position' | 'organizationCount'>
 
+export interface OpsCounter {
+  ok: number
+  failed: number
+  lastOkAt: string | null
+  lastFailedAt: string | null
+  lastError: string | null
+}
+
+export interface OpsStatus {
+  time: string
+  process: {
+    uptimeSec: number
+    jobsEnabled: boolean
+    sharedState: 'memory' | 'redis'
+    redisOk: boolean
+    checkoutConfigured: boolean
+    scope: string
+  }
+  summary: {
+    stripeWebhookFailures: number
+    jobFailures: number
+    automationRulesWithErrors: number
+    healthy: boolean
+  }
+  stripe: { configured: boolean; webhook: OpsCounter }
+  jobs: { enabled: boolean; byName: Record<string, OpsCounter>; unhealthy: Array<{ name: string } & OpsCounter> }
+  automations: {
+    rulesWithErrors: number
+    failing: Array<{
+      id: string
+      name: string
+      enabled: boolean
+      lastError: string | null
+      lastRunAt: string | null
+      project: { id: string; name: string; key: string; organizationId: string } | null
+    }>
+  }
+  recent: Array<{ at: string; area: string; name: string; ok: boolean; error?: string }>
+}
+
 export const superAdminApi = {
+  ops: () => http.get<OpsStatus>('/super-admin/ops').then((r) => r.data),
   organizations: () => http.get<{ organizations: ReviewedOrganization[] }>('/super-admin/organizations').then((r) => r.data.organizations),
   organization: (organizationId: string) => http.get<OrganizationDetail>(`/super-admin/organizations/${organizationId}`).then((r) => r.data),
   approve: (organizationId: string) =>

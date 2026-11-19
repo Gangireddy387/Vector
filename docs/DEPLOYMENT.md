@@ -501,6 +501,7 @@ Copy `/var/backups` off the server (object storage or another machine). Restore 
 | Check | How |
 |---|---|
 | Uptime | Poll `https://vector.annaaccounting.com/api/health` every minute. `200` with `"status":"ok"` means PostgreSQL is reachable (`"database":"ok"`). With `REDIS_URL` set, the body also includes `"sharedState":"redis"` and `"redis":"ok"`; a Redis outage returns `503`. Without Redis, `"sharedState":"memory"`. Alert after two failures. |
+| Money / jobs / automations | Super admin → **Ops** (or `GET /api/super-admin/ops`): Stripe webhook ok/fail counts, per-job failures, automation rules with `lastError`. Counters are per backend process (reset on restart). In logs, alert on JSON `"area":"stripe"` / `"area":"jobs"` / `"area":"automations"` with `"level":"error"`. |
 | Errors | In production every log line is JSON. Alert on `"level":"error"` (e.g. `journalctl -u vector -o cat \| grep '"level":"error"'`, or ship journald to your log service). |
 | One failing request | Error responses carry a `requestId` (also the `X-Request-Id` header). Search the logs for it: `journalctl -u vector -o cat \| grep <requestId>`. |
 | Disk | Alert above 80% on `/opt/vector/uploads` (attachments, call recordings) and `/var/backups`. |

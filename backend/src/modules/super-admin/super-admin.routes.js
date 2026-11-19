@@ -14,6 +14,7 @@ import {
   rejectOrganization,
   removeOrganization,
 } from './super-admin.service.js';
+import { getOpsStatus } from './ops.service.js';
 import { clearThread, deleteMessage, editMessage, getThread, hideMessage, markRead, sendMessage, setDisappearing, unreadByOrganization } from '../support/support.service.js';
 
 const rejectSchema = z.object({ reason: z.string().trim().max(500).optional() });
@@ -47,6 +48,7 @@ function requireSuperAdmin(req, _res, next) {
 const superAdminRoutes = Router();
 superAdminRoutes.use('/super-admin', requireSuperAdmin);
 
+superAdminRoutes.get('/super-admin/ops', async (_req, res) => res.json(await getOpsStatus()));
 superAdminRoutes.get('/super-admin/organizations', async (_req, res) => res.json({ organizations: await listOrganizations() }));
 superAdminRoutes.get('/super-admin/organizations/:organizationId', async (req, res) => res.json(await getOrganizationDetail(req.params.organizationId)));
 superAdminRoutes.post('/super-admin/organizations/:organizationId/approve', async (req, res) =>
