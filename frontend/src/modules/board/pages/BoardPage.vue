@@ -19,6 +19,7 @@ import { ISSUE_TYPE_META, ISSUE_TYPES, PRIORITIES, PRIORITY_META } from '@/const
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
+import { askTransitionComment } from '@/lib/transition-comment'
 import { allowedStatusesFor, transitionRuleFor } from '@/lib/workflow-transitions'
 import { rankBetween } from '@/lib/utils'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -66,6 +67,12 @@ const {
 const { view, update: updateView, setField, toggleColumn, toggleLane, reset: resetView, isCustomized } = useBoardView(projectId)
 
 const canEdit = computed(() => projects.canEdit(projectId.value) && !isHistorical.value)
+const transitionActor = computed(() => ({
+  role: project.value?.myRole ?? null,
+  userId: auth.user?.id ?? null,
+  projectLeadId: project.value?.leadId ?? null,
+  teamLeadId: project.value?.team?.leadId ?? null,
+}))
 const canManageSprints = computed(() => projects.canManageSprints(projectId.value))
 const canConfigure = computed(() => projects.isAdmin(projectId.value))
 const sprintOptions = computed(() =>
@@ -257,7 +264,12 @@ function columnCount(statusId: string, excludingId?: string) {
 
 async function persistMove(issue: Issue, status: Status, position: number, lane: Lane | null = null) {
   if (issue.statusId !== status.id) {
-    const allowed = allowedStatusesFor(statuses.value, project.value?.workflowTransitions, issue.statusId)
+    const allowed = allowedStatusesFor(
+      statuses.value,
+      project.value?.workflowTransitions,
+      issue.statusId,
+      transitionActor.value,
+    )
     if (!allowed.some((item) => item.id === status.id)) {
       toast.error(`“${issue.status.name}” cannot move to “${status.name}”`)
       rebuildCells()
@@ -274,17 +286,12 @@ async function persistMove(issue: Issue, status: Status, position: number, lane:
   if (issue.statusId !== status.id) {
     const rule = transitionRuleFor(project.value?.workflowTransitions, issue.statusId)
     if (rule?.requireComment) {
-      const comment = window.prompt('Add a comment for this status change')
+      const comment = await askTransitionComment(issue.status.name, status.name)
       if (comment === null) {
         rebuildCells()
         return
       }
-      transitionComment = comment.trim()
-      if (!transitionComment) {
-        toast.error('A comment is required for this transition')
-        rebuildCells()
-        return
-      }
+      transitionComment = comment
     }
   }
   if (status.wipLimit && issue.statusId !== status.id) {
@@ -645,6 +652,7 @@ function moveOnMobile(issue: Issue, status: Status) {
             :lanes="shownLanes"
             :lane-of="laneKeyOf"
             :transitions="project?.workflowTransitions ?? []"
+            :transition-actor="transitionActor"
             @open="openIssue"
             @move="moveOnMobile"
           />

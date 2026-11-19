@@ -71,6 +71,12 @@ const linksRef = ref<InstanceType<typeof IssueLinks> | null>(null)
 const summaryRef = ref<InstanceType<typeof IssueAiSummary> | null>(null)
 
 const project = computed(() => (issue.value ? projects.details[issue.value.projectId] ?? null : null))
+const transitionActor = computed(() => ({
+  role: project.value?.myRole ?? null,
+  userId: auth.user?.id ?? null,
+  projectLeadId: project.value?.leadId ?? null,
+  teamLeadId: project.value?.team?.leadId ?? null,
+}))
 const canEdit = computed(() => projects.canEdit(issue.value?.projectId))
 /** Anyone with project access can discuss; editing work still needs member+. */
 const canComment = computed(() => Boolean(issue.value && project.value?.myRole))
@@ -244,6 +250,7 @@ function startLinking() {
               :statuses="project.statuses"
               :from-status-id="issue.statusId"
               :transitions="project.workflowTransitions"
+              :transition-actor="transitionActor"
               :disabled="!canEdit"
               class="w-auto min-w-36"
               @update:model-value="(statusId) => statusId && update({ statusId })"

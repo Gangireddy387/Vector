@@ -13,7 +13,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { allowedStatusesFor } from '@/lib/workflow-transitions'
+import { allowedStatusesFor, type TransitionActorContext } from '@/lib/workflow-transitions'
 import type { CreateIssueInput } from '@/modules/issues/api/issues.api'
 import IssueCard from '@/modules/issues/components/IssueCard.vue'
 import QuickAddInput from '@/modules/issues/components/QuickAddInput.vue'
@@ -40,12 +40,15 @@ const props = withDefaults(
     lanes?: MobileLane[]
     laneOf?: (issue: Issue) => string
     transitions?: WorkflowTransitionRule[]
+    transitionActor?: TransitionActorContext | null
   }>(),
-  { sprintId: null, editable: true, groupBy: 'none', lanes: () => [], laneOf: () => 'all', transitions: () => [] },
+  { sprintId: null, editable: true, groupBy: 'none', lanes: () => [], laneOf: () => 'all', transitions: () => [], transitionActor: null },
 )
 
 const moveTargets = (issue: Issue) =>
-  allowedStatusesFor(props.statuses, props.transitions, issue.statusId).filter((status) => status.id !== issue.statusId)
+  allowedStatusesFor(props.statuses, props.transitions, issue.statusId, props.transitionActor).filter(
+    (status) => status.id !== issue.statusId,
+  )
 const emit = defineEmits<{ open: [issue: Issue]; move: [issue: Issue, status: Status] }>()
 
 const selectedIndex = ref(0)

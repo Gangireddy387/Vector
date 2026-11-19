@@ -16,6 +16,11 @@ WorkflowTransitionRule.init(
     toStatusIds: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
     requireAssignee: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     requireComment: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    /**
+     * Project roles that may perform this transition: `admin` | `member` | `viewer`.
+     * Empty / null = anyone who can edit issues (member+). Org admins count as project admin.
+     */
+    allowedRoles: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
   },
   {
     sequelize,

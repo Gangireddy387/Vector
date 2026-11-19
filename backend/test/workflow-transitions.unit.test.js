@@ -47,3 +47,20 @@ describe('workflow transition rules', () => {
     );
   });
 });
+
+describe('allowedRoles cleaning', () => {
+  it('keeps membership roles plus lead actors', async () => {
+    const { PROJECT_TRANSITION_ACTORS, actorsForUser } = await import(
+      '../src/modules/workflow-transitions/workflow-transition.service.js'
+    );
+    assert.deepEqual(PROJECT_TRANSITION_ACTORS, ['admin', 'scrum_master', 'team_lead', 'member', 'viewer']);
+    assert.deepEqual(
+      actorsForUser({ role: 'member', userId: 'u1', projectLeadId: 'u1', teamLeadId: 'u2' }),
+      ['scrum_master', 'member'],
+    );
+    assert.deepEqual(
+      actorsForUser({ role: 'admin', userId: 'u1', projectLeadId: 'u9', teamLeadId: 'u1' }),
+      ['admin', 'team_lead'],
+    );
+  });
+});

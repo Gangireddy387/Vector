@@ -10,9 +10,11 @@ import { ColorField, NumberField, SelectField, type SelectFieldOption } from '@/
 import { Input } from '@/components/ui/input'
 import { COLOR_SWATCHES, STATUS_CATEGORY_META } from '@/constants/issue'
 import { getErrorMessage } from '@/lib/http'
+import { TRANSITION_ACTOR_META, type TransitionActor } from '@/lib/workflow-transitions'
 import type { ProjectDetail, Status, StatusCategory } from '@/types/models'
 import { projectsApi, type StatusInput } from '../../projects.api'
 import { useProjectsStore } from '../../projects.store'
+import WorkflowGraph from './WorkflowGraph.vue'
 
 const props = defineProps<{ project: ProjectDetail }>()
 
@@ -28,7 +30,19 @@ const deleting = ref<Status | null>(null)
 const moveTarget = ref('')
 const isSavingTransitions = ref(false)
 
-type DraftRule = { enabled: boolean; toStatusIds: string[]; requireAssignee: boolean; requireComment: boolean }
+const ACTOR_GROUPS: Array<{ key: string; label: string; actors: TransitionActor[] }> = [
+  { key: 'admin', label: 'Admins', actors: ['admin'] },
+  { key: 'leads', label: 'Leads (within members)', actors: ['scrum_master', 'team_lead'] },
+  { key: 'members', label: 'Everyone else', actors: ['member', 'viewer'] },
+]
+
+type DraftRule = {
+  enabled: boolean
+  toStatusIds: string[]
+  requireAssignee: boolean
+  requireComment: boolean
+  allowedRoles: TransitionActor[]
+}
 const drafts = reactive<Record<string, DraftRule>>({})
 
 function syncDrafts() {
@@ -39,6 +53,7 @@ function syncDrafts() {
       toStatusIds: existing ? [...existing.toStatusIds] : props.project.statuses.filter((item) => item.id !== status.id).map((item) => item.id),
       requireAssignee: existing?.requireAssignee ?? false,
       requireComment: existing?.requireComment ?? false,
+      allowedRoles: existing?.allowedRoles?.length ? ([...existing.allowedRoles] as TransitionActor[]) : [],
     }
   }
 }
@@ -109,6 +124,24 @@ function toggleTarget(fromId: string, toId: string, on: boolean) {
   draft.toStatusIds = on ? [...new Set([...draft.toStatusIds, toId])] : draft.toStatusIds.filter((id) => id !== toId)
 }
 
+function toggleActor(fromId: string, actor: TransitionActor, on: boolean) {
+  const draft = drafts[fromId]
+  if (!draft) return
+  draft.allowedRoles = on ? [...new Set([...draft.allowedRoles, actor])] : draft.allowedRoles.filter((item) => item !== actor)
+}
+
+function enableAllTargets(fromId: string) {
+  const draft = drafts[fromId]
+  if (!draft) return
+  draft.toStatusIds = props.project.statuses.filter((item) => item.id !== fromId).map((item) => item.id)
+}
+
+function clearActors(fromId: string) {
+  const draft = drafts[fromId]
+  if (!draft) return
+  draft.allowedRoles = []
+}
+
 async function saveTransitions() {
   isSavingTransitions.value = true
   try {
@@ -121,6 +154,7 @@ async function saveTransitions() {
           toStatusIds: draft.toStatusIds,
           requireAssignee: draft.requireAssignee,
           requireComment: draft.requireComment,
+          allowedRoles: draft.allowedRoles,
         }
       })
     await projectsApi.saveWorkflowTransitions(props.project.id, rules)
@@ -131,6 +165,12 @@ async function saveTransitions() {
   } finally {
     isSavingTransitions.value = false
   }
+}
+
+function actorSummary(fromId: string) {
+  const roles = drafts[fromId]?.allowedRoles ?? []
+  if (!roles.length) return 'Anyone who can edit'
+  return roles.map((role) => TRANSITION_ACTOR_META[role].label).join(', ')
 }
 </script>
 
@@ -199,49 +239,108 @@ async function saveTransitions() {
     <CardHeader>
       <CardTitle class="flex items-center gap-2"><GitBranch class="size-4" /> Transitions</CardTitle>
       <CardDescription>
-        Limit which columns a task may move to. Statuses without a rule stay unrestricted. Leave everything off for free movement.
+        Limit which columns a task may move to, who can move them (admins, scrum master, team lead, members), and whether a comment or assignee is required.
       </CardDescription>
     </CardHeader>
     <CardContent class="space-y-4">
+      <WorkflowGraph :statuses="project.statuses" :transitions="project.workflowTransitions ?? []" :drafts="drafts" />
+
       <ul class="space-y-3">
-        <li v-for="status in project.statuses" :key="`tr-${status.id}`" class="rounded-md border p-3">
-          <label class="mb-2 flex items-center gap-2 text-sm font-medium">
+        <li v-for="status in project.statuses" :key="`tr-${status.id}`" class="rounded-lg border bg-card/40">
+          <label class="flex cursor-pointer items-start gap-3 p-3">
             <Checkbox
+              class="mt-0.5"
               :model-value="drafts[status.id]?.enabled ?? false"
               @update:model-value="(value) => drafts[status.id] && (drafts[status.id]!.enabled = value === true)"
             />
-            Restrict moves from {{ status.name }}
+            <span class="min-w-0 flex-1">
+              <span class="flex flex-wrap items-center gap-2 text-sm font-medium">
+                <span class="size-2.5 rounded-full" :style="{ backgroundColor: status.color }" />
+                Restrict moves from {{ status.name }}
+              </span>
+              <span v-if="drafts[status.id]?.enabled" class="mt-0.5 block text-xs text-muted-foreground">
+                {{ drafts[status.id]!.toStatusIds.length }} destination{{ drafts[status.id]!.toStatusIds.length === 1 ? '' : 's' }}
+                · {{ actorSummary(status.id) }}
+                <template v-if="drafts[status.id]!.requireAssignee"> · assignee required</template>
+                <template v-if="drafts[status.id]!.requireComment"> · comment required</template>
+              </span>
+              <span v-else class="mt-0.5 block text-xs text-muted-foreground">Unrestricted — any editable move is allowed</span>
+            </span>
           </label>
-          <div v-if="drafts[status.id]?.enabled" class="space-y-3 pl-6">
-            <div class="flex flex-wrap gap-3">
-              <label
-                v-for="target in project.statuses.filter((item) => item.id !== status.id)"
-                :key="target.id"
-                class="flex items-center gap-2 text-sm"
-              >
-                <Checkbox
-                  :model-value="drafts[status.id]?.toStatusIds.includes(target.id)"
-                  @update:model-value="(value) => toggleTarget(status.id, target.id, value === true)"
-                />
-                {{ target.name }}
-              </label>
-            </div>
-            <div class="flex flex-wrap gap-4 text-sm">
-              <label class="flex items-center gap-2">
-                <Checkbox
-                  :model-value="drafts[status.id]?.requireAssignee ?? false"
-                  @update:model-value="(value) => drafts[status.id] && (drafts[status.id]!.requireAssignee = value === true)"
-                />
-                Require assignee
-              </label>
-              <label class="flex items-center gap-2">
-                <Checkbox
-                  :model-value="drafts[status.id]?.requireComment ?? false"
-                  @update:model-value="(value) => drafts[status.id] && (drafts[status.id]!.requireComment = value === true)"
-                />
-                Require comment
-              </label>
-            </div>
+
+          <div v-if="drafts[status.id]?.enabled" class="space-y-4 border-t px-3 pb-3 pt-3 sm:pl-10">
+            <section class="space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Allowed destinations</p>
+                <button type="button" class="text-xs text-primary hover:underline" @click="enableAllTargets(status.id)">Select all</button>
+              </div>
+              <div class="grid gap-2 sm:grid-cols-2">
+                <label
+                  v-for="target in project.statuses.filter((item) => item.id !== status.id)"
+                  :key="target.id"
+                  class="flex items-center gap-2 rounded-md border bg-background/50 px-2.5 py-2 text-sm"
+                >
+                  <Checkbox
+                    :model-value="drafts[status.id]?.toStatusIds.includes(target.id)"
+                    @update:model-value="(value) => toggleTarget(status.id, target.id, value === true)"
+                  />
+                  <span class="size-2 rounded-full" :style="{ backgroundColor: target.color }" />
+                  {{ target.name }}
+                </label>
+              </div>
+            </section>
+
+            <section class="space-y-2">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Who can move</p>
+                <button type="button" class="text-xs text-muted-foreground hover:underline" @click="clearActors(status.id)">Clear (anyone)</button>
+              </div>
+              <div class="space-y-3 rounded-md border bg-background/50 p-3">
+                <div v-for="group in ACTOR_GROUPS" :key="group.key" class="space-y-2">
+                  <p class="text-[11px] font-medium text-muted-foreground">{{ group.label }}</p>
+                  <div class="grid gap-2 sm:grid-cols-2">
+                    <label
+                      v-for="actor in group.actors"
+                      :key="actor"
+                      class="flex items-start gap-2 rounded-md border border-transparent px-2 py-1.5 text-sm hover:border-border hover:bg-muted/40"
+                    >
+                      <Checkbox
+                        class="mt-0.5"
+                        :model-value="drafts[status.id]?.allowedRoles.includes(actor)"
+                        @update:model-value="(value) => toggleActor(status.id, actor, value === true)"
+                      />
+                      <span>
+                        <span class="font-medium">{{ TRANSITION_ACTOR_META[actor].label }}</span>
+                        <span class="block text-[11px] text-muted-foreground">{{ TRANSITION_ACTOR_META[actor].hint }}</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <p class="text-[11px] text-muted-foreground">
+                Leave all unchecked to allow any project member who can edit. Scrum master is the project lead; team lead is the owning team’s lead.
+              </p>
+            </section>
+
+            <section class="space-y-2">
+              <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Requirements</p>
+              <div class="flex flex-wrap gap-4 text-sm">
+                <label class="flex items-center gap-2">
+                  <Checkbox
+                    :model-value="drafts[status.id]?.requireAssignee ?? false"
+                    @update:model-value="(value) => drafts[status.id] && (drafts[status.id]!.requireAssignee = value === true)"
+                  />
+                  Require assignee
+                </label>
+                <label class="flex items-center gap-2">
+                  <Checkbox
+                    :model-value="drafts[status.id]?.requireComment ?? false"
+                    @update:model-value="(value) => drafts[status.id] && (drafts[status.id]!.requireComment = value === true)"
+                  />
+                  Require comment
+                </label>
+              </div>
+            </section>
           </div>
         </li>
       </ul>

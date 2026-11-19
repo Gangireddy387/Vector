@@ -2,6 +2,7 @@
 import { defineAsyncComponent } from 'vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import OfflineBanner from '@/components/common/OfflineBanner.vue'
+import PromptTextDialog from '@/components/common/PromptTextDialog.vue'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useDevice } from '@/composables/useDevice'
@@ -29,6 +30,7 @@ const { resolvedTheme } = useTheme()
       </div>
     </div>
     <ConfirmDialog />
+    <PromptTextDialog />
     <CallHost />
     <Toaster
       :position="isDesktop ? 'bottom-right' : 'top-center'"

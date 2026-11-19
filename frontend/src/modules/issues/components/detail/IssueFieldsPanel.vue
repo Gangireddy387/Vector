@@ -11,7 +11,8 @@ import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { formatDateTime } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
-import { transitionRuleFor } from '@/lib/workflow-transitions'
+import { askTransitionComment } from '@/lib/transition-comment'
+import { canPerformTransition, transitionRuleFor } from '@/lib/workflow-transitions'
 import { formatMinutes, parseDuration } from '@/lib/utils'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import type { CustomField, CustomFieldValue, IssueDetail, ProjectDetail, Sprint } from '@/types/models'
@@ -138,22 +139,30 @@ function setField<K extends keyof UpdateIssueInput>(field: K, value: UpdateIssue
   emit('update', { [field]: value } as UpdateIssueInput)
 }
 
-function setStatus(statusId: string) {
+const transitionActor = computed(() => ({
+  role: props.project.myRole,
+  userId: auth.user?.id ?? null,
+  projectLeadId: props.project.leadId ?? null,
+  teamLeadId: props.project.team?.leadId ?? null,
+}))
+
+async function setStatus(statusId: string) {
   if (statusId === props.issue.statusId) return
   const rule = transitionRuleFor(props.project.workflowTransitions, props.issue.statusId)
-  if (rule?.requireComment) {
-    const comment = window.prompt('Add a comment for this status change')
-    if (comment === null) return
-    const trimmed = comment.trim()
-    if (!trimmed) {
-      toast.error('A comment is required for this transition')
-      return
-    }
-    emit('update', { statusId, transitionComment: trimmed })
+  if (!canPerformTransition(rule, transitionActor.value)) {
+    toast.error('You are not allowed to make this status change')
     return
   }
   if (rule?.requireAssignee && !props.issue.assigneeId) {
     toast.error('Assign someone before moving to this status')
+    return
+  }
+  if (rule?.requireComment) {
+    const from = props.project.statuses.find((status) => status.id === props.issue.statusId)?.name
+    const to = props.project.statuses.find((status) => status.id === statusId)?.name
+    const comment = await askTransitionComment(from, to)
+    if (comment === null) return
+    emit('update', { statusId, transitionComment: comment })
     return
   }
   setField('statusId', statusId)
@@ -170,6 +179,7 @@ function setStatus(statusId: string) {
           :statuses="project.statuses"
           :from-status-id="issue.statusId"
           :transitions="project.workflowTransitions"
+          :transition-actor="transitionActor"
           size="sm"
           :disabled="!editable"
           @update:model-value="(value) => value && setStatus(value)"

@@ -105,7 +105,13 @@ export const projectsApi = {
     http.get<{ transitions: WorkflowTransitionRule[] }>(`/projects/${projectId}/workflow-transitions`).then((r) => r.data.transitions),
   saveWorkflowTransitions: (
     projectId: string,
-    rules: Array<{ fromStatusId: string; toStatusIds: string[]; requireAssignee?: boolean; requireComment?: boolean }>,
+    rules: Array<{
+      fromStatusId: string
+      toStatusIds: string[]
+      requireAssignee?: boolean
+      requireComment?: boolean
+      allowedRoles?: Array<'admin' | 'scrum_master' | 'team_lead' | 'member' | 'viewer'>
+    }>,
   ) =>
     http
       .put<{ transitions: WorkflowTransitionRule[] }>(`/projects/${projectId}/workflow-transitions`, { rules })

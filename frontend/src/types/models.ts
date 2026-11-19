@@ -313,12 +313,15 @@ export interface Project extends ProjectReference {
   /** False when an organization admin sees the project without having joined it. */
   isMember?: boolean
   /** The team that owns the project, if any. */
-  team?: { id: string; name: string } | null
+  team?: { id: string; name: string; leadId?: string | null } | null
   createdAt: string
   issueSummary?: { total: number; open: number; done: number }
   memberCount?: number
   activeSprint?: { id: string; name: string; endDate: string | null } | null
 }
+
+/** Who may perform a restricted transition (membership roles + lead actors). */
+export type TransitionActor = 'admin' | 'scrum_master' | 'team_lead' | 'member' | 'viewer'
 
 export interface WorkflowTransitionRule {
   id: string
@@ -327,6 +330,8 @@ export interface WorkflowTransitionRule {
   toStatusIds: string[]
   requireAssignee: boolean
   requireComment: boolean
+  /** Empty = any editor; otherwise only these actors may perform the move. */
+  allowedRoles: TransitionActor[]
 }
 
 export interface ProjectDetail extends Project {

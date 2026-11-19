@@ -482,7 +482,7 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
   if (changes.labelIds) relationChanges.labelIds = changes.labelIds;
   const newStatus = await assertRelations(issue.projectId, relationChanges, issue.id);
   if (diff.statusId) {
-    await assertStatusTransition(issue, changes.statusId, changes, context);
+    await assertStatusTransition(issue, changes.statusId, changes, context, actor);
   }
 
   const updates = Object.fromEntries(Object.entries(diff).map(([field, value]) => [field, value.to ?? null]));

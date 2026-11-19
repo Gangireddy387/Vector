@@ -68,7 +68,7 @@ async function owningTeams(teamIds) {
 /** The team that owns the project, if any. */
 function teamFields(project, teams) {
   const team = project.teamId ? teams.get(project.teamId) : null;
-  return { team: team ? { id: team.id, name: team.name } : null };
+  return { team: team ? { id: team.id, name: team.name, leadId: team.leadId ?? null } : null };
 }
 
 export async function listProjects(userId, { includeArchived }) {
@@ -198,7 +198,7 @@ export async function getProject(projectId, userId) {
     myRole,
     canManageSprints: sprintManagerRule({ role: myRole, userId, projectLeadId: json.leadId, teamLeadId: team?.leadId }),
     isMember: Boolean(myMembership),
-    team: team ? { id: team.id, name: team.name } : null,
+    team: team ? { id: team.id, name: team.name, leadId: team.leadId ?? null } : null,
     members: json.memberships.map((membership) => ({ ...membership.user, role: membership.role, memberId: membership.id })),
     memberships: undefined,
   };

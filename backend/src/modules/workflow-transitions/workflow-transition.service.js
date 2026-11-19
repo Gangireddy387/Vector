@@ -1,5 +1,19 @@
-import { Status, WorkflowTransitionRule } from '../../database/models.js';
+import { Project, Status, Team, WorkflowTransitionRule } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
+import { projectRoleOf } from '../projects/project-access.js';
+
+/** Who may perform a restricted transition. Includes membership roles plus lead actors. */
+export const PROJECT_TRANSITION_ACTORS = ['admin', 'scrum_master', 'team_lead', 'member', 'viewer'];
+/** @deprecated Prefer PROJECT_TRANSITION_ACTORS — kept for older imports/tests. */
+export const PROJECT_TRANSITION_ROLES = PROJECT_TRANSITION_ACTORS;
+
+export const TRANSITION_ACTOR_LABELS = {
+  admin: 'Admins',
+  scrum_master: 'Scrum master',
+  team_lead: 'Team lead',
+  member: 'Members',
+  viewer: 'Viewers',
+};
 
 export const listTransitionRules = (projectId) =>
   WorkflowTransitionRule.findAll({ where: { projectId }, order: [['createdAt', 'ASC']] });
@@ -7,6 +21,21 @@ export const listTransitionRules = (projectId) =>
 async function statusIdsOf(projectId) {
   const rows = await Status.findAll({ where: { projectId }, attributes: ['id'], raw: true });
   return new Set(rows.map((row) => row.id));
+}
+
+function cleanActors(raw) {
+  return [...new Set((raw ?? []).filter((actor) => PROJECT_TRANSITION_ACTORS.includes(actor)))];
+}
+
+/** Actors the user currently holds for transition checks. */
+export function actorsForUser({ role, userId, projectLeadId, teamLeadId }) {
+  const actors = [];
+  if (role === 'admin') actors.push('admin');
+  if (userId && projectLeadId === userId) actors.push('scrum_master');
+  if (userId && teamLeadId === userId) actors.push('team_lead');
+  if (role === 'member') actors.push('member');
+  if (role === 'viewer') actors.push('viewer');
+  return actors;
 }
 
 function cleanRule(input, validIds) {
@@ -17,6 +46,7 @@ function cleanRule(input, validIds) {
     toStatusIds,
     requireAssignee: Boolean(input.requireAssignee),
     requireComment: Boolean(input.requireComment),
+    allowedRoles: cleanActors(input.allowedRoles),
   };
 }
 
@@ -46,7 +76,7 @@ export async function removeRulesForStatus(projectId, statusId) {
  * Enforces transition rules when status changes.
  * System source bypasses the graph (auto-close parent, privileged remaps).
  */
-export async function assertStatusTransition(issue, toStatusId, changes = {}, context = {}) {
+export async function assertStatusTransition(issue, toStatusId, changes = {}, context = {}, actor = null) {
   if (!toStatusId || toStatusId === issue.statusId) return;
   if (context.source === 'system') return;
 
@@ -64,6 +94,28 @@ export async function assertStatusTransition(issue, toStatusId, changes = {}, co
     throw ApiError.badRequest(
       `“${from?.name ?? 'Current'}” cannot move to “${to?.name ?? 'that status'}”. Change the workflow transitions in project settings.`,
     );
+  }
+
+  const roles = cleanActors(rule.allowedRoles);
+  if (roles.length) {
+    if (!actor?.id) throw ApiError.forbidden('Only signed-in project members can make this status change');
+    const [membership, project] = await Promise.all([
+      projectRoleOf(issue.projectId, actor.id),
+      Project.findByPk(issue.projectId, {
+        attributes: ['leadId'],
+        include: [{ model: Team, as: 'team', attributes: ['leadId'] }],
+      }),
+    ]);
+    const held = actorsForUser({
+      role: membership?.role ?? null,
+      userId: actor.id,
+      projectLeadId: project?.leadId ?? null,
+      teamLeadId: project?.team?.leadId ?? null,
+    });
+    if (!roles.some((role) => held.includes(role))) {
+      const labels = roles.map((role) => TRANSITION_ACTOR_LABELS[role] ?? role);
+      throw ApiError.forbidden(`Only ${labels.join(' / ')} can move tasks from this status`);
+    }
   }
 
   if (rule.requireAssignee) {
