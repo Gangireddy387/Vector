@@ -61,6 +61,17 @@ export const updateProfileSchema = z.object({
         })
         .partial()
         .optional(),
+      /**
+       * Local-time window when email and device push are paused (in-app inbox still updates; calls still ring).
+       * Overnight windows wrap past midnight (e.g. 22:00 → 07:00).
+       */
+      quietHours: z
+        .object({
+          enabled: z.boolean().optional(),
+          start: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Use HH:mm').optional(),
+          end: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Use HH:mm').optional(),
+        })
+        .optional(),
     })
     .optional(),
 });

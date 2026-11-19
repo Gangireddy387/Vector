@@ -8,6 +8,7 @@ import { projectHasFeature } from '../plans/plan.service.js';
 import { projectRoleOf } from '../projects/project-access.js';
 import { pushToUsers } from '../push/push.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
+import { allowsNotificationEmail, allowsNotificationPush } from './quiet-hours.js';
 
 /** Which plan switch allows the email copy of a notification; everything else counts as a work notification. */
 const EMAIL_FEATURE_BY_TYPE = { due_soon: 'emailReminders' };
@@ -45,7 +46,7 @@ export async function notifyUsers({ userIds, actorId = null, type, title, body =
   const users = await User.findAll({ where: { id: recipients, status: 'active' } });
 
   if (PUSH_TYPES.has(type)) {
-    const pushRecipients = users.filter((user) => user.preferences?.pushEnabled !== false).map((user) => user.id);
+    const pushRecipients = users.filter((user) => allowsNotificationPush(user)).map((user) => user.id);
     if (pushRecipients.length) {
       await pushToUsers(
         pushRecipients,
@@ -58,7 +59,7 @@ export async function notifyUsers({ userIds, actorId = null, type, title, body =
   if (email && (!projectId || (await projectHasFeature(projectId, EMAIL_FEATURE_BY_TYPE[type] ?? 'emailNotifications')))) {
     await Promise.all(
       users
-        .filter((user) => user.preferences?.emailNotifications !== false)
+        .filter((user) => allowsNotificationEmail(user))
         .map((user) => sendEmail({ to: user.email, ...notificationEmail({ title, body, link }) })),
     );
   }

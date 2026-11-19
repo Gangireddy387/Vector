@@ -252,6 +252,9 @@ export async function updateProfile(user, changes) {
   if (preferences) {
     updates.preferences = { ...user.preferences, ...preferences };
     if (preferences.sounds) updates.preferences.sounds = { ...user.preferences?.sounds, ...preferences.sounds };
+    if (preferences.quietHours) {
+      updates.preferences.quietHours = { ...user.preferences?.quietHours, ...preferences.quietHours };
+    }
     if (preferences.favoriteProjectIds) {
       updates.preferences.favoriteProjectIds = {
         ...(user.preferences?.favoriteProjectIds ?? {}),

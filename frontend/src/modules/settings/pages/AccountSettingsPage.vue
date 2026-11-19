@@ -25,6 +25,7 @@ import CalendarConnectionsCard from '../components/CalendarConnectionsCard.vue'
 import IntegrationsHealthCard from '../components/IntegrationsHealthCard.vue'
 import MfaSettingsCard from '../components/MfaSettingsCard.vue'
 import ProfilePhotoField from '../components/ProfilePhotoField.vue'
+import QuietHoursCard from '../components/QuietHoursCard.vue'
 import SoundSettingsCard from '../components/SoundSettingsCard.vue'
 import SkillsInput from '../components/SkillsInput.vue'
 import TimezoneField from '../components/TimezoneField.vue'
@@ -387,6 +388,7 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
               </div>
             </CardContent>
           </Card>
+          <QuietHoursCard />
         </div>
       </template>
 

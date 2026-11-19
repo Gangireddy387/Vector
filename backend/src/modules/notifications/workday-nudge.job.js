@@ -7,6 +7,7 @@ import { listProjects } from '../projects/project.service.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { workdayNudgeEmail } from '../../shared/services/email-templates.js';
 import { notifyUsers } from './notification.service.js';
+import { allowsNotificationEmail } from './quiet-hours.js';
 import { WORKDAY_NUDGE_DAYS } from './workday-nudge.constants.js';
 
 /** Local hour to nudge on membership day 2 and day 7. */
@@ -86,7 +87,7 @@ export async function sendWorkdayNudges(now = new Date()) {
     const emailAllowed = firstStandup
       ? await projectHasFeature(firstStandup.projectId, 'emailDigest')
       : (await Promise.all(projects.slice(0, 3).map((project) => projectHasFeature(project.id, 'emailDigest')))).some(Boolean);
-    if (emailAllowed && preferences.emailNotifications !== false) {
+    if (emailAllowed && allowsNotificationEmail(user)) {
       await sendEmail({
         to: user.email,
         ...workdayNudgeEmail({

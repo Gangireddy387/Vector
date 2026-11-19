@@ -21,6 +21,14 @@ export interface UserSummary {
   title?: string | null
 }
 
+export interface QuietHoursPreferences {
+  enabled: boolean
+  /** Local start `HH:mm` (e.g. 22:00). */
+  start: string
+  /** Local end `HH:mm` (e.g. 07:00). Overnight windows wrap past midnight. */
+  end: string
+}
+
 export interface UserPreferences {
   emailNotifications: boolean
   dailyDigest: boolean
@@ -30,6 +38,8 @@ export interface UserPreferences {
   weeklyReportsEmail?: boolean
   /** Follow the device's time zone automatically; `false` keeps the zone the user picked. Missing means true. */
   autoTimezone?: boolean
+  /** Pause email and device push in this local window (inbox and call rings still work). */
+  quietHours?: Partial<QuietHoursPreferences>
   /** Starred projects keyed by organization id. */
   favoriteProjectIds?: Record<string, string[]>
   /** Chosen call ringtone, message and notification sounds and their loudness (custom choices need the plan feature). */
