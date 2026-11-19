@@ -32,6 +32,21 @@ const ssoSchema = z.object({
     .optional(),
 });
 
+const channelNotificationsSchema = z.object({
+  enabled: z.boolean().optional(),
+  events: z
+    .object({
+      assigned: z.boolean().optional(),
+      commented: z.boolean().optional(),
+      due_soon: z.boolean().optional(),
+      sprint_started: z.boolean().optional(),
+    })
+    .optional(),
+  /** Empty string keeps the stored URL; null clears it. */
+  slackWebhookUrl: z.string().max(2000).nullable().optional(),
+  teamsWebhookUrl: z.string().max(2000).nullable().optional(),
+});
+
 export const updateOrganizationSchema = z
   .object({
     name: organizationName,
@@ -40,6 +55,7 @@ export const updateOrganizationSchema = z
     brandColor,
     requireMfa: z.boolean(),
     sso: ssoSchema,
+    channelNotifications: channelNotificationsSchema,
   })
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one setting');

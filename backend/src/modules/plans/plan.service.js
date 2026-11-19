@@ -215,6 +215,16 @@ async function unlockPortfolio() {
   }
 }
 
+/** Plans that already include automations also get Slack/Teams channel notifications. */
+async function unlockChannelNotifications() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.channelNotifications || !features.automations) continue;
+    await plan.update({ features: { ...features, channelNotifications: true } });
+    console.info(`[plans] ${plan.name} plan now includes Slack & Teams notifications`);
+  }
+}
+
 export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
@@ -226,6 +236,7 @@ export async function ensureDefaultPlans() {
     await unlockRoadmap();
     await unlockGoals();
     await unlockPortfolio();
+    await unlockChannelNotifications();
     return;
   }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);

@@ -31,6 +31,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
           brandColor: auth.organization.brandColor ?? null,
           requireMfa: Boolean(auth.organization.requireMfa),
           sso: auth.organization.sso,
+          channelNotifications: auth.organization.channelNotifications,
           updatedAt: auth.organization.updatedAt,
         }
       : branding.value,

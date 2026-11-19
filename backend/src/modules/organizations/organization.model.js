@@ -45,6 +45,11 @@ Organization.init(
      * `{ enabled, enforce, provider: 'google'|'microsoft'|'oidc', allowedDomains, microsoftTenant?, oidc?: { issuer, clientId, clientSecret, scopes } }`
      */
     sso: { type: DataTypes.JSON, allowNull: true },
+    /**
+     * Slack / Teams Incoming Webhooks (plan feature `channelNotifications`):
+     * `{ enabled, events, slackWebhookUrl?, teamsWebhookUrl? }`
+     */
+    channelNotifications: { type: DataTypes.JSON, allowNull: true },
     /** Stripe customer / subscription ids when the organization pays for Pro via Checkout. */
     stripeCustomerId: { type: DataTypes.STRING(80), allowNull: true },
     stripeSubscriptionId: { type: DataTypes.STRING(80), allowNull: true },

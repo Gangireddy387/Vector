@@ -39,6 +39,11 @@ import { sendMessage, superAdminIds } from '../support/support.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
 import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
+import {
+  channelNotifySettingsFor,
+  cleanChannelNotifyInput,
+  publicChannelNotifications,
+} from '../integrations/organization-channel-notify.js';
 import { cleanSsoInput, publicSso, ssoSettingsFor } from './organization-sso.js';
 import { customRolesEnabled, resolveMembershipPermissions } from './organization-role.service.js';
 
@@ -70,6 +75,7 @@ export const toPublicOrganization = (organization) => ({
   brandColor: organization.brandColor ?? null,
   requireMfa: Boolean(organization.requireMfa),
   sso: ssoSettingsFor(organization),
+  channelNotifications: channelNotifySettingsFor(organization),
   status: organization.status ?? 'approved',
   rejectionReason: organization.status === 'rejected' ? (organization.rejectionReason ?? null) : null,
   // Only when the plan was loaded; otherwise clients keep the entitlements they already have.
@@ -203,13 +209,16 @@ export async function updateOrganization(organization, actor, changes) {
   const updates = { ...changes, updatedById: actor.id };
   if (changes.slug !== undefined) updates.slug = await assertSlugAvailable(changes.slug, organization.id);
   if (changes.name !== undefined) updates.name = changes.name.trim();
-  if (changes.sso !== undefined) {
-    // Plan must be loaded for the SSO feature check.
+  if (changes.sso !== undefined || changes.channelNotifications !== undefined) {
+    // Plan must be loaded for SSO / channel notification feature checks.
     const withFeatures =
       organization.plan !== undefined
         ? organization
         : await Organization.findByPk(organization.id, { include: withPlan() });
-    updates.sso = cleanSsoInput(changes.sso, withFeatures);
+    if (changes.sso !== undefined) updates.sso = cleanSsoInput(changes.sso, withFeatures);
+    if (changes.channelNotifications !== undefined) {
+      updates.channelNotifications = cleanChannelNotifyInput(changes.channelNotifications, withFeatures);
+    }
   }
   const before = {
     name: organization.name,
@@ -218,10 +227,11 @@ export async function updateOrganization(organization, actor, changes) {
     brandColor: organization.brandColor ?? null,
     requireMfa: Boolean(organization.requireMfa),
     sso: publicSso(organization, { includeTenant: true, includeOidc: true }),
+    channelNotifications: publicChannelNotifications(organization),
   };
   await organization.update(updates);
   const changed = Object.keys(changes).filter((key) =>
-    ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa', 'sso'].includes(key),
+    ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa', 'sso', 'channelNotifications'].includes(key),
   );
   if (changed.length) {
     await logWorkspaceAction({
@@ -240,6 +250,7 @@ export async function updateOrganization(organization, actor, changes) {
           brandColor: organization.brandColor ?? null,
           requireMfa: Boolean(organization.requireMfa),
           sso: publicSso(organization, { includeTenant: true, includeOidc: true }),
+          channelNotifications: publicChannelNotifications(organization),
         },
       },
     });

@@ -22,6 +22,7 @@ import {
   UserCog,
   UsersRound,
   Video,
+  Webhook,
   Workflow,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
@@ -46,6 +47,7 @@ export type PlanFeatureKey =
   | 'attachments'
   | 'timeTracking'
   | 'customSounds'
+  | 'channelNotifications'
   | 'sso'
   | 'scim'
   | 'emailInvitations'
@@ -139,6 +141,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     label: 'Custom ringtones & sounds',
     description: 'Everyone picks their own call ringtone, message and notification sounds',
     icon: Music,
+    group: 'app',
+  },
+  {
+    key: 'channelNotifications',
+    label: 'Slack & Teams notifications',
+    description: 'Post assignments, comments, due dates and sprint starts to Slack or Microsoft Teams',
+    icon: Webhook,
     group: 'app',
   },
   {

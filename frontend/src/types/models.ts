@@ -93,6 +93,20 @@ export interface OrganizationSsoSettings {
   oidc?: OrganizationOidcSettings | null
 }
 
+/** Slack / Teams Incoming Webhook settings (plan feature `channelNotifications`). */
+export interface OrganizationChannelNotifications {
+  available?: boolean
+  enabled: boolean
+  events: {
+    assigned: boolean
+    commented: boolean
+    due_soon: boolean
+    sprint_started: boolean
+  }
+  slackConfigured: boolean
+  teamsConfigured: boolean
+}
+
 export interface WorkspaceSettings {
   name: string
   /** The organization's address (example.com/:slug); absent for the signed-out default branding. */
@@ -104,6 +118,7 @@ export interface WorkspaceSettings {
   /** When true, members must enable two-factor authentication. */
   requireMfa?: boolean
   sso?: OrganizationSsoSettings
+  channelNotifications?: OrganizationChannelNotifications
   status?: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements
@@ -141,6 +156,7 @@ export interface OrganizationSummary {
   brandColor?: string | null
   requireMfa?: boolean
   sso?: OrganizationSsoSettings
+  channelNotifications?: OrganizationChannelNotifications
   status: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements

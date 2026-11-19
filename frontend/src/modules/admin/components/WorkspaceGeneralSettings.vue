@@ -18,6 +18,7 @@ import type { ColorMode, WorkspaceSettings } from '@/types/models'
 import { workspaceApi } from '../admin.api'
 import OrganizationLogoField from './OrganizationLogoField.vue'
 import OrganizationThemeField from './OrganizationThemeField.vue'
+import WorkspaceChannelNotificationsSettings from './WorkspaceChannelNotificationsSettings.vue'
 import WorkspaceScimSettings from './WorkspaceScimSettings.vue'
 import WorkspaceSsoSettings from './WorkspaceSsoSettings.vue'
 
@@ -205,6 +206,7 @@ async function deleteOrganization() {
 
     <WorkspaceSsoSettings />
     <WorkspaceScimSettings />
+    <WorkspaceChannelNotificationsSettings />
 
     <Card>
       <CardHeader>
