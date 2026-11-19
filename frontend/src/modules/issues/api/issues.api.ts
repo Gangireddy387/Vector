@@ -115,5 +115,8 @@ export const issuesApi = {
   addLink: (issueId: string, payload: { targetIssue: string; type: IssueLinkType }) =>
     http.post<{ issue: IssueDetail }>(`/issues/${issueId}/links`, payload).then((r) => r.data.issue),
   removeLink: (linkId: string) => http.delete(`/issue-links/${linkId}`),
+  addExternalLink: (issueId: string, payload: { url: string }) =>
+    http.post<{ issue: IssueDetail }>(`/issues/${issueId}/external-links`, payload).then((r) => r.data.issue),
+  removeExternalLink: (linkId: string) => http.delete(`/issue-external-links/${linkId}`),
   activity: (issueId: string) => http.get<{ activities: Activity[] }>(`/issues/${issueId}/activity`).then((r) => r.data.activities),
 }

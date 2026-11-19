@@ -24,6 +24,7 @@ import {
   Video,
   Webhook,
   Workflow,
+  GitBranch,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
 
@@ -48,6 +49,7 @@ export type PlanFeatureKey =
   | 'timeTracking'
   | 'customSounds'
   | 'channelNotifications'
+  | 'vcsLinks'
   | 'sso'
   | 'scim'
   | 'emailInvitations'
@@ -148,6 +150,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     label: 'Slack & Teams notifications',
     description: 'Post assignments, comments, due dates and sprint starts to Slack or Microsoft Teams',
     icon: Webhook,
+    group: 'app',
+  },
+  {
+    key: 'vcsLinks',
+    label: 'GitHub & GitLab links',
+    description: 'Paste GitHub or GitLab issue and pull request URLs onto Vector tasks',
+    icon: GitBranch,
     group: 'app',
   },
   {

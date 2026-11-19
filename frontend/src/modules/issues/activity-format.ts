@@ -54,6 +54,9 @@ export function describeActivity(activity: Activity) {
     case 'linked':
       text = `linked: ${to}`
       break
+    case 'external_linked':
+      text = `linked code: ${to}`
+      break
     case 'automation_ran':
       text = `rule “${to}” ran`
       break

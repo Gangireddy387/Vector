@@ -3,9 +3,11 @@ import { z } from 'zod';
 import { validate } from '../../shared/middleware/validate.js';
 import * as controller from './issue.controller.js';
 import { csvUpload } from './issue.import.js';
+import { requireFeature } from '../plans/plan.service.js';
 import {
   bulkDeleteSchema,
   bulkUpdateSchema,
+  createExternalLinkSchema,
   createIssueSchema,
   createLinkSchema,
   listIssuesQuery,
@@ -15,6 +17,7 @@ import {
 } from './issue.validation.js';
 
 const router = Router();
+const vcsLinks = requireFeature('vcsLinks');
 
 router.get('/issues', validate({ query: listIssuesQuery }), controller.list);
 router.get('/issues/export', validate({ query: listIssuesQuery }), controller.exportCsv);
@@ -40,5 +43,13 @@ router.delete('/issues/:issueId/watchers/:userId', controller.removeWatcher);
 
 router.post('/issues/:issueId/links', validate({ body: createLinkSchema }), controller.createLink);
 router.delete('/issue-links/:linkId', controller.deleteLink);
+
+router.post(
+  '/issues/:issueId/external-links',
+  vcsLinks,
+  validate({ body: createExternalLinkSchema }),
+  controller.createExternalLink,
+);
+router.delete('/issue-external-links/:linkId', vcsLinks, controller.deleteExternalLink);
 
 export default router;

@@ -3,6 +3,7 @@ import {
   Attachment,
   CustomField,
   Issue,
+  IssueExternalLink,
   IssueLabel,
   IssueLink,
   IssueTemplate,
@@ -15,6 +16,7 @@ import {
   User,
   WorkLog,
 } from '../../database/models.js';
+import { parseExternalIssueUrl, serializeExternalLink } from './issue-external-link.parse.js';
 import {
   assertCustomFieldValues,
   formatFieldValueForActivity,
@@ -334,7 +336,7 @@ export async function getIssueDetail(issueIdOrKey, userId) {
     include: [{ model: Status, as: 'status', attributes: STATUS_SUMMARY_ATTRIBUTES }],
   });
 
-  const [issue, subtasks, outward, inward, timeSpentMinutes] = await Promise.all([
+  const [issue, subtasks, outward, inward, externalLinks, timeSpentMinutes] = await Promise.all([
     Issue.findByPk(id, { include: issueDetailInclude() }),
     Issue.findAll({
       where: { parentId: id },
@@ -346,6 +348,7 @@ export async function getIssueDetail(issueIdOrKey, userId) {
     }),
     IssueLink.findAll({ where: { sourceIssueId: id }, include: [linkedIssueInclude('targetIssue')] }),
     IssueLink.findAll({ where: { targetIssueId: id }, include: [linkedIssueInclude('sourceIssue')] }),
+    IssueExternalLink.findAll({ where: { issueId: id }, order: [['createdAt', 'ASC']] }),
     WorkLog.sum('minutes', { where: { issueId: id } }),
   ]);
 
@@ -356,6 +359,7 @@ export async function getIssueDetail(issueIdOrKey, userId) {
     customFieldValues: customFieldMap.get(id) ?? [],
     subtasks: subtasks.map((subtask) => subtask.toJSON()),
     links: serializeLinks(outward, inward),
+    externalLinks: externalLinks.map(serializeExternalLink),
     timeSpentMinutes: timeSpentMinutes ?? 0,
     isWatching: json.watchers.some((watcher) => watcher.id === userId),
   };
@@ -660,5 +664,45 @@ export async function deleteLink(linkId, actor) {
   const link = await IssueLink.findByPk(linkId, { include: [{ model: Issue, as: 'sourceIssue', attributes: ['id', 'projectId', 'key'] }] });
   if (!link) throw ApiError.notFound('Link not found');
   await assertProjectRole(link.sourceIssue.projectId, actor.id, 'member');
+  await link.destroy();
+}
+
+/** Paste a GitHub / GitLab (or other https) URL onto a Vector issue. */
+export async function createExternalLink(issue, { url }, actor) {
+  if (!(await projectHasFeature(issue.projectId, 'vcsLinks'))) {
+    throw ApiError.forbidden('GitHub & GitLab links are not included in your plan');
+  }
+  const parsed = parseExternalIssueUrl(url);
+  if (await IssueExternalLink.count({ where: { issueId: issue.id, url: parsed.url } })) {
+    throw ApiError.conflict('This URL is already linked');
+  }
+  const link = await IssueExternalLink.create({
+    issueId: issue.id,
+    provider: parsed.provider,
+    url: parsed.url,
+    host: parsed.host,
+    owner: parsed.owner,
+    repo: parsed.repo,
+    number: parsed.number,
+    kind: parsed.kind,
+    label: parsed.label,
+    createdById: actor.id,
+  });
+  await logActivity({
+    projectId: issue.projectId,
+    issueId: issue.id,
+    actorId: actor.id,
+    action: 'external_linked',
+    toValue: parsed.label,
+  });
+  return link;
+}
+
+export async function deleteExternalLink(linkId, actor) {
+  const link = await IssueExternalLink.findByPk(linkId, {
+    include: [{ model: Issue, as: 'issue', attributes: ['id', 'projectId'] }],
+  });
+  if (!link) throw ApiError.notFound('External link not found');
+  await assertProjectRole(link.issue.projectId, actor.id, 'member');
   await link.destroy();
 }

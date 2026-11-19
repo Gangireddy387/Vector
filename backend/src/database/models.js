@@ -13,6 +13,7 @@ import { WorkflowTransitionRule } from '../modules/workflow-transitions/workflow
 import { Label } from '../modules/labels/label.model.js';
 import { CustomField, IssueCustomFieldValue } from '../modules/custom-fields/custom-field.model.js';
 import { Issue } from '../modules/issues/issue.model.js';
+import { IssueExternalLink } from '../modules/issues/issue-external-link.model.js';
 import { IssueLabel, IssueLink, IssueWatcher } from '../modules/issues/issue-relations.model.js';
 import { Sprint } from '../modules/sprints/sprint.model.js';
 import { Comment } from '../modules/comments/comment.model.js';
@@ -144,6 +145,10 @@ Issue.hasMany(IssueLink, { as: 'outwardLinks', foreignKey: 'sourceIssueId', ...c
 Issue.hasMany(IssueLink, { as: 'inwardLinks', foreignKey: 'targetIssueId', ...cascade });
 IssueLink.belongsTo(Issue, { as: 'sourceIssue', foreignKey: 'sourceIssueId' });
 IssueLink.belongsTo(Issue, { as: 'targetIssue', foreignKey: 'targetIssueId' });
+
+Issue.hasMany(IssueExternalLink, { as: 'externalLinks', foreignKey: 'issueId', ...cascade });
+IssueExternalLink.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
+IssueExternalLink.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
 
 // Collaboration
 Issue.hasMany(Comment, { as: 'comments', foreignKey: 'issueId', ...cascade });
@@ -321,6 +326,7 @@ export {
   Issue,
   IssueLabel,
   IssueLink,
+  IssueExternalLink,
   IssueWatcher,
   Sprint,
   Comment,

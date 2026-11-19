@@ -83,3 +83,14 @@ export const deleteLink = async (req, res) => {
   await issueService.deleteLink(req.params.linkId, req.user);
   res.status(204).end();
 };
+
+export const createExternalLink = async (req, res) => {
+  const issue = await loadIssueWithAccess(req.params.issueId, req.user.id, 'member');
+  await issueService.createExternalLink(issue, req.body, req.user);
+  return respondWithDetail(res, issue.id, req.user.id, 201);
+};
+
+export const deleteExternalLink = async (req, res) => {
+  await issueService.deleteExternalLink(req.params.linkId, req.user);
+  res.status(204).end();
+};

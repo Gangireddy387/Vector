@@ -99,3 +99,7 @@ export const createLinkSchema = z.object({
   targetIssue: z.string().trim().min(1, 'Enter a task key'),
   type: z.enum(ISSUE_LINK_TYPES).default('relates_to'),
 });
+
+export const createExternalLinkSchema = z.object({
+  url: z.string().trim().url('Enter a valid URL').max(1000),
+});

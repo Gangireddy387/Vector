@@ -5,6 +5,7 @@ import {
   Ellipsis,
   ExternalLink,
   Eye,
+  GitBranch,
   Link2,
   Paperclip,
   RotateCcw,
@@ -44,6 +45,7 @@ import IssueComments from './IssueComments.vue'
 import IssueFollowups from './IssueFollowups.vue'
 import IssueDescriptionEditor from './IssueDescriptionEditor.vue'
 import IssueFieldsPanel from './IssueFieldsPanel.vue'
+import IssueExternalLinks from './IssueExternalLinks.vue'
 import IssueLinks from './IssueLinks.vue'
 import IssueSubtasks from './IssueSubtasks.vue'
 import IssueTitleEditor from './IssueTitleEditor.vue'
@@ -68,6 +70,7 @@ const activeTab = ref('comments')
 
 const attachmentsRef = ref<InstanceType<typeof IssueAttachments> | null>(null)
 const linksRef = ref<InstanceType<typeof IssueLinks> | null>(null)
+const externalLinksRef = ref<InstanceType<typeof IssueExternalLinks> | null>(null)
 const summaryRef = ref<InstanceType<typeof IssueAiSummary> | null>(null)
 
 const project = computed(() => (issue.value ? projects.details[issue.value.projectId] ?? null : null))
@@ -82,6 +85,7 @@ const canEdit = computed(() => projects.canEdit(issue.value?.projectId))
 const canComment = computed(() => Boolean(issue.value && project.value?.myRole))
 const canUseAi = computed(() => auth.hasFeature('aiAssistant'))
 const canAttach = computed(() => canEdit.value && auth.hasFeature('attachments'))
+const canLinkCode = computed(() => canEdit.value && auth.hasFeature('vcsLinks'))
 const isDone = computed(() => issue.value?.status.category === 'done')
 const projectId = computed(() => issue.value?.projectId)
 
@@ -151,6 +155,11 @@ async function remove() {
 function startLinking() {
   activeTab.value = 'comments'
   linksRef.value?.startAdding()
+}
+
+function startCodeLinking() {
+  activeTab.value = 'comments'
+  externalLinksRef.value?.startAdding()
 }
 </script>
 
@@ -225,6 +234,7 @@ function startLinking() {
         <DropdownMenuContent align="end" class="w-52">
           <DropdownMenuItem v-if="canUseAi" @select="summaryRef?.generate()"><Sparkles /> Summarize</DropdownMenuItem>
           <DropdownMenuItem v-if="canEdit" @select="startLinking"><Link2 /> Link task</DropdownMenuItem>
+          <DropdownMenuItem v-if="canLinkCode" @select="startCodeLinking"><GitBranch /> Link code</DropdownMenuItem>
           <DropdownMenuItem v-if="canAttach" @select="attachmentsRef?.openPicker()"><Paperclip /> Attach files</DropdownMenuItem>
           <template v-if="canEdit">
             <DropdownMenuSeparator />
@@ -270,6 +280,7 @@ function startLinking() {
             <Button v-if="canUseAi" variant="outline" size="sm" @click="summaryRef?.generate()"><Sparkles class="text-primary" /> Summarize</Button>
             <Button v-if="canAttach" variant="outline" size="sm" @click="attachmentsRef?.openPicker()"><Paperclip /> Attach</Button>
             <Button v-if="canEdit" variant="outline" size="sm" @click="startLinking"><Link2 /> Link</Button>
+            <Button v-if="canLinkCode" variant="outline" size="sm" @click="startCodeLinking"><GitBranch /> Code</Button>
           </div>
         </div>
 
@@ -296,6 +307,13 @@ function startLinking() {
         <IssueDescriptionEditor :description="issue.description" :editable="canEdit" @save="(description) => update({ description })" />
         <IssueSubtasks :issue="issue" :project="project" :editable="canEdit" @changed="reloadQuietly" />
         <IssueLinks ref="linksRef" :issue="issue" :editable="canEdit" @changed="reloadQuietly" />
+        <IssueExternalLinks
+          v-if="canLinkCode || (issue.externalLinks?.length ?? 0) > 0"
+          ref="externalLinksRef"
+          :issue="issue"
+          :editable="canLinkCode"
+          @changed="reloadQuietly"
+        />
         <IssueAttachments ref="attachmentsRef" :issue-id="issue.id" :editable="canAttach" :refresh-key="refreshKey" />
 
         <Tabs v-model="activeTab" class="gap-4">

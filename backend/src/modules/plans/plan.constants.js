@@ -20,6 +20,8 @@ export const PLAN_FEATURES = [
   { key: 'customSounds', label: 'Custom ringtones & sounds' },
   /** Slack Incoming Webhooks + Teams Incoming Webhooks for work events. */
   { key: 'channelNotifications', label: 'Slack & Teams notifications' },
+  /** Paste GitHub / GitLab issue and PR URLs on Vector tasks. */
+  { key: 'vcsLinks', label: 'GitHub & GitLab links' },
   /** Force Google/Microsoft/OIDC sign-in and optional Azure AD tenant lock (Enterprise). */
   { key: 'sso', label: 'Enterprise SSO' },
   /** SCIM 2.0 user provisioning for IdPs (Enterprise). */
@@ -58,7 +60,7 @@ export const DEFAULT_PLANS = [
     priceLabel: '₹999 / month',
     maxMembers: 25,
     maxProjects: 20,
-    features: features('aiAssistant', 'automations', 'recurringTasks', 'templates', 'customFields', 'customRoles', 'reports', 'roadmap', 'goals', 'portfolio', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar', 'attachments', 'timeTracking', 'customSounds', 'channelNotifications', ...EMAIL_FEATURE_KEYS),
+    features: features('aiAssistant', 'automations', 'recurringTasks', 'templates', 'customFields', 'customRoles', 'reports', 'roadmap', 'goals', 'portfolio', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar', 'attachments', 'timeTracking', 'customSounds', 'channelNotifications', 'vcsLinks', ...EMAIL_FEATURE_KEYS),
     isDefault: false,
     position: 1,
   },

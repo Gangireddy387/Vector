@@ -225,6 +225,16 @@ async function unlockChannelNotifications() {
   }
 }
 
+/** Plans that already include channel notifications (or automations) also get GitHub/GitLab URL links. */
+async function unlockVcsLinks() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.vcsLinks || !(features.channelNotifications || features.automations)) continue;
+    await plan.update({ features: { ...features, vcsLinks: true } });
+    console.info(`[plans] ${plan.name} plan now includes GitHub & GitLab links`);
+  }
+}
+
 export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
@@ -237,6 +247,7 @@ export async function ensureDefaultPlans() {
     await unlockGoals();
     await unlockPortfolio();
     await unlockChannelNotifications();
+    await unlockVcsLinks();
     return;
   }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);

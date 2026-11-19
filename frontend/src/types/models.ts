@@ -417,11 +417,26 @@ export interface IssueLinkItem {
   issue: IssueReference
 }
 
+/** GitHub / GitLab (or other) URL linked on a Vector issue. */
+export interface IssueExternalLink {
+  id: string
+  provider: 'github' | 'gitlab' | 'other'
+  url: string
+  host: string
+  owner: string | null
+  repo: string | null
+  number: number | null
+  kind: 'issue' | 'pull' | 'merge_request' | null
+  label: string
+  createdAt: string
+}
+
 export interface IssueDetail extends Omit<Issue, 'subtaskProgress' | 'commentCount' | 'attachmentCount'> {
   reporter: UserSummary | null
   watchers: UserSummary[]
   subtasks: Array<IssueReference & { status: StatusSummary; assignee: UserSummary | null; statusId: string }>
   links: IssueLinkItem[]
+  externalLinks?: IssueExternalLink[]
   customFieldValues: IssueCustomFieldValue[]
   timeSpentMinutes: number
   isWatching: boolean
