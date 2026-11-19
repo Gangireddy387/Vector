@@ -8,6 +8,7 @@ import { calendarRoutes } from '@/modules/calendar/calendar.routes'
 import { collaborationRoutes } from '@/modules/chat/chat.routes'
 import { dashboardRoutes } from '@/modules/dashboard/dashboard.routes'
 import { dependencyRoutes } from '@/modules/dependencies/dependencies.routes'
+import { roadmapRoutes } from '@/modules/roadmap/roadmap.routes'
 import { departmentRoutes } from '@/modules/departments/departments.routes'
 import { issueRoutes, projectIssueRoutes } from '@/modules/issues/issues.routes'
 import { legalRoutes } from '@/modules/legal/legal.routes'
@@ -116,6 +117,7 @@ const routes: RouteRecordRaw[] = [
           ...backlogRoutes,
           ...projectIssueRoutes,
           ...dependencyRoutes,
+          ...roadmapRoutes,
           ...collaborationRoutes,
           ...reportRoutes,
           ...automationRoutes,

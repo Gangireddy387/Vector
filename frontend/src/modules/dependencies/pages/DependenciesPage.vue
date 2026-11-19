@@ -14,8 +14,8 @@ import { useSocketEvents } from '@/lib/socket-events'
 import { dependenciesApi, type DependencyNode, type ProjectDependencies } from '../dependencies.api'
 import DependencyGraph from '../components/DependencyGraph.vue'
 
-const props = defineProps<{ projectId: string }>()
 const route = useRoute()
+const projectId = computed(() => route.params.projectId as string)
 
 const data = ref<ProjectDependencies | null>(null)
 const loading = ref(false)
@@ -32,9 +32,11 @@ const visibleEdges = computed(() => {
 })
 
 async function load() {
+  const id = projectId.value
+  if (!id) return
   loading.value = true
   try {
-    data.value = await dependenciesApi.forProject(props.projectId)
+    data.value = await dependenciesApi.forProject(id)
   } catch (error) {
     toast.error(getErrorMessage(error))
   } finally {
@@ -42,9 +44,9 @@ async function load() {
   }
 }
 
-watch(() => props.projectId, load, { immediate: true })
+watch(projectId, load, { immediate: true })
 useSocketEvents({ 'issue:changed': (payload: { projectId?: string }) => {
-  if (payload.projectId === props.projectId) void load()
+  if (payload.projectId === projectId.value) void load()
 } })
 
 function formatEffort(minutes: number) {

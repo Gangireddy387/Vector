@@ -32,6 +32,7 @@ export type PlanFeatureKey =
   | 'customFields'
   | 'customRoles'
   | 'reports'
+  | 'roadmap'
   | 'chat'
   | 'directMessages'
   | 'teamChat'
@@ -93,6 +94,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     group: 'app',
   },
   { key: 'reports', label: 'Reports & progress', description: 'Charts, velocity, burndown and team insights', icon: BarChart3, group: 'app' },
+  {
+    key: 'roadmap',
+    label: 'Roadmap & timeline',
+    description: 'Timeline of epics and tasks by start and due dates',
+    icon: CalendarDays,
+    group: 'app',
+  },
   { key: 'chat', label: 'Team chat & standups', description: 'Project chat, follow-ups and daily standups', icon: MessagesSquare, group: 'app' },
   { key: 'directMessages', label: 'Direct messages', description: 'Private one-to-one chats between people', icon: MessageCircle, group: 'app' },
   { key: 'teamChat', label: 'Team & department chat', description: 'A group chat for every team and department', icon: UsersRound, group: 'app' },

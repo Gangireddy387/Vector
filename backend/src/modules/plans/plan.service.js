@@ -175,6 +175,16 @@ async function unlockCustomRoles() {
   }
 }
 
+/** Plans that already include reports also get the roadmap timeline when the switch is introduced. */
+async function unlockRoadmap() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.roadmap || !features.reports) continue;
+    await plan.update({ features: { ...features, roadmap: true } });
+    console.info(`[plans] ${plan.name} plan now includes roadmap`);
+  }
+}
+
 export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
@@ -182,6 +192,7 @@ export async function ensureDefaultPlans() {
     await unlockEnterpriseSso();
     await unlockCustomFields();
     await unlockCustomRoles();
+    await unlockRoadmap();
     return;
   }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);

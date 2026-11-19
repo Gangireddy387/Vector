@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardList, Columns3, GitBranch, Hash, Kanban, ListTodo, Settings, TrendingUp, Workflow } from 'lucide-vue-next'
+import { BarChart3, CalendarRange, ClipboardList, Columns3, GitBranch, Hash, Kanban, ListTodo, Settings, TrendingUp, Workflow } from 'lucide-vue-next'
 import type { Component } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import type { PlanFeatureKey } from '@/lib/plan-features'
@@ -45,6 +45,17 @@ export function getProjectNavigation(project: Pick<Project, 'type' | 'myRole'>, 
     ...(project.type === 'scrum' ? [{ name: 'project-backlog', label: 'Backlog', icon: Columns3 }] : []),
     { name: 'project-issues', label: 'Tasks', icon: ListTodo },
     { name: 'project-dependencies', label: 'Dependencies', icon: GitBranch },
+    ...(hasFeature('roadmap')
+      ? [{ name: 'project-roadmap', label: 'Roadmap', icon: CalendarRange }]
+      : [
+          {
+            name: 'feature-locked',
+            label: 'Roadmap',
+            icon: CalendarRange,
+            locked: true,
+            to: { name: 'feature-locked', query: { feature: 'roadmap' } },
+          },
+        ]),
     ...chatNav,
     ...(hasFeature('reports')
       ? [
