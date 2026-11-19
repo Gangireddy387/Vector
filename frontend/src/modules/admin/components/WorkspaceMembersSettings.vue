@@ -233,8 +233,8 @@ async function sendInvite() {
           v-if="seatLimitHit"
           class="flex flex-col gap-2 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/10 px-3 py-2.5 sm:flex-row sm:items-center"
         >
-          <p class="min-w-0 flex-1 text-xs text-amber-900 dark:text-amber-200">People limit reached. Request more seats from the portal admin.</p>
-          <RequestUpgradeButton target="seats" size="sm" variant="outline" />
+          <p class="min-w-0 flex-1 text-xs text-amber-900 dark:text-amber-200">People limit reached. Buy more seats or ask the portal admin.</p>
+          <RequestUpgradeButton target="seats" size="sm" variant="outline" :member-count="members.length || 1" />
         </div>
         <form class="flex flex-col gap-2 sm:flex-row sm:items-start" @submit.prevent="sendInvite">
           <div class="flex-1 space-y-1">

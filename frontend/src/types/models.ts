@@ -59,6 +59,8 @@ export interface Entitlements {
   features: Record<PlanFeatureKey, boolean>
   /** Features the super admin turned on or off for this organization, unlike its plan. */
   customFeatures?: PlanFeatureKey[]
+  /** Paid seat count from Stripe when the org bills per seat. */
+  billedSeats?: number | null
   limits: { members: number | null; projects: number | null }
 }
 

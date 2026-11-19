@@ -43,6 +43,8 @@ Organization.init(
     /** Stripe customer / subscription ids when the organization pays for Pro via Checkout. */
     stripeCustomerId: { type: DataTypes.STRING(80), allowNull: true },
     stripeSubscriptionId: { type: DataTypes.STRING(80), allowNull: true },
+    /** Paid seat count from Stripe (subscription quantity). When set, overrides the plan’s people limit. */
+    billedSeats: { type: DataTypes.INTEGER, allowNull: true },
     createdById: { type: DataTypes.UUID, allowNull: true },
     updatedById: { type: DataTypes.UUID, allowNull: true },
   },

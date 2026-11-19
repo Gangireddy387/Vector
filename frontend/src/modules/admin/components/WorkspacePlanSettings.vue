@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, FolderKanban, Gem, Minus, Sunrise, Users } from 'lucide-vue-next'
+import { Check, CreditCard, FolderKanban, Gem, LoaderCircle, Minus, Sunrise, Users } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
+import { getErrorMessage } from '@/lib/http'
 import { PLAN_FEATURES } from '@/lib/plan-features'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type UpgradeTarget, workspaceApi } from '../admin.api'
@@ -19,6 +20,8 @@ const router = useRouter()
 const overview = ref<Awaited<ReturnType<typeof workspaceApi.plan>> | null>(null)
 const nudgeStats = ref<Awaited<ReturnType<typeof workspaceApi.workdayNudgeMetrics>> | null>(null)
 const nudgeLoading = ref(true)
+const billingInfo = ref<Awaited<ReturnType<typeof workspaceApi.billingStatus>> | null>(null)
+const isOpeningPortal = ref(false)
 
 const emptyNudgeStats = {
   sent: 0,
@@ -33,6 +36,9 @@ const emptyNudgeStats = {
 
 const load = async () => {
   overview.value = await workspaceApi.plan()
+  if (auth.isOrganizationAdmin) {
+    billingInfo.value = await workspaceApi.billingStatus().catch(() => null)
+  }
   nudgeLoading.value = true
   nudgeStats.value = await workspaceApi.workdayNudgeMetrics().catch(() => emptyNudgeStats)
   nudgeLoading.value = false
@@ -46,10 +52,29 @@ onMounted(async () => {
   } else if (billing === 'cancel') {
     toast.message('Checkout cancelled')
     void router.replace({ query: { ...route.query, billing: undefined } })
+  } else if (billing === 'portal') {
+    toast.message('Back from billing', { description: 'Plan updates from Stripe apply within a few seconds.' })
+    await auth.refreshSession()
+    void router.replace({ query: { ...route.query, billing: undefined } })
   }
   await load()
 })
 watch(() => auth.organization?.entitlements, load, { deep: true })
+
+async function openBillingPortal() {
+  if (!auth.isOrganizationAdmin) {
+    toast.message('Ask an organization admin', { description: 'Only admins can manage billing.' })
+    return
+  }
+  isOpeningPortal.value = true
+  try {
+    const { url } = await workspaceApi.startBillingPortal()
+    window.location.assign(url)
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+    isOpeningPortal.value = false
+  }
+}
 
 /** Deep-link from plan-limit toasts (?request=seats|projects|pro). */
 const focusRequest = computed<UpgradeTarget | null>(() => {
@@ -65,6 +90,7 @@ const isFreeLike = computed(() => {
   return !features.automations || !features.aiAssistant || !features.reports
 })
 const pending = computed(() => overview.value?.upgradeRequest ?? null)
+const canManageBilling = computed(() => Boolean(billingInfo.value?.portalEnabled && auth.isOrganizationAdmin))
 
 const usageRows = computed(() => {
   if (!overview.value) return []
@@ -86,10 +112,44 @@ const usageRows = computed(() => {
       <CardHeader>
         <CardTitle class="flex items-center gap-2"><Gem class="size-4 text-primary" /> {{ planName }} plan</CardTitle>
         <CardDescription>
-          Your plan is set by the portal administrator. Request an upgrade here — it goes to Vector support and Super Admin.
+          <template v-if="canManageBilling">
+            Manage your card, invoices and cancellation in Stripe. Limits below still apply until you change plan.
+          </template>
+          <template v-else>
+            Upgrade with card when Checkout is on, or request an upgrade for the portal administrator.
+          </template>
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-4">
+        <div v-if="canManageBilling" class="flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-3 sm:flex-row sm:items-center">
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-medium">Billing</p>
+            <p class="mt-0.5 text-xs text-muted-foreground">
+              <template v-if="billingInfo?.hasSubscription">
+                {{ billingInfo.billedSeats ? `${billingInfo.billedSeats} paid seats` : 'Active subscription' }}
+                — update payment method, seats, invoices, or cancel.
+              </template>
+              <template v-else>Stripe customer on file — open the portal to manage payment details.</template>
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <RequestUpgradeButton
+              v-if="billingInfo?.hasSubscription"
+              target="seats"
+              size="sm"
+              variant="outline"
+              label="Change seats"
+              :member-count="overview?.usage.members ?? 1"
+              @update="load"
+            />
+            <Button size="sm" variant="outline" :disabled="isOpeningPortal" @click="openBillingPortal">
+              <LoaderCircle v-if="isOpeningPortal" class="animate-spin" />
+              <CreditCard v-else />
+              Manage billing
+            </Button>
+          </div>
+        </div>
+
         <div v-if="!overview" class="grid gap-3 sm:grid-cols-2"><Skeleton v-for="index in 2" :key="index" class="h-20" /></div>
         <div v-else class="grid gap-3 sm:grid-cols-2">
           <div v-for="row in usageRows" :key="row.label" class="space-y-2.5 border border-border/70 p-4">
@@ -111,9 +171,17 @@ const usageRows = computed(() => {
               :class="focusRequest === row.key && 'ring-2 ring-primary/30 ring-offset-2 ring-offset-background'"
             >
               <p class="flex-1 text-xs" :class="row.percent >= 100 ? 'text-destructive' : 'text-amber-700 dark:text-amber-400'">
-                {{ row.percent >= 100 ? 'Limit reached.' : 'Nearing the limit.' }} Request more from the portal.
+                {{ row.percent >= 100 ? 'Limit reached.' : 'Nearing the limit.' }}
+                {{ row.key === 'seats' && billingInfo?.checkoutEnabled ? 'Buy more seats or ask the portal admin.' : 'Request more from the portal.' }}
               </p>
-              <RequestUpgradeButton :target="row.key" size="sm" variant="outline" :pending="pending" @update="load" />
+              <RequestUpgradeButton
+                :target="row.key"
+                size="sm"
+                variant="outline"
+                :pending="pending"
+                :member-count="overview?.usage.members ?? 1"
+                @update="load"
+              />
             </div>
           </div>
         </div>
@@ -130,12 +198,12 @@ const usageRows = computed(() => {
                 Sent {{ pending.requestedByName ? `by ${pending.requestedByName}` : '' }} — the portal admin will change your plan.
               </template>
               <template v-else>
-                Free already covers the workday loop. Pro adds automation, AI, templates, recurring tasks and reports — start a trial when card checkout is on.
+                Free already covers the workday loop. Pro is billed per seat and adds automation, AI, templates, recurring tasks and reports.
               </template>
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
-            <RequestUpgradeButton target="pro" :pending="pending" @update="load" />
+            <RequestUpgradeButton target="pro" :pending="pending" :member-count="overview?.usage.members ?? 1" @update="load" />
             <Button v-if="pending" size="sm" variant="outline" as-child>
               <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'support' } }">Open support</RouterLink>
             </Button>

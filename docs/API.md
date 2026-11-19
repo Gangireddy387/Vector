@@ -28,9 +28,11 @@ Public quickstart: `/developers` in the web app.
 
 ### Billing (optional Stripe)
 
-`GET /billing/status` → `{ checkoutEnabled }`.  
-`POST /billing/checkout` (org admin) → `{ url }` Stripe Checkout for Pro.  
-Webhook: `POST /billing/stripe/webhook` (Stripe signature; raw body).
+`GET /billing/status` → `{ checkoutEnabled, trialDays, portalEnabled, hasSubscription, billedSeats, minSeats, maxSeats }` (org-aware when `X-Organization-Id` is set).  
+`POST /billing/checkout` (org admin) body `{ seats? }` → Checkout for Pro **per seat**, or updates quantity if already subscribed. Optional trial via `STRIPE_TRIAL_DAYS`.  
+`POST /billing/seats` (org admin) body `{ seats }` → change subscription quantity (prorated).  
+`POST /billing/portal` (org admin) → `{ url }` Stripe Customer Portal (card, invoices, cancel; requires an existing Stripe customer).  
+Webhook: `POST /billing/stripe/webhook` (Stripe signature; raw body). Create `STRIPE_PRICE_PRO` as a licensed/per-unit price. Enable the Customer Portal in the Stripe Dashboard.
 
 ## Conventions
 

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type UpgradeRequest, type UpgradeTarget, workspaceApi } from '../admin.api'
+import SeatCheckoutDialog from './SeatCheckoutDialog.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -16,8 +17,10 @@ const props = withDefaults(
     label?: string
     /** When already pending from parent (plan overview). */
     pending?: UpgradeRequest | null
+    /** Active member count — seat floor for Checkout. */
+    memberCount?: number
   }>(),
-  { target: 'pro', size: 'sm', variant: 'default' },
+  { target: 'pro', size: 'sm', variant: 'default', memberCount: 1 },
 )
 
 const emit = defineEmits<{ requested: [UpgradeRequest]; update: [] }>()
@@ -27,24 +30,42 @@ const isSending = ref(false)
 const localPending = ref<UpgradeRequest | null>(null)
 const checkoutEnabled = ref(false)
 const trialDays = ref(0)
+const hasSubscription = ref(false)
+const billedSeats = ref<number | null>(null)
+const minSeats = ref(1)
+const maxSeats = ref(100)
+const seatDialogOpen = ref(false)
+
 const pending = computed(() => localPending.value ?? props.pending ?? null)
 const isPending = computed(() => Boolean(pending.value && pending.value.target === props.target))
-const canPay = computed(() => checkoutEnabled.value && props.target === 'pro')
+/** Card path for Pro upgrade or buying more seats when Stripe is on. */
+const canPay = computed(
+  () =>
+    checkoutEnabled.value &&
+    (props.target === 'pro' || (props.target === 'seats' && (hasSubscription.value || checkoutEnabled.value))),
+)
 
 const buttonLabel = computed(() => {
   if (props.label) return props.label
-  if (canPay.value) return trialDays.value > 0 ? `Start ${trialDays.value}-day Pro trial` : 'Upgrade with card'
+  if (canPay.value && props.target === 'seats') return hasSubscription.value ? 'Buy more seats' : 'Upgrade with seats'
+  if (canPay.value && props.target === 'pro') {
+    return trialDays.value > 0 ? `Start ${trialDays.value}-day Pro trial` : 'Upgrade with card'
+  }
   if (props.target === 'seats') return 'Request more people'
   if (props.target === 'projects') return 'Request more projects'
   return 'Request Pro'
 })
 
 onMounted(async () => {
-  if (props.target !== 'pro' || !auth.isOrganizationAdmin) return
+  if ((props.target !== 'pro' && props.target !== 'seats') || !auth.isOrganizationAdmin) return
   try {
     const status = await workspaceApi.billingStatus()
     checkoutEnabled.value = status.checkoutEnabled
     trialDays.value = status.trialDays ?? 0
+    hasSubscription.value = status.hasSubscription
+    billedSeats.value = status.billedSeats
+    minSeats.value = status.minSeats ?? 1
+    maxSeats.value = status.maxSeats ?? 100
   } catch {
     checkoutEnabled.value = false
     trialDays.value = 0
@@ -57,14 +78,7 @@ async function request() {
     return
   }
   if (canPay.value) {
-    isSending.value = true
-    try {
-      const { url } = await workspaceApi.startCheckout()
-      window.location.assign(url)
-    } catch (error) {
-      toast.error(getErrorMessage(error))
-      isSending.value = false
-    }
+    seatDialogOpen.value = true
     return
   }
   if (isPending.value) {
@@ -103,4 +117,15 @@ async function request() {
     <Gem v-else />
     {{ isPending && !canPay ? 'Request pending' : buttonLabel }}
   </Button>
+
+  <SeatCheckoutDialog
+    v-model:open="seatDialogOpen"
+    :member-count="memberCount"
+    :billed-seats="billedSeats"
+    :has-subscription="hasSubscription"
+    :min-seats="minSeats"
+    :max-seats="maxSeats"
+    :trial-days="target === 'pro' && !hasSubscription ? trialDays : 0"
+    @done="emit('update')"
+  />
 </template>

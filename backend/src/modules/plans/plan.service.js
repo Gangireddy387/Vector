@@ -26,13 +26,19 @@ function cleanOverrides(overrides, plan) {
 export function entitlementsFor(organization) {
   const plan = organization?.plan;
   const overrides = cleanOverrides(organization?.featureOverrides, plan);
+  const billedSeats = Number.isFinite(organization?.billedSeats) && organization.billedSeats > 0 ? organization.billedSeats : null;
   return {
     planId: plan?.id ?? null,
     planName: plan?.name ?? null,
     features: { ...planFeatures(plan), ...overrides },
     /** Features that differ from the plan for this organization only. */
     customFeatures: Object.keys(overrides),
-    limits: { members: plan?.maxMembers ?? null, projects: plan?.maxProjects ?? null },
+    /** Stripe seat quantity when the org pays per seat; otherwise the plan’s people cap. */
+    billedSeats,
+    limits: {
+      members: billedSeats ?? plan?.maxMembers ?? null,
+      projects: plan?.maxProjects ?? null,
+    },
   };
 }
 

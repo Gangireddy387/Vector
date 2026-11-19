@@ -104,8 +104,26 @@ export const workspaceApi = {
     URL.revokeObjectURL(url)
   },
   billingStatus: () =>
-    http.get<{ checkoutEnabled: boolean; trialDays: number }>('/billing/status').then((r) => r.data),
-  startCheckout: () => http.post<{ url: string }>('/billing/checkout').then((r) => r.data),
+    http
+      .get<{
+        checkoutEnabled: boolean
+        trialDays: number
+        portalEnabled: boolean
+        hasSubscription: boolean
+        billedSeats: number | null
+        minSeats: number
+        maxSeats: number
+      }>('/billing/status')
+      .then((r) => r.data),
+  startCheckout: (seats?: number) =>
+    http
+      .post<{ url: string | null; seats: number; mode: 'checkout' | 'updated' | 'unchanged' }>('/billing/checkout', seats ? { seats } : {})
+      .then((r) => r.data),
+  /** Change seat quantity on the current Stripe subscription (prorated). */
+  updateSeats: (seats: number) =>
+    http.post<{ seats: number; mode: 'updated' | 'unchanged'; url: null }>('/billing/seats', { seats }).then((r) => r.data),
+  /** Stripe Customer Portal — card, invoices, cancel (org must already have a Stripe customer). */
+  startBillingPortal: () => http.post<{ url: string }>('/billing/portal').then((r) => r.data),
 }
 
 export interface WorkspaceAuditEntry {

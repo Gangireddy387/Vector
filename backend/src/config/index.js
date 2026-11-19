@@ -144,9 +144,13 @@ export const config = {
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || '',
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    /** Recurring Price id — create it as “per unit” (licensed seats) in Stripe. */
     pricePro: process.env.STRIPE_PRICE_PRO || '',
     /** Days of Pro before the first charge. 0 disables the trial. */
     trialDays: Math.max(0, toInt(process.env.STRIPE_TRIAL_DAYS, 14)),
+    /** Self-serve seat quantity bounds (Checkout / seat updates). */
+    minSeats: Math.max(1, toInt(process.env.STRIPE_MIN_SEATS, 1)),
+    maxSeats: Math.max(1, toInt(process.env.STRIPE_MAX_SEATS, 100)),
   },
 };
 
