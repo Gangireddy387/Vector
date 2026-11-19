@@ -13,10 +13,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { allowedStatusesFor } from '@/lib/workflow-transitions'
 import type { CreateIssueInput } from '@/modules/issues/api/issues.api'
 import IssueCard from '@/modules/issues/components/IssueCard.vue'
 import QuickAddInput from '@/modules/issues/components/QuickAddInput.vue'
-import type { Issue, IssuePriority, IssueReference, IssueType, Status, UserSummary } from '@/types/models'
+import type { Issue, IssuePriority, IssueReference, IssueType, Status, UserSummary, WorkflowTransitionRule } from '@/types/models'
 import type { BoardGroupBy } from '../composables/useBoardView'
 
 export interface MobileLane {
@@ -38,9 +39,13 @@ const props = withDefaults(
     groupBy?: BoardGroupBy
     lanes?: MobileLane[]
     laneOf?: (issue: Issue) => string
+    transitions?: WorkflowTransitionRule[]
   }>(),
-  { sprintId: null, editable: true, groupBy: 'none', lanes: () => [], laneOf: () => 'all' },
+  { sprintId: null, editable: true, groupBy: 'none', lanes: () => [], laneOf: () => 'all', transitions: () => [] },
 )
+
+const moveTargets = (issue: Issue) =>
+  allowedStatusesFor(props.statuses, props.transitions, issue.statusId).filter((status) => status.id !== issue.statusId)
 const emit = defineEmits<{ open: [issue: Issue]; move: [issue: Issue, status: Status] }>()
 
 const selectedIndex = ref(0)
@@ -271,12 +276,13 @@ useSwipe(pane, {
               <DropdownMenuContent align="end" class="min-w-44">
                 <DropdownMenuLabel>Move {{ issue.key }}</DropdownMenuLabel>
                 <DropdownMenuItem
-                  v-for="status in statuses.filter((item) => item.id !== issue.statusId)"
+                  v-for="status in moveTargets(issue)"
                   :key="status.id"
                   @select="emit('move', issue, status)"
                 >
                   <span class="size-2 rounded-full" :style="{ backgroundColor: status.color }" /> {{ status.name }}
                 </DropdownMenuItem>
+                <DropdownMenuItem v-if="!moveTargets(issue).length" disabled>No allowed transitions</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { formatDateTime } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
+import { transitionRuleFor } from '@/lib/workflow-transitions'
 import { formatMinutes, parseDuration } from '@/lib/utils'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import type { CustomField, CustomFieldValue, IssueDetail, ProjectDetail, Sprint } from '@/types/models'
@@ -136,6 +137,27 @@ function setField<K extends keyof UpdateIssueInput>(field: K, value: UpdateIssue
   if (props.issue[field as keyof IssueDetail] === value) return
   emit('update', { [field]: value } as UpdateIssueInput)
 }
+
+function setStatus(statusId: string) {
+  if (statusId === props.issue.statusId) return
+  const rule = transitionRuleFor(props.project.workflowTransitions, props.issue.statusId)
+  if (rule?.requireComment) {
+    const comment = window.prompt('Add a comment for this status change')
+    if (comment === null) return
+    const trimmed = comment.trim()
+    if (!trimmed) {
+      toast.error('A comment is required for this transition')
+      return
+    }
+    emit('update', { statusId, transitionComment: trimmed })
+    return
+  }
+  if (rule?.requireAssignee && !props.issue.assigneeId) {
+    toast.error('Assign someone before moving to this status')
+    return
+  }
+  setField('statusId', statusId)
+}
 </script>
 
 <template>
@@ -146,9 +168,11 @@ function setField<K extends keyof UpdateIssueInput>(field: K, value: UpdateIssue
           id="field-status"
           :model-value="issue.statusId"
           :statuses="project.statuses"
+          :from-status-id="issue.statusId"
+          :transitions="project.workflowTransitions"
           size="sm"
           :disabled="!editable"
-          @update:model-value="(value) => setField('statusId', value)"
+          @update:model-value="(value) => value && setStatus(value)"
         />
       </IssueFieldRow>
       <IssueFieldRow label="Assignee" for="field-assignee">

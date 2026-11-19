@@ -13,6 +13,7 @@ import {
   Team,
   TeamMember,
   User,
+  WorkflowTransitionRule,
 } from '../../database/models.js';
 import { writeTransaction } from '../../database/connection.js';
 import { ApiError } from '../../shared/errors/api-error.js';
@@ -170,6 +171,7 @@ export async function getProject(projectId, userId) {
       { model: Status, as: 'statuses' },
       { model: Label, as: 'labels' },
       { model: CustomField, as: 'customFields' },
+      { model: WorkflowTransitionRule, as: 'workflowTransitions' },
       {
         model: ProjectMember,
         as: 'memberships',

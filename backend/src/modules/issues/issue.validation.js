@@ -36,13 +36,18 @@ export const createIssueSchema = z
 export const updateIssueSchema = z
   .object(editableFields)
   .partial()
-  .extend({ position: z.number().finite().optional() })
+  .extend({
+    position: z.number().finite().optional(),
+    /** Required by some workflow transitions when moving status. */
+    transitionComment: z.string().trim().min(1).max(10000).optional(),
+  })
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one field to update');
 
 export const moveIssueSchema = z.object({
   statusId: uuid.optional(),
   sprintId: uuid.nullable().optional(),
   position: z.number().finite(),
+  transitionComment: z.string().trim().min(1).max(10000).optional(),
 });
 
 const bulkChanges = z

@@ -34,6 +34,7 @@ import searchRoutes from './modules/search/search.routes.js';
 import standupRoutes from './modules/standups/standup.routes.js';
 import sprintRoutes from './modules/sprints/sprint.routes.js';
 import statusRoutes from './modules/statuses/status.routes.js';
+import workflowTransitionRoutes from './modules/workflow-transitions/workflow-transition.routes.js';
 import templateRoutes from './modules/templates/template.routes.js';
 import { avatarRoutes, publicAvatarRoutes } from './modules/users/avatar.routes.js';
 import { publicRingtoneRoutes, ringtoneRoutes } from './modules/users/ringtone.routes.js';
@@ -81,6 +82,7 @@ export function createApiRouter() {
     searchRoutes,
     projectRoutes,
     statusRoutes,
+    workflowTransitionRoutes,
     labelRoutes,
     customFieldRoutes,
     sprintRoutes,

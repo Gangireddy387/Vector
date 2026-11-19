@@ -242,9 +242,11 @@ function startLinking() {
               v-if="!isWide"
               :model-value="issue.statusId"
               :statuses="project.statuses"
+              :from-status-id="issue.statusId"
+              :transitions="project.workflowTransitions"
               :disabled="!canEdit"
               class="w-auto min-w-36"
-              @update:model-value="(statusId) => update({ statusId })"
+              @update:model-value="(statusId) => statusId && update({ statusId })"
             />
             <Button v-if="canEdit" :variant="isDone ? 'outline' : 'default'" size="sm" @click="toggleDone">
               <RotateCcw v-if="isDone" /> <Check v-else />

@@ -3,16 +3,30 @@ import { computed } from 'vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
 import { STATUS_CATEGORY_META } from '@/constants/issue'
-import type { Status } from '@/types/models'
+import { allowedStatusesFor } from '@/lib/workflow-transitions'
+import type { Status, WorkflowTransitionRule } from '@/types/models'
 
 const props = withDefaults(
-  defineProps<{ statuses: Status[]; size?: 'sm' | 'default'; disabled?: boolean; id?: string; class?: string }>(),
+  defineProps<{
+    statuses: Status[]
+    /** When set with transitions, only allowed targets (plus current) are listed. */
+    fromStatusId?: string | null
+    transitions?: WorkflowTransitionRule[]
+    size?: 'sm' | 'default'
+    disabled?: boolean
+    id?: string
+    class?: string
+  }>(),
   { size: 'default' },
 )
 const model = defineModel<string>({ required: true })
 
+const visibleStatuses = computed(() =>
+  allowedStatusesFor(props.statuses, props.transitions, props.fromStatusId ?? model.value),
+)
+
 const options = computed<SelectFieldOption[]>(() =>
-  props.statuses.map((status) => ({
+  visibleStatuses.value.map((status) => ({
     value: status.id,
     label: status.name,
     color: status.color,

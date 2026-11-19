@@ -12,6 +12,7 @@ import type {
   Status,
   StatusCategory,
   UserSummary,
+  WorkflowTransitionRule,
 } from '@/types/models'
 
 export interface ProjectInput {
@@ -99,6 +100,16 @@ export const projectsApi = {
   reorderCustomFields: (projectId: string, fieldIds: string[]) =>
     http.put<{ customFields: CustomField[] }>(`/projects/${projectId}/custom-fields/order`, { fieldIds }).then((r) => r.data.customFields),
   removeCustomField: (projectId: string, fieldId: string) => http.delete(`/projects/${projectId}/custom-fields/${fieldId}`),
+
+  listWorkflowTransitions: (projectId: string) =>
+    http.get<{ transitions: WorkflowTransitionRule[] }>(`/projects/${projectId}/workflow-transitions`).then((r) => r.data.transitions),
+  saveWorkflowTransitions: (
+    projectId: string,
+    rules: Array<{ fromStatusId: string; toStatusIds: string[]; requireAssignee?: boolean; requireComment?: boolean }>,
+  ) =>
+    http
+      .put<{ transitions: WorkflowTransitionRule[] }>(`/projects/${projectId}/workflow-transitions`, { rules })
+      .then((r) => r.data.transitions),
 
   activity: (projectId: string, limit = 50) =>
     http.get<{ activities: Activity[] }>(`/projects/${projectId}/activity`, { params: { limit } }).then((r) => r.data.activities),

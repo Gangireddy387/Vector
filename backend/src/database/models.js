@@ -8,6 +8,7 @@ import { ApiToken } from '../modules/auth/api-token.model.js';
 import { Project } from '../modules/projects/project.model.js';
 import { ProjectMember } from '../modules/projects/project-member.model.js';
 import { Status } from '../modules/statuses/status.model.js';
+import { WorkflowTransitionRule } from '../modules/workflow-transitions/workflow-transition.model.js';
 import { Label } from '../modules/labels/label.model.js';
 import { CustomField, IssueCustomFieldValue } from '../modules/custom-fields/custom-field.model.js';
 import { Issue } from '../modules/issues/issue.model.js';
@@ -104,6 +105,9 @@ Project.belongsTo(User, { as: 'lead', foreignKey: 'leadId', onDelete: 'SET NULL'
 // Workflow configuration
 Project.hasMany(Status, { as: 'statuses', foreignKey: 'projectId', ...cascade });
 Status.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+Project.hasMany(WorkflowTransitionRule, { as: 'workflowTransitions', foreignKey: 'projectId', ...cascade });
+WorkflowTransitionRule.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+WorkflowTransitionRule.belongsTo(Status, { as: 'fromStatus', foreignKey: 'fromStatusId', ...cascade });
 Project.hasMany(Label, { as: 'labels', foreignKey: 'projectId', ...cascade });
 Label.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 Project.hasMany(CustomField, { as: 'customFields', foreignKey: 'projectId', ...cascade });
@@ -290,6 +294,7 @@ export {
   Project,
   ProjectMember,
   Status,
+  WorkflowTransitionRule,
   Label,
   CustomField,
   IssueCustomFieldValue,

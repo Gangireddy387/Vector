@@ -47,7 +47,11 @@ export type CreateIssueInput = Partial<IssueFields> & {
   subtaskTitles?: string[]
 }
 
-export type UpdateIssueInput = Partial<IssueFields> & { position?: number }
+export type UpdateIssueInput = Partial<IssueFields> & {
+  position?: number
+  /** Sent when a workflow transition requires a comment. */
+  transitionComment?: string
+}
 
 export interface BulkChanges {
   statusId?: string
@@ -94,7 +98,10 @@ export const issuesApi = {
   create: (input: CreateIssueInput) => http.post<{ issue: IssueDetail }>('/issues', input).then((r) => r.data.issue),
   update: (issueId: string, changes: UpdateIssueInput) =>
     http.patch<{ issue: IssueDetail }>(`/issues/${issueId}`, changes).then((r) => r.data.issue),
-  move: (issueId: string, payload: { statusId?: string; sprintId?: string | null; position: number }) =>
+  move: (
+    issueId: string,
+    payload: { statusId?: string; sprintId?: string | null; position: number; transitionComment?: string },
+  ) =>
     http.patch(`/issues/${issueId}/move`, payload),
   remove: (issueId: string) => http.delete(`/issues/${issueId}`),
   bulkUpdate: (issueIds: string[], changes: BulkChanges) =>

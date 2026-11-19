@@ -1,5 +1,6 @@
 import { Issue, Status } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
+import { removeRulesForStatus } from '../workflow-transitions/workflow-transition.service.js';
 
 const CATEGORY_COLORS = { todo: '#64748b', in_progress: '#3b82f6', done: '#22c55e' };
 
@@ -51,5 +52,6 @@ export async function deleteStatus(projectId, statusId, moveIssuesTo) {
       { where: { statusId } },
     );
   }
+  await removeRulesForStatus(projectId, statusId);
   await status.destroy();
 }

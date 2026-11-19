@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { ArrowDown, ArrowUp, GitBranch, Plus, Trash2 } from 'lucide-vue-next'
+import { computed, reactive, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ColorField, NumberField, SelectField, type SelectFieldOption } from '@/components/forms'
 import { Input } from '@/components/ui/input'
@@ -25,6 +26,30 @@ const newStatusName = ref('')
 const newStatusCategory = ref<StatusCategory>('in_progress')
 const deleting = ref<Status | null>(null)
 const moveTarget = ref('')
+const isSavingTransitions = ref(false)
+
+type DraftRule = { enabled: boolean; toStatusIds: string[]; requireAssignee: boolean; requireComment: boolean }
+const drafts = reactive<Record<string, DraftRule>>({})
+
+function syncDrafts() {
+  for (const status of props.project.statuses) {
+    const existing = (props.project.workflowTransitions ?? []).find((rule) => rule.fromStatusId === status.id)
+    drafts[status.id] = {
+      enabled: Boolean(existing),
+      toStatusIds: existing ? [...existing.toStatusIds] : props.project.statuses.filter((item) => item.id !== status.id).map((item) => item.id),
+      requireAssignee: existing?.requireAssignee ?? false,
+      requireComment: existing?.requireComment ?? false,
+    }
+  }
+}
+
+watch(
+  () => [props.project.statuses, props.project.workflowTransitions] as const,
+  () => syncDrafts(),
+  { immediate: true, deep: true },
+)
+
+const hasRestricted = computed(() => Object.values(drafts).some((draft) => draft?.enabled))
 
 const refresh = () => projects.fetchProject(props.project.id, true)
 
@@ -76,6 +101,36 @@ async function confirmDelete() {
   if (!status) return
   await run(() => projectsApi.removeStatus(props.project.id, status.id, moveTarget.value))
   deleting.value = null
+}
+
+function toggleTarget(fromId: string, toId: string, on: boolean) {
+  const draft = drafts[fromId]
+  if (!draft) return
+  draft.toStatusIds = on ? [...new Set([...draft.toStatusIds, toId])] : draft.toStatusIds.filter((id) => id !== toId)
+}
+
+async function saveTransitions() {
+  isSavingTransitions.value = true
+  try {
+    const rules = props.project.statuses
+      .filter((status) => drafts[status.id]?.enabled)
+      .map((status) => {
+        const draft = drafts[status.id]!
+        return {
+          fromStatusId: status.id,
+          toStatusIds: draft.toStatusIds,
+          requireAssignee: draft.requireAssignee,
+          requireComment: draft.requireComment,
+        }
+      })
+    await projectsApi.saveWorkflowTransitions(props.project.id, rules)
+    await refresh()
+    toast.success(rules.length ? 'Transition rules saved' : 'Workflow is unrestricted again')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isSavingTransitions.value = false
+  }
 }
 </script>
 
@@ -137,6 +192,63 @@ async function confirmDelete() {
         />
         <Button type="submit" :disabled="!newStatusName.trim()"><Plus /> Add status</Button>
       </form>
+    </CardContent>
+  </Card>
+
+  <Card>
+    <CardHeader>
+      <CardTitle class="flex items-center gap-2"><GitBranch class="size-4" /> Transitions</CardTitle>
+      <CardDescription>
+        Limit which columns a task may move to. Statuses without a rule stay unrestricted. Leave everything off for free movement.
+      </CardDescription>
+    </CardHeader>
+    <CardContent class="space-y-4">
+      <ul class="space-y-3">
+        <li v-for="status in project.statuses" :key="`tr-${status.id}`" class="rounded-md border p-3">
+          <label class="mb-2 flex items-center gap-2 text-sm font-medium">
+            <Checkbox
+              :model-value="drafts[status.id]?.enabled ?? false"
+              @update:model-value="(value) => drafts[status.id] && (drafts[status.id]!.enabled = value === true)"
+            />
+            Restrict moves from {{ status.name }}
+          </label>
+          <div v-if="drafts[status.id]?.enabled" class="space-y-3 pl-6">
+            <div class="flex flex-wrap gap-3">
+              <label
+                v-for="target in project.statuses.filter((item) => item.id !== status.id)"
+                :key="target.id"
+                class="flex items-center gap-2 text-sm"
+              >
+                <Checkbox
+                  :model-value="drafts[status.id]?.toStatusIds.includes(target.id)"
+                  @update:model-value="(value) => toggleTarget(status.id, target.id, value === true)"
+                />
+                {{ target.name }}
+              </label>
+            </div>
+            <div class="flex flex-wrap gap-4 text-sm">
+              <label class="flex items-center gap-2">
+                <Checkbox
+                  :model-value="drafts[status.id]?.requireAssignee ?? false"
+                  @update:model-value="(value) => drafts[status.id] && (drafts[status.id]!.requireAssignee = value === true)"
+                />
+                Require assignee
+              </label>
+              <label class="flex items-center gap-2">
+                <Checkbox
+                  :model-value="drafts[status.id]?.requireComment ?? false"
+                  @update:model-value="(value) => drafts[status.id] && (drafts[status.id]!.requireComment = value === true)"
+                />
+                Require comment
+              </label>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <Button type="button" :loading="isSavingTransitions" @click="saveTransitions">
+        Save transitions
+        <span v-if="!hasRestricted" class="ml-1 font-normal opacity-70">(clear all)</span>
+      </Button>
     </CardContent>
   </Card>
 

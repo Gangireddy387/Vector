@@ -21,7 +21,9 @@ import {
   loadIssueCustomFieldValues,
   setIssueCustomFieldValues,
 } from '../custom-fields/custom-field.service.js';
+import { createComment } from '../comments/comment.service.js';
 import { projectHasFeature } from '../plans/plan.service.js';
+import { assertStatusTransition } from '../workflow-transitions/workflow-transition.service.js';
 import { likeOperator, writeTransaction } from '../../database/connection.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { DomainEvents, eventBus } from '../../shared/events/event-bus.js';
@@ -479,6 +481,9 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
   );
   if (changes.labelIds) relationChanges.labelIds = changes.labelIds;
   const newStatus = await assertRelations(issue.projectId, relationChanges, issue.id);
+  if (diff.statusId) {
+    await assertStatusTransition(issue, changes.statusId, changes, context);
+  }
 
   const updates = Object.fromEntries(Object.entries(diff).map(([field, value]) => [field, value.to ?? null]));
   if (newStatus) {
@@ -486,6 +491,10 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
   }
   if (diff.dueDate) updates.dueReminderSentAt = null;
   if (Object.keys(updates).length) await issue.update(updates);
+
+  if (diff.statusId && typeof changes.transitionComment === 'string' && changes.transitionComment.trim()) {
+    await createComment(issue, actor, changes.transitionComment.trim(), context);
+  }
 
   if (changes.labelIds) {
     const before = issue.labels.map((label) => label.id).sort();

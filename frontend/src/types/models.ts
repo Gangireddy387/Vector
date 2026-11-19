@@ -320,10 +320,20 @@ export interface Project extends ProjectReference {
   activeSprint?: { id: string; name: string; endDate: string | null } | null
 }
 
+export interface WorkflowTransitionRule {
+  id: string
+  projectId: string
+  fromStatusId: string
+  toStatusIds: string[]
+  requireAssignee: boolean
+  requireComment: boolean
+}
+
 export interface ProjectDetail extends Project {
   statuses: Status[]
   labels: Label[]
   customFields: CustomField[]
+  workflowTransitions: WorkflowTransitionRule[]
   members: ProjectMember[]
 }
 

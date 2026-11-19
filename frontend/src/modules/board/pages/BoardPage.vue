@@ -19,6 +19,7 @@ import { ISSUE_TYPE_META, ISSUE_TYPES, PRIORITIES, PRIORITY_META } from '@/const
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
+import { allowedStatusesFor, transitionRuleFor } from '@/lib/workflow-transitions'
 import { rankBetween } from '@/lib/utils'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type CreateIssueInput, issuesApi } from '@/modules/issues/api/issues.api'
@@ -255,6 +256,37 @@ function columnCount(statusId: string, excludingId?: string) {
 }
 
 async function persistMove(issue: Issue, status: Status, position: number, lane: Lane | null = null) {
+  if (issue.statusId !== status.id) {
+    const allowed = allowedStatusesFor(statuses.value, project.value?.workflowTransitions, issue.statusId)
+    if (!allowed.some((item) => item.id === status.id)) {
+      toast.error(`“${issue.status.name}” cannot move to “${status.name}”`)
+      rebuildCells()
+      return
+    }
+    const rule = transitionRuleFor(project.value?.workflowTransitions, issue.statusId)
+    if (rule?.requireAssignee && !issue.assigneeId) {
+      toast.error('Assign someone before moving to this status')
+      rebuildCells()
+      return
+    }
+  }
+  let transitionComment: string | undefined
+  if (issue.statusId !== status.id) {
+    const rule = transitionRuleFor(project.value?.workflowTransitions, issue.statusId)
+    if (rule?.requireComment) {
+      const comment = window.prompt('Add a comment for this status change')
+      if (comment === null) {
+        rebuildCells()
+        return
+      }
+      transitionComment = comment.trim()
+      if (!transitionComment) {
+        toast.error('A comment is required for this transition')
+        rebuildCells()
+        return
+      }
+    }
+  }
   if (status.wipLimit && issue.statusId !== status.id) {
     const nextCount = columnCount(status.id, issue.id) + 1
     if (nextCount > status.wipLimit) {
@@ -279,7 +311,9 @@ async function persistMove(issue: Issue, status: Status, position: number, lane:
   rebuildCells()
   try {
     if (Object.keys(changes).length) await issuesApi.update(issue.id, changes)
-    if (previous.statusId !== status.id || previous.position !== position) await issuesApi.move(issue.id, { statusId: status.id, position })
+    if (previous.statusId !== status.id || previous.position !== position) {
+      await issuesApi.move(issue.id, { statusId: status.id, position, ...(transitionComment ? { transitionComment } : {}) })
+    }
     if ('assigneeId' in changes) toast.success(`${issue.key} assigned to ${lane?.user?.name ?? 'nobody'}`)
     if (changes.priority) toast.success(`${issue.key} is now ${PRIORITY_META[changes.priority].label.toLowerCase()} priority`)
   } catch (error) {
@@ -610,6 +644,7 @@ function moveOnMobile(issue: Issue, status: Status) {
             :group-by="view.groupBy"
             :lanes="shownLanes"
             :lane-of="laneKeyOf"
+            :transitions="project?.workflowTransitions ?? []"
             @open="openIssue"
             @move="moveOnMobile"
           />
