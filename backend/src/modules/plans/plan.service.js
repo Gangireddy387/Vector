@@ -255,6 +255,16 @@ async function unlockWiki() {
   }
 }
 
+/** Pro-tier plans (reports or automations) also get guest board/issue share links. */
+async function unlockPublicShare() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.publicShare || !(features.reports || features.automations)) continue;
+    await plan.update({ features: { ...features, publicShare: true } });
+    console.info(`[plans] ${plan.name} plan now includes public share links`);
+  }
+}
+
 export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
@@ -270,6 +280,7 @@ export async function ensureDefaultPlans() {
     await unlockVcsLinks();
     await unlockWebhooks();
     await unlockWiki();
+    await unlockPublicShare();
     return;
   }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);

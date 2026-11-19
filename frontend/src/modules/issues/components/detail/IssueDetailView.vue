@@ -9,6 +9,7 @@ import {
   Link2,
   Paperclip,
   RotateCcw,
+  Share2,
   Sparkles,
   Trash2,
   UserPlus,
@@ -50,6 +51,7 @@ import IssueLinks from './IssueLinks.vue'
 import IssueSubtasks from './IssueSubtasks.vue'
 import IssueTitleEditor from './IssueTitleEditor.vue'
 import IssueWorkLogs from './IssueWorkLogs.vue'
+import IssueShareDialog from '@/modules/shares/components/IssueShareDialog.vue'
 
 const props = withDefaults(defineProps<{ issueKey: string; mode?: 'page' | 'panel' }>(), { mode: 'page' })
 const emit = defineEmits<{ close: [] }>()
@@ -72,6 +74,7 @@ const attachmentsRef = ref<InstanceType<typeof IssueAttachments> | null>(null)
 const linksRef = ref<InstanceType<typeof IssueLinks> | null>(null)
 const externalLinksRef = ref<InstanceType<typeof IssueExternalLinks> | null>(null)
 const summaryRef = ref<InstanceType<typeof IssueAiSummary> | null>(null)
+const shareOpen = ref(false)
 
 const project = computed(() => (issue.value ? projects.details[issue.value.projectId] ?? null : null))
 const transitionActor = computed(() => ({
@@ -86,6 +89,7 @@ const canComment = computed(() => Boolean(issue.value && project.value?.myRole))
 const canUseAi = computed(() => auth.hasFeature('aiAssistant'))
 const canAttach = computed(() => canEdit.value && auth.hasFeature('attachments'))
 const canLinkCode = computed(() => canEdit.value && auth.hasFeature('vcsLinks'))
+const canSharePublicly = computed(() => canEdit.value && auth.hasFeature('publicShare'))
 const isDone = computed(() => issue.value?.status.category === 'done')
 const projectId = computed(() => issue.value?.projectId)
 
@@ -236,6 +240,7 @@ function startCodeLinking() {
           <DropdownMenuItem v-if="canEdit" @select="startLinking"><Link2 /> Link task</DropdownMenuItem>
           <DropdownMenuItem v-if="canLinkCode" @select="startCodeLinking"><GitBranch /> Link code</DropdownMenuItem>
           <DropdownMenuItem v-if="canAttach" @select="attachmentsRef?.openPicker()"><Paperclip /> Attach files</DropdownMenuItem>
+          <DropdownMenuItem v-if="canSharePublicly" @select="shareOpen = true"><Share2 /> Share publicly</DropdownMenuItem>
           <template v-if="canEdit">
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" @select="remove"><Trash2 /> Delete task</DropdownMenuItem>
@@ -357,5 +362,6 @@ function startCodeLinking() {
         />
       </aside>
     </div>
+    <IssueShareDialog v-if="issue" v-model:open="shareOpen" :issue-id="issue.id" />
   </div>
 </template>

@@ -26,6 +26,7 @@ import {
   Webhook,
   Workflow,
   GitBranch,
+  Share2,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
 
@@ -53,6 +54,7 @@ export type PlanFeatureKey =
   | 'channelNotifications'
   | 'vcsLinks'
   | 'webhooks'
+  | 'publicShare'
   | 'sso'
   | 'scim'
   | 'emailInvitations'
@@ -174,6 +176,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     label: 'Outbound webhooks',
     description: 'Send signed HTTPS POSTs to your systems when issues, comments or sprints change',
     icon: Webhook,
+    group: 'app',
+  },
+  {
+    key: 'publicShare',
+    label: 'Public share links',
+    description: 'Share a read-only board or issue with people outside your organization via a link',
+    icon: Share2,
     group: 'app',
   },
   {

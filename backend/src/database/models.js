@@ -68,6 +68,7 @@ import { PushSubscription } from '../modules/push/push-subscription.model.js';
 import { Goal, KeyResult, KeyResultLink } from '../modules/goals/goal.model.js';
 import { WikiPage } from '../modules/wiki/wiki.model.js';
 import { ShowcasePortrait } from '../modules/marketing/showcase.model.js';
+import { ShareLink } from '../modules/shares/share.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
 
@@ -100,6 +101,15 @@ OrganizationMember.belongsTo(OrganizationRole, { as: 'customRole', foreignKey: '
 OrganizationRole.hasMany(OrganizationMember, { as: 'members', foreignKey: 'customRoleId', constraints: false });
 Organization.hasMany(Project, { as: 'projects', foreignKey: 'organizationId', ...cascade });
 Project.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+
+// Public guest share links for boards and issues
+Organization.hasMany(ShareLink, { as: 'shareLinks', foreignKey: 'organizationId', ...cascade });
+ShareLink.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+Project.hasMany(ShareLink, { as: 'shareLinks', foreignKey: 'projectId', ...cascade });
+ShareLink.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+Issue.hasMany(ShareLink, { as: 'shareLinks', foreignKey: 'issueId', ...cascade });
+ShareLink.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
+ShareLink.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
 
 // Users & projects
 User.hasMany(ProjectMember, { as: 'memberships', foreignKey: 'userId', ...cascade });
@@ -398,6 +408,7 @@ export {
   Goal,
   WikiPage,
   ShowcasePortrait,
+  ShareLink,
   KeyResult,
   KeyResultLink,
 };
