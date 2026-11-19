@@ -13,6 +13,8 @@ export const PLAN_FEATURES = [
   { key: 'attachments', label: 'File attachments' },
   { key: 'timeTracking', label: 'Time tracking' },
   { key: 'customSounds', label: 'Custom ringtones & sounds' },
+  /** Force Google/Microsoft sign-in and optional Azure AD tenant lock (Enterprise). */
+  { key: 'sso', label: 'Enterprise SSO' },
   // Emails that grow with usage (SendGrid volume). Password reset, added-to-organization and approval emails always send.
   { key: 'emailInvitations', label: 'Invitation emails', group: 'email' },
   { key: 'emailNotifications', label: 'Work notification emails', group: 'email' },

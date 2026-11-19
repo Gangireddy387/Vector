@@ -74,6 +74,16 @@ export interface Entitlements {
   limits: { members: number | null; projects: number | null }
 }
 
+/** Enterprise SSO settings returned on the organization (plan feature `sso`). */
+export interface OrganizationSsoSettings {
+  available?: boolean
+  enabled: boolean
+  enforce: boolean
+  provider: 'google' | 'microsoft' | null
+  allowedDomains: string[]
+  microsoftTenant?: string | null
+}
+
 export interface WorkspaceSettings {
   name: string
   /** The organization's address (example.com/:slug); absent for the signed-out default branding. */
@@ -84,6 +94,7 @@ export interface WorkspaceSettings {
   brandColor?: string | null
   /** When true, members must enable two-factor authentication. */
   requireMfa?: boolean
+  sso?: OrganizationSsoSettings
   status?: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements
@@ -99,6 +110,7 @@ export interface OrganizationSummary {
   logoUrl?: string | null
   brandColor?: string | null
   requireMfa?: boolean
+  sso?: OrganizationSsoSettings
   status: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements

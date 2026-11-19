@@ -161,13 +161,17 @@ TURN_TTL_SECONDS=21600
 # DIALIN_NUMBER=+1 555 010 0100
 # LIVEKIT_SIP_TRUNK_IDS=ST_xxxxxxxx
 
-# --- Optional: Google / Outlook calendar sync (redirect URI: https://<domain>/api/calendar/oauth/<google|microsoft>/callback)
+# --- Optional: Google / Microsoft OAuth (calendar sync + “Continue with …” login / Enterprise SSO)
+# Calendar redirect: https://<domain>/api/calendar/oauth/<google|microsoft>/callback
+# Login / SSO redirect: https://<domain>/api/auth/oauth/<google|microsoft>/callback
 # PUBLIC_API_URL=https://vector.annaaccounting.com
 # GOOGLE_CLIENT_ID=
 # GOOGLE_CLIENT_SECRET=
 # MICROSOFT_CLIENT_ID=
 # MICROSOFT_CLIENT_SECRET=
 # MICROSOFT_TENANT=common
+# Enterprise SSO is the plan feature `sso` (on by default for Enterprise). Org admins set domains,
+# forced IdP, and optional Azure AD tenant under Organization → Settings → Enterprise SSO.
 
 # --- Push notifications (calls ring on phones and computers)
 # Generate once: `cd /opt/vector/app/backend && npx web-push generate-vapid-keys`. Never change them afterwards:

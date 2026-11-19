@@ -6,6 +6,8 @@ import { pickAvatarColor } from '../users/user.service.js';
 import { describeSession } from './auth.service.js';
 import { isLoginOAuthState, signAccessToken, signLoginOAuthState, signMfaToken, verifyAccessToken } from './token.js';
 import { resolveOrganization } from '../organizations/organization-access.js';
+import { assertOAuthLoginAllowed, publicSso } from '../organizations/organization-sso.js';
+import { Organization } from '../../database/models.js';
 
 const TIMEOUT_MS = 15_000;
 const PLACEHOLDER = /your-client|^(?:\.\.\.|xxx)/i;
@@ -92,8 +94,8 @@ const providers = {
   },
   microsoft: {
     ready: microsoftReady,
-    authUrl: (state) => {
-      const tenant = config.calendar.microsoft.tenant || 'common';
+    authUrl: (state, { microsoftTenant } = {}) => {
+      const tenant = microsoftTenant || config.calendar.microsoft.tenant || 'common';
       return `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize?${new URLSearchParams({
         client_id: config.calendar.microsoft.clientId,
         redirect_uri: redirectUri('microsoft'),
@@ -103,8 +105,8 @@ const providers = {
         state,
       })}`;
     },
-    async exchange(code) {
-      const tenant = config.calendar.microsoft.tenant || 'common';
+    async exchange(code, { microsoftTenant } = {}) {
+      const tenant = microsoftTenant || config.calendar.microsoft.tenant || 'common';
       const body = await call(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
         method: 'POST',
         form: {
@@ -121,6 +123,7 @@ const providers = {
         email: (claims.email || claims.preferred_username || '').toLowerCase(),
         name: claims.name || claims.preferred_username || 'Microsoft user',
         emailVerified: true,
+        tenantId: claims.tid ? String(claims.tid) : null,
       };
     },
     subjectField: 'microsoftSubject',
@@ -133,12 +136,24 @@ function safeRedirect(raw) {
 }
 
 /** Returns the provider authorize URL for “Continue with Google/Microsoft”. */
-export function startOAuthLogin(provider, { redirect = '/' } = {}) {
+export async function startOAuthLogin(provider, { redirect = '/', organizationSlug = null, microsoftTenant = null } = {}) {
   const entry = providers[provider];
   if (!entry) throw ApiError.badRequest('Unknown sign-in provider');
   if (!entry.ready()) throw new ApiError(503, `${provider} sign-in is not configured on this server`, { code: 'oauth_not_configured' });
-  const state = signLoginOAuthState({ provider, redirect: safeRedirect(redirect) });
-  return { url: entry.authUrl(state) };
+
+  let tenant = typeof microsoftTenant === 'string' && microsoftTenant.trim() ? microsoftTenant.trim() : null;
+  if (!tenant && organizationSlug && provider === 'microsoft') {
+    const organization = await Organization.findOne({ where: { slug: String(organizationSlug).toLowerCase() } });
+    const sso = publicSso(organization, { includeTenant: true });
+    if (sso.microsoftTenant) tenant = sso.microsoftTenant;
+  }
+
+  const state = signLoginOAuthState({
+    provider,
+    redirect: safeRedirect(redirect),
+    ...(tenant ? { microsoftTenant: tenant } : {}),
+  });
+  return { url: entry.authUrl(state, { microsoftTenant: tenant }) };
 }
 
 async function findOrCreateUser(provider, profile) {
@@ -193,9 +208,15 @@ export async function completeOAuthLogin(provider, { code, state, error }) {
 
   let profile;
   try {
-    profile = await entry.exchange(code);
+    profile = await entry.exchange(code, { microsoftTenant: payload.microsoftTenant || null });
   } catch (err) {
     return fail(err.message || 'Could not finish sign-in with the provider');
+  }
+
+  try {
+    await assertOAuthLoginAllowed(provider, profile);
+  } catch (err) {
+    return fail(err.message || 'This sign-in is not allowed for your organization');
   }
 
   let user;

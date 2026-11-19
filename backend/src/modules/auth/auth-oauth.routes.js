@@ -12,9 +12,22 @@ publicAuthOAuthRoutes.get('/auth/oauth/providers', (_req, res) => res.json(oauth
 
 publicAuthOAuthRoutes.get(
   '/auth/oauth/:provider/start',
-  validate({ params: providerParam, query: z.object({ redirect: z.string().max(300).optional() }) }),
+  validate({
+    params: providerParam,
+    query: z.object({
+      redirect: z.string().max(300).optional(),
+      organizationSlug: z.string().trim().max(80).optional(),
+      microsoftTenant: z.string().trim().max(64).optional(),
+    }),
+  }),
   async (req, res) => {
-    res.json(await oauth.startOAuthLogin(req.params.provider, { redirect: req.filters?.redirect }));
+    res.json(
+      await oauth.startOAuthLogin(req.params.provider, {
+        redirect: req.filters?.redirect,
+        organizationSlug: req.filters?.organizationSlug,
+        microsoftTenant: req.filters?.microsoftTenant,
+      }),
+    );
   },
 );
 

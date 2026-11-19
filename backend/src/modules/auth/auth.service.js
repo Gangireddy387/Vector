@@ -17,6 +17,7 @@ import {
 } from './mfa.js';
 import { createOneTimeToken, hashOneTimeToken, isMfaToken, isRevoked, signAccessToken, signMfaToken, verifyAccessToken } from './token.js';
 import { listMyOrganizations, resolveOrganization, toPublicOrganization } from '../organizations/index.js';
+import { assertPasswordLoginAllowed } from '../organizations/organization-sso.js';
 import { checkSlug, createOrganization } from '../organizations/organization.service.js';
 import { isSuperAdmin } from '../super-admin/super-admin.service.js';
 import { pickAvatarColor } from '../users/user.service.js';
@@ -67,6 +68,7 @@ const buildSession = async (user) => {
  * owner's email is reserved for the account created from the server's configuration.
  */
 export async function register({ name, email, password, organizationName, organizationSlug }) {
+  await assertPasswordLoginAllowed(email);
   if (config.superAdmin.email && email.toLowerCase() === config.superAdmin.email) throw ApiError.conflict('An account with this email already exists');
   const existing = await User.findOne({ where: { email } });
   if (existing?.status === 'invited') {
@@ -89,6 +91,7 @@ export async function login({ email, password }) {
   const isValid = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user?.passwordHash || !isValid) throw ApiError.unauthorized('Incorrect email or password');
   if (user.status !== 'active') throw ApiError.forbidden('This account is not active');
+  await assertPasswordLoginAllowed(email, { userId: user.id });
   // Passwords saved with a weaker setting are strengthened the next time they are used.
   if (bcrypt.getRounds(user.passwordHash) < PASSWORD_HASH_ROUNDS) await user.update({ passwordHash: await hashPassword(password) });
   if (user.mfaEnabled && user.mfaSecret) {

@@ -30,7 +30,7 @@ import { addedToOrganizationEmail, inviteLinkFor, organizationInviteEmail, organ
 import { createImageStore } from '../../shared/services/image-store.js';
 import { slugify } from '../../shared/utils/ids.js';
 import { removeFromStructure } from '../departments/department.service.js';
-import { assertWithinLimit, entitlementsFor, getDefaultPlan, usageFor } from '../plans/plan.service.js';
+import { assertWithinLimit, entitlementsFor, getDefaultPlan, usageFor, withPlan } from '../plans/plan.service.js';
 import { createOneTimeToken } from '../auth/token.js';
 import { getWorkdayNudgeStats } from '../notifications/nudge-metrics.service.js';
 import { notifyUsers } from '../notifications/notification.service.js';
@@ -38,6 +38,7 @@ import { sendMessage, superAdminIds } from '../support/support.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
 import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
+import { cleanSsoInput, publicSso, ssoSettingsFor } from './organization-sso.js';
 
 /** What an org admin can request from the portal. */
 export const UPGRADE_TARGETS = ['pro', 'seats', 'projects'];
@@ -66,6 +67,7 @@ export const toPublicOrganization = (organization) => ({
   logoUrl: organization.logoUrl ?? null,
   brandColor: organization.brandColor ?? null,
   requireMfa: Boolean(organization.requireMfa),
+  sso: ssoSettingsFor(organization),
   status: organization.status ?? 'approved',
   rejectionReason: organization.status === 'rejected' ? (organization.rejectionReason ?? null) : null,
   // Only when the plan was loaded; otherwise clients keep the entitlements they already have.
@@ -164,14 +166,25 @@ export async function switchOrganization(user, memberships, organizationId) {
 }
 
 export async function getPublicOrganization(slug) {
-  const organization = await Organization.findOne({ where: { slug: slugify(slug) } });
+  const organization = await Organization.findOne({ where: { slug: slugify(slug) }, include: withPlan() });
   if (!organization) throw ApiError.notFound('Organization not found');
+  const sso = publicSso(organization, { includeTenant: true });
+  const available = Boolean(entitlementsFor(organization).features.sso && sso.enabled);
   return {
     name: organization.name,
     slug: organization.slug,
     defaultMode: organization.defaultMode,
     brandColor: organization.brandColor ?? null,
     logoUrl: organization.logoUrl ?? null,
+    sso: available
+      ? {
+          enabled: true,
+          enforce: sso.enforce,
+          provider: sso.provider,
+          allowedDomains: sso.allowedDomains,
+          microsoftTenant: sso.microsoftTenant,
+        }
+      : { enabled: false, enforce: false, provider: null, allowedDomains: [], microsoftTenant: null },
   };
 }
 
@@ -181,15 +194,26 @@ export async function updateOrganization(organization, actor, changes) {
   const updates = { ...changes, updatedById: actor.id };
   if (changes.slug !== undefined) updates.slug = await assertSlugAvailable(changes.slug, organization.id);
   if (changes.name !== undefined) updates.name = changes.name.trim();
+  if (changes.sso !== undefined) {
+    // Plan must be loaded for the SSO feature check.
+    const withFeatures =
+      organization.plan !== undefined
+        ? organization
+        : await Organization.findByPk(organization.id, { include: withPlan() });
+    updates.sso = cleanSsoInput(changes.sso, withFeatures);
+  }
   const before = {
     name: organization.name,
     slug: organization.slug,
     defaultMode: organization.defaultMode,
     brandColor: organization.brandColor ?? null,
     requireMfa: Boolean(organization.requireMfa),
+    sso: publicSso(organization, { includeTenant: true }),
   };
   await organization.update(updates);
-  const changed = Object.keys(changes).filter((key) => ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa'].includes(key));
+  const changed = Object.keys(changes).filter((key) =>
+    ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa', 'sso'].includes(key),
+  );
   if (changed.length) {
     await logWorkspaceAction({
       organizationId: organization.id,
@@ -206,6 +230,7 @@ export async function updateOrganization(organization, actor, changes) {
           defaultMode: organization.defaultMode,
           brandColor: organization.brandColor ?? null,
           requireMfa: Boolean(organization.requireMfa),
+          sso: publicSso(organization, { includeTenant: true }),
         },
       },
     });

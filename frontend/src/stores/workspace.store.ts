@@ -30,6 +30,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
           logoUrl: auth.organization.logoUrl ?? null,
           brandColor: auth.organization.brandColor ?? null,
           requireMfa: Boolean(auth.organization.requireMfa),
+          sso: auth.organization.sso,
           updatedAt: auth.organization.updatedAt,
         }
       : branding.value,

@@ -51,9 +51,18 @@ export interface ProfileChanges {
 
 export const authApi = {
   oauthProviders: () => http.get<{ google: boolean; microsoft: boolean }>('/auth/oauth/providers').then((r) => r.data),
-  startOAuth: (provider: 'google' | 'microsoft', redirect?: string) =>
+  startOAuth: (
+    provider: 'google' | 'microsoft',
+    options?: { redirect?: string; organizationSlug?: string; microsoftTenant?: string | null },
+  ) =>
     http
-      .get<{ url: string }>(`/auth/oauth/${provider}/start`, { params: redirect ? { redirect } : undefined })
+      .get<{ url: string }>(`/auth/oauth/${provider}/start`, {
+        params: {
+          ...(options?.redirect ? { redirect: options.redirect } : {}),
+          ...(options?.organizationSlug ? { organizationSlug: options.organizationSlug } : {}),
+          ...(options?.microsoftTenant ? { microsoftTenant: options.microsoftTenant } : {}),
+        },
+      })
       .then((r) => r.data),
   login: (payload: { email: string; password: string }) => http.post<LoginResult>('/auth/login', payload).then((r) => r.data),
   verifyMfaLogin: (payload: { mfaToken: string; code?: string; recoveryCode?: string }) =>
@@ -122,6 +131,7 @@ export const organizationsApi = {
         organization: Required<Pick<WorkspaceSettings, 'name' | 'slug' | 'defaultMode'>> & {
           brandColor?: string | null
           logoUrl?: string | null
+          sso?: WorkspaceSettings['sso']
         }
       }>(`/organizations/by-slug/${slug}`)
       .then((r) => r.data.organization),

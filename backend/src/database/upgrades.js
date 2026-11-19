@@ -78,6 +78,7 @@ const ADDED_COLUMNS = [
   { table: 'organizations', column: 'stripe_customer_id', definition: { type: DataTypes.STRING(80), allowNull: true } },
   { table: 'organizations', column: 'stripe_subscription_id', definition: { type: DataTypes.STRING(80), allowNull: true } },
   { table: 'organizations', column: 'billed_seats', definition: { type: DataTypes.INTEGER, allowNull: true } },
+  { table: 'organizations', column: 'sso', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'users', column: 'google_subject', definition: { type: DataTypes.STRING(120), allowNull: true } },
   { table: 'users', column: 'microsoft_subject', definition: { type: DataTypes.STRING(120), allowNull: true } },
 ];

@@ -15,6 +15,14 @@ const brandColor = z
   .regex(/^(#[0-9a-f]{6}|[a-z]{3,16})$/, 'Pick a theme or a colour like #1a73e8')
   .nullable();
 
+const ssoSchema = z.object({
+  enabled: z.boolean().optional(),
+  enforce: z.boolean().optional(),
+  provider: z.enum(['google', 'microsoft']).optional(),
+  allowedDomains: z.array(z.string().trim().max(80)).max(25).optional(),
+  microsoftTenant: z.string().trim().max(64).nullable().optional(),
+});
+
 export const updateOrganizationSchema = z
   .object({
     name: organizationName,
@@ -22,6 +30,7 @@ export const updateOrganizationSchema = z
     defaultMode: z.enum(COLOR_MODES),
     brandColor,
     requireMfa: z.boolean(),
+    sso: ssoSchema,
   })
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one setting');

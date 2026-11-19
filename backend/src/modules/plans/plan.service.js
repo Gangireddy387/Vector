@@ -145,10 +145,21 @@ async function unlockFreeWorkdayLoop() {
  * Creates the starter plans on first start. Organizations that already exist move to the plan with the most
  * access, so nobody loses a feature they were using.
  */
+/** Existing Enterprise plans get the SSO switch when it is introduced. */
+async function unlockEnterpriseSso() {
+  const enterprise = await Plan.findOne({ where: { name: 'Enterprise' } });
+  if (!enterprise) return;
+  const features = normalizeFeatures(enterprise.features);
+  if (features.sso) return;
+  await enterprise.update({ features: { ...features, sso: true } });
+  console.info('[plans] Enterprise plan now includes SSO');
+}
+
 export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
     await unlockFreeWorkdayLoop();
+    await unlockEnterpriseSso();
     return;
   }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);

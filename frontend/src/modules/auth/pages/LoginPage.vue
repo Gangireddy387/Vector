@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import axios from 'axios'
 import { ArrowRight } from 'lucide-vue-next'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -6,6 +7,7 @@ import FormField from '@/components/common/FormField.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getErrorMessage, isSuperAdminPath } from '@/lib/http'
+import type { OrganizationSsoSettings } from '@/types/models'
 import { authApi, isMfaChallenge, organizationsApi } from '../auth.api'
 import { useAuthStore } from '../auth.store'
 import AuthHeading from '../components/AuthHeading.vue'
@@ -24,9 +26,16 @@ const errorMessage = ref('')
 const isSubmitting = ref(false)
 const oauthBusy = ref<'google' | 'microsoft' | null>(null)
 const oauthProviders = ref({ google: false, microsoft: false })
+const orgSso = ref<OrganizationSsoSettings | null>(null)
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/
 const mfaStep = computed(() => Boolean(mfaToken.value))
+const ssoEnforced = computed(() => Boolean(orgSso.value?.enabled && orgSso.value?.enforce))
+const requiredProvider = computed<'google' | 'microsoft' | null>(() => {
+  if (!ssoEnforced.value) return null
+  return orgSso.value?.provider === 'google' ? 'google' : 'microsoft'
+})
+const showPasswordForm = computed(() => !ssoEnforced.value)
 
 function validate() {
   const errors: Record<string, string> = {}
@@ -42,6 +51,7 @@ const canSubmit = computed(() => {
     if (useRecovery.value) return mfaCode.value.trim().length >= 8 && !isSubmitting.value
     return /^\d{6}$/.test(mfaCode.value.trim()) && !isSubmitting.value
   }
+  if (!showPasswordForm.value) return false
   return EMAIL_RE.test(form.email.trim()) && form.password.length > 0 && !isSubmitting.value
 })
 
@@ -68,6 +78,12 @@ async function finishSignIn() {
   const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
   if (auth.isSuperAdmin && !isSuperAdminPath(window.location.pathname) && !isSuperAdminPath(redirect)) return window.location.replace('/super-admin')
   await router.replace(redirect)
+}
+
+function ssoDetails(error: unknown): { code?: string; provider?: string; organizationSlug?: string } | null {
+  if (!axios.isAxiosError(error)) return null
+  const details = error.response?.data?.details
+  return details && typeof details === 'object' && !Array.isArray(details) ? (details as { code?: string; provider?: string; organizationSlug?: string }) : null
 }
 
 async function submit() {
@@ -100,6 +116,12 @@ async function submit() {
     }
     await finishSignIn()
   } catch (error) {
+    const sso = ssoDetails(error)
+    if (sso?.code === 'sso_required' && (sso.provider === 'google' || sso.provider === 'microsoft')) {
+      errorMessage.value = getErrorMessage(error)
+      if (oauthProviders.value[sso.provider]) await continueWith(sso.provider, sso.organizationSlug)
+      return
+    }
     const message = getErrorMessage(error)
     errorMessage.value = /invalid|credential|password|email/i.test(message)
       ? 'Those credentials didn’t match. Check your email and password, or reset your password.'
@@ -116,12 +138,16 @@ function backToPassword() {
   errorMessage.value = ''
 }
 
-async function continueWith(provider: 'google' | 'microsoft') {
+async function continueWith(provider: 'google' | 'microsoft', organizationSlug?: string | null) {
   oauthBusy.value = provider
   errorMessage.value = ''
   try {
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
-    const { url } = await authApi.startOAuth(provider, redirect)
+    const { url } = await authApi.startOAuth(provider, {
+      redirect,
+      organizationSlug: organizationSlug || redirectSlug || undefined,
+      microsoftTenant: orgSso.value?.microsoftTenant,
+    })
     window.location.assign(url)
   } catch (error) {
     errorMessage.value = getErrorMessage(error)
@@ -167,9 +193,26 @@ const redirectSlug = redirectTarget?.name === 'organization-link' ? String(redir
 if (redirectSlug) {
   organizationsApi
     .publicInfo(redirectSlug)
-    .then((organization) => (targetOrganization.value = organization.name))
-    .catch(() => (targetOrganization.value = null))
+    .then((organization) => {
+      targetOrganization.value = organization.name
+      orgSso.value = organization.sso ?? null
+    })
+    .catch(() => {
+      targetOrganization.value = null
+      orgSso.value = null
+    })
 }
+
+const showGoogle = computed(() => {
+  if (!oauthProviders.value.google) return false
+  if (requiredProvider.value) return requiredProvider.value === 'google'
+  return true
+})
+const showMicrosoft = computed(() => {
+  if (!oauthProviders.value.microsoft) return false
+  if (requiredProvider.value) return requiredProvider.value === 'microsoft'
+  return true
+})
 </script>
 
 <template>
@@ -180,15 +223,17 @@ if (redirectSlug) {
         ? useRecovery
           ? 'Enter one of the recovery codes you saved when you turned on two-factor authentication.'
           : 'Enter the 6-digit code from your authenticator app.'
-        : targetOrganization
-          ? 'Use your Vector account. You will land in this organization.'
-          : 'Welcome back — pick up right where your team left off.'
+        : ssoEnforced
+          ? `This organization requires ${requiredProvider === 'google' ? 'Google' : 'Microsoft'} sign-in.`
+          : targetOrganization
+            ? 'Use your Vector account. You will land in this organization.'
+            : 'Welcome back — pick up right where your team left off.'
     "
   />
 
-  <div v-if="!mfaStep && (oauthProviders.google || oauthProviders.microsoft)" class="mb-4 space-y-2 short:mb-3">
+  <div v-if="!mfaStep && (showGoogle || showMicrosoft)" class="mb-4 space-y-2 short:mb-3">
     <Button
-      v-if="oauthProviders.google"
+      v-if="showGoogle"
       type="button"
       variant="outline"
       class="w-full"
@@ -200,7 +245,7 @@ if (redirectSlug) {
       Continue with Google
     </Button>
     <Button
-      v-if="oauthProviders.microsoft"
+      v-if="showMicrosoft"
       type="button"
       variant="outline"
       class="w-full"
@@ -211,10 +256,10 @@ if (redirectSlug) {
     >
       Continue with Microsoft
     </Button>
-    <p class="text-center text-xs text-muted-foreground">or use email</p>
+    <p v-if="showPasswordForm" class="text-center text-xs text-muted-foreground">or use email</p>
   </div>
 
-  <form class="space-y-4 short:space-y-3" novalidate @submit.prevent="submit">
+  <form v-if="mfaStep || showPasswordForm" class="space-y-4 short:space-y-3" novalidate @submit.prevent="submit">
     <template v-if="!mfaStep">
       <FormField label="Email" for="email" :error="fieldErrors.email">
         <Input id="email" v-model="form.email" type="email" autocomplete="email" placeholder="you@company.com" class="h-11 short:h-10" required />
@@ -256,7 +301,9 @@ if (redirectSlug) {
     <Button v-if="mfaStep" type="button" variant="ghost" class="w-full" @click="backToPassword">Back</Button>
   </form>
 
-  <p v-if="!mfaStep" class="mt-5 text-center text-sm leading-relaxed text-muted-foreground short:mt-4">
+  <p v-else-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
+
+  <p v-if="!mfaStep && showPasswordForm" class="mt-5 text-center text-sm leading-relaxed text-muted-foreground short:mt-4">
     New to Vector?
     <RouterLink :to="{ name: 'register' }" class="font-medium whitespace-nowrap text-primary hover:underline">Create an account</RouterLink>
   </p>

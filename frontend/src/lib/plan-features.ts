@@ -13,6 +13,7 @@ import {
   Paperclip,
   Repeat,
   Send,
+  Shield,
   Sparkles,
   UsersRound,
   Video,
@@ -35,6 +36,7 @@ export type PlanFeatureKey =
   | 'attachments'
   | 'timeTracking'
   | 'customSounds'
+  | 'sso'
   | 'emailInvitations'
   | 'emailNotifications'
   | 'emailReminders'
@@ -91,6 +93,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     label: 'Custom ringtones & sounds',
     description: 'Everyone picks their own call ringtone, message and notification sounds',
     icon: Music,
+    group: 'app',
+  },
+  {
+    key: 'sso',
+    label: 'Enterprise SSO',
+    description: 'Require Google or Microsoft sign-in, lock email domains, and optionally pin a Microsoft tenant',
+    icon: Shield,
     group: 'app',
   },
   {
