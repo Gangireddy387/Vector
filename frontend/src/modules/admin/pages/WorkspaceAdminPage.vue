@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Gem, History, KeyRound, MessageCircle, Settings2, Users } from 'lucide-vue-next'
+import { Gem, History, KeyRound, MessageCircle, Plug, Settings2, Users } from 'lucide-vue-next'
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -10,6 +10,7 @@ import { useWorkspaceStore } from '@/stores/workspace.store'
 import type { OrgPermission } from '@/types/models'
 import WorkspaceAuditSettings from '../components/WorkspaceAuditSettings.vue'
 import WorkspaceGeneralSettings from '../components/WorkspaceGeneralSettings.vue'
+import WorkspaceIntegrationsSettings from '../components/WorkspaceIntegrationsSettings.vue'
 import WorkspaceMembersSettings from '../components/WorkspaceMembersSettings.vue'
 import WorkspacePlanSettings from '../components/WorkspacePlanSettings.vue'
 import WorkspaceRolesSettings from '../components/WorkspaceRolesSettings.vue'
@@ -30,6 +31,7 @@ type AdminTab = {
 
 const ALL_SECTIONS: AdminTab[] = [
   { value: 'general', label: 'General', icon: Settings2, permission: 'workspace.manage' },
+  { value: 'integrations', label: 'Integrations', icon: Plug, permission: 'workspace.manage' },
   { value: 'people', label: 'People', icon: Users, permission: 'workspace.people' },
   { value: 'roles', label: 'Roles', icon: KeyRound, permission: ['workspace.roles', 'workspace.people'] },
   { value: 'plan', label: 'Plan', icon: Gem, permission: 'workspace.billing' },
@@ -56,7 +58,11 @@ const activeSection = computed({
     if (SECTIONS.value.some((section) => section.value === tab)) return tab
     return SECTIONS.value[0]?.value ?? 'general'
   },
-  set: (tab: string) => router.replace({ query: { ...route.query, tab: tab === 'general' ? undefined : tab } }),
+  set: (tab: string) => {
+    const query: Record<string, string | undefined> = { ...route.query, tab: tab === 'general' ? undefined : tab }
+    if (tab !== 'integrations') delete query.setup
+    router.replace({ query })
+  },
 })
 
 watch(
@@ -72,10 +78,11 @@ watch(
 
 <template>
   <div class="w-full space-y-3.5 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
-    <PageHeader v-if="isDesktop" title="Organization settings" :description="`Name, address, people, plan and support for ${workspace.settings.name}.`" />
+    <PageHeader v-if="isDesktop" title="Organization settings" :description="`Name, integrations, people, plan and support for ${workspace.settings.name}.`" />
 
     <SettingsLayout v-if="SECTIONS.length" v-model="activeSection" :sections="SECTIONS" aria-label="Organization settings">
       <template #general><WorkspaceGeneralSettings /></template>
+      <template #integrations><WorkspaceIntegrationsSettings /></template>
       <template #people><WorkspaceMembersSettings /></template>
       <template #roles><WorkspaceRolesSettings /></template>
       <template #plan><WorkspacePlanSettings /></template>
