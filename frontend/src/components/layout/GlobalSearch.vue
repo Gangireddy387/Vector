@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onClickOutside, watchDebounced } from '@vueuse/core'
-import { BarChart3, CalendarDays, ClipboardList, FolderKanban, Hash, House, Inbox, ListTodo, Loader2, MessageCircle, Moon, Plus, Search, Settings, Sparkles, Sun, Target, User as UserIcon, Video, X } from 'lucide-vue-next'
+import { BarChart3, CalendarDays, ClipboardList, FolderKanban, Hash, House, Inbox, LayoutGrid, ListTodo, Loader2, MessageCircle, Moon, Plus, Search, Settings, Sparkles, Sun, Target, User as UserIcon, Video, X } from 'lucide-vue-next'
 import { type Component, computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
@@ -79,6 +79,9 @@ const actions = computed<SearchItem[]>(() => [
     : []),
   ...(auth.hasFeature('reports') ? [{ id: 'reports', group: 'Navigate', label: 'Go to Reports', icon: BarChart3, run: go({ name: 'reports' }) }] : []),
   ...(auth.hasFeature('goals') ? [{ id: 'goals', group: 'Navigate', label: 'Go to Goals', icon: Target, run: go({ name: 'goals' }) }] : []),
+  ...(auth.hasFeature('portfolio')
+    ? [{ id: 'portfolio', group: 'Navigate', label: 'Go to Portfolio', icon: LayoutGrid, run: go({ name: 'portfolio' }) }]
+    : []),
   { id: 'settings', group: 'Navigate', label: 'Open settings', icon: Settings, run: go({ name: 'settings' }) },
   {
     id: 'theme',

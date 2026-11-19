@@ -1,4 +1,4 @@
-import { fn, col } from 'sequelize';
+import { Op, fn, col } from 'sequelize';
 import {
   CustomField,
   Issue,
@@ -37,19 +37,37 @@ const withDefaultSettings = (project) => ({ ...DEFAULT_PROJECT_SETTINGS, ...(pro
 
 /** Issue counts per project and status, counted by the database (one row per status, not one per issue). */
 async function summarizeIssues(projectIds) {
-  const summary = new Map(projectIds.map((id) => [id, { total: 0, open: 0, done: 0 }]));
+  const summary = new Map(projectIds.map((id) => [id, { total: 0, open: 0, done: 0, overdue: 0 }]));
   if (!projectIds.length) return summary;
   const [counts, statuses] = await Promise.all([
     Issue.findAll({ where: { projectId: projectIds }, attributes: ['projectId', 'statusId', [fn('COUNT', col('id')), 'count']], group: ['projectId', 'statusId'], raw: true }),
     Status.findAll({ where: { projectId: projectIds }, attributes: ['id', 'category'], raw: true }),
   ]);
   const categoryById = new Map(statuses.map((status) => [status.id, status.category]));
+  const doneStatusIds = statuses.filter((status) => status.category === 'done').map((status) => status.id);
   for (const row of counts) {
     const entry = summary.get(row.projectId);
     const count = Number(row.count);
     entry.total += count;
     if (categoryById.get(row.statusId) === 'done') entry.done += count;
     else entry.open += count;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const overdueWhere = {
+    projectId: projectIds,
+    dueDate: { [Op.lt]: today },
+  };
+  if (doneStatusIds.length) overdueWhere.statusId = { [Op.notIn]: doneStatusIds };
+  const overdueRows = await Issue.findAll({
+    where: overdueWhere,
+    attributes: ['projectId', [fn('COUNT', col('id')), 'count']],
+    group: ['projectId'],
+    raw: true,
+  });
+  for (const row of overdueRows) {
+    const entry = summary.get(row.projectId);
+    if (entry) entry.overdue = Number(row.count);
   }
   return summary;
 }

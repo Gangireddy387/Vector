@@ -195,6 +195,16 @@ async function unlockGoals() {
   }
 }
 
+/** Plans that already include goals also get the multi-project portfolio when the switch is introduced. */
+async function unlockPortfolio() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.portfolio || !features.goals) continue;
+    await plan.update({ features: { ...features, portfolio: true } });
+    console.info(`[plans] ${plan.name} plan now includes portfolio`);
+  }
+}
+
 export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
@@ -204,6 +214,7 @@ export async function ensureDefaultPlans() {
     await unlockCustomRoles();
     await unlockRoadmap();
     await unlockGoals();
+    await unlockPortfolio();
     return;
   }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);

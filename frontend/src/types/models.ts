@@ -315,7 +315,7 @@ export interface Project extends ProjectReference {
   /** The team that owns the project, if any. */
   team?: { id: string; name: string; leadId?: string | null } | null
   createdAt: string
-  issueSummary?: { total: number; open: number; done: number }
+  issueSummary?: { total: number; open: number; done: number; overdue?: number }
   memberCount?: number
   activeSprint?: { id: string; name: string; endDate: string | null } | null
 }

@@ -3,6 +3,7 @@ import {
   BellRing,
   CalendarDays,
   Clock,
+  LayoutGrid,
   LayoutTemplate,
   ListTree,
   KeyRound,
@@ -35,6 +36,7 @@ export type PlanFeatureKey =
   | 'reports'
   | 'roadmap'
   | 'goals'
+  | 'portfolio'
   | 'chat'
   | 'directMessages'
   | 'teamChat'
@@ -108,6 +110,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     label: 'Goals & OKRs',
     description: 'Organization objectives with measurable key results linked to work',
     icon: Target,
+    group: 'app',
+  },
+  {
+    key: 'portfolio',
+    label: 'Portfolio view',
+    description: 'Multi-project health, progress and overdue work across the organization',
+    icon: LayoutGrid,
     group: 'app',
   },
   { key: 'chat', label: 'Team chat & standups', description: 'Project chat, follow-ups and daily standups', icon: MessagesSquare, group: 'app' },
