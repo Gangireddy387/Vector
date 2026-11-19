@@ -5,8 +5,9 @@ This guide is for the engineer who puts Vector live on **annaaccounting.com**. I
 | Part | What it is | Runs as |
 |---|---|---|
 | Frontend | Vue app, built to static files (`frontend/dist`) | Served by Nginx |
-| Backend | Node.js API + Socket.IO (chat, notifications, meeting signalling) + background jobs | One systemd service on port 4000 |
+| Backend | Node.js API + Socket.IO (chat, notifications, meeting signalling) + background jobs | One systemd service on port 4000 (scale out with Redis — §13.2) |
 | Database | PostgreSQL | Local service, not exposed |
+| Redis | Optional shared state for several backends / restart-safe calls | Local or managed Redis when you scale (§13.2) |
 | TURN relay | coturn, carries meeting video for people behind strict firewalls | systemd service |
 | HTTPS | Let's Encrypt certificates | Certbot |
 
@@ -20,7 +21,7 @@ Browser ◄──── meeting video, direct between browsers (WebRTC) ──�
 Browser ──► turn.annaaccounting.com :3478 / :5349 (coturn) ──► Browser   (only when the direct path is blocked)
 ```
 
-> **Run exactly one backend instance.** Call rooms, online presence and the job scheduler live in the backend's memory. Do not use PM2 cluster mode, several containers or a load balancer across instances.
+> **Start with one backend** (what §7 installs). Presence, call rooms and Socket.IO fan-out live in process memory unless `REDIS_URL` is set — that is fine on a single VM. **Before** you add a second process (PM2 cluster, extra containers, or a load balancer), follow **§13.2**: Redis + a shared `UPLOAD_DIR`. Half-done multi-instance (two Node processes without Redis) breaks online status and live calls.
 
 ---
 
@@ -216,6 +217,7 @@ sudo rsync -a --delete frontend/dist/ /var/www/vector/
 [Unit]
 Description=Vector API
 After=network.target postgresql.service
+# When using Redis (§13.2), also: After=redis-server.service
 
 [Service]
 User=vector
@@ -498,15 +500,87 @@ Copy `/var/backups` off the server (object storage or another machine). Restore 
 
 | Check | How |
 |---|---|
-| Uptime | Poll `https://vector.annaaccounting.com/api/health` every minute: `200 {"status":"ok"}` means the API runs and reaches PostgreSQL; `503` means the database is unreachable. Alert after two failures. |
+| Uptime | Poll `https://vector.annaaccounting.com/api/health` every minute. `200` with `"status":"ok"` means PostgreSQL is reachable (`"database":"ok"`). With `REDIS_URL` set, the body also includes `"sharedState":"redis"` and `"redis":"ok"`; a Redis outage returns `503`. Without Redis, `"sharedState":"memory"`. Alert after two failures. |
 | Errors | In production every log line is JSON. Alert on `"level":"error"` (e.g. `journalctl -u vector -o cat \| grep '"level":"error"'`, or ship journald to your log service). |
 | One failing request | Error responses carry a `requestId` (also the `X-Request-Id` header). Search the logs for it: `journalctl -u vector -o cat \| grep <requestId>`. |
 | Disk | Alert above 80% on `/opt/vector/uploads` (attachments, call recordings) and `/var/backups`. |
 | Log size | journald rotates by itself; cap it with `SystemMaxUse=1G` in `/etc/systemd/journald.conf`. |
 
-### 13.2 More than one backend server
+### 13.2 Growth path: more than one backend (Redis + shared uploads)
 
-One server comfortably serves hundreds of people. To run several (or to keep calls through restarts), set `REDIS_URL` on every server: live connections, presence, call state and whiteboards are then shared through Redis. Background jobs are safe on several servers (each run claims its work once), but you can keep them on one with `JOBS_ENABLED=false` on the others. Uploads must be on storage every server sees (a shared mount for `UPLOAD_DIR`).
+One Node process on a modest VM comfortably serves hundreds of people. Scale out only when you need **higher API throughput**, **rolling restarts without dropping live calls**, or **redundancy**. Do not add a second process until this checklist is done.
+
+#### What Redis owns
+
+With `REDIS_URL` on every backend:
+
+| Concern | Without Redis | With Redis |
+|---|---|---|
+| Socket.IO fan-out | Only clients on this process | All backends (`@socket.io/redis-adapter`) |
+| Presence / call rooms / whiteboards | Process memory (lost on restart) | Shared keys (prefix `REDIS_PREFIX`, default `vector:`) |
+| Background jobs | Safe on several nodes (each claim is once) | Same; optional: run jobs on one node only |
+
+Uploads are **not** in Redis. Every backend must see the same files via a shared `UPLOAD_DIR` (NFS, cloud file share, or a disk mounted on all app hosts). Object storage is not wired yet — use a shared filesystem mount.
+
+#### Recipe
+
+1. **Install Redis** (same VPC / private network; do not expose it to the internet):
+
+```bash
+sudo apt install -y redis-server
+sudo systemctl enable --now redis-server
+redis-cli ping   # PONG
+```
+
+Managed Redis (ElastiCache, Memorystore, …) works the same: use the private URL and TLS URL form if the provider requires it (`rediss://…`).
+
+2. **Shared uploads** — pick one and mount it at the same path on every app host:
+
+```bash
+# example: already-mounted share
+sudo mkdir -p /opt/vector/uploads
+sudo chown vector:vector /opt/vector/uploads
+```
+
+3. **Same env on every backend** (add to `backend/.env`, then restart each service):
+
+```bash
+REDIS_URL=redis://127.0.0.1:6379
+# REDIS_PREFIX=vector:          # change only if several Vector stacks share one Redis
+UPLOAD_DIR=/opt/vector/uploads  # must be the shared mount on every host
+JOBS_ENABLED=true               # or true on one host and false on the others
+```
+
+Startup log should include: `[redis] shared state and realtime messages go through Redis`.  
+`GET /api/health` should show `"sharedState":"redis","redis":"ok"`.
+
+4. **systemd** — either two units on different ports, or two hosts behind Nginx. Example second local unit (`vector-b.service`) with `Environment=PORT=4001` and the same `.env` (including `REDIS_URL` and `UPLOAD_DIR`). Add `After=redis-server.service` (or your managed-Redis dependency) next to PostgreSQL.
+
+5. **Nginx upstream** — replace the single `proxy_pass` target with an upstream. The Redis adapter means sticky sessions are **optional**; `ip_hash` still reduces reconnect churn:
+
+```nginx
+upstream vector_api {
+    least_conn;
+    server 127.0.0.1:4000;
+    server 127.0.0.1:4001;
+    # ip_hash;   # optional sticky by client IP
+}
+
+# in each location that today points at 127.0.0.1:4000:
+proxy_pass http://vector_api;
+```
+
+Keep the existing `/socket.io/` WebSocket upgrade headers and long `proxy_read_timeout`.
+
+#### Do / don’t
+
+| Do | Don’t |
+|---|---|
+| Set the **same** `REDIS_URL`, `REDIS_PREFIX`, `JWT_SECRET`, and `UPLOAD_DIR` on every backend | Run PM2 `cluster` or two containers with empty `REDIS_URL` |
+| Point the load balancer health check at `/api/health` | Share one SQLite file across hosts — use PostgreSQL |
+| Keep VAPID / TURN / Stripe secrets identical across nodes | Point `UPLOAD_DIR` at a per-host disk and expect attachments to load everywhere |
+
+Rolling restart: stop one backend, wait until `/api/health` is healthy on the other(s), upgrade, start, then repeat. With Redis, people already in a call stay connected through the other node.
 
 ### 13.3 Checks before an update goes live
 
@@ -530,7 +604,8 @@ The same checks run automatically on every push (`.github/workflows/ci.yml`).
 | Backend log: `no TURN relay configured` | TURN keys missing from `.env` | Add `TURN_URLS` and `TURN_SECRET`, then restart |
 | Users see an old version after an update | Service worker or `index.html` cached | Check the `no-cache` rules for `/sw.js` and `/index.html` |
 | Upload fails with 413 | Nginx body limit | Raise `client_max_body_size` |
-| Online status or calls behave oddly | More than one backend instance without Redis | Run one `vector` service, or set `REDIS_URL` on all of them (13.2) |
+| Online status or calls behave oddly | More than one backend instance without Redis | Run one `vector` service, or finish the Redis + shared `UPLOAD_DIR` recipe (§13.2) before scaling out |
+| `/api/health` returns 503 with `"redis":"unavailable"` | Redis down or wrong `REDIS_URL` | `redis-cli ping`; check firewall / TLS URL; restart backends after Redis recovers |
 | Backend refuses to start: `JWT_SECRET must be a random value…` | Short or example secret in production | Generate one (6.1) and restart |
 | A user is told "Too many sign-in attempts" | 10 wrong passwords for that account in 15 minutes | Wait 15 minutes, or reset the password |
 | "Turn on" for call notifications does nothing on iPhone | The site is open in Safari, not the installed app | Share → Add to Home Screen, open Vector from there, then turn it on |

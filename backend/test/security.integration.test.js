@@ -213,6 +213,9 @@ describe('robustness', () => {
     assert.ok(response.headers.get('x-request-id'));
     const body = await response.json();
     assert.equal(body.status, 'ok');
+    assert.equal(body.database, 'ok');
+    assert.equal(body.sharedState, 'memory');
+    assert.equal('redis' in body, false);
     assert.equal('integrations' in body, false);
   });
 

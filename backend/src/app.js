@@ -11,6 +11,7 @@ import { mountStripeWebhook } from './modules/billing/billing.routes.js';
 import { createApiRouter } from './routes.js';
 import { runWithContext } from './shared/context/request-context.js';
 import { errorHandler, notFoundHandler } from './shared/middleware/error-handler.js';
+import { checkSharedState } from './shared/realtime/shared-state.js';
 
 /** Secrets in addresses (guest passes, recording links, reset tokens) are never written to the logs. */
 const redactUrl = (url) => url.replace(/([?&](?:token|t)=)[^&]+/gi, '$1[redacted]').replace(/(\/meeting-links\/)[^/?]+/, '$1[redacted]');
@@ -54,14 +55,36 @@ export function createApp() {
 
   app.use(express.json({ limit: '2mb' }));
 
-  /** For load balancers and monitoring: is the API up, and can it reach its database? No configuration details. */
+  /**
+   * Load balancers / uptime checks: database must answer; when REDIS_URL is set, Redis must answer too.
+   * `sharedState` is `memory` (one process) or `redis` (multi-instance recipe in docs/DEPLOYMENT.md §13.2).
+   */
   app.get('/api/health', async (_req, res) => {
+    const time = new Date().toISOString();
     try {
       await sequelize.query('SELECT 1');
-      res.json({ status: 'ok', time: new Date().toISOString() });
     } catch {
-      res.status(503).json({ status: 'unavailable', time: new Date().toISOString() });
+      return res.status(503).json({ status: 'unavailable', time, database: 'unavailable' });
     }
+
+    const shared = await checkSharedState();
+    if (config.redis.url && !shared.ok) {
+      return res.status(503).json({
+        status: 'unavailable',
+        time,
+        database: 'ok',
+        sharedState: shared.kind,
+        redis: 'unavailable',
+      });
+    }
+
+    res.json({
+      status: 'ok',
+      time,
+      database: 'ok',
+      sharedState: shared.kind,
+      ...(config.redis.url ? { redis: 'ok' } : {}),
+    });
   });
 
   // A ceiling per address for the whole API; sign-in and other sensitive routes have stricter limits of their own.

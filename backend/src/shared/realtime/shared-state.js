@@ -166,6 +166,28 @@ export async function closeSharedState() {
   if (!clients) return;
   await Promise.allSettled([clients.client.quit(), clients.subscriber.quit()]);
   clients = null;
+  store = memoryStore();
+}
+
+/** `memory` (single process) or `redis` (multi-instance / restart-safe calls). */
+export function sharedStateKind() {
+  return store.kind;
+}
+
+/**
+ * For `/api/health`: when Redis is configured, ping it so load balancers can pull a broken node.
+ * Without REDIS_URL the in-memory store is always fine.
+ */
+export async function checkSharedState() {
+  if (store.kind !== 'redis' || !clients?.client) {
+    return { ok: true, kind: store.kind };
+  }
+  try {
+    await clients.client.ping();
+    return { ok: true, kind: 'redis' };
+  } catch (error) {
+    return { ok: false, kind: 'redis', error: error?.message || 'ping failed' };
+  }
 }
 
 /** The active store; read it at call time (it changes once, when Redis connects at startup). */

@@ -29,9 +29,10 @@ Everything works without keys: emails are printed to the backend console and the
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | AI issue drafts, issue summaries, sub-task breakdowns. Default model `gpt-4o-mini`. |
 | `JWT_SECRET` | A random value of at least 32 characters (`node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`). Production refuses to start without one. |
 | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | PostgreSQL connection (the database is created automatically if missing). `DATABASE_URL` overrides these; removing `DB_NAME` falls back to SQLite. |
-| `REDIS_URL`, `LIVEKIT_*` | Optional: several backend servers / large video calls (see `.env.example`). |
+| `REDIS_URL`, `REDIS_PREFIX` | Optional until you scale: shared presence/calls + Socket.IO across backends (required for more than one Node process — see `docs/DEPLOYMENT.md` §13.2). |
+| `LIVEKIT_*` | Optional: large video calls (see `.env.example`). |
 
-`GET /api/health` answers `200` when the API runs and reaches its database (`503` otherwise), for monitoring.
+`GET /api/health` answers `200` when the API reaches PostgreSQL (`sharedState` is `memory` or `redis`). With `REDIS_URL` set, Redis must answer too or the check returns `503`.
 
 ## Features
 

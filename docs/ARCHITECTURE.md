@@ -50,6 +50,8 @@ project's counter under a row lock, backed by a unique `(project_id, number)` in
 **Live updates:** services publish domain events; `shared/realtime/realtime.listener.js` turns them into small socket
 signals (`issue:changed` with `projectId`…), and clients reload what they show. Presence (`shared/realtime/presence.js`)
 and call state live in `shared/realtime/shared-state.js`: Redis when `REDIS_URL` is set, memory otherwise.
+Multi-instance production (Redis + shared `UPLOAD_DIR`, Nginx upstream, health checks) is the growth path in
+[DEPLOYMENT.md §13.2](DEPLOYMENT.md#132-growth-path-more-than-one-backend-redis--shared-uploads).
 
 **Meetings (`modules/meetings`):** REST in `meeting.routes.js` / `meeting.service.js`; the live call runs over the
 socket. Each file owns one part of a call:

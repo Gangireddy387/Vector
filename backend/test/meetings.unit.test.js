@@ -148,6 +148,14 @@ describe('media routes', () => {
   });
 });
 
+describe('shared state (memory)', () => {
+  it('reports memory kind and a healthy check without Redis', async () => {
+    const { checkSharedState, sharedStateKind } = await import('../src/shared/realtime/shared-state.js');
+    assert.equal(sharedStateKind(), 'memory');
+    assert.deepEqual(await checkSharedState(), { ok: true, kind: 'memory' });
+  });
+});
+
 describe('shared state (Redis)', { skip: !process.env.REDIS_URL && 'set REDIS_URL to test against Redis' }, () => {
   let closeShared;
   before(async () => {
