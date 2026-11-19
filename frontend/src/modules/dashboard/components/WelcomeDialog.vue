@@ -64,8 +64,8 @@ function fromScratch() {
         <DialogTitle class="mt-4 text-xl font-semibold tracking-tight">Welcome to Vector, {{ auth.user?.name.split(' ')[0] }}</DialogTitle>
         <DialogDescription class="mt-1 text-[13px]">
           First 10 minutes: project → invite → task.
-          <template v-if="!auth.hasFeature('chat')"> Standup, chat and meetings unlock on Pro — Free covers the board loop.</template>
-          <template v-else> How would you like to start?</template>
+          <template v-if="!auth.hasFeature('chat')"> Standup and chat look locked on this plan — ask an admin if that seems wrong.</template>
+          <template v-else> How would you like to start? Standup, chat and meetings are ready on Free.</template>
         </DialogDescription>
       </div>
 

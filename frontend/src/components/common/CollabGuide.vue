@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '@/modules/auth/auth.store'
 
-/** One map of Vector collab so Free gates and Pro discovery share the same story. */
+/** One map of Vector collab — Free includes these; the guide still shows what’s on vs off. */
 const props = withDefaults(
   defineProps<{
     /** Compact strip (Home / Messages) vs fuller list (locked page). */

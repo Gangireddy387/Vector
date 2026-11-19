@@ -32,11 +32,12 @@ export const ALL_FEATURES = features(...FEATURE_KEYS);
 export const DEFAULT_PLANS = [
   {
     name: 'Free',
-    description: 'For small teams getting started.',
+    description: 'Run the full workday loop: board, standup, chat, messages and meetings.',
     priceLabel: 'Free',
     maxMembers: 5,
     maxProjects: 2,
-    features: features('attachments', 'timeTracking'),
+    // Workday loop is free so teams feel Vector before Pro (automation, AI, reports, email volume).
+    features: features('attachments', 'timeTracking', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar'),
     isDefault: true,
     position: 0,
   },

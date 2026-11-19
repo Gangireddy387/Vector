@@ -9,8 +9,8 @@ import { featureLabel, PLAN_FEATURES, type PlanFeatureKey } from '@/lib/plan-fea
 import RequestUpgradeButton from '@/modules/admin/components/RequestUpgradeButton.vue'
 import { useAuthStore } from '@/modules/auth/auth.store'
 
-/** Collab unlocks people feel missing on Free — listed so the gate explains the product, not a dead end. */
-const PRO_COLLAB: PlanFeatureKey[] = ['chat', 'directMessages', 'teamChat', 'meetings', 'calendar', 'aiAssistant', 'reports']
+/** Pro upgrades people feel after the Free workday loop — listed so the gate explains value, not a dead end. */
+const PRO_COLLAB: PlanFeatureKey[] = ['aiAssistant', 'automations', 'recurringTasks', 'templates', 'reports', 'customSounds']
 
 const route = useRoute()
 const router = useRouter()
@@ -32,10 +32,10 @@ const description = computed(() => {
   const detail = PLAN_FEATURES.find((feature) => feature.key === primary.value)?.description
   if (fromLoop.value) {
     const step = loopStep.value ? ` for ${loopStep.value}` : ''
-    return `This step${step} is part of Vector’s workday loop. Upgrade unlocks it for everyone in ${auth.organization?.name ?? 'your organization'}.`
+    return `This step${step} is part of Vector’s workday loop. If it’s locked, ask an admin to check the plan for ${auth.organization?.name ?? 'your organization'}.`
   }
   if (keys.value.length > 1) {
-    return `Your ${plan.value} plan does not include ${keys.value.map(featureLabel).join(' or ')}. Upgrade to unlock collaboration for the whole organization.`
+    return `Your ${plan.value} plan does not include ${keys.value.map(featureLabel).join(' or ')}. Upgrade to Pro to unlock them for the whole organization.`
   }
   return detail
     ? `${detail}. Not on your ${plan.value} plan — ask the portal administrator to upgrade.`
@@ -91,7 +91,7 @@ const unlocks = computed(() =>
     <section class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
       <header class="flex h-11 items-center gap-2 border-b border-border px-4">
         <Gem class="size-4 text-primary" />
-        <h2 class="text-sm font-semibold">What Pro unlocks</h2>
+        <h2 class="text-sm font-semibold">What Pro adds</h2>
         <span class="text-xs text-muted-foreground">You’re on {{ plan }}</span>
       </header>
       <ul class="divide-y divide-border/70">

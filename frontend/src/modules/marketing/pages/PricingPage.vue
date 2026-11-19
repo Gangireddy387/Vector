@@ -19,21 +19,21 @@ const PLANS: Array<{
   {
     name: 'Free',
     price: 'Free',
-    description: 'For small teams getting started.',
+    description: 'Run the full workday loop before you pay.',
     members: 'Up to 5 people',
     projects: 'Up to 2 projects',
-    included: ['attachments', 'timeTracking'],
-    always: ['Tasks, board & backlog', 'Projects & members', 'Inbox'],
+    included: ['attachments', 'timeTracking', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar'],
+    always: ['Tasks, board & backlog', 'Standup, chat & messages', 'Meetings & calendar'],
   },
   {
     name: 'Pro',
     price: '₹999 / month',
-    description: 'For growing teams that want to automate their work.',
+    description: 'For growing teams that want to automate their work. Includes a free trial when card checkout is on.',
     highlight: true,
     members: 'Up to 25 people',
     projects: 'Up to 20 projects',
     included: PLAN_FEATURES.map((feature) => feature.key),
-    always: ['Everything in Free', 'Chat, standup & messages', 'Automation, reports & AI'],
+    always: ['Everything in Free', 'Automation, templates & recurring', 'Reports & AI'],
   },
   {
     name: 'Enterprise',
@@ -58,7 +58,7 @@ function planHas(plan: (typeof PLANS)[number], key: PlanFeatureKey) {
   <div class="mx-auto w-full max-w-[90rem] space-y-8 p-4 sm:p-6 lg:p-8">
     <PageHeader
       title="Pricing"
-      description="Free covers the core work loop. Collaboration, automation, reports and AI unlock on Pro — no surprises after sign-up."
+      description="Free includes the workday loop (standup, chat, messages, meetings). Automation, reports and AI unlock on Pro — with a free trial when card checkout is on."
     >
       <template #actions>
         <Button variant="outline" as-child><RouterLink :to="{ name: 'developers' }">API</RouterLink></Button>
@@ -87,7 +87,7 @@ function planHas(plan: (typeof PLANS)[number], key: PlanFeatureKey) {
         </ul>
         <Button class="mt-5 w-full" :variant="plan.highlight ? 'default' : 'outline'" as-child>
           <RouterLink :to="plan.name === 'Enterprise' ? { name: 'register' } : { name: 'register' }">
-            {{ plan.name === 'Free' ? 'Start free' : plan.name === 'Pro' ? 'Start free, upgrade later' : 'Talk to us' }}
+            {{ plan.name === 'Free' ? 'Start free' : plan.name === 'Pro' ? 'Try Pro free' : 'Talk to us' }}
           </RouterLink>
         </Button>
       </article>

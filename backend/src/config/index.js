@@ -145,6 +145,8 @@ export const config = {
     secretKey: process.env.STRIPE_SECRET_KEY || '',
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     pricePro: process.env.STRIPE_PRICE_PRO || '',
+    /** Days of Pro before the first charge. 0 disables the trial. */
+    trialDays: Math.max(0, toInt(process.env.STRIPE_TRIAL_DAYS, 14)),
   },
 };
 

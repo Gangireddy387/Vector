@@ -26,13 +26,14 @@ const auth = useAuthStore()
 const isSending = ref(false)
 const localPending = ref<UpgradeRequest | null>(null)
 const checkoutEnabled = ref(false)
+const trialDays = ref(0)
 const pending = computed(() => localPending.value ?? props.pending ?? null)
 const isPending = computed(() => Boolean(pending.value && pending.value.target === props.target))
 const canPay = computed(() => checkoutEnabled.value && props.target === 'pro')
 
 const buttonLabel = computed(() => {
   if (props.label) return props.label
-  if (canPay.value) return 'Upgrade with card'
+  if (canPay.value) return trialDays.value > 0 ? `Start ${trialDays.value}-day Pro trial` : 'Upgrade with card'
   if (props.target === 'seats') return 'Request more people'
   if (props.target === 'projects') return 'Request more projects'
   return 'Request Pro'
@@ -41,9 +42,12 @@ const buttonLabel = computed(() => {
 onMounted(async () => {
   if (props.target !== 'pro' || !auth.isOrganizationAdmin) return
   try {
-    checkoutEnabled.value = (await workspaceApi.billingStatus()).checkoutEnabled
+    const status = await workspaceApi.billingStatus()
+    checkoutEnabled.value = status.checkoutEnabled
+    trialDays.value = status.trialDays ?? 0
   } catch {
     checkoutEnabled.value = false
+    trialDays.value = 0
   }
 })
 

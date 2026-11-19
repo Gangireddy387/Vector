@@ -40,7 +40,7 @@ const load = async () => {
 onMounted(async () => {
   const billing = String(route.query.billing ?? '')
   if (billing === 'success') {
-    toast.success('Payment received', { description: 'Pro unlocks as soon as Stripe confirms — refresh if features are still locked.' })
+    toast.success('Pro activated', { description: 'Trial or subscription is live as soon as Stripe confirms — refresh if features are still locked.' })
     await auth.refreshSession()
     void router.replace({ query: { ...route.query, billing: undefined } })
   } else if (billing === 'cancel') {
@@ -58,10 +58,11 @@ const focusRequest = computed<UpgradeTarget | null>(() => {
 })
 
 const planName = computed(() => overview.value?.entitlements.planName ?? 'Full access')
+/** Still on a thin plan: missing Pro automation/AI/reports (workday loop is already on Free). */
 const isFreeLike = computed(() => {
   const features = overview.value?.entitlements.features
   if (!features) return false
-  return !features.chat || !features.meetings || !features.directMessages
+  return !features.automations || !features.aiAssistant || !features.reports
 })
 const pending = computed(() => overview.value?.upgradeRequest ?? null)
 
@@ -123,13 +124,13 @@ const usageRows = computed(() => {
           :class="focusRequest === 'pro' && 'ring-2 ring-primary/30'"
         >
           <div class="min-w-0 flex-1">
-            <p class="text-sm font-medium">{{ pending ? 'Upgrade request pending' : 'Need collaboration features?' }}</p>
+            <p class="text-sm font-medium">{{ pending ? 'Upgrade request pending' : 'Want automation, AI and reports?' }}</p>
             <p class="mt-0.5 text-xs text-muted-foreground">
               <template v-if="pending">
                 Sent {{ pending.requestedByName ? `by ${pending.requestedByName}` : '' }} — the portal admin will change your plan.
               </template>
               <template v-else>
-                Request Pro for standup, Messages, meetings and calendar. You’ll also get a Support thread.
+                Free already covers the workday loop. Pro adds automation, AI, templates, recurring tasks and reports — start a trial when card checkout is on.
               </template>
             </p>
           </div>

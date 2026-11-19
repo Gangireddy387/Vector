@@ -116,7 +116,7 @@ export function useOnboarding(data: Ref<DashboardData | null>) {
           title: 'Schedule a meeting',
           description: canMeet
             ? 'Optional — invite the team, then turn action items into tasks.'
-            : 'Meetings unlock on Pro. Skip for now if you like.',
+            : 'Meetings look locked on this plan. Skip for now if you like.',
           done: !canMeet || skippedIds.value.has('meeting'),
           action: canMeet
             ? { kind: 'schedule-meeting' }

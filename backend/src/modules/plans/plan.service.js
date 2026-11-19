@@ -94,6 +94,9 @@ export async function getDefaultPlan() {
 /** Collaboration switches added later: plans that already include project chat get them too. */
 const CHAT_FEATURE_KEYS = ['directMessages', 'teamChat', 'meetings'];
 
+/** Free workday loop — must stay in sync with DEFAULT_PLANS Free features. */
+const FREE_LOOP_FEATURES = ['chat', 'directMessages', 'teamChat', 'meetings', 'calendar'];
+
 /**
  * Plans saved before newer switches existed: they keep sending emails, get direct and team chat and meetings when
  * they already include project chat, custom sounds when they include calls or chat, and calendar when they already
@@ -113,11 +116,35 @@ async function backfillEmailFeatures() {
 }
 
 /**
+ * Existing Free / default plans that still lock the workday loop get chat, standup, messages, meetings and calendar
+ * turned on. Super-admin edits that already enabled them are left alone; Pro/Enterprise are untouched.
+ */
+async function unlockFreeWorkdayLoop() {
+  const free =
+    (await Plan.findOne({ where: { name: 'Free' } })) ?? (await Plan.findOne({ where: { isDefault: true } }));
+  if (!free) return;
+  const features = normalizeFeatures(free.features);
+  const additions = Object.fromEntries(FREE_LOOP_FEATURES.filter((key) => !features[key]).map((key) => [key, true]));
+  if (!Object.keys(additions).length) return;
+  await free.update({
+    features: { ...features, ...additions },
+    description: free.description?.includes('workday')
+      ? free.description
+      : 'Run the full workday loop: board, standup, chat, messages and meetings.',
+  });
+  console.info(`[plans] ${free.name} plan now includes the workday loop (${FREE_LOOP_FEATURES.join(', ')})`);
+}
+
+/**
  * Creates the starter plans on first start. Organizations that already exist move to the plan with the most
  * access, so nobody loses a feature they were using.
  */
 export async function ensureDefaultPlans() {
-  if (await Plan.count()) return backfillEmailFeatures();
+  if (await Plan.count()) {
+    await backfillEmailFeatures();
+    await unlockFreeWorkdayLoop();
+    return;
+  }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);
   const fullAccess = plans.find((plan) => plan.maxMembers === null && plan.maxProjects === null) ?? plans.at(-1);
   const [moved] = await Organization.update({ planId: fullAccess.id }, { where: { planId: null } });

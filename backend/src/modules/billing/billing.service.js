@@ -14,7 +14,10 @@ const stripe = () => {
 };
 
 export function billingStatus() {
-  return { checkoutEnabled: isCheckoutConfigured() };
+  return {
+    checkoutEnabled: isCheckoutConfigured(),
+    trialDays: isCheckoutConfigured() ? config.stripe.trialDays : 0,
+  };
 }
 
 /** Starts Stripe Checkout for Pro; returns the hosted Checkout URL. */
@@ -39,6 +42,7 @@ export async function createProCheckout(organization, user) {
     await organization.update({ stripeCustomerId: customerId });
   }
 
+  const trialDays = config.stripe.trialDays;
   const session = await client.checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
@@ -47,7 +51,10 @@ export async function createProCheckout(organization, user) {
     success_url: appUrl('/workspace-admin?tab=plan&billing=success'),
     cancel_url: appUrl('/workspace-admin?tab=plan&billing=cancel'),
     metadata: { organizationId: organization.id, planId: plan.id, userId: user.id },
-    subscription_data: { metadata: { organizationId: organization.id, planId: plan.id } },
+    subscription_data: {
+      metadata: { organizationId: organization.id, planId: plan.id },
+      ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
+    },
   });
   if (!session.url) throw ApiError.badRequest('Stripe did not return a checkout URL');
   return { url: session.url };
