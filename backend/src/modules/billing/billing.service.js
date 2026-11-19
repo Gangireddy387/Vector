@@ -8,7 +8,16 @@ import { appUrl } from '../../shared/services/email-templates.js';
 import { setOrganizationPlan, usageFor, withPlan } from '../plans/plan.service.js';
 import { broadcastOrganization } from '../organizations/organization.service.js';
 
-export const isCheckoutConfigured = () => Boolean(config.stripe.secretKey && config.stripe.webhookSecret && config.stripe.pricePro);
+export const PAID_PLANS = ['pro', 'enterprise'];
+
+const stripeKeysReady = () => Boolean(config.stripe.secretKey && config.stripe.webhookSecret);
+
+/** True when at least one self-serve paid plan price is configured. */
+export const isCheckoutConfigured = () =>
+  Boolean(stripeKeysReady() && (config.stripe.pricePro || config.stripe.priceEnterprise));
+
+export const isProCheckoutConfigured = () => Boolean(stripeKeysReady() && config.stripe.pricePro);
+export const isEnterpriseCheckoutConfigured = () => Boolean(stripeKeysReady() && config.stripe.priceEnterprise);
 
 const stripe = () => {
   if (!config.stripe.secretKey) throw ApiError.badRequest('Card checkout is not configured on this server');
@@ -34,12 +43,59 @@ export function normalizeSeats(raw, { currentMembers = 1 } = {}) {
   return seats;
 }
 
+function normalizePlanKey(raw) {
+  const key = String(raw || 'pro')
+    .trim()
+    .toLowerCase();
+  if (!PAID_PLANS.includes(key)) throw ApiError.badRequest('Choose pro or enterprise');
+  return key;
+}
+
+function planDisplayName(planKey) {
+  return planKey === 'enterprise' ? 'Enterprise' : 'Pro';
+}
+
+function priceForPlan(planKey) {
+  return planKey === 'enterprise' ? config.stripe.priceEnterprise : config.stripe.pricePro;
+}
+
+function trialDaysForPlan(planKey) {
+  return planKey === 'enterprise' ? config.stripe.trialDaysEnterprise : config.stripe.trialDays;
+}
+
+function assertPlanCheckoutConfigured(planKey) {
+  if (!stripeKeysReady()) {
+    throw new ApiError(503, 'Card checkout is not configured. Request an upgrade instead, or set STRIPE_* on the server.', {
+      code: 'billing_not_configured',
+    });
+  }
+  const priceId = priceForPlan(planKey);
+  if (!priceId) {
+    const env = planKey === 'enterprise' ? 'STRIPE_PRICE_ENTERPRISE' : 'STRIPE_PRICE_PRO';
+    throw new ApiError(503, `${planDisplayName(planKey)} checkout is not configured. Set ${env} on the server.`, {
+      code: 'billing_not_configured',
+      plan: planKey,
+    });
+  }
+  return priceId;
+}
+
+function planKeyFromPriceId(priceId) {
+  if (!priceId) return null;
+  if (priceId === config.stripe.priceEnterprise) return 'enterprise';
+  if (priceId === config.stripe.pricePro) return 'pro';
+  return null;
+}
+
 /** Server + this organization: whether Checkout / Customer Portal are available. */
 export function billingStatus(organization = null) {
   const checkoutEnabled = isCheckoutConfigured();
   return {
     checkoutEnabled,
-    trialDays: checkoutEnabled ? config.stripe.trialDays : 0,
+    proCheckoutEnabled: isProCheckoutConfigured(),
+    enterpriseCheckoutEnabled: isEnterpriseCheckoutConfigured(),
+    trialDays: isProCheckoutConfigured() ? config.stripe.trialDays : 0,
+    enterpriseTrialDays: isEnterpriseCheckoutConfigured() ? config.stripe.trialDaysEnterprise : 0,
     /** Stripe Customer Portal (card, invoices, cancel) — needs a customer from a prior checkout. */
     portalEnabled: checkoutEnabled && Boolean(organization?.stripeCustomerId),
     hasSubscription: Boolean(organization?.stripeSubscriptionId),
@@ -63,98 +119,139 @@ async function ensureCustomer(organization, user) {
   return customerId;
 }
 
+function subscriptionSeatItem(subscription) {
+  const prices = [config.stripe.priceEnterprise, config.stripe.pricePro].filter(Boolean);
+  return (
+    subscription?.items?.data?.find((entry) => prices.includes(entry.price?.id)) ?? subscription?.items?.data?.[0] ?? null
+  );
+}
+
 function subscriptionSeats(subscription) {
-  const item = subscription?.items?.data?.find((entry) => entry.price?.id === config.stripe.pricePro) ?? subscription?.items?.data?.[0];
+  const item = subscriptionSeatItem(subscription);
   const quantity = item?.quantity;
   return Number.isFinite(quantity) && quantity > 0 ? quantity : null;
 }
 
+function subscriptionPlanKey(subscription) {
+  const item = subscriptionSeatItem(subscription);
+  return planKeyFromPriceId(item?.price?.id) || (subscription.metadata?.planKey ? normalizePlanKey(subscription.metadata.planKey) : null);
+}
+
 /**
- * Starts Stripe Checkout for Pro billed per seat, or updates an existing subscription’s quantity.
- * @param {{ seats?: number }} options
+ * Starts Stripe Checkout for Pro or Enterprise (per seat), updates seats, or swaps plan on an existing subscription.
+ * @param {{ seats?: number, plan?: 'pro'|'enterprise' }} options
  */
-export async function createProCheckout(organization, user, options = {}) {
-  if (!isCheckoutConfigured()) {
-    throw new ApiError(503, 'Card checkout is not configured. Request an upgrade instead, or set STRIPE_* on the server.', {
-      code: 'billing_not_configured',
-    });
-  }
-  const plan = await Plan.findOne({ where: { name: 'Pro' } });
-  if (!plan) throw ApiError.badRequest('Pro plan is not available');
+export async function createCheckout(organization, user, options = {}) {
+  const planKey = normalizePlanKey(options.plan);
+  const priceId = assertPlanCheckoutConfigured(planKey);
+  const plan = await Plan.findOne({ where: { name: planDisplayName(planKey) } });
+  if (!plan) throw ApiError.badRequest(`${planDisplayName(planKey)} plan is not available`);
 
   const usage = await usageFor(organization.id);
   const seats = normalizeSeats(options.seats, { currentMembers: usage.members || 1 });
 
-  // Already subscribed: change quantity in place (proration) instead of a second Checkout.
   if (organization.stripeSubscriptionId) {
-    return updateSubscriptionSeats(organization, seats);
+    return updateSubscription(organization, { seats, planKey, priceId, plan });
   }
 
   const client = stripe();
   const customerId = await ensureCustomer(organization, user);
-  const trialDays = config.stripe.trialDays;
+  const trialDays = trialDaysForPlan(planKey);
   const session = await client.checkout.sessions.create({
     mode: 'subscription',
     customer: customerId,
     client_reference_id: organization.id,
-    line_items: [{ price: config.stripe.pricePro, quantity: seats }],
-    success_url: appUrl('/workspace-admin?tab=plan&billing=success'),
+    line_items: [{ price: priceId, quantity: seats }],
+    success_url: appUrl(`/workspace-admin?tab=plan&billing=success&plan=${planKey}`),
     cancel_url: appUrl('/workspace-admin?tab=plan&billing=cancel'),
-    metadata: { organizationId: organization.id, planId: plan.id, userId: user.id, seats: String(seats) },
+    metadata: {
+      organizationId: organization.id,
+      planId: plan.id,
+      planKey,
+      userId: user.id,
+      seats: String(seats),
+    },
     subscription_data: {
-      metadata: { organizationId: organization.id, planId: plan.id, seats: String(seats) },
+      metadata: { organizationId: organization.id, planId: plan.id, planKey, seats: String(seats) },
       ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
     },
   });
   if (!session.url) throw ApiError.badRequest('Stripe did not return a checkout URL');
-  return { url: session.url, seats, mode: 'checkout' };
+  return { url: session.url, seats, mode: 'checkout', plan: planKey };
 }
 
-/** Change seat quantity on the current Stripe subscription (prorated). */
-export async function updateSubscriptionSeats(organization, rawSeats) {
-  if (!isCheckoutConfigured()) {
-    throw new ApiError(503, 'Card checkout is not configured.', { code: 'billing_not_configured' });
-  }
-  if (!organization.stripeSubscriptionId) {
-    throw ApiError.badRequest('No active subscription. Start a Pro checkout first.');
-  }
+/** @deprecated Prefer createCheckout({ plan: 'pro' }). */
+export async function createProCheckout(organization, user, options = {}) {
+  return createCheckout(organization, user, { ...options, plan: 'pro' });
+}
 
-  const usage = await usageFor(organization.id);
-  const seats = normalizeSeats(rawSeats, { currentMembers: usage.members || 1 });
+async function updateSubscription(organization, { seats, planKey, priceId, plan }) {
   const client = stripe();
   const subscription = await client.subscriptions.retrieve(organization.stripeSubscriptionId);
   if (!['active', 'trialing', 'past_due'].includes(subscription.status)) {
     throw ApiError.badRequest('Subscription is not active. Start a new checkout or open Manage billing.');
   }
 
-  const item =
-    subscription.items.data.find((entry) => entry.price?.id === config.stripe.pricePro) ?? subscription.items.data[0];
+  const item = subscriptionSeatItem(subscription);
   if (!item) throw ApiError.badRequest('Subscription has no billable seat item');
 
-  if (item.quantity === seats) {
+  const currentPlanKey = subscriptionPlanKey(subscription);
+  const samePrice = item.price?.id === priceId;
+  const sameSeats = item.quantity === seats;
+
+  if (samePrice && sameSeats) {
     await organization.update({ billedSeats: seats });
     const next = await Organization.findByPk(organization.id, { include: withPlan() });
     if (next) await broadcastOrganization(next);
-    return { seats, mode: 'unchanged', url: null };
+    return { seats, mode: 'unchanged', url: null, plan: planKey };
   }
 
   const updated = await client.subscriptions.update(organization.stripeSubscriptionId, {
-    items: [{ id: item.id, quantity: seats }],
+    items: samePrice ? [{ id: item.id, quantity: seats }] : [{ id: item.id, price: priceId, quantity: seats }],
     proration_behavior: 'create_prorations',
     metadata: {
       ...(subscription.metadata ?? {}),
       organizationId: organization.id,
+      planId: plan.id,
+      planKey,
       seats: String(seats),
     },
   });
 
-  await applyPro(organization.id, {
+  await applyPaidPlan(organization.id, plan, {
     customerId: typeof updated.customer === 'string' ? updated.customer : organization.stripeCustomerId,
     subscriptionId: updated.id,
     seats: subscriptionSeats(updated) ?? seats,
   });
 
-  return { seats: subscriptionSeats(updated) ?? seats, mode: 'updated', url: null };
+  return {
+    seats: subscriptionSeats(updated) ?? seats,
+    mode: samePrice ? 'updated' : 'plan_changed',
+    url: null,
+    plan: planKey,
+    previousPlan: currentPlanKey,
+  };
+}
+
+/** Change seat quantity on the current Stripe subscription (prorated); keeps the current paid plan. */
+export async function updateSubscriptionSeats(organization, rawSeats) {
+  if (!isCheckoutConfigured()) {
+    throw new ApiError(503, 'Card checkout is not configured.', { code: 'billing_not_configured' });
+  }
+  if (!organization.stripeSubscriptionId) {
+    throw ApiError.badRequest('No active subscription. Start a checkout first.');
+  }
+
+  const client = stripe();
+  const subscription = await client.subscriptions.retrieve(organization.stripeSubscriptionId);
+  const planKey = subscriptionPlanKey(subscription) || 'pro';
+  const priceId = assertPlanCheckoutConfigured(planKey);
+  const plan = await Plan.findOne({ where: { name: planDisplayName(planKey) } });
+  if (!plan) throw ApiError.badRequest(`${planDisplayName(planKey)} plan is not available`);
+
+  const usage = await usageFor(organization.id);
+  const seats = normalizeSeats(rawSeats, { currentMembers: usage.members || 1 });
+  return updateSubscription(organization, { seats, planKey, priceId, plan });
 }
 
 /**
@@ -168,7 +265,7 @@ export async function createBillingPortal(organization) {
     });
   }
   if (!organization.stripeCustomerId) {
-    throw ApiError.badRequest('No billing account yet. Start a Pro checkout first, then you can manage card and invoices here.');
+    throw ApiError.badRequest('No billing account yet. Start a checkout first, then you can manage card and invoices here.');
   }
 
   const session = await stripe().billingPortal.sessions.create({
@@ -187,8 +284,21 @@ async function organizationIdFromSubscription(subscription) {
   return organization?.id ?? null;
 }
 
-async function applyPro(organizationId, { customerId, subscriptionId, seats = null, actorId = null } = {}) {
-  const plan = await Plan.findOne({ where: { name: 'Pro' } });
+async function resolvePlanFromMetadata({ planId, planKey, priceId } = {}) {
+  if (planId) {
+    const byId = await Plan.findByPk(planId);
+    if (byId) return byId;
+  }
+  if (planKey && PAID_PLANS.includes(String(planKey).toLowerCase())) {
+    const byKey = await Plan.findOne({ where: { name: planDisplayName(String(planKey).toLowerCase()) } });
+    if (byKey) return byKey;
+  }
+  const fromPrice = planKeyFromPriceId(priceId);
+  if (fromPrice) return Plan.findOne({ where: { name: planDisplayName(fromPrice) } });
+  return Plan.findOne({ where: { name: 'Pro' } });
+}
+
+async function applyPaidPlan(organizationId, plan, { customerId, subscriptionId, seats = null, actorId = null } = {}) {
   if (!plan) return null;
   const organization = await Organization.findByPk(organizationId);
   if (!organization) return null;
@@ -233,11 +343,18 @@ export async function handleStripeWebhook(rawBody, signature) {
       if (organizationId && session.mode === 'subscription') {
         let seats = Number.parseInt(session.metadata?.seats, 10) || null;
         const subscriptionId = typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
-        if (subscriptionId && !seats) {
+        let priceId = null;
+        if (subscriptionId) {
           const subscription = await client.subscriptions.retrieve(subscriptionId);
-          seats = subscriptionSeats(subscription);
+          seats = seats || subscriptionSeats(subscription);
+          priceId = subscriptionSeatItem(subscription)?.price?.id ?? null;
         }
-        await applyPro(organizationId, {
+        const plan = await resolvePlanFromMetadata({
+          planId: session.metadata?.planId,
+          planKey: session.metadata?.planKey,
+          priceId,
+        });
+        await applyPaidPlan(organizationId, plan, {
           customerId: typeof session.customer === 'string' ? session.customer : session.customer?.id,
           subscriptionId,
           seats,
@@ -253,10 +370,15 @@ export async function handleStripeWebhook(rawBody, signature) {
         recordOk('stripe', 'webhook');
         return { received: true };
       }
-      // cancel_at_period_end keeps status active/trialing until the period ends — stay on Pro until then.
+      // cancel_at_period_end keeps status active/trialing until the period ends — stay on paid plan until then.
       const active = ['active', 'trialing'].includes(subscription.status);
       if (active) {
-        await applyPro(organizationId, {
+        const plan = await resolvePlanFromMetadata({
+          planId: subscription.metadata?.planId,
+          planKey: subscription.metadata?.planKey || subscriptionPlanKey(subscription),
+          priceId: subscriptionSeatItem(subscription)?.price?.id,
+        });
+        await applyPaidPlan(organizationId, plan, {
           customerId: typeof subscription.customer === 'string' ? subscription.customer : null,
           subscriptionId: subscription.id,
           seats: subscriptionSeats(subscription),

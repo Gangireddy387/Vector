@@ -6,18 +6,25 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { getErrorMessage } from '@/lib/http'
-import { workspaceApi } from '../admin.api'
+import { type BillingPlan, workspaceApi } from '../admin.api'
 
-const props = defineProps<{
-  /** Current active members — seat floor. */
-  memberCount: number
-  /** Existing billed seats when already on a subscription. */
-  billedSeats?: number | null
-  hasSubscription?: boolean
-  minSeats?: number
-  maxSeats?: number
-  trialDays?: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** Current active members — seat floor. */
+    memberCount: number
+    /** Existing billed seats when already on a subscription. */
+    billedSeats?: number | null
+    hasSubscription?: boolean
+    minSeats?: number
+    maxSeats?: number
+    trialDays?: number
+    /** Paid plan for new Checkout or plan swap. Seat-only updates ignore this when already subscribed. */
+    plan?: BillingPlan
+    /** When true and subscribed, only change quantity (do not swap plan). */
+    seatsOnly?: boolean
+  }>(),
+  { plan: 'pro', seatsOnly: false },
+)
 
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ done: [] }>()
@@ -27,13 +34,22 @@ const isSaving = ref(false)
 
 const floor = computed(() => Math.max(props.minSeats ?? 1, props.memberCount || 1))
 const ceiling = computed(() => props.maxSeats ?? 100)
+const planLabel = computed(() => (props.plan === 'enterprise' ? 'Enterprise' : 'Pro'))
 
-const title = computed(() => (props.hasSubscription ? 'Change seat count' : 'Choose seats for Pro'))
-const description = computed(() =>
-  props.hasSubscription
-    ? 'Your people limit follows the seats you pay for. Stripe prorates the change on your next invoice.'
-    : 'Pro is billed per seat. Pick how many people this organization can have (at least everyone already here).',
-)
+const title = computed(() => {
+  if (props.hasSubscription && props.seatsOnly) return 'Change seat count'
+  if (props.hasSubscription) return `Switch to ${planLabel.value}`
+  return `Choose seats for ${planLabel.value}`
+})
+const description = computed(() => {
+  if (props.hasSubscription && props.seatsOnly) {
+    return 'Your people limit follows the seats you pay for. Stripe prorates the change on your next invoice.'
+  }
+  if (props.hasSubscription) {
+    return `${planLabel.value} is billed per seat. Stripe will prorate the plan change on your next invoice.`
+  }
+  return `${planLabel.value} is billed per seat. Pick how many people this organization can have (at least everyone already here).`
+})
 
 watch(open, (isOpen) => {
   if (!isOpen) return
@@ -46,22 +62,25 @@ async function confirm() {
   seats.value = quantity
   isSaving.value = true
   try {
-    if (props.hasSubscription) {
+    if (props.hasSubscription && props.seatsOnly) {
       const result = await workspaceApi.updateSeats(quantity)
       toast.success(
         result.mode === 'unchanged' ? 'Seat count unchanged' : `Updated to ${result.seats} seats`,
-        { description: result.mode === 'updated' ? 'Proration will appear on your Stripe invoice.' : undefined },
+        { description: result.mode === 'updated' || result.mode === 'plan_changed' ? 'Proration will appear on your Stripe invoice.' : undefined },
       )
       emit('done')
       open.value = false
       return
     }
-    const result = await workspaceApi.startCheckout(quantity)
+    const result = await workspaceApi.startCheckout(quantity, props.plan)
     if (result.url) {
       window.location.assign(result.url)
       return
     }
-    toast.success(`Pro ready with ${result.seats} seats`)
+    const label = result.plan === 'enterprise' ? 'Enterprise' : planLabel.value
+    toast.success(
+      result.mode === 'plan_changed' ? `Switched to ${label} (${result.seats} seats)` : `${label} ready with ${result.seats} seats`,
+    )
     emit('done')
     open.value = false
   } catch (error) {
@@ -100,7 +119,15 @@ async function confirm() {
         <Button variant="outline" :disabled="isSaving" @click="open = false">Cancel</Button>
         <Button :disabled="isSaving" :loading="isSaving" @click="confirm">
           <CreditCard />
-          {{ hasSubscription ? 'Update seats' : trialDays ? `Start ${trialDays}-day trial` : 'Continue to checkout' }}
+          {{
+            hasSubscription && seatsOnly
+              ? 'Update seats'
+              : hasSubscription
+                ? `Switch to ${planLabel}`
+                : trialDays
+                  ? `Start ${trialDays}-day trial`
+                  : 'Continue to checkout'
+          }}
         </Button>
       </DialogFooter>
     </DialogContent>

@@ -37,12 +37,12 @@ const PLANS: Array<{
   },
   {
     name: 'Enterprise',
-    price: 'Contact us',
-    description: 'Everything, with no limits.',
+    price: 'Per seat',
+    description: 'Everything with no limits — SSO, SCIM, and self-serve checkout when Stripe Enterprise pricing is on.',
     members: 'Unlimited people',
     projects: 'Unlimited projects',
     included: PLAN_FEATURES.map((feature) => feature.key),
-    always: ['Everything in Pro', 'Custom limits & support'],
+    always: ['Everything in Pro', 'SSO & SCIM', 'Unlimited seats & projects'],
   },
 ]
 
@@ -86,8 +86,8 @@ function planHas(plan: (typeof PLANS)[number], key: PlanFeatureKey) {
           </li>
         </ul>
         <Button class="mt-5 w-full" :variant="plan.highlight ? 'default' : 'outline'" as-child>
-          <RouterLink :to="plan.name === 'Enterprise' ? { name: 'register' } : { name: 'register' }">
-            {{ plan.name === 'Free' ? 'Start free' : plan.name === 'Pro' ? 'Try Pro free' : 'Talk to us' }}
+          <RouterLink :to="{ name: 'register' }">
+            {{ plan.name === 'Free' ? 'Start free' : plan.name === 'Pro' ? 'Try Pro free' : 'Try Enterprise' }}
           </RouterLink>
         </Button>
       </article>

@@ -46,9 +46,13 @@ const load = async () => {
 onMounted(async () => {
   const billing = String(route.query.billing ?? '')
   if (billing === 'success') {
-    toast.success('Pro activated', { description: 'Trial or subscription is live as soon as Stripe confirms — refresh if features are still locked.' })
+    const plan = String(route.query.plan ?? 'pro')
+    const label = plan === 'enterprise' ? 'Enterprise' : 'Pro'
+    toast.success(`${label} activated`, {
+      description: 'Trial or subscription is live as soon as Stripe confirms — refresh if features are still locked.',
+    })
     await auth.refreshSession()
-    void router.replace({ query: { ...route.query, billing: undefined } })
+    void router.replace({ query: { ...route.query, billing: undefined, plan: undefined } })
   } else if (billing === 'cancel') {
     toast.message('Checkout cancelled')
     void router.replace({ query: { ...route.query, billing: undefined } })
@@ -76,10 +80,10 @@ async function openBillingPortal() {
   }
 }
 
-/** Deep-link from plan-limit toasts (?request=seats|projects|pro). */
+/** Deep-link from plan-limit toasts (?request=seats|projects|pro|enterprise). */
 const focusRequest = computed<UpgradeTarget | null>(() => {
   const raw = route.query.request
-  return raw === 'seats' || raw === 'projects' || raw === 'pro' ? raw : null
+  return raw === 'seats' || raw === 'projects' || raw === 'pro' || raw === 'enterprise' ? raw : null
 })
 
 const planName = computed(() => overview.value?.entitlements.planName ?? 'Full access')
@@ -89,8 +93,17 @@ const isFreeLike = computed(() => {
   if (!features) return false
   return !features.automations || !features.aiAssistant || !features.reports
 })
+const isEnterprise = computed(() => String(planName.value).toLowerCase() === 'enterprise')
+const isProLike = computed(() => {
+  const features = overview.value?.entitlements.features
+  if (!features || isFreeLike.value || isEnterprise.value) return false
+  return Boolean(features.automations && features.aiAssistant)
+})
 const pending = computed(() => overview.value?.upgradeRequest ?? null)
 const canManageBilling = computed(() => Boolean(billingInfo.value?.portalEnabled && auth.isOrganizationAdmin))
+const showEnterpriseUpgrade = computed(
+  () => overview.value && !isEnterprise.value && (isProLike.value || isFreeLike.value || focusRequest.value === 'enterprise' || pending.value?.target === 'enterprise'),
+)
 
 const usageRows = computed(() => {
   if (!overview.value) return []
@@ -187,14 +200,14 @@ const usageRows = computed(() => {
         </div>
 
         <div
-          v-if="overview && (isFreeLike || pending || focusRequest === 'pro')"
+          v-if="overview && (isFreeLike || pending?.target === 'pro' || focusRequest === 'pro')"
           class="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center"
           :class="focusRequest === 'pro' && 'ring-2 ring-primary/30'"
         >
           <div class="min-w-0 flex-1">
-            <p class="text-sm font-medium">{{ pending ? 'Upgrade request pending' : 'Want automation, AI and reports?' }}</p>
+            <p class="text-sm font-medium">{{ pending?.target === 'pro' ? 'Pro request pending' : 'Want automation, AI and reports?' }}</p>
             <p class="mt-0.5 text-xs text-muted-foreground">
-              <template v-if="pending">
+              <template v-if="pending?.target === 'pro'">
                 Sent {{ pending.requestedByName ? `by ${pending.requestedByName}` : '' }} — the portal admin will change your plan.
               </template>
               <template v-else>
@@ -204,7 +217,33 @@ const usageRows = computed(() => {
           </div>
           <div class="flex flex-wrap gap-2">
             <RequestUpgradeButton target="pro" :pending="pending" :member-count="overview?.usage.members ?? 1" @update="load" />
-            <Button v-if="pending" size="sm" variant="outline" as-child>
+            <Button v-if="pending?.target === 'pro'" size="sm" variant="outline" as-child>
+              <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'support' } }">Open support</RouterLink>
+            </Button>
+          </div>
+        </div>
+
+        <div
+          v-if="showEnterpriseUpgrade"
+          class="flex flex-col gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center"
+          :class="focusRequest === 'enterprise' && 'ring-2 ring-primary/30'"
+        >
+          <div class="min-w-0 flex-1">
+            <p class="text-sm font-medium">
+              {{ pending?.target === 'enterprise' ? 'Enterprise request pending' : 'Need SSO, SCIM and unlimited scale?' }}
+            </p>
+            <p class="mt-0.5 text-xs text-muted-foreground">
+              <template v-if="pending?.target === 'enterprise'">
+                Sent {{ pending.requestedByName ? `by ${pending.requestedByName}` : '' }} — the portal admin will change your plan.
+              </template>
+              <template v-else>
+                Enterprise is billed per seat and unlocks SSO, SCIM provisioning, and unlimited people and projects.
+              </template>
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <RequestUpgradeButton target="enterprise" :pending="pending" :member-count="overview?.usage.members ?? 1" @update="load" />
+            <Button v-if="pending?.target === 'enterprise'" size="sm" variant="outline" as-child>
               <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'support' } }">Open support</RouterLink>
             </Button>
           </div>

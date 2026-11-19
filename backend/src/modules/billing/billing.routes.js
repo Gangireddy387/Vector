@@ -4,15 +4,21 @@ import { requireOrgPermission } from '../../shared/middleware/authenticate.js';
 import { validate } from '../../shared/middleware/validate.js';
 import * as billing from './billing.service.js';
 
-const seatsBody = z.object({
+const checkoutBody = z.object({
   seats: z.coerce.number().int().positive().optional(),
+  plan: z.enum(['pro', 'enterprise']).optional(),
 });
 
 /** Mounted after global authenticate (organization resolved from X-Organization-Id when present). */
 export const billingRoutes = Router();
 billingRoutes.get('/billing/status', (req, res) => res.json(billing.billingStatus(req.organization)));
-billingRoutes.post('/billing/checkout', requireOrgPermission('workspace.billing'), validate({ body: seatsBody }), async (req, res) => {
-  res.json(await billing.createProCheckout(req.organization, req.user, { seats: req.body.seats }));
+billingRoutes.post('/billing/checkout', requireOrgPermission('workspace.billing'), validate({ body: checkoutBody }), async (req, res) => {
+  res.json(
+    await billing.createCheckout(req.organization, req.user, {
+      seats: req.body.seats,
+      plan: req.body.plan ?? 'pro',
+    }),
+  );
 });
 billingRoutes.post(
   '/billing/seats',

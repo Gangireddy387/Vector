@@ -49,7 +49,7 @@ organizationAdminRoutes.post(
   requireOrgPermission('workspace.billing'),
   validate({
     body: z.object({
-      target: z.enum(['pro', 'seats', 'projects']),
+      target: z.enum(['pro', 'enterprise', 'seats', 'projects']),
       note: z.string().trim().max(500).optional(),
     }),
   }),

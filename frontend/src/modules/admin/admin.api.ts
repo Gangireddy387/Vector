@@ -13,7 +13,8 @@ import type {
 
 type ProjectBadge = { id: string; name: string; key: string; color: string }
 
-export type UpgradeTarget = 'pro' | 'seats' | 'projects'
+export type UpgradeTarget = 'pro' | 'enterprise' | 'seats' | 'projects'
+export type BillingPlan = 'pro' | 'enterprise'
 
 export interface UpgradeRequest {
   target: UpgradeTarget
@@ -175,7 +176,10 @@ export const workspaceApi = {
     http
       .get<{
         checkoutEnabled: boolean
+        proCheckoutEnabled: boolean
+        enterpriseCheckoutEnabled: boolean
         trialDays: number
+        enterpriseTrialDays: number
         portalEnabled: boolean
         hasSubscription: boolean
         billedSeats: number | null
@@ -183,13 +187,23 @@ export const workspaceApi = {
         maxSeats: number
       }>('/billing/status')
       .then((r) => r.data),
-  startCheckout: (seats?: number) =>
+  startCheckout: (seats?: number, plan: BillingPlan = 'pro') =>
     http
-      .post<{ url: string | null; seats: number; mode: 'checkout' | 'updated' | 'unchanged' }>('/billing/checkout', seats ? { seats } : {})
+      .post<{
+        url: string | null
+        seats: number
+        mode: 'checkout' | 'updated' | 'unchanged' | 'plan_changed'
+        plan?: BillingPlan
+      }>('/billing/checkout', { ...(seats ? { seats } : {}), plan })
       .then((r) => r.data),
   /** Change seat quantity on the current Stripe subscription (prorated). */
   updateSeats: (seats: number) =>
-    http.post<{ seats: number; mode: 'updated' | 'unchanged'; url: null }>('/billing/seats', { seats }).then((r) => r.data),
+    http
+      .post<{ seats: number; mode: 'updated' | 'unchanged' | 'plan_changed'; url: null; plan?: BillingPlan }>(
+        '/billing/seats',
+        { seats },
+      )
+      .then((r) => r.data),
   /** Stripe Customer Portal — card, invoices, cancel (org must already have a Stripe customer). */
   startBillingPortal: () => http.post<{ url: string }>('/billing/portal').then((r) => r.data),
 }

@@ -138,7 +138,7 @@ export const config = {
     name: process.env.SUPER_ADMIN_NAME?.trim() || 'Super Admin',
   },
   /**
-   * Stripe Checkout for Pro. Without keys, admins can still request an upgrade for the portal owner to fulfill.
+   * Stripe Checkout for Pro / Enterprise. Without keys, admins can still request an upgrade for the portal owner to fulfill.
    * Webhook: <PUBLIC_API_URL>/api/billing/stripe/webhook
    */
   stripe: {
@@ -146,8 +146,12 @@ export const config = {
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     /** Recurring Price id — create it as “per unit” (licensed seats) in Stripe. */
     pricePro: process.env.STRIPE_PRICE_PRO || '',
-    /** Days of Pro before the first charge. 0 disables the trial. */
+    /** Higher per-seat Enterprise price (same licensed/per-unit shape as Pro). */
+    priceEnterprise: process.env.STRIPE_PRICE_ENTERPRISE || '',
+    /** Days of Pro/Enterprise before the first charge. 0 disables the trial. */
     trialDays: Math.max(0, toInt(process.env.STRIPE_TRIAL_DAYS, 14)),
+    /** Optional override for Enterprise trial; falls back to trialDays. */
+    trialDaysEnterprise: Math.max(0, toInt(process.env.STRIPE_TRIAL_DAYS_ENTERPRISE, toInt(process.env.STRIPE_TRIAL_DAYS, 14))),
     /** Self-serve seat quantity bounds (Checkout / seat updates). */
     minSeats: Math.max(1, toInt(process.env.STRIPE_MIN_SEATS, 1)),
     maxSeats: Math.max(1, toInt(process.env.STRIPE_MAX_SEATS, 100)),

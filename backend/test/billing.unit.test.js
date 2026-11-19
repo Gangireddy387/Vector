@@ -28,6 +28,8 @@ describe('billingStatus', () => {
     assert.equal(empty.hasSubscription, false);
     assert.equal(empty.portalEnabled, false);
     assert.equal(empty.billedSeats, null);
+    assert.equal(typeof empty.proCheckoutEnabled, 'boolean');
+    assert.equal(typeof empty.enterpriseCheckoutEnabled, 'boolean');
     assert.ok(empty.minSeats >= 1);
     assert.ok(empty.maxSeats >= empty.minSeats);
 

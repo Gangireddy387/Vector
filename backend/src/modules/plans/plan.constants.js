@@ -63,7 +63,7 @@ export const DEFAULT_PLANS = [
   {
     name: 'Enterprise',
     description: 'Everything, with no limits.',
-    priceLabel: 'Contact us',
+    priceLabel: 'Per seat',
     maxMembers: null,
     maxProjects: null,
     features: ALL_FEATURES,

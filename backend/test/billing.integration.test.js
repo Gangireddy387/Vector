@@ -15,6 +15,7 @@ const NO_STRIPE = {
   STRIPE_SECRET_KEY: '',
   STRIPE_WEBHOOK_SECRET: '',
   STRIPE_PRICE_PRO: '',
+  STRIPE_PRICE_ENTERPRISE: '',
 };
 
 let serverOff;
@@ -58,7 +59,9 @@ before(async () => {
       STRIPE_SECRET_KEY: 'sk_test_vector_integration_not_real',
       STRIPE_WEBHOOK_SECRET: 'whsec_vector_integration_not_real',
       STRIPE_PRICE_PRO: 'price_vector_integration_not_real',
+      STRIPE_PRICE_ENTERPRISE: 'price_vector_enterprise_not_real',
       STRIPE_TRIAL_DAYS: '7',
+      STRIPE_TRIAL_DAYS_ENTERPRISE: '14',
       STRIPE_MIN_SEATS: '1',
       STRIPE_MAX_SEATS: '50',
     },
@@ -84,6 +87,8 @@ describe('billing without Stripe configured', () => {
     const status = await asAliceOff('GET', '/billing/status');
     assert.equal(status.status, 200, JSON.stringify(status.body));
     assert.equal(status.body.checkoutEnabled, false);
+    assert.equal(status.body.proCheckoutEnabled, false);
+    assert.equal(status.body.enterpriseCheckoutEnabled, false);
     assert.equal(status.body.portalEnabled, false);
     assert.equal(status.body.hasSubscription, false);
     assert.equal(status.body.trialDays, 0);
@@ -114,8 +119,11 @@ describe('billing with Stripe keys present (no live customer)', () => {
     const status = await asAliceOn('GET', '/billing/status');
     assert.equal(status.status, 200, JSON.stringify(status.body));
     assert.equal(status.body.checkoutEnabled, true);
+    assert.equal(status.body.proCheckoutEnabled, true);
+    assert.equal(status.body.enterpriseCheckoutEnabled, true);
     assert.equal(status.body.portalEnabled, false);
     assert.equal(status.body.trialDays, 7);
+    assert.equal(status.body.enterpriseTrialDays, 14);
     assert.equal(status.body.maxSeats, 50);
 
     const portal = await asAliceOn('POST', '/billing/portal');

@@ -43,8 +43,8 @@ import { cleanSsoInput, publicSso, ssoSettingsFor } from './organization-sso.js'
 import { customRolesEnabled, resolveMembershipPermissions } from './organization-role.service.js';
 
 /** What an org admin can request from the portal. */
-export const UPGRADE_TARGETS = ['pro', 'seats', 'projects'];
-const UPGRADE_LABELS = { pro: 'Pro', seats: 'more people', projects: 'more projects' };
+export const UPGRADE_TARGETS = ['pro', 'enterprise', 'seats', 'projects'];
+const UPGRADE_LABELS = { pro: 'Pro', enterprise: 'Enterprise', seats: 'more people', projects: 'more projects' };
 
 /** Organization addresses sit right after the domain (example.com/acme), so they must never shadow an app page or look official. */
 const RESERVED_SLUGS = new Set([
@@ -277,7 +277,7 @@ export const getWorkdayNudgeMetrics = (organizationId) => getWorkdayNudgeStats(o
  * and stores a pending flag the super admin sees until they change the plan.
  */
 export async function requestPlanUpgrade(organization, actor, { target, note } = {}) {
-  if (!UPGRADE_TARGETS.includes(target)) throw ApiError.badRequest('Choose what you need: Pro, more people, or more projects');
+  if (!UPGRADE_TARGETS.includes(target)) throw ApiError.badRequest('Choose what you need: Pro, Enterprise, more people, or more projects');
   const trimmedNote = typeof note === 'string' ? note.trim().slice(0, 500) : '';
   const existing = publicUpgradeRequest(organization);
   if (existing && existing.target === target) {

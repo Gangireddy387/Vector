@@ -29,7 +29,10 @@ const auth = useAuthStore()
 const isSending = ref(false)
 const localPending = ref<UpgradeRequest | null>(null)
 const checkoutEnabled = ref(false)
+const proCheckoutEnabled = ref(false)
+const enterpriseCheckoutEnabled = ref(false)
 const trialDays = ref(0)
+const enterpriseTrialDays = ref(0)
 const hasSubscription = ref(false)
 const billedSeats = ref<number | null>(null)
 const minSeats = ref(1)
@@ -38,30 +41,51 @@ const seatDialogOpen = ref(false)
 
 const pending = computed(() => localPending.value ?? props.pending ?? null)
 const isPending = computed(() => Boolean(pending.value && pending.value.target === props.target))
-/** Card path for Pro upgrade or buying more seats when Stripe is on. */
-const canPay = computed(
-  () =>
-    checkoutEnabled.value &&
-    (props.target === 'pro' || (props.target === 'seats' && (hasSubscription.value || checkoutEnabled.value))),
-)
+
+const canPay = computed(() => {
+  if (props.target === 'seats') return checkoutEnabled.value && (hasSubscription.value || proCheckoutEnabled.value || enterpriseCheckoutEnabled.value)
+  if (props.target === 'pro') return proCheckoutEnabled.value
+  if (props.target === 'enterprise') return enterpriseCheckoutEnabled.value
+  return false
+})
+
+const checkoutPlan = computed(() => (props.target === 'enterprise' ? 'enterprise' : 'pro') as 'pro' | 'enterprise')
+const seatsOnly = computed(() => props.target === 'seats')
+const dialogTrialDays = computed(() => {
+  if (hasSubscription.value) return 0
+  if (props.target === 'enterprise') return enterpriseTrialDays.value
+  if (props.target === 'pro') return trialDays.value
+  return 0
+})
 
 const buttonLabel = computed(() => {
   if (props.label) return props.label
   if (canPay.value && props.target === 'seats') return hasSubscription.value ? 'Buy more seats' : 'Upgrade with seats'
   if (canPay.value && props.target === 'pro') {
-    return trialDays.value > 0 ? `Start ${trialDays.value}-day Pro trial` : 'Upgrade with card'
+    return trialDays.value > 0 ? `Start ${trialDays.value}-day Pro trial` : 'Upgrade to Pro'
+  }
+  if (canPay.value && props.target === 'enterprise') {
+    return enterpriseTrialDays.value > 0
+      ? `Start ${enterpriseTrialDays.value}-day Enterprise trial`
+      : hasSubscription.value
+        ? 'Upgrade to Enterprise'
+        : 'Upgrade to Enterprise'
   }
   if (props.target === 'seats') return 'Request more people'
   if (props.target === 'projects') return 'Request more projects'
+  if (props.target === 'enterprise') return 'Request Enterprise'
   return 'Request Pro'
 })
 
 onMounted(async () => {
-  if ((props.target !== 'pro' && props.target !== 'seats') || !auth.isOrganizationAdmin) return
+  if ((props.target !== 'pro' && props.target !== 'enterprise' && props.target !== 'seats') || !auth.isOrganizationAdmin) return
   try {
     const status = await workspaceApi.billingStatus()
     checkoutEnabled.value = status.checkoutEnabled
+    proCheckoutEnabled.value = status.proCheckoutEnabled ?? status.checkoutEnabled
+    enterpriseCheckoutEnabled.value = status.enterpriseCheckoutEnabled ?? false
     trialDays.value = status.trialDays ?? 0
+    enterpriseTrialDays.value = status.enterpriseTrialDays ?? status.trialDays ?? 0
     hasSubscription.value = status.hasSubscription
     billedSeats.value = status.billedSeats
     minSeats.value = status.minSeats ?? 1
@@ -125,7 +149,9 @@ async function request() {
     :has-subscription="hasSubscription"
     :min-seats="minSeats"
     :max-seats="maxSeats"
-    :trial-days="target === 'pro' && !hasSubscription ? trialDays : 0"
+    :trial-days="dialogTrialDays"
+    :plan="checkoutPlan"
+    :seats-only="seatsOnly"
     @done="emit('update')"
   />
 </template>
