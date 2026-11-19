@@ -14,6 +14,7 @@ import {
 import { describeSession } from './auth.service.js';
 import { isLoginOAuthState, signAccessToken, signLoginOAuthState, signMfaToken, verifyAccessToken } from './token.js';
 import { resolveOrganization } from '../organizations/organization-access.js';
+import { logAuthForUser } from '../workspace/workspace-audit.service.js';
 
 const TIMEOUT_MS = 15_000;
 const PLACEHOLDER = /your-client|^(?:\.\.\.|xxx)/i;
@@ -319,7 +320,7 @@ async function findOrCreateUser(provider, profile) {
 /**
  * Finishes Google/Microsoft/OIDC sign-in and redirects the browser to the SPA with a short-lived session or MFA challenge.
  */
-export async function completeOAuthLogin(provider, { code, state, error }) {
+export async function completeOAuthLogin(provider, { code, state, error }, auditMeta = {}) {
   const fail = (reason) => appUrl(`/login?oauthError=${encodeURIComponent(reason)}`);
   if (error) return fail(String(error));
   if (!code || !state) return fail('Sign-in was cancelled');
@@ -371,12 +372,14 @@ export async function completeOAuthLogin(provider, { code, state, error }) {
   }
 
   const redirect = safeRedirect(payload.redirect);
+  const method = provider === 'google' || provider === 'microsoft' || provider === 'oidc' ? provider : 'oidc';
   if (user.mfaEnabled && user.mfaSecret) {
-    return appUrl(`/login?mfaToken=${encodeURIComponent(signMfaToken(user))}&redirect=${encodeURIComponent(redirect)}`);
+    return appUrl(`/login?mfaToken=${encodeURIComponent(signMfaToken(user, { method }))}&redirect=${encodeURIComponent(redirect)}`);
   }
 
   await user.update({ lastSeenAt: new Date() });
   const token = signAccessToken(user);
+  void logAuthForUser(user.id, { action: 'auth.login', meta: { method, mfa: false, ...auditMeta } });
   return appUrl(`/login?oauthToken=${encodeURIComponent(token)}&redirect=${encodeURIComponent(redirect)}`);
 }
 

@@ -23,8 +23,13 @@ export const signAccessToken = (user) =>
   jwt.sign({ sub: user.id, email: user.email, typ: TOKEN_TYPES.access, ver: user.tokenVersion ?? 0 }, config.jwt.secret, { expiresIn: config.jwt.expiresIn });
 
 /** After password check when MFA is on — only accepted by `POST /auth/login/mfa`. */
-export const signMfaToken = (user) =>
-  jwt.sign({ sub: user.id, email: user.email, typ: TOKEN_TYPES.mfa, ver: user.tokenVersion ?? 0 }, config.jwt.secret, { expiresIn: '5m' });
+/** `method` remembers how sign-in started (password / google / microsoft / oidc) for audit after MFA. */
+export const signMfaToken = (user, { method = 'password' } = {}) =>
+  jwt.sign(
+    { sub: user.id, email: user.email, typ: TOKEN_TYPES.mfa, ver: user.tokenVersion ?? 0, method },
+    config.jwt.secret,
+    { expiresIn: '5m' },
+  );
 
 /** Any valid token; check `typ` with `isAccessToken` (or the purpose-specific helpers) before trusting it. */
 export const verifyAccessToken = (token) => jwt.verify(token, config.jwt.secret);

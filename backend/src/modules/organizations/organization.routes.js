@@ -95,16 +95,23 @@ organizationAdminRoutes.get(
     query: z.object({
       limit: z.coerce.number().int().min(1).max(100).default(50),
       before: z.string().trim().min(1).max(40).optional(),
+      /** `auth` = sign-in & security; `admin` = org changes; omit = all. */
+      category: z.enum(['auth', 'admin']).optional(),
     }),
   }),
   async (req, res) => res.json(await listAuditLog(req.organization.id, req.filters)),
 );
-organizationAdminRoutes.get('/workspace/audit-log/export', requireOrgPermission('workspace.audit'), async (req, res) => {
-  const csv = await exportAuditLogCsv(req.organization.id);
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', 'attachment; filename="vector-audit-log.csv"');
-  res.send(csv);
-});
+organizationAdminRoutes.get(
+  '/workspace/audit-log/export',
+  requireOrgPermission('workspace.audit'),
+  validate({ query: z.object({ category: z.enum(['auth', 'admin']).optional() }) }),
+  async (req, res) => {
+    const csv = await exportAuditLogCsv(req.organization.id, { category: req.filters.category });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="vector-audit-log.csv"');
+    res.send(csv);
+  },
+);
 organizationAdminRoutes.get('/workspace/backup', requireOrgPermission('workspace.audit'), backupLimiter, controller.exportBackup);
 organizationAdminRoutes.post(
   '/workspace/backup/import',

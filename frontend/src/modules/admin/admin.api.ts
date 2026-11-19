@@ -133,11 +133,14 @@ export const workspaceApi = {
   /** A new invitation for someone who has not accepted yet; without invitation emails the link comes back to share. */
   resendInvitation: (userId: string) =>
     http.post<{ emailed: boolean; inviteLink: string | null }>(`/workspace/members/${userId}/resend-invitation`).then((r) => r.data),
-  /** Organization admin audit trail (invites, roles, settings, plan). */
-  auditLog: (params?: { limit?: number; before?: string }) =>
+  /** Organization audit trail (invites, roles, settings, plan, sign-in / SSO / MFA). */
+  auditLog: (params?: { limit?: number; before?: string; category?: 'auth' | 'admin' }) =>
     http.get<{ entries: WorkspaceAuditEntry[] }>('/workspace/audit-log', { params }).then((r) => r.data),
-  exportAuditLogCsv: async () => {
-    const response = await http.get<Blob>('/workspace/audit-log/export', { responseType: 'blob' })
+  exportAuditLogCsv: async (category?: 'auth' | 'admin') => {
+    const response = await http.get<Blob>('/workspace/audit-log/export', {
+      params: category ? { category } : undefined,
+      responseType: 'blob',
+    })
     const url = URL.createObjectURL(response.data)
     Object.assign(document.createElement('a'), { href: url, download: 'vector-audit-log.csv' }).click()
     URL.revokeObjectURL(url)

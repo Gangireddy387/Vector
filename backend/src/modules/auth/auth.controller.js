@@ -1,9 +1,10 @@
 import * as apiTokenService from './api-token.service.js';
 import * as authService from './auth.service.js';
+import { logAuthForUser, requestAuditMeta } from '../workspace/workspace-audit.service.js';
 
 export const register = async (req, res) => res.status(201).json(await authService.register(req.body));
-export const login = async (req, res) => res.json(await authService.login(req.body));
-export const verifyMfaLogin = async (req, res) => res.json(await authService.verifyMfaLogin(req.body));
+export const login = async (req, res) => res.json(await authService.login(req.body, requestAuditMeta(req)));
+export const verifyMfaLogin = async (req, res) => res.json(await authService.verifyMfaLogin(req.body, requestAuditMeta(req)));
 export const me = async (req, res) =>
   res.json(await authService.describeSession(req.user, req.organizationMemberships.find((membership) => membership.organizationId === req.organization?.id), req.organizationMemberships));
 
@@ -25,7 +26,7 @@ export const updateProfile = async (req, res) => {
 
 /** Other sessions are signed out; this one continues with the returned token. */
 export const changePassword = async (req, res) => res.json(await authService.changePassword(req.user, req.body));
-export const revokeOtherSessions = async (req, res) => res.json(await authService.revokeOtherSessions(req.user));
+export const revokeOtherSessions = async (req, res) => res.json(await authService.revokeOtherSessions(req.user, requestAuditMeta(req)));
 
 export const setupMfa = async (req, res) => {
   res.set('Cache-Control', 'no-store');
@@ -61,5 +62,19 @@ export const deleteAccount = async (req, res) => {
 };
 
 export const listApiTokens = async (req, res) => res.json(await apiTokenService.listApiTokens(req.user.id));
-export const createApiToken = async (req, res) => res.status(201).json(await apiTokenService.createApiToken(req.user.id, req.body));
-export const revokeApiToken = async (req, res) => res.json(await apiTokenService.revokeApiToken(req.user.id, req.params.tokenId));
+export const createApiToken = async (req, res) => {
+  const result = await apiTokenService.createApiToken(req.user.id, req.body);
+  void logAuthForUser(req.user.id, {
+    action: 'auth.api_token_created',
+    meta: { name: req.body?.name ?? null, ...requestAuditMeta(req) },
+  });
+  res.status(201).json(result);
+};
+export const revokeApiToken = async (req, res) => {
+  const result = await apiTokenService.revokeApiToken(req.user.id, req.params.tokenId);
+  void logAuthForUser(req.user.id, {
+    action: 'auth.api_token_revoked',
+    meta: { tokenId: req.params.tokenId, ...requestAuditMeta(req) },
+  });
+  res.json(result);
+};

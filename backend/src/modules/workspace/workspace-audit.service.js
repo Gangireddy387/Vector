@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { User, WorkspaceAuditLog } from '../../database/models.js';
+import { OrganizationMember, User, WorkspaceAuditLog } from '../../database/models.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 
 /**
@@ -23,9 +23,60 @@ export async function logWorkspaceAction({ organizationId, actorId, action, targ
   }
 }
 
+/** IP + user-agent from an Express request for sign-in / security rows (no secrets). */
+export function requestAuditMeta(req) {
+  if (!req) return {};
+  const forwarded = req.headers?.['x-forwarded-for'];
+  const ip =
+    (typeof forwarded === 'string' ? forwarded.split(',')[0]?.trim() : null) ||
+    req.ip ||
+    req.socket?.remoteAddress ||
+    null;
+  const userAgent = typeof req.get === 'function' ? req.get('user-agent') : req.headers?.['user-agent'];
+  return {
+    ip: ip ? String(ip).slice(0, 80) : null,
+    userAgent: userAgent ? String(userAgent).slice(0, 200) : null,
+  };
+}
+
+/**
+ * Writes the same auth/security event into every organization the person is an active member of
+ * (so each workspace’s Activity tab sees their SSO / session history).
+ */
+export async function logAuthForUser(userId, { action, meta = null } = {}) {
+  if (!userId || !action) return;
+  try {
+    const memberships = await OrganizationMember.findAll({
+      where: { userId, status: 'active' },
+      attributes: ['organizationId'],
+      raw: true,
+    });
+    await Promise.all(
+      memberships.map((membership) =>
+        logWorkspaceAction({
+          organizationId: membership.organizationId,
+          actorId: userId,
+          action,
+          targetType: 'user',
+          targetId: userId,
+          meta,
+        }),
+      ),
+    );
+  } catch (error) {
+    console.warn('[workspace-audit] auth log failed:', error.message);
+  }
+}
+
+function categoryWhere(category) {
+  if (category === 'auth') return { action: { [Op.like]: 'auth.%' } };
+  if (category === 'admin') return { action: { [Op.notLike]: 'auth.%' } };
+  return {};
+}
+
 /** Cursor pagination: `before` is an ISO timestamp; returns newer-first entries. */
-export async function listAuditLog(organizationId, { limit = 50, before } = {}) {
-  const where = { organizationId };
+export async function listAuditLog(organizationId, { limit = 50, before, category } = {}) {
+  const where = { organizationId, ...categoryWhere(category) };
   if (before) {
     const cursor = new Date(before);
     if (!Number.isNaN(cursor.getTime())) where.createdAt = { [Op.lt]: cursor };
@@ -49,10 +100,10 @@ export async function listAuditLog(organizationId, { limit = 50, before } = {}) 
   };
 }
 
-/** CSV of recent admin actions for download (up to 5 000 rows). */
-export async function exportAuditLogCsv(organizationId) {
+/** CSV of recent admin / sign-in actions for download (up to 5 000 rows). */
+export async function exportAuditLogCsv(organizationId, { category } = {}) {
   const rows = await WorkspaceAuditLog.findAll({
-    where: { organizationId },
+    where: { organizationId, ...categoryWhere(category) },
     include: [{ model: User, as: 'actor', attributes: USER_SUMMARY_ATTRIBUTES, required: false }],
     order: [
       ['createdAt', 'DESC'],

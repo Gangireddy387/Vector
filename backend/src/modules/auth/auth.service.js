@@ -22,6 +22,7 @@ import { checkSlug, createOrganization } from '../organizations/organization.ser
 import { resolveMembershipPermissions } from '../organizations/organization-role.service.js';
 import { isSuperAdmin } from '../super-admin/super-admin.service.js';
 import { pickAvatarColor } from '../users/user.service.js';
+import { logAuthForUser } from '../workspace/workspace-audit.service.js';
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 export const PASSWORD_HASH_ROUNDS = 12;
@@ -95,7 +96,7 @@ export async function register({ name, email, password, organizationName, organi
   return buildSession(user);
 }
 
-export async function login({ email, password }) {
+export async function login({ email, password }, auditMeta = {}) {
   const user = await User.scope('withSecrets').findOne({ where: { email } });
   const isValid = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user?.passwordHash || !isValid) throw ApiError.unauthorized('Incorrect email or password');
@@ -104,9 +105,11 @@ export async function login({ email, password }) {
   // Passwords saved with a weaker setting are strengthened the next time they are used.
   if (bcrypt.getRounds(user.passwordHash) < PASSWORD_HASH_ROUNDS) await user.update({ passwordHash: await hashPassword(password) });
   if (user.mfaEnabled && user.mfaSecret) {
-    return { mfaRequired: true, mfaToken: signMfaToken(user) };
+    return { mfaRequired: true, mfaToken: signMfaToken(user, { method: 'password' }) };
   }
-  return buildSession(user);
+  const session = await buildSession(user);
+  void logAuthForUser(user.id, { action: 'auth.login', meta: { method: 'password', mfa: false, ...auditMeta } });
+  return session;
 }
 
 async function loadMfaChallenge(mfaToken) {
@@ -125,17 +128,28 @@ async function loadMfaChallenge(mfaToken) {
 }
 
 /** Completes sign-in after password when MFA is on: authenticator code or a one-time recovery code. */
-export async function verifyMfaLogin({ mfaToken, code, recoveryCode }) {
+export async function verifyMfaLogin({ mfaToken, code, recoveryCode }, auditMeta = {}) {
   const user = await loadMfaChallenge(mfaToken);
+  let payload = {};
+  try {
+    payload = verifyAccessToken(mfaToken);
+  } catch {
+    /* loadMfaChallenge already validated */
+  }
+  const method = ['password', 'google', 'microsoft', 'oidc'].includes(payload.method) ? payload.method : 'password';
   if (recoveryCode) {
     const remaining = consumeRecoveryCode(user.mfaRecoveryCodes, recoveryCode);
     if (!remaining) throw ApiError.unauthorized('That recovery code is invalid or already used');
     await user.update({ mfaRecoveryCodes: remaining });
-    return buildSession(user);
+    const session = await buildSession(user);
+    void logAuthForUser(user.id, { action: 'auth.login', meta: { method, mfa: true, recovery: true, ...auditMeta } });
+    return session;
   }
   const secret = decryptSecret(user.mfaSecret);
   if (!code || !verifyTotp(secret, code)) throw ApiError.unauthorized('Incorrect authenticator code');
-  return buildSession(user);
+  const session = await buildSession(user);
+  void logAuthForUser(user.id, { action: 'auth.login', meta: { method, mfa: true, ...auditMeta } });
+  return session;
 }
 
 /** Starts MFA setup: returns a secret + otpauth URL once; confirm with a code before it is required on login. */
@@ -157,6 +171,7 @@ export async function confirmMfa(actor, { code }) {
   if (!verifyTotp(secret, code)) throw ApiError.badRequest('Incorrect authenticator code', [{ path: 'code', message: 'Incorrect authenticator code' }]);
   const { codes, hashes } = createRecoveryCodes();
   await user.update({ mfaEnabled: true, mfaRecoveryCodes: hashes });
+  void logAuthForUser(user.id, { action: 'auth.mfa_enabled' });
   return { recoveryCodes: codes, user: { ...user.toJSON(), mfaEnabled: true } };
 }
 
@@ -182,6 +197,7 @@ export async function disableMfa(actor, { password, code, recoveryCode }) {
     if (!code || !verifyTotp(secret, code)) throw ApiError.badRequest('Incorrect authenticator code', [{ path: 'code', message: 'Incorrect authenticator code' }]);
   }
   await user.update({ mfaEnabled: false, mfaSecret: null, mfaRecoveryCodes: null });
+  void logAuthForUser(user.id, { action: 'auth.mfa_disabled' });
   return { user: { ...user.toJSON(), mfaEnabled: false } };
 }
 
@@ -194,6 +210,7 @@ export async function regenerateMfaRecovery(actor, { password, code }) {
   if (!verifyTotp(secret, code)) throw ApiError.badRequest('Incorrect authenticator code', [{ path: 'code', message: 'Incorrect authenticator code' }]);
   const { codes, hashes } = createRecoveryCodes();
   await user.update({ mfaRecoveryCodes: hashes });
+  void logAuthForUser(user.id, { action: 'auth.mfa_recovery_regenerated' });
   return { recoveryCodes: codes };
 }
 
@@ -304,13 +321,15 @@ export async function changePassword(user, { currentPassword, newPassword }) {
     mustChangePassword: false,
     tokenVersion: (withSecrets.tokenVersion ?? 0) + 1,
   });
+  void logAuthForUser(withSecrets.id, { action: 'auth.password_changed' });
   return { token: signAccessToken(withSecrets) };
 }
 
 /** Signs out every other browser/session; this request continues with a fresh access token. */
-export async function revokeOtherSessions(user) {
+export async function revokeOtherSessions(user, auditMeta = {}) {
   const withSecrets = await User.scope('withSecrets').findByPk(user.id);
   await withSecrets.update({ tokenVersion: (withSecrets.tokenVersion ?? 0) + 1 });
+  void logAuthForUser(withSecrets.id, { action: 'auth.sessions_revoked', meta: { ...auditMeta } });
   return { token: signAccessToken(withSecrets) };
 }
 

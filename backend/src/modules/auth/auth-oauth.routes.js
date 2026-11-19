@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validate } from '../../shared/middleware/validate.js';
+import { requestAuditMeta } from '../workspace/workspace-audit.service.js';
 import * as oauth from './auth-oauth.service.js';
 
 const providerParam = z.object({ provider: z.enum(['google', 'microsoft', 'oidc']) });
@@ -32,10 +33,14 @@ publicAuthOAuthRoutes.get(
 );
 
 publicAuthOAuthRoutes.get('/auth/oauth/:provider/callback', validate({ params: providerParam }), async (req, res) => {
-  const url = await oauth.completeOAuthLogin(req.params.provider, {
-    code: req.query.code,
-    state: req.query.state,
-    error: req.query.error,
-  });
+  const url = await oauth.completeOAuthLogin(
+    req.params.provider,
+    {
+      code: req.query.code,
+      state: req.query.state,
+      error: req.query.error,
+    },
+    requestAuditMeta(req),
+  );
   res.redirect(url);
 });
