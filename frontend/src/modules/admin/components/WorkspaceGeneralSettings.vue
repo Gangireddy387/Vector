@@ -20,6 +20,7 @@ import OrganizationLogoField from './OrganizationLogoField.vue'
 import OrganizationThemeField from './OrganizationThemeField.vue'
 import WorkspaceChannelNotificationsSettings from './WorkspaceChannelNotificationsSettings.vue'
 import WorkspaceScimSettings from './WorkspaceScimSettings.vue'
+import WorkspaceWebhooksSettings from './WorkspaceWebhooksSettings.vue'
 import WorkspaceSsoSettings from './WorkspaceSsoSettings.vue'
 
 const workspace = useWorkspaceStore()
@@ -207,6 +208,7 @@ async function deleteOrganization() {
     <WorkspaceSsoSettings />
     <WorkspaceScimSettings />
     <WorkspaceChannelNotificationsSettings />
+    <WorkspaceWebhooksSettings />
 
     <Card>
       <CardHeader>

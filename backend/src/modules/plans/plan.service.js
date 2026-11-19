@@ -235,6 +235,16 @@ async function unlockVcsLinks() {
   }
 }
 
+/** Plans that already include automations also get outbound HTTPS webhooks. */
+async function unlockWebhooks() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.webhooks || !features.automations) continue;
+    await plan.update({ features: { ...features, webhooks: true } });
+    console.info(`[plans] ${plan.name} plan now includes outbound webhooks`);
+  }
+}
+
 export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
@@ -248,6 +258,7 @@ export async function ensureDefaultPlans() {
     await unlockPortfolio();
     await unlockChannelNotifications();
     await unlockVcsLinks();
+    await unlockWebhooks();
     return;
   }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);

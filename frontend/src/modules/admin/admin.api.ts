@@ -16,6 +16,20 @@ type ProjectBadge = { id: string; name: string; key: string; color: string }
 export type UpgradeTarget = 'pro' | 'enterprise' | 'seats' | 'projects'
 export type BillingPlan = 'pro' | 'enterprise'
 
+export interface WebhookEndpointRow {
+  id: string
+  name: string
+  url: string
+  secretPrefix: string
+  events: string[]
+  enabled: boolean
+  lastDeliveryAt: string | null
+  lastStatus: number | null
+  lastError: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface UpgradeRequest {
   target: UpgradeTarget
   note: string | null
@@ -148,6 +162,17 @@ export const workspaceApi = {
       }>('/workspace/scim/tokens', { name })
       .then((r) => r.data),
   revokeScimToken: (tokenId: string) => http.delete(`/workspace/scim/tokens/${tokenId}`),
+  webhooks: () =>
+    http
+      .get<{ endpoints: WebhookEndpointRow[]; events: string[] }>('/workspace/webhooks')
+      .then((r) => r.data),
+  createWebhook: (payload: { name: string; url: string; events: string[]; enabled?: boolean }) =>
+    http.post<WebhookEndpointRow & { secret: string }>('/workspace/webhooks', payload).then((r) => r.data),
+  updateWebhook: (endpointId: string, payload: Partial<{ name: string; url: string; events: string[]; enabled: boolean }>) =>
+    http.patch<WebhookEndpointRow>(`/workspace/webhooks/${endpointId}`, payload).then((r) => r.data),
+  deleteWebhook: (endpointId: string) => http.delete(`/workspace/webhooks/${endpointId}`),
+  testWebhook: (endpointId: string) =>
+    http.post<WebhookEndpointRow & { ok: boolean; status: number }>(`/workspace/webhooks/${endpointId}/test`).then((r) => r.data),
   /** Full organization JSON backup (projects, issues, comments, attachment metadata). */
   exportBackup: async (slug?: string | null) => {
     const response = await http.get<Blob>('/workspace/backup', { responseType: 'blob' })

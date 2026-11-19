@@ -3,6 +3,7 @@ import { registerChannelNotifyListeners } from '../modules/integrations/channel-
 import { registerIssueListeners } from '../modules/issues/issue.listener.js';
 import { registerNotificationListeners } from '../modules/notifications/notification.listener.js';
 import { registerRealtimeListeners } from '../shared/realtime/realtime.listener.js';
+import { registerWebhookListeners } from '../modules/webhooks/webhook.listener.js';
 
 /** Wires every domain-event subscriber. Called once during startup. */
 export function registerListeners() {
@@ -10,5 +11,6 @@ export function registerListeners() {
   registerAutomationListeners();
   registerNotificationListeners();
   registerChannelNotifyListeners();
+  registerWebhookListeners();
   registerRealtimeListeners();
 }

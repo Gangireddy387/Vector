@@ -6,6 +6,7 @@ import { sequelize } from './connection.js';
 import { User } from '../modules/users/user.model.js';
 import { ApiToken } from '../modules/auth/api-token.model.js';
 import { ScimToken } from '../modules/scim/scim-token.model.js';
+import { WebhookEndpoint } from '../modules/webhooks/webhook.model.js';
 import { Project } from '../modules/projects/project.model.js';
 import { ProjectMember } from '../modules/projects/project-member.model.js';
 import { Status } from '../modules/statuses/status.model.js';
@@ -303,6 +304,10 @@ ApiToken.belongsTo(User, { as: 'user', foreignKey: 'userId' });
 Organization.hasMany(ScimToken, { as: 'scimTokens', foreignKey: 'organizationId', ...cascade });
 ScimToken.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
 
+Organization.hasMany(WebhookEndpoint, { as: 'webhookEndpoints', foreignKey: 'organizationId', ...cascade });
+WebhookEndpoint.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+WebhookEndpoint.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+
 // Portal-wide configuration
 WorkspaceSetting.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
 
@@ -316,6 +321,7 @@ export {
   User,
   ApiToken,
   ScimToken,
+  WebhookEndpoint,
   Project,
   ProjectMember,
   Status,

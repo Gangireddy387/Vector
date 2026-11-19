@@ -50,6 +50,7 @@ export type PlanFeatureKey =
   | 'customSounds'
   | 'channelNotifications'
   | 'vcsLinks'
+  | 'webhooks'
   | 'sso'
   | 'scim'
   | 'emailInvitations'
@@ -157,6 +158,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     label: 'GitHub & GitLab links',
     description: 'Paste GitHub or GitLab issue and pull request URLs onto Vector tasks',
     icon: GitBranch,
+    group: 'app',
+  },
+  {
+    key: 'webhooks',
+    label: 'Outbound webhooks',
+    description: 'Send signed HTTPS POSTs to your systems when issues, comments or sprints change',
+    icon: Webhook,
     group: 'app',
   },
   {

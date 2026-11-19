@@ -7,6 +7,7 @@ import authRoutes from './modules/auth/auth.routes.js';
 import { publicAuthOAuthRoutes } from './modules/auth/auth-oauth.routes.js';
 import { billingRoutes } from './modules/billing/billing.routes.js';
 import { publicScimRoutes, scimAdminRoutes } from './modules/scim/scim.routes.js';
+import { webhookAdminRoutes } from './modules/webhooks/webhook.routes.js';
 import automationRoutes from './modules/automations/automation.routes.js';
 import calendarRoutes from './modules/calendar/calendar.routes.js';
 import chatRoutes from './modules/chat/chat.routes.js';
@@ -74,6 +75,7 @@ export function createApiRouter() {
   router.use(organizationRoutes);
   router.use(organizationAdminRoutes);
   router.use(scimAdminRoutes);
+  router.use(webhookAdminRoutes);
   router.use(superAdminRoutes);
   router.use(supportCallRoutes);
 
