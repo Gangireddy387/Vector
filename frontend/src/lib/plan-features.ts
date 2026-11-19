@@ -19,6 +19,7 @@ import {
   Shield,
   Sparkles,
   Target,
+  UserCog,
   UsersRound,
   Video,
   Workflow,
@@ -46,6 +47,7 @@ export type PlanFeatureKey =
   | 'timeTracking'
   | 'customSounds'
   | 'sso'
+  | 'scim'
   | 'emailInvitations'
   | 'emailNotifications'
   | 'emailReminders'
@@ -142,8 +144,15 @@ export const PLAN_FEATURES: PlanFeature[] = [
   {
     key: 'sso',
     label: 'Enterprise SSO',
-    description: 'Require Google or Microsoft sign-in, lock email domains, and optionally pin a Microsoft tenant',
+    description: 'Require Google, Microsoft, or OpenID Connect sign-in, lock email domains, and optionally pin a Microsoft tenant',
     icon: Shield,
+    group: 'app',
+  },
+  {
+    key: 'scim',
+    label: 'SCIM provisioning',
+    description: 'Sync people from your IdP (create, update, deactivate) over SCIM 2.0',
+    icon: UserCog,
     group: 'app',
   },
   {

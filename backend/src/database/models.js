@@ -5,6 +5,7 @@
 import { sequelize } from './connection.js';
 import { User } from '../modules/users/user.model.js';
 import { ApiToken } from '../modules/auth/api-token.model.js';
+import { ScimToken } from '../modules/scim/scim-token.model.js';
 import { Project } from '../modules/projects/project.model.js';
 import { ProjectMember } from '../modules/projects/project-member.model.js';
 import { Status } from '../modules/statuses/status.model.js';
@@ -293,6 +294,10 @@ User.hasMany(PushSubscription, { as: 'pushSubscriptions', foreignKey: 'userId', 
 User.hasMany(ApiToken, { as: 'apiTokens', foreignKey: 'userId', ...cascade });
 ApiToken.belongsTo(User, { as: 'user', foreignKey: 'userId' });
 
+// Organization SCIM tokens (IdP user provisioning)
+Organization.hasMany(ScimToken, { as: 'scimTokens', foreignKey: 'organizationId', ...cascade });
+ScimToken.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+
 // Portal-wide configuration
 WorkspaceSetting.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
 
@@ -305,6 +310,7 @@ export {
   sequelize,
   User,
   ApiToken,
+  ScimToken,
   Project,
   ProjectMember,
   Status,

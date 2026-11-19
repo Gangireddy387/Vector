@@ -127,6 +127,26 @@ export const workspaceApi = {
     Object.assign(document.createElement('a'), { href: url, download: 'vector-audit-log.csv' }).click()
     URL.revokeObjectURL(url)
   },
+  scimSettings: () => http.get<{ scim: { available: boolean; baseUrl: string | null } }>('/workspace/scim').then((r) => r.data.scim),
+  scimTokens: () =>
+    http
+      .get<{ tokens: Array<{ id: string; name: string; prefix: string; lastUsedAt: string | null; createdAt: string }>; baseUrl: string }>(
+        '/workspace/scim/tokens',
+      )
+      .then((r) => r.data),
+  createScimToken: (name: string) =>
+    http
+      .post<{
+        token: string
+        id: string
+        name: string
+        prefix: string
+        lastUsedAt: string | null
+        createdAt: string
+        baseUrl: string
+      }>('/workspace/scim/tokens', { name })
+      .then((r) => r.data),
+  revokeScimToken: (tokenId: string) => http.delete(`/workspace/scim/tokens/${tokenId}`),
   /** Full organization JSON backup (projects, issues, comments, attachment metadata). */
   exportBackup: async (slug?: string | null) => {
     const response = await http.get<Blob>('/workspace/backup', { responseType: 'blob' })

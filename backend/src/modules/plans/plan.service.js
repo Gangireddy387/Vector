@@ -155,6 +155,16 @@ async function unlockEnterpriseSso() {
   console.info('[plans] Enterprise plan now includes SSO');
 }
 
+/** Existing Enterprise plans get SCIM when it is introduced (same tier as SSO). */
+async function unlockEnterpriseScim() {
+  const enterprise = await Plan.findOne({ where: { name: 'Enterprise' } });
+  if (!enterprise) return;
+  const features = normalizeFeatures(enterprise.features);
+  if (features.scim) return;
+  await enterprise.update({ features: { ...features, scim: true } });
+  console.info('[plans] Enterprise plan now includes SCIM');
+}
+
 /** Pro / Enterprise plans that already include templates get custom fields when the switch is introduced. */
 async function unlockCustomFields() {
   for (const plan of await Plan.findAll()) {
@@ -210,6 +220,7 @@ export async function ensureDefaultPlans() {
     await backfillEmailFeatures();
     await unlockFreeWorkdayLoop();
     await unlockEnterpriseSso();
+    await unlockEnterpriseScim();
     await unlockCustomFields();
     await unlockCustomRoles();
     await unlockRoadmap();
