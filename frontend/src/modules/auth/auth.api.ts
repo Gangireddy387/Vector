@@ -50,9 +50,10 @@ export interface ProfileChanges {
 }
 
 export const authApi = {
-  oauthProviders: () => http.get<{ google: boolean; microsoft: boolean }>('/auth/oauth/providers').then((r) => r.data),
+  oauthProviders: () =>
+    http.get<{ google: boolean; microsoft: boolean; oidc: boolean }>('/auth/oauth/providers').then((r) => r.data),
   startOAuth: (
-    provider: 'google' | 'microsoft',
+    provider: 'google' | 'microsoft' | 'oidc',
     options?: { redirect?: string; organizationSlug?: string; microsoftTenant?: string | null },
   ) =>
     http

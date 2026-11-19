@@ -18,9 +18,18 @@ const brandColor = z
 const ssoSchema = z.object({
   enabled: z.boolean().optional(),
   enforce: z.boolean().optional(),
-  provider: z.enum(['google', 'microsoft']).optional(),
+  provider: z.enum(['google', 'microsoft', 'oidc']).optional(),
   allowedDomains: z.array(z.string().trim().max(80)).max(25).optional(),
   microsoftTenant: z.string().trim().max(64).nullable().optional(),
+  oidc: z
+    .object({
+      issuer: z.string().trim().max(300).nullable().optional(),
+      clientId: z.string().trim().max(200).nullable().optional(),
+      /** Plain secret from the admin UI; empty string keeps the previously stored secret. */
+      clientSecret: z.string().max(500).nullable().optional(),
+      scopes: z.string().trim().max(200).nullable().optional(),
+    })
+    .optional(),
 });
 
 export const updateOrganizationSchema = z

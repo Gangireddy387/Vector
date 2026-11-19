@@ -1,11 +1,13 @@
 import { Op } from 'sequelize';
 import { Organization, OrganizationMember } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
+import { decryptSecret, encryptSecret } from '../auth/mfa.js';
 import { entitlementsFor, withPlan } from '../plans/plan.service.js';
 
-export const SSO_PROVIDERS = ['google', 'microsoft'];
+export const SSO_PROVIDERS = ['google', 'microsoft', 'oidc'];
 
 const DOMAIN_RE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i;
+const ISSUER_RE = /^https:\/\/[^\s]+$/i;
 
 export function emailDomain(email) {
   const at = String(email || '')
@@ -31,16 +33,58 @@ export function normalizeDomains(raw) {
   ].slice(0, 25);
 }
 
+function normalizeIssuer(raw) {
+  if (!raw) return null;
+  const issuer = String(raw).trim().replace(/\/+$/, '');
+  if (!issuer) return null;
+  if (issuer.startsWith('http://localhost') || issuer.startsWith('http://127.0.0.1')) return issuer;
+  if (!ISSUER_RE.test(issuer)) {
+    throw ApiError.badRequest('OIDC issuer must be an https URL', [{ path: 'sso.oidc.issuer', message: 'Use an https issuer URL' }]);
+  }
+  return issuer;
+}
+
+function rawOidc(organization) {
+  const sso = organization?.sso && typeof organization.sso === 'object' ? organization.sso : {};
+  return sso.oidc && typeof sso.oidc === 'object' ? sso.oidc : {};
+}
+
+/** Public OIDC fields (never includes the client secret). */
+export function publicOidc(organization) {
+  const oidc = rawOidc(organization);
+  const issuer = oidc.issuer ? String(oidc.issuer).trim().replace(/\/+$/, '') : null;
+  const clientId = oidc.clientId ? String(oidc.clientId).trim() : null;
+  return {
+    issuer,
+    clientId,
+    scopes: oidc.scopes ? String(oidc.scopes).trim() || 'openid email profile' : 'openid email profile',
+    clientSecretConfigured: Boolean(oidc.clientSecret),
+  };
+}
+
+/** Decrypt the stored OIDC client secret for the authorization code exchange. */
+export function oidcClientSecret(organization) {
+  const encrypted = rawOidc(organization).clientSecret;
+  if (!encrypted) return null;
+  try {
+    return decryptSecret(encrypted);
+  } catch {
+    return null;
+  }
+}
+
 /** Public / settings shape for SSO (no secrets). */
-export function publicSso(organization, { includeTenant = false } = {}) {
+export function publicSso(organization, { includeTenant = false, includeOidc = false } = {}) {
   const sso = organization?.sso && typeof organization.sso === 'object' ? organization.sso : {};
   const enabled = Boolean(sso.enabled);
+  const provider = SSO_PROVIDERS.includes(sso.provider) ? sso.provider : 'microsoft';
   return {
     enabled,
     enforce: Boolean(enabled && sso.enforce),
-    provider: SSO_PROVIDERS.includes(sso.provider) ? sso.provider : 'microsoft',
+    provider,
     allowedDomains: normalizeDomains(sso.allowedDomains),
     ...(includeTenant ? { microsoftTenant: sso.microsoftTenant ? String(sso.microsoftTenant).trim() || null : null } : {}),
+    ...(includeOidc ? { oidc: publicOidc(organization) } : {}),
   };
 }
 
@@ -48,14 +92,23 @@ export function organizationHasSsoFeature(organization) {
   return Boolean(entitlementsFor(organization).features.sso);
 }
 
+export function providerLabel(provider) {
+  if (provider === 'google') return 'Google';
+  if (provider === 'microsoft') return 'Microsoft';
+  if (provider === 'oidc') return 'SSO';
+  return provider;
+}
+
 /**
  * Validates and returns the SSO JSON to store. Requires the Enterprise `sso` plan feature.
+ * Passing `oidc.clientSecret: ""` keeps the previously stored secret.
  */
 export function cleanSsoInput(raw, organization) {
   if (!organizationHasSsoFeature(organization)) {
     throw ApiError.forbidden('Enterprise SSO is not included in your plan. Ask the portal administrator to enable it.');
   }
-  const current = publicSso(organization, { includeTenant: true });
+  const current = publicSso(organization, { includeTenant: true, includeOidc: true });
+  const previousOidc = rawOidc(organization);
   const next = { ...current, ...(raw && typeof raw === 'object' ? raw : {}) };
   const allowedDomains = normalizeDomains(next.allowedDomains);
   const provider = SSO_PROVIDERS.includes(next.provider) ? next.provider : 'microsoft';
@@ -72,13 +125,44 @@ export function cleanSsoInput(raw, organization) {
       { path: 'sso.allowedDomains', message: 'Add at least one email domain' },
     ]);
   }
-  if (provider === 'google') microsoftTenant = null;
+
+  let oidc = null;
+  if (provider === 'oidc') {
+    const incoming = next.oidc && typeof next.oidc === 'object' ? next.oidc : {};
+    const issuer = normalizeIssuer(incoming.issuer ?? current.oidc?.issuer);
+    const clientId = String(incoming.clientId ?? current.oidc?.clientId ?? '')
+      .trim()
+      .slice(0, 200);
+    const scopes = String(incoming.scopes ?? current.oidc?.scopes ?? 'openid email profile')
+      .trim()
+      .slice(0, 200) || 'openid email profile';
+    if (enabled && (!issuer || !clientId)) {
+      throw ApiError.badRequest('OIDC issuer and client ID are required', [
+        { path: 'sso.oidc.issuer', message: 'Required for OpenID Connect' },
+      ]);
+    }
+    let clientSecret = previousOidc.clientSecret ?? null;
+    if (Object.prototype.hasOwnProperty.call(incoming, 'clientSecret')) {
+      const plain = incoming.clientSecret == null ? '' : String(incoming.clientSecret);
+      if (plain.trim()) clientSecret = encryptSecret(plain.trim());
+      // Empty string keeps the previous secret (UI leave-blank semantics).
+    }
+    if (enabled && !clientSecret) {
+      throw ApiError.badRequest('OIDC client secret is required', [
+        { path: 'sso.oidc.clientSecret', message: 'Required for OpenID Connect' },
+      ]);
+    }
+    oidc = { issuer, clientId: clientId || null, clientSecret, scopes };
+    microsoftTenant = null;
+  }
+
   return {
     enabled,
     enforce,
     provider,
     allowedDomains,
     microsoftTenant: provider === 'microsoft' ? microsoftTenant : null,
+    ...(oidc ? { oidc } : provider === 'oidc' ? { oidc: previousOidc } : {}),
   };
 }
 
@@ -127,8 +211,8 @@ export async function assertPasswordLoginAllowed(email, { userId = null } = {}) 
   const organization = await findEnforcedSsoForEmail(email, { userId });
   if (!organization) return;
   const sso = publicSso(organization);
-  const providerLabel = sso.provider === 'google' ? 'Google' : 'Microsoft';
-  throw new ApiError(403, `Your organization requires ${providerLabel} sign-in. Use Continue with ${providerLabel} instead of a password.`, {
+  const label = providerLabel(sso.provider);
+  throw new ApiError(403, `Your organization requires ${label} sign-in. Use Continue with ${label} instead of a password.`, {
     code: 'sso_required',
     provider: sso.provider,
     organizationSlug: organization.slug,
@@ -151,8 +235,7 @@ export async function assertOAuthLoginAllowed(provider, profile) {
   for (const organization of orgs) {
     const sso = publicSso(organization, { includeTenant: true });
     if (sso.enforce && sso.provider !== provider) {
-      const want = sso.provider === 'google' ? 'Google' : 'Microsoft';
-      throw ApiError.forbidden(`Sign in to ${organization.name} with ${want}, not ${provider}.`);
+      throw ApiError.forbidden(`Sign in to ${organization.name} with ${providerLabel(sso.provider)}, not ${provider}.`);
     }
     if (provider === 'microsoft' && sso.microsoftTenant) {
       const tid = profile.tenantId ? String(profile.tenantId) : null;
@@ -160,13 +243,16 @@ export async function assertOAuthLoginAllowed(provider, profile) {
         throw ApiError.forbidden(`Use the ${organization.name} Microsoft work account (wrong directory).`);
       }
     }
+    if (provider === 'oidc' && profile.organizationId && profile.organizationId !== organization.id && sso.enforce) {
+      throw ApiError.forbidden(`Sign in with ${organization.name}'s SSO provider.`);
+    }
   }
 }
 
 /** Settings payload helpers. */
 export function ssoSettingsFor(organization) {
   if (!organizationHasSsoFeature(organization)) {
-    return { available: false, ...publicSso(null, { includeTenant: true }) };
+    return { available: false, ...publicSso(null, { includeTenant: true, includeOidc: true }) };
   }
-  return { available: true, ...publicSso(organization, { includeTenant: true }) };
+  return { available: true, ...publicSso(organization, { includeTenant: true, includeOidc: true }) };
 }

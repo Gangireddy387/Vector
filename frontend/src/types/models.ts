@@ -74,14 +74,23 @@ export interface Entitlements {
   limits: { members: number | null; projects: number | null }
 }
 
+/** Public OIDC fields (never includes the client secret). */
+export interface OrganizationOidcSettings {
+  issuer?: string | null
+  clientId?: string | null
+  scopes?: string | null
+  clientSecretConfigured?: boolean
+}
+
 /** Enterprise SSO settings returned on the organization (plan feature `sso`). */
 export interface OrganizationSsoSettings {
   available?: boolean
   enabled: boolean
   enforce: boolean
-  provider: 'google' | 'microsoft' | null
+  provider: 'google' | 'microsoft' | 'oidc' | null
   allowedDomains: string[]
   microsoftTenant?: string | null
+  oidc?: OrganizationOidcSettings | null
 }
 
 export interface WorkspaceSettings {
@@ -215,7 +224,7 @@ export interface User extends UserSummary {
   /** False for Google/Microsoft-only accounts until they set a local password in Settings. */
   hasPassword?: boolean
   /** How this account can sign in (local password and/or OAuth providers). */
-  authProviders?: { password: boolean; google: boolean; microsoft: boolean }
+  authProviders?: { password: boolean; google: boolean; microsoft: boolean; oidc?: boolean }
   /** Authenticator app required after password on sign-in. */
   mfaEnabled?: boolean
   /** Current organization requires MFA and this account has not enabled it yet. */

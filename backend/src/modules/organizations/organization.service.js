@@ -174,7 +174,7 @@ export async function switchOrganization(user, memberships, organizationId) {
 export async function getPublicOrganization(slug) {
   const organization = await Organization.findOne({ where: { slug: slugify(slug) }, include: withPlan() });
   if (!organization) throw ApiError.notFound('Organization not found');
-  const sso = publicSso(organization, { includeTenant: true });
+  const sso = publicSso(organization, { includeTenant: true, includeOidc: true });
   const available = Boolean(entitlementsFor(organization).features.sso && sso.enabled);
   return {
     name: organization.name,
@@ -189,6 +189,9 @@ export async function getPublicOrganization(slug) {
           provider: sso.provider,
           allowedDomains: sso.allowedDomains,
           microsoftTenant: sso.microsoftTenant,
+          ...(sso.provider === 'oidc' && sso.oidc
+            ? { oidc: { issuer: sso.oidc.issuer, clientId: sso.oidc.clientId, scopes: sso.oidc.scopes, clientSecretConfigured: sso.oidc.clientSecretConfigured } }
+            : {}),
         }
       : { enabled: false, enforce: false, provider: null, allowedDomains: [], microsoftTenant: null },
   };
@@ -214,7 +217,7 @@ export async function updateOrganization(organization, actor, changes) {
     defaultMode: organization.defaultMode,
     brandColor: organization.brandColor ?? null,
     requireMfa: Boolean(organization.requireMfa),
-    sso: publicSso(organization, { includeTenant: true }),
+    sso: publicSso(organization, { includeTenant: true, includeOidc: true }),
   };
   await organization.update(updates);
   const changed = Object.keys(changes).filter((key) =>
@@ -236,7 +239,7 @@ export async function updateOrganization(organization, actor, changes) {
           defaultMode: organization.defaultMode,
           brandColor: organization.brandColor ?? null,
           requireMfa: Boolean(organization.requireMfa),
-          sso: publicSso(organization, { includeTenant: true }),
+          sso: publicSso(organization, { includeTenant: true, includeOidc: true }),
         },
       },
     });

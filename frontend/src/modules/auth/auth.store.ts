@@ -267,6 +267,7 @@ export const useAuthStore = defineStore('auth', () => {
           password: true,
           google: user.value.authProviders?.google ?? false,
           microsoft: user.value.authProviders?.microsoft ?? false,
+          oidc: user.value.authProviders?.oidc ?? false,
         },
       }
     }

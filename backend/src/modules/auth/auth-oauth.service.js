@@ -1,16 +1,25 @@
 import { config } from '../../config/index.js';
-import { User } from '../../database/models.js';
+import { Organization, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { appUrl } from '../../shared/services/email-templates.js';
 import { pickAvatarColor } from '../users/user.service.js';
+import { withPlan } from '../plans/plan.service.js';
+import {
+  assertOAuthLoginAllowed,
+  oidcClientSecret,
+  organizationHasSsoFeature,
+  publicOidc,
+  publicSso,
+} from '../organizations/organization-sso.js';
 import { describeSession } from './auth.service.js';
 import { isLoginOAuthState, signAccessToken, signLoginOAuthState, signMfaToken, verifyAccessToken } from './token.js';
 import { resolveOrganization } from '../organizations/organization-access.js';
-import { assertOAuthLoginAllowed, publicSso } from '../organizations/organization-sso.js';
-import { Organization } from '../../database/models.js';
 
 const TIMEOUT_MS = 15_000;
 const PLACEHOLDER = /your-client|^(?:\.\.\.|xxx)/i;
+
+/** Short-lived discovery cache (issuer → metadata). */
+const discoveryCache = new Map();
 
 const publicApi = () => config.calendar.publicApiUrl;
 const redirectUri = (provider) => `${publicApi()}/api/auth/oauth/${provider}/callback`;
@@ -24,6 +33,8 @@ export function oauthProvidersStatus() {
   return {
     google: googleReady(),
     microsoft: microsoftReady(),
+    /** Generic OIDC is configured per organization when Enterprise SSO is on. */
+    oidc: true,
   };
 }
 
@@ -56,6 +67,50 @@ function decodeIdToken(idToken) {
   } catch {
     return {};
   }
+}
+
+async function discoverOidc(issuer) {
+  const key = String(issuer).replace(/\/+$/, '');
+  const cached = discoveryCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.meta;
+  const url = `${key}/.well-known/openid-configuration`;
+  const meta = await call(url);
+  if (!meta?.authorization_endpoint || !meta?.token_endpoint) {
+    throw new Error('OIDC discovery did not return authorization and token endpoints');
+  }
+  discoveryCache.set(key, { meta, expiresAt: Date.now() + 10 * 60_000 });
+  return meta;
+}
+
+async function loadOidcOrganization(organizationIdOrSlug) {
+  if (!organizationIdOrSlug) return null;
+  const include = withPlan();
+  const byId =
+    typeof organizationIdOrSlug === 'string' && organizationIdOrSlug.includes('-')
+      ? await Organization.findByPk(organizationIdOrSlug, { include })
+      : null;
+  if (byId) return byId;
+  return Organization.findOne({
+    where: { slug: String(organizationIdOrSlug).toLowerCase() },
+    include,
+  });
+}
+
+function assertOidcOrgReady(organization) {
+  if (!organization) throw ApiError.notFound('Organization not found');
+  if (!organizationHasSsoFeature(organization)) {
+    throw ApiError.forbidden('Enterprise SSO is not included in this organization’s plan');
+  }
+  const sso = publicSso(organization, { includeOidc: true });
+  if (!sso.enabled || sso.provider !== 'oidc') {
+    throw ApiError.badRequest('This organization is not using OpenID Connect SSO');
+  }
+  const oidc = publicOidc(organization);
+  const secret = oidcClientSecret(organization);
+  if (!oidc.issuer || !oidc.clientId || !secret) {
+    throw new ApiError(503, 'OpenID Connect is not fully configured for this organization', { code: 'oauth_not_configured' });
+  }
+  return { sso, oidc, secret };
 }
 
 const providers = {
@@ -128,6 +183,62 @@ const providers = {
     },
     subjectField: 'microsoftSubject',
   },
+  oidc: {
+    ready: () => true,
+    async authUrl(state, { organization } = {}) {
+      const { oidc } = assertOidcOrgReady(organization);
+      const meta = await discoverOidc(oidc.issuer);
+      return `${meta.authorization_endpoint}?${new URLSearchParams({
+        client_id: oidc.clientId,
+        redirect_uri: redirectUri('oidc'),
+        response_type: 'code',
+        scope: oidc.scopes || 'openid email profile',
+        state,
+      })}`;
+    },
+    async exchange(code, { organization } = {}) {
+      const { oidc, secret } = assertOidcOrgReady(organization);
+      const meta = await discoverOidc(oidc.issuer);
+      const body = await call(meta.token_endpoint, {
+        method: 'POST',
+        form: {
+          code,
+          client_id: oidc.clientId,
+          client_secret: secret,
+          redirect_uri: redirectUri('oidc'),
+          grant_type: 'authorization_code',
+        },
+      });
+      if (!body.id_token) throw new Error('OIDC token response did not include an id_token');
+      const claims = decodeIdToken(body.id_token);
+      const expectedIss = oidc.issuer.replace(/\/+$/, '');
+      const claimIss = claims.iss ? String(claims.iss).replace(/\/+$/, '') : '';
+      if (claimIss && claimIss !== expectedIss) {
+        throw new Error('OIDC id_token issuer does not match the configured issuer');
+      }
+      if (claims.aud) {
+        const aud = Array.isArray(claims.aud) ? claims.aud.map(String) : [String(claims.aud)];
+        if (!aud.includes(oidc.clientId)) throw new Error('OIDC id_token audience does not match the client ID');
+      }
+      if (claims.exp && Number(claims.exp) * 1000 < Date.now() - 60_000) {
+        throw new Error('OIDC id_token has expired');
+      }
+      const sub = claims.sub ? String(claims.sub) : null;
+      const email = (claims.email || claims.preferred_username || '').toLowerCase();
+      const emailVerified =
+        claims.email_verified === undefined || claims.email_verified === null
+          ? Boolean(email)
+          : Boolean(claims.email_verified);
+      return {
+        subject: sub ? `${expectedIss}|${sub}` : null,
+        email,
+        name: claims.name || claims.preferred_username || email || 'SSO user',
+        emailVerified,
+        organizationId: organization.id,
+      };
+    },
+    subjectField: 'oidcSubject',
+  },
 };
 
 function safeRedirect(raw) {
@@ -135,15 +246,27 @@ function safeRedirect(raw) {
   return raw.slice(0, 300);
 }
 
-/** Returns the provider authorize URL for “Continue with Google/Microsoft”. */
-export async function startOAuthLogin(provider, { redirect = '/', organizationSlug = null, microsoftTenant = null } = {}) {
+/** Returns the provider authorize URL for “Continue with Google/Microsoft/SSO”. */
+export async function startOAuthLogin(
+  provider,
+  { redirect = '/', organizationSlug = null, microsoftTenant = null } = {},
+) {
   const entry = providers[provider];
   if (!entry) throw ApiError.badRequest('Unknown sign-in provider');
-  if (!entry.ready()) throw new ApiError(503, `${provider} sign-in is not configured on this server`, { code: 'oauth_not_configured' });
 
   let tenant = typeof microsoftTenant === 'string' && microsoftTenant.trim() ? microsoftTenant.trim() : null;
+  let organization = null;
+
+  if (provider === 'oidc') {
+    if (!organizationSlug) throw ApiError.badRequest('Organization is required for OpenID Connect sign-in');
+    organization = await loadOidcOrganization(organizationSlug);
+    assertOidcOrgReady(organization);
+  } else if (!entry.ready()) {
+    throw new ApiError(503, `${provider} sign-in is not configured on this server`, { code: 'oauth_not_configured' });
+  }
+
   if (!tenant && organizationSlug && provider === 'microsoft') {
-    const organization = await Organization.findOne({ where: { slug: String(organizationSlug).toLowerCase() } });
+    organization = await Organization.findOne({ where: { slug: String(organizationSlug).toLowerCase() } });
     const sso = publicSso(organization, { includeTenant: true });
     if (sso.microsoftTenant) tenant = sso.microsoftTenant;
   }
@@ -152,8 +275,14 @@ export async function startOAuthLogin(provider, { redirect = '/', organizationSl
     provider,
     redirect: safeRedirect(redirect),
     ...(tenant ? { microsoftTenant: tenant } : {}),
+    ...(organization ? { organizationId: organization.id } : {}),
   });
-  return { url: entry.authUrl(state, { microsoftTenant: tenant }) };
+
+  const url =
+    typeof entry.authUrl === 'function'
+      ? await entry.authUrl(state, { microsoftTenant: tenant, organization })
+      : entry.authUrl(state, { microsoftTenant: tenant, organization });
+  return { url };
 }
 
 async function findOrCreateUser(provider, profile) {
@@ -188,7 +317,7 @@ async function findOrCreateUser(provider, profile) {
 }
 
 /**
- * Finishes Google/Microsoft sign-in and redirects the browser to the SPA with a short-lived session or MFA challenge.
+ * Finishes Google/Microsoft/OIDC sign-in and redirects the browser to the SPA with a short-lived session or MFA challenge.
  */
 export async function completeOAuthLogin(provider, { code, state, error }) {
   const fail = (reason) => appUrl(`/login?oauthError=${encodeURIComponent(reason)}`);
@@ -196,7 +325,8 @@ export async function completeOAuthLogin(provider, { code, state, error }) {
   if (!code || !state) return fail('Sign-in was cancelled');
 
   const entry = providers[provider];
-  if (!entry?.ready()) return fail('This sign-in provider is not configured');
+  if (!entry) return fail('Unknown sign-in provider');
+  if (provider !== 'oidc' && !entry.ready()) return fail('This sign-in provider is not configured');
 
   let payload;
   try {
@@ -206,9 +336,23 @@ export async function completeOAuthLogin(provider, { code, state, error }) {
   }
   if (!isLoginOAuthState(payload) || payload.provider !== provider) return fail('Invalid sign-in state');
 
+  let organization = null;
+  if (provider === 'oidc') {
+    if (!payload.organizationId) return fail('Missing organization for OpenID Connect sign-in');
+    organization = await loadOidcOrganization(payload.organizationId);
+    try {
+      assertOidcOrgReady(organization);
+    } catch (err) {
+      return fail(err.message || 'OpenID Connect is not configured');
+    }
+  }
+
   let profile;
   try {
-    profile = await entry.exchange(code, { microsoftTenant: payload.microsoftTenant || null });
+    profile = await entry.exchange(code, {
+      microsoftTenant: payload.microsoftTenant || null,
+      organization,
+    });
   } catch (err) {
     return fail(err.message || 'Could not finish sign-in with the provider');
   }
@@ -252,9 +396,10 @@ export async function sessionFromAccessToken(token) {
 }
 
 export async function listLinkedProviders(userId) {
-  const user = await User.findByPk(userId, { attributes: ['googleSubject', 'microsoftSubject'] });
+  const user = await User.findByPk(userId, { attributes: ['googleSubject', 'microsoftSubject', 'oidcSubject'] });
   return {
     google: Boolean(user?.googleSubject),
     microsoft: Boolean(user?.microsoftSubject),
+    oidc: Boolean(user?.oidcSubject),
   };
 }

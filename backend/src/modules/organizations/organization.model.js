@@ -42,7 +42,7 @@ Organization.init(
     requireMfa: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     /**
      * Enterprise SSO (needs plan feature `sso`):
-     * `{ enabled, enforce, provider: 'google'|'microsoft', allowedDomains: string[], microsoftTenant?: string|null }`
+     * `{ enabled, enforce, provider: 'google'|'microsoft'|'oidc', allowedDomains, microsoftTenant?, oidc?: { issuer, clientId, clientSecret, scopes } }`
      */
     sso: { type: DataTypes.JSON, allowNull: true },
     /** Stripe customer / subscription ids when the organization pays for Pro via Checkout. */

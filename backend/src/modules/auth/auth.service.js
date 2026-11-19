@@ -50,6 +50,7 @@ export async function describeSession(user, membership, memberships) {
         password: hasPassword,
         google: Boolean(user.googleSubject),
         microsoft: Boolean(user.microsoftSubject),
+        oidc: Boolean(user.oidcSubject),
       },
     },
     organization: membership
@@ -438,6 +439,7 @@ export async function deleteAccount(user, { password, confirmEmail } = {}) {
     resetTokenExpiresAt: null,
     googleSubject: null,
     microsoftSubject: null,
+    oidcSubject: null,
     passwordHash: await hashPassword(crypto.randomBytes(32).toString('hex')),
     mustChangePassword: false,
     tokenVersion: (withSecrets.tokenVersion ?? 0) + 1,

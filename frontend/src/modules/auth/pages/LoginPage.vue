@@ -13,6 +13,8 @@ import { useAuthStore } from '../auth.store'
 import AuthHeading from '../components/AuthHeading.vue'
 import PasswordInput from '../components/PasswordInput.vue'
 
+type OAuthProvider = 'google' | 'microsoft' | 'oidc'
+
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
@@ -24,18 +26,26 @@ const useRecovery = ref(false)
 const fieldErrors = ref<Record<string, string>>({})
 const errorMessage = ref('')
 const isSubmitting = ref(false)
-const oauthBusy = ref<'google' | 'microsoft' | null>(null)
-const oauthProviders = ref({ google: false, microsoft: false })
+const oauthBusy = ref<OAuthProvider | null>(null)
+const oauthProviders = ref({ google: false, microsoft: false, oidc: false })
 const orgSso = ref<OrganizationSsoSettings | null>(null)
 
 const EMAIL_RE = /^\S+@\S+\.\S+$/
 const mfaStep = computed(() => Boolean(mfaToken.value))
 const ssoEnforced = computed(() => Boolean(orgSso.value?.enabled && orgSso.value?.enforce))
-const requiredProvider = computed<'google' | 'microsoft' | null>(() => {
+const requiredProvider = computed<OAuthProvider | null>(() => {
   if (!ssoEnforced.value) return null
-  return orgSso.value?.provider === 'google' ? 'google' : 'microsoft'
+  const provider = orgSso.value?.provider
+  if (provider === 'google' || provider === 'microsoft' || provider === 'oidc') return provider
+  return 'microsoft'
 })
 const showPasswordForm = computed(() => !ssoEnforced.value)
+const requiredProviderLabel = computed(() => {
+  if (requiredProvider.value === 'google') return 'Google'
+  if (requiredProvider.value === 'microsoft') return 'Microsoft'
+  if (requiredProvider.value === 'oidc') return 'SSO'
+  return 'SSO'
+})
 
 function validate() {
   const errors: Record<string, string> = {}
@@ -117,9 +127,14 @@ async function submit() {
     await finishSignIn()
   } catch (error) {
     const sso = ssoDetails(error)
-    if (sso?.code === 'sso_required' && (sso.provider === 'google' || sso.provider === 'microsoft')) {
+    if (
+      sso?.code === 'sso_required' &&
+      (sso.provider === 'google' || sso.provider === 'microsoft' || sso.provider === 'oidc')
+    ) {
       errorMessage.value = getErrorMessage(error)
-      if (oauthProviders.value[sso.provider]) await continueWith(sso.provider, sso.organizationSlug)
+      if (sso.provider === 'oidc' ? oauthProviders.value.oidc : oauthProviders.value[sso.provider]) {
+        await continueWith(sso.provider, sso.organizationSlug)
+      }
       return
     }
     const message = getErrorMessage(error)
@@ -138,14 +153,20 @@ function backToPassword() {
   errorMessage.value = ''
 }
 
-async function continueWith(provider: 'google' | 'microsoft', organizationSlug?: string | null) {
+async function continueWith(provider: OAuthProvider, organizationSlug?: string | null) {
   oauthBusy.value = provider
   errorMessage.value = ''
   try {
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
+    const slug = organizationSlug || redirectSlug || undefined
+    if (provider === 'oidc' && !slug) {
+      errorMessage.value = 'Open this organization’s sign-in link to continue with SSO.'
+      oauthBusy.value = null
+      return
+    }
     const { url } = await authApi.startOAuth(provider, {
       redirect,
-      organizationSlug: organizationSlug || redirectSlug || undefined,
+      organizationSlug: slug,
       microsoftTenant: orgSso.value?.microsoftTenant,
     })
     window.location.assign(url)
@@ -182,7 +203,7 @@ onMounted(async () => {
   try {
     oauthProviders.value = await authApi.oauthProviders()
   } catch {
-    oauthProviders.value = { google: false, microsoft: false }
+    oauthProviders.value = { google: false, microsoft: false, oidc: false }
   }
 })
 
@@ -213,6 +234,11 @@ const showMicrosoft = computed(() => {
   if (requiredProvider.value) return requiredProvider.value === 'microsoft'
   return true
 })
+const showOidc = computed(() => {
+  if (!oauthProviders.value.oidc) return false
+  if (requiredProvider.value) return requiredProvider.value === 'oidc'
+  return Boolean(orgSso.value?.enabled && orgSso.value?.provider === 'oidc')
+})
 </script>
 
 <template>
@@ -224,14 +250,14 @@ const showMicrosoft = computed(() => {
           ? 'Enter one of the recovery codes you saved when you turned on two-factor authentication.'
           : 'Enter the 6-digit code from your authenticator app.'
         : ssoEnforced
-          ? `This organization requires ${requiredProvider === 'google' ? 'Google' : 'Microsoft'} sign-in.`
+          ? `This organization requires ${requiredProviderLabel} sign-in.`
           : targetOrganization
             ? 'Use your Vector account. You will land in this organization.'
             : 'Welcome back — pick up right where your team left off.'
     "
   />
 
-  <div v-if="!mfaStep && (showGoogle || showMicrosoft)" class="mb-4 space-y-2 short:mb-3">
+  <div v-if="!mfaStep && (showGoogle || showMicrosoft || showOidc)" class="mb-4 space-y-2 short:mb-3">
     <Button
       v-if="showGoogle"
       type="button"
@@ -255,6 +281,18 @@ const showMicrosoft = computed(() => {
       @click="continueWith('microsoft')"
     >
       Continue with Microsoft
+    </Button>
+    <Button
+      v-if="showOidc"
+      type="button"
+      variant="outline"
+      class="w-full"
+      size="lg"
+      :loading="oauthBusy === 'oidc'"
+      :disabled="Boolean(oauthBusy)"
+      @click="continueWith('oidc')"
+    >
+      Continue with SSO
     </Button>
     <p v-if="showPasswordForm" class="text-center text-xs text-muted-foreground">or use email</p>
   </div>
@@ -291,7 +329,7 @@ const showMicrosoft = computed(() => {
       </button>
     </template>
     <p v-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
-    <Button type="submit" variant="brand" class="group w-full" size="lg" :loading="isSubmitting" :disabled="!canSubmit">
+    <Button type="submit" variant="brand" class="w-full group" size="lg" :loading="isSubmitting" :disabled="!canSubmit">
       <template v-if="isSubmitting">{{ mfaStep ? 'Verifying…' : 'Signing in…' }}</template>
       <template v-else>
         {{ mfaStep ? 'Verify and sign in' : 'Sign in' }}

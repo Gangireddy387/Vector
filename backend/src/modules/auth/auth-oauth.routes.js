@@ -3,9 +3,9 @@ import { z } from 'zod';
 import { validate } from '../../shared/middleware/validate.js';
 import * as oauth from './auth-oauth.service.js';
 
-const providerParam = z.object({ provider: z.enum(['google', 'microsoft']) });
+const providerParam = z.object({ provider: z.enum(['google', 'microsoft', 'oidc']) });
 
-/** Public Google / Microsoft sign-in. */
+/** Public Google / Microsoft / OIDC sign-in. */
 export const publicAuthOAuthRoutes = Router();
 
 publicAuthOAuthRoutes.get('/auth/oauth/providers', (_req, res) => res.json(oauth.oauthProvidersStatus()));

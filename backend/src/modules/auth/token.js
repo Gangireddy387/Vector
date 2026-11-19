@@ -51,9 +51,15 @@ export const signFileToken = (fileId) => jwt.sign({ typ: TOKEN_TYPES.file, fid: 
 export const signOAuthState = ({ userId, provider }) => jwt.sign({ typ: TOKEN_TYPES.oauth, sub: userId, provider }, config.jwt.secret, { expiresIn: '10m' });
 
 /** Carries which provider started a sign-in (and where to return) through the OAuth round-trip. */
-export const signLoginOAuthState = ({ provider, redirect = '/', microsoftTenant = null } = {}) =>
+export const signLoginOAuthState = ({ provider, redirect = '/', microsoftTenant = null, organizationId = null } = {}) =>
   jwt.sign(
-    { typ: TOKEN_TYPES.loginOAuth, provider, redirect, ...(microsoftTenant ? { microsoftTenant } : {}) },
+    {
+      typ: TOKEN_TYPES.loginOAuth,
+      provider,
+      redirect,
+      ...(microsoftTenant ? { microsoftTenant } : {}),
+      ...(organizationId ? { organizationId } : {}),
+    },
     config.jwt.secret,
     { expiresIn: '10m' },
   );
