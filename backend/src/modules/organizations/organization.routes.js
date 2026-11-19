@@ -17,9 +17,10 @@ import * as roleController from './organization-role.controller.js';
 import { createOrganizationRoleSchema, updateOrganizationRoleSchema } from './organization-role.validation.js';
 import { createOrganizationSchema, deleteOrganizationSchema, inviteMemberSchema, slugQuery, updateMemberSchema, updateOrganizationSchema } from './organization.validation.js';
 import { exportAuditLogCsv, listAuditLog } from '../workspace/workspace-audit.service.js';
+import { backupUpload } from './workspace-backup-import.service.js';
 
 const lookupLimiter = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false });
-/** Full org backups are heavy — a few downloads per hour is enough for offboarding. */
+/** Full org backups are heavy — a few downloads / restores per hour is enough for offboarding. */
 const backupLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false });
 
 /** Public: signup checks an address while typing; /:slug links show which organization you are signing in to. */
@@ -105,6 +106,18 @@ organizationAdminRoutes.get('/workspace/audit-log/export', requireOrgPermission(
   res.send(csv);
 });
 organizationAdminRoutes.get('/workspace/backup', requireOrgPermission('workspace.audit'), backupLimiter, controller.exportBackup);
+organizationAdminRoutes.post(
+  '/workspace/backup/import',
+  requireOrgPermission('workspace.audit'),
+  backupLimiter,
+  (req, res, next) => {
+    backupUpload(req, res, (error) => {
+      if (error) return next(error);
+      return next();
+    });
+  },
+  controller.importBackup,
+);
 organizationAdminRoutes.post('/workspace/invitations', requireOrgPermission('workspace.people'), validate({ body: inviteMemberSchema }), controller.invite);
 /** Support chat with the portal's super admin; one conversation per organization, shared by its admins. */
 const supportMessageSchema = z.object({ body: z.string().trim().min(1, 'Write a message').max(4000) });

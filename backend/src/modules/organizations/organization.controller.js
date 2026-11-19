@@ -1,8 +1,10 @@
+import { ApiError } from '../../shared/errors/api-error.js';
 import { describeSession } from '../auth/auth.service.js';
 import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
 import { getMemberProfile } from './member-profile.service.js';
 import { listActiveMemberships } from './organization-access.js';
 import * as organizationService from './organization.service.js';
+import { importOrganizationBackup } from './workspace-backup-import.service.js';
 import { buildOrganizationBackup } from './workspace-backup.service.js';
 
 const sessionFor = async (user, organizationId) => {
@@ -71,4 +73,26 @@ export const exportBackup = async (req, res) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="vector-${safeSlug}-backup.json"`);
   res.json(payload);
+};
+
+/** Merge-import a previously downloaded Vector org backup (creates new projects; matches people by email). */
+export const importBackup = async (req, res) => {
+  if (!req.file?.buffer?.length) throw ApiError.badRequest('Upload a backup JSON file');
+  const result = await importOrganizationBackup(req.organization, req.user, req.file.buffer);
+  await logWorkspaceAction({
+    organizationId: req.organization.id,
+    actorId: req.user.id,
+    action: 'backup_imported',
+    targetType: 'organization',
+    targetId: req.organization.id,
+    meta: {
+      projectsCreated: result.projectsCreated,
+      issuesCreated: result.issuesCreated,
+      departmentsCreated: result.departmentsCreated,
+      teamsCreated: result.teamsCreated,
+      remappedKeys: result.remappedKeys,
+      skippedAttachments: result.skipped.attachments,
+    },
+  });
+  res.status(201).json(result);
 };

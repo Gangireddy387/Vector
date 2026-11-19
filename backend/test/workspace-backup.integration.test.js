@@ -94,4 +94,32 @@ describe('workspace backup', () => {
     const response = await call('GET', '/workspace/backup', null, bob.token, alice.organizationId);
     assert.equal(response.status, 403);
   });
+
+  it('merge-imports a backup into the same organization with remapped project keys', async () => {
+    const exported = await asAlice('GET', '/workspace/backup');
+    assert.equal(exported.status, 200);
+
+    const form = new FormData();
+    form.append('file', new Blob([JSON.stringify(exported.body)], { type: 'application/json' }), 'backup.json');
+    const response = await fetch(`${server.api}/workspace/backup/import`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${alice.token}`,
+        'X-Organization-Id': alice.organizationId,
+      },
+      body: form,
+    });
+    const body = await response.json();
+    assert.equal(response.status, 201, JSON.stringify(body));
+    assert.ok(body.projectsCreated >= 1);
+    assert.ok(body.issuesCreated >= 1);
+    assert.ok(body.remappedKeys.some((row) => row.from === 'BKP'));
+
+    const projects = await asAlice('GET', '/projects');
+    assert.equal(projects.status, 200);
+    const list = projects.body.projects ?? projects.body;
+    const keys = list.map((row) => row.key);
+    assert.ok(keys.includes('BKP'));
+    assert.ok(keys.some((key) => key !== 'BKP' && key.startsWith('BKP')));
+  });
 });

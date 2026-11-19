@@ -31,7 +31,7 @@ export const ORG_PERMISSIONS = [
   {
     key: 'workspace.audit',
     label: 'Audit & backup',
-    description: 'View activity log and download workspace backup',
+    description: 'View activity log and download or restore a workspace backup',
   },
   {
     key: 'workspace.support',

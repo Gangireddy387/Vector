@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Copy, Download, Monitor, Moon, Sun, Trash2 } from 'lucide-vue-next'
+import { Copy, Download, Monitor, Moon, Sun, Trash2, Upload } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
@@ -38,6 +38,10 @@ watch(
 
 const isDirty = computed(() => form.value.name.trim() !== workspace.settings.name || form.value.slug !== workspace.settings.slug)
 const isExporting = ref(false)
+const isImporting = ref(false)
+const isImportOpen = ref(false)
+const importFile = ref<File | null>(null)
+const importInput = ref<HTMLInputElement | null>(null)
 
 async function exportBackup() {
   isExporting.value = true
@@ -50,6 +54,36 @@ async function exportBackup() {
     toast.error(getErrorMessage(error))
   } finally {
     isExporting.value = false
+  }
+}
+
+function pickImportFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  importFile.value = input.files?.[0] ?? null
+  if (importFile.value) isImportOpen.value = true
+  input.value = ''
+}
+
+async function confirmImport() {
+  if (!importFile.value) return
+  isImporting.value = true
+  try {
+    const result = await workspaceApi.importBackup(importFile.value)
+    isImportOpen.value = false
+    importFile.value = null
+    const keyNote = result.remappedKeys.length
+      ? ` Keys remapped: ${result.remappedKeys.map((row) => `${row.from}→${row.to}`).join(', ')}.`
+      : ''
+    toast.success(`Imported ${result.projectsCreated} project(s), ${result.issuesCreated} task(s).${keyNote}`, {
+      description:
+        result.skipped.attachments > 0
+          ? `${result.skipped.attachments} attachment metadata rows skipped (binaries are not in the JSON).`
+          : undefined,
+    })
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isImporting.value = false
   }
 }
 
@@ -247,18 +281,40 @@ async function deleteOrganization() {
 
     <Card>
       <CardHeader>
-        <CardTitle>Backup &amp; export</CardTitle>
+        <CardTitle>Backup &amp; restore</CardTitle>
         <CardDescription>
           Download a JSON backup of {{ workspace.settings.name }}: people, departments, projects, tasks, comments, links, automations and
-          attachment metadata. Binary files stay on the server — also copy the upload directory when you leave the host.
+          attachment metadata. Restore merges into this organization — it creates new projects (keys get a suffix if taken) and matches
+          people by email. Binary files stay on the server — also copy the upload directory when you leave the host.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <Button variant="outline" class="max-sm:w-full" :loading="isExporting" @click="exportBackup">
           <Download /> Download backup
         </Button>
+        <Button variant="outline" class="max-sm:w-full" :disabled="isImporting" @click="importInput?.click()">
+          <Upload /> Restore from backup
+        </Button>
+        <input ref="importInput" type="file" accept="application/json,.json" class="hidden" @change="pickImportFile" />
       </CardContent>
     </Card>
+
+    <Dialog v-model:open="isImportOpen">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Restore backup?</DialogTitle>
+          <DialogDescription>
+            This creates new projects and tasks in {{ workspace.settings.name }}. It does not replace existing data, create users, or
+            restore file binaries.
+            <span v-if="importFile" class="mt-2 block font-mono text-xs text-foreground">{{ importFile.name }}</span>
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter class="gap-2 sm:gap-0">
+          <Button type="button" variant="outline" :disabled="isImporting" @click="isImportOpen = false">Cancel</Button>
+          <Button type="button" :loading="isImporting" @click="confirmImport">Restore</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     <Card class="border-destructive/30">
       <CardHeader>

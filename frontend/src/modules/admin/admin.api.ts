@@ -155,6 +155,22 @@ export const workspaceApi = {
     Object.assign(document.createElement('a'), { href: url, download: `vector-${safe}-backup.json` }).click()
     URL.revokeObjectURL(url)
   },
+  /** Merge-import a Vector org backup JSON (creates new projects; matches people by email). */
+  importBackup: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return http
+      .post<{
+        projectsCreated: number
+        issuesCreated: number
+        departmentsCreated: number
+        teamsCreated: number
+        remappedKeys: Array<{ from: string; to: string }>
+        skipped: { attachments: number; unknownEmails: string[]; billing: boolean; users: boolean }
+        warnings: string[]
+      }>('/workspace/backup/import', form)
+      .then((r) => r.data)
+  },
   billingStatus: () =>
     http
       .get<{
