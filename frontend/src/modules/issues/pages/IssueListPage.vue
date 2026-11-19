@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { CalendarDays, Download, Flag, Hash, History, LayoutGrid, List, ListTodo, SlidersHorizontal, Sparkles } from 'lucide-vue-next'
+import { CalendarDays, Download, Flag, Hash, History, LayoutGrid, List, ListTodo, SlidersHorizontal, Sparkles, Upload } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { type LocationQuery, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -27,6 +27,7 @@ import { savedFiltersApi } from '../api/saved-filters.api'
 import BulkActionBar from '../components/BulkActionBar.vue'
 import IssueCard from '../components/IssueCard.vue'
 import IssueFilterBar, { type FilterKey } from '../components/IssueFilterBar.vue'
+import IssueImportDialog from '../components/IssueImportDialog.vue'
 import IssueRow from '../components/IssueRow.vue'
 import SavedFiltersMenu from '../components/SavedFiltersMenu.vue'
 import { useIssueSelection } from '../composables/useIssueSelection'
@@ -69,6 +70,7 @@ const epics = ref<Array<{ id: string; key: string; title: string }>>([])
 const collaborators = ref<UserSummary[]>([])
 const isFilterSheetOpen = ref(false)
 const isExporting = ref(false)
+const isImportOpen = ref(false)
 
 async function exportCsv() {
   isExporting.value = true
@@ -311,12 +313,14 @@ useHotkeys({
           </Tooltip>
         </div>
         <SavedFiltersMenu :project-id="projectId" :criteria="filters" @apply="applySaved" />
+        <Button variant="outline" size="sm" @click="isImportOpen = true"><Upload /> Import CSV</Button>
         <Button variant="outline" size="sm" :loading="isExporting" @click="exportCsv"><Download /> Export CSV</Button>
       </div>
     </div>
 
     <!-- Phone toolbar (cards only — list/grid toggle is for tablet+) -->
     <div v-else class="flex items-center gap-2">
+      <Button variant="outline" size="sm" class="shrink-0" aria-label="Import CSV" @click="isImportOpen = true"><Upload /></Button>
       <Button variant="outline" size="sm" class="shrink-0" :loading="isExporting" aria-label="Export CSV" @click="exportCsv"><Download /></Button>
       <Button variant="outline" size="sm" class="flex-1" @click="isFilterSheetOpen = true">
         <SlidersHorizontal /> Filters<span v-if="activeFilterCount" class="text-primary">({{ activeFilterCount }})</span>
@@ -451,5 +455,7 @@ useHotkeys({
         </div>
       </SheetContent>
     </Sheet>
+
+    <IssueImportDialog v-model:open="isImportOpen" :project-id="projectId" @imported="() => void fetchIssues('replace')" />
   </div>
 </template>

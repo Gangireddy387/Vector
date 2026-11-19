@@ -59,6 +59,16 @@ export interface BulkChanges {
   addLabelIds?: string[]
 }
 
+export interface IssueImportResult {
+  projectId: string
+  projectKey: string
+  created: number
+  skipped: number
+  failed: number
+  issues: Array<{ id: string; key: string; title: string; row: number }>
+  errors: Array<{ row: number; message: string }>
+}
+
 const clean = (filters: IssueFilters) =>
   Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== undefined && value !== ''))
 
@@ -70,6 +80,12 @@ export const issuesApi = {
     const url = URL.createObjectURL(response.data)
     Object.assign(document.createElement('a'), { href: url, download: 'vector-tasks.csv' }).click()
     URL.revokeObjectURL(url)
+  },
+  importCsv: (projectId: string, file: File) => {
+    const body = new FormData()
+    body.append('projectId', projectId)
+    body.append('file', file)
+    return http.post<IssueImportResult>('/issues/import', body, { timeout: 120000 }).then((r) => r.data)
   },
   myWork: () => http.get<{ issues: Issue[] }>('/issues/my-work').then((r) => r.data.issues),
   get: (idOrKey: string) => http.get<{ issue: IssueDetail }>(`/issues/${idOrKey}`).then((r) => r.data.issue),

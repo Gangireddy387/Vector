@@ -1,4 +1,6 @@
+import { ApiError } from '../../shared/errors/api-error.js';
 import { assertProjectRole, loadIssueWithAccess } from '../projects/project-access.js';
+import { importIssuesCsv } from './issue.import.js';
 import * as issueService from './issue.service.js';
 
 const respondWithDetail = async (res, issueId, userId, status = 200) =>
@@ -10,6 +12,14 @@ export const exportCsv = async (req, res) => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="vector-tasks.csv"');
   res.send(csv);
+};
+
+export const importCsv = async (req, res) => {
+  const projectId = req.body?.projectId;
+  await assertProjectRole(projectId, req.user.id, 'member');
+  if (!req.file?.buffer?.length) throw ApiError.badRequest('Choose a CSV file to import');
+  const result = await importIssuesCsv({ projectId, buffer: req.file.buffer, actor: req.user });
+  res.status(201).json(result);
 };
 export const myWork = async (req, res) => res.json({ issues: await issueService.listMyWork(req.user.id) });
 export const show = async (req, res) => respondWithDetail(res, req.params.issueId, req.user.id);
