@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Columns3, Kanban } from 'lucide-vue-next'
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import ColorSwatchPicker from '@/components/common/ColorSwatchPicker.vue'
@@ -11,7 +11,10 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { getFieldErrors } from '@/lib/http'
 import { toastPlanLimit } from '@/lib/plan-limit'
+import { isNearLimit } from '@/lib/plan-usage'
+import { workspaceApi } from '@/modules/admin/admin.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import UsageMeters from '@/modules/plan/components/UsageMeters.vue'
 import type { ProjectDetail, ProjectType } from '@/types/models'
 import { useProjectsStore } from '../projects.store'
 
@@ -28,6 +31,13 @@ const form = reactive({ name: '', key: '', description: '', type: 'scrum' as Pro
 const keyTouched = ref(false)
 const fieldErrors = ref<Record<string, string>>({})
 const isSaving = ref(false)
+const planOverview = ref<Awaited<ReturnType<typeof workspaceApi.plan>> | null>(null)
+
+const showProjectUsage = computed(() => {
+  const overview = planOverview.value
+  if (!overview) return false
+  return isNearLimit(overview.usage.projects, overview.entitlements.limits.projects)
+})
 
 const TYPES = [
   { value: 'scrum' as const, label: 'Scrum', icon: Columns3, description: 'Plan work in sprints with a backlog, velocity and burndown.' },
@@ -43,11 +53,16 @@ const suggestKey = (name: string) => {
 }
 
 watch(() => form.name, (name) => !keyTouched.value && (form.key = suggestKey(name)))
-watch(open, (isOpen) => {
+async function refreshPlan() {
+  planOverview.value = await workspaceApi.plan().catch(() => null)
+}
+
+watch(open, async (isOpen) => {
   if (!isOpen) return
   Object.assign(form, { name: '', key: '', description: '', type: 'scrum', color: '#6366f1' })
   keyTouched.value = false
   fieldErrors.value = {}
+  await refreshPlan()
 })
 
 async function create() {
@@ -80,6 +95,17 @@ async function create() {
         <DialogDescription>We set up a workflow, labels and your first sprint automatically.</DialogDescription>
       </DialogHeader>
       <form class="space-y-4" @submit.prevent="create">
+        <UsageMeters
+          v-if="showProjectUsage && planOverview"
+          :usage="planOverview.usage"
+          :limits="planOverview.entitlements.limits"
+          :pending="planOverview.upgradeRequest"
+          focus-request="projects"
+          :member-count="planOverview.usage.members"
+          :only="['projects']"
+          compact
+          @update="refreshPlan"
+        />
         <div class="space-y-1.5">
           <div class="grid items-start gap-3 sm:grid-cols-[minmax(0,1fr)_8rem]">
             <FormField label="Name" for="project-name" :error="fieldErrors.name">

@@ -25,6 +25,7 @@ import HomeLoadingShell from './HomeLoadingShell.vue'
 import HomeMyTeamCard from './HomeMyTeamCard.vue'
 import HomeTodayPanel from './HomeTodayPanel.vue'
 import PlanUnlocksCard from './PlanUnlocksCard.vue'
+import PlanUsageCard from './PlanUsageCard.vue'
 import QuickCapture from './QuickCapture.vue'
 import SetupChecklist from './SetupChecklist.vue'
 import TeamDensityCard from './TeamDensityCard.vue'
@@ -112,6 +113,7 @@ async function complete(issue: Issue) {
 
     <HomeDayLoop v-if="data && show('dayLoop')" :data="data" :highlight="startDay" />
     <HomeFocusCards v-if="data && show('focus')" :data="data" @changed="reload" />
+    <PlanUsageCard v-if="show('planUsage')" />
     <PlanUnlocksCard v-if="show('planUnlocks')" />
     <HomeTodayPanel v-if="data && show('today')" :data="data" @changed="reload" />
 

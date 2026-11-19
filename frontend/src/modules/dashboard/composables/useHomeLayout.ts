@@ -10,6 +10,7 @@ export const HOME_WIDGETS = [
   { key: 'quickCapture', label: 'Quick capture' },
   { key: 'dayLoop', label: 'Day loop' },
   { key: 'focus', label: 'Focus cards' },
+  { key: 'planUsage', label: 'Plan usage' },
   { key: 'planUnlocks', label: 'Plan unlocks' },
   { key: 'today', label: 'Today' },
   { key: 'briefing', label: 'Daily briefing' },

@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import { Check, FolderKanban, Gem, Minus, Users } from 'lucide-vue-next'
+import { Check, Gem, Minus } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getErrorMessage } from '@/lib/http'
 import { PLAN_FEATURES } from '@/lib/plan-features'
 import RequestUpgradeButton from '@/modules/admin/components/RequestUpgradeButton.vue'
 import { type UpgradeTarget, workspaceApi } from '@/modules/admin/admin.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import UsageMeters from '@/modules/plan/components/UsageMeters.vue'
 
 /** Read-only plan overview for every org member (billing stays admin-only). */
 const auth = useAuthStore()
@@ -49,19 +49,6 @@ const isFreeLike = computed(() => {
   return !features.automations || !features.aiAssistant || !features.reports
 })
 const isEnterprise = computed(() => String(planName.value).toLowerCase() === 'enterprise')
-
-const usageRows = computed(() => {
-  if (!overview.value) return []
-  const { limits } = overview.value.entitlements
-  const { usage } = overview.value
-  return [
-    { key: 'seats' as const, label: 'People', icon: Users, used: usage.members, limit: limits.members },
-    { key: 'projects' as const, label: 'Projects', icon: FolderKanban, used: usage.projects, limit: limits.projects },
-  ].map((row) => ({
-    ...row,
-    percent: row.limit ? Math.min(100, Math.round((row.used / row.limit) * 100)) : 0,
-  }))
-})
 </script>
 
 <template>
@@ -87,41 +74,15 @@ const usageRows = computed(() => {
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-4">
-        <div v-if="!overview" class="grid gap-3 sm:grid-cols-2"><Skeleton v-for="index in 2" :key="index" class="h-20" /></div>
-        <div v-else class="grid gap-3 sm:grid-cols-2">
-          <div v-for="row in usageRows" :key="row.label" class="space-y-2.5 border border-border/70 p-4">
-            <div class="flex items-center justify-between text-sm">
-              <span class="flex items-center gap-2 font-medium">
-                <component :is="row.icon" class="size-4 text-muted-foreground" /> {{ row.label }}
-              </span>
-              <span class="tabular-nums text-muted-foreground">
-                <span class="font-semibold text-foreground">{{ row.used }}</span> / {{ row.limit ?? 'Unlimited' }}
-              </span>
-            </div>
-            <Progress
-              v-if="row.limit"
-              :model-value="row.percent"
-              class="h-1.5"
-              :indicator-class="row.percent >= 100 ? 'bg-destructive' : row.percent >= 80 ? 'bg-warning' : 'bg-primary'"
-            />
-            <div
-              v-if="row.limit && (row.percent >= 80 || focusRequest === row.key)"
-              class="flex flex-wrap items-center gap-2"
-            >
-              <p class="flex-1 text-xs" :class="row.percent >= 100 ? 'text-destructive' : 'text-amber-700 dark:text-amber-400'">
-                {{ row.percent >= 100 ? 'Limit reached.' : 'Nearing the limit.' }}
-              </p>
-              <RequestUpgradeButton
-                :target="row.key"
-                size="sm"
-                variant="outline"
-                :pending="pending"
-                :member-count="overview.usage.members"
-                @update="load"
-              />
-            </div>
-          </div>
-        </div>
+        <UsageMeters
+          :usage="overview?.usage ?? null"
+          :limits="overview?.entitlements.limits ?? null"
+          :pending="pending"
+          :focus-request="focusRequest"
+          :member-count="overview?.usage.members ?? 1"
+          :loading="!overview"
+          @update="load"
+        />
 
         <div
           v-if="overview && (isFreeLike || pending?.target === 'pro' || focusRequest === 'pro')"

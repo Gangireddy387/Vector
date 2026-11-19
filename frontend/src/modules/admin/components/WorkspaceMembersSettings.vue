@@ -18,8 +18,10 @@ import { useConfirm } from '@/composables/useConfirm'
 import { timeAgo } from '@/lib/format'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
 import { getPlanLimitKind } from '@/lib/plan-limit'
+import { isNearLimit } from '@/lib/plan-usage'
 import { shareInviteLink } from '@/lib/invite-link'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import UsageMeters from '@/modules/plan/components/UsageMeters.vue'
 import RequestUpgradeButton from './RequestUpgradeButton.vue'
 import MeetButton from '@/modules/meetings/components/MeetButton.vue'
 import { useDirectMessage } from '@/modules/messages/useDirectMessage'
@@ -33,12 +35,23 @@ const confirm = useConfirm()
 const { canMessage, messagePerson, openingId } = useDirectMessage()
 const members = ref<WorkspaceMember[] | null>(null)
 const customRoles = ref<OrganizationRole[]>([])
+const planOverview = ref<Awaited<ReturnType<typeof workspaceApi.plan>> | null>(null)
 const search = ref('')
 const organizationName = computed(() => auth.organization?.name ?? 'this organization')
 const canUseCustomRoles = computed(() => auth.hasFeature('customRoles'))
+const showSeatUsage = computed(() => {
+  const overview = planOverview.value
+  if (!overview) return false
+  return isNearLimit(overview.usage.members, overview.entitlements.limits.members)
+})
 
 const load = async () => {
-  members.value = await workspaceApi.members()
+  const [memberList, plan] = await Promise.all([
+    workspaceApi.members(),
+    workspaceApi.plan().catch(() => null),
+  ])
+  members.value = memberList
+  planOverview.value = plan
   if (canUseCustomRoles.value) {
     try {
       customRoles.value = await workspaceApi.roles()
@@ -272,12 +285,24 @@ async function sendInvite() {
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-3">
+        <UsageMeters
+          v-if="showSeatUsage && planOverview && !seatLimitHit"
+          :usage="planOverview.usage"
+          :limits="planOverview.entitlements.limits"
+          :pending="planOverview.upgradeRequest"
+          focus-request="seats"
+          :member-count="planOverview.usage.members"
+          :only="['seats']"
+          seat-near-hint="Buy more seats or ask the portal admin."
+          compact
+          @update="load"
+        />
         <div
           v-if="seatLimitHit"
           class="flex flex-col gap-2 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/10 px-3 py-2.5 sm:flex-row sm:items-center"
         >
           <p class="min-w-0 flex-1 text-xs text-amber-900 dark:text-amber-200">People limit reached. Buy more seats or ask the portal admin.</p>
-          <RequestUpgradeButton target="seats" size="sm" variant="outline" :member-count="members.length || 1" />
+          <RequestUpgradeButton target="seats" size="sm" variant="outline" :member-count="members?.length || 1" />
         </div>
         <form class="flex flex-col gap-2 sm:flex-row sm:items-start" @submit.prevent="sendInvite">
           <div class="flex-1 space-y-1">
