@@ -12,7 +12,7 @@ import {
 } from '@/lib/http'
 import type { PlanFeatureKey } from '@/lib/plan-features'
 import { connectRealtime, disconnectRealtime } from '@/lib/realtime'
-import type { OrganizationSummary, User, WorkspaceSettings } from '@/types/models'
+import type { OrgPermission, OrganizationSummary, User, WorkspaceSettings } from '@/types/models'
 import {
   authApi,
   isMfaChallenge,
@@ -41,6 +41,27 @@ export const useAuthStore = defineStore('auth', () => {
   const isOrganizationBlocked = computed(() => Boolean(organization.value && organization.value.status !== 'approved'))
   /** Whether the current organization's plan includes a feature (no plan information means full access). */
   const hasFeature = (key: PlanFeatureKey) => organization.value?.entitlements?.features[key] ?? true
+  /** Built-in admin, or a custom role that includes the permission. */
+  const hasPermission = (permission: OrgPermission) =>
+    isOrganizationAdmin.value || Boolean(organization.value?.permissions?.includes(permission))
+  /** Can open organization settings (any delegated workspace permission). */
+  const canAccessWorkspaceAdmin = computed(
+    () =>
+      isOrganizationAdmin.value ||
+      Boolean(
+        organization.value?.permissions?.some((permission) =>
+          [
+            'workspace.manage',
+            'workspace.people',
+            'workspace.roles',
+            'workspace.billing',
+            'workspace.structure',
+            'workspace.audit',
+            'workspace.support',
+          ].includes(permission),
+        ),
+      ),
+  )
 
   function applyState(state: SessionState) {
     user.value = state.user
@@ -266,10 +287,12 @@ export const useAuthStore = defineStore('auth', () => {
     organizations,
     isAuthenticated,
     isOrganizationAdmin,
+    canAccessWorkspaceAdmin,
     canCreateOrganization,
     isSuperAdmin,
     isOrganizationBlocked,
     hasFeature,
+    hasPermission,
     restoreSession,
     refreshSession,
     acceptOAuthToken,

@@ -5,6 +5,7 @@ import {
   Clock,
   LayoutTemplate,
   ListTree,
+  KeyRound,
   Mail,
   MailCheck,
   MessageCircle,
@@ -29,6 +30,7 @@ export type PlanFeatureKey =
   | 'recurringTasks'
   | 'templates'
   | 'customFields'
+  | 'customRoles'
   | 'reports'
   | 'chat'
   | 'directMessages'
@@ -81,6 +83,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     label: 'Custom fields',
     description: 'Extra fields on tasks (text, number, date, select, checkbox, URL)',
     icon: ListTree,
+    group: 'app',
+  },
+  {
+    key: 'customRoles',
+    label: 'Custom roles',
+    description: 'Delegate workspace permissions (people, billing, departments) without full admin',
+    icon: KeyRound,
     group: 'app',
   },
   { key: 'reports', label: 'Reports & progress', description: 'Charts, velocity, burndown and team insights', icon: BarChart3, group: 'app' },

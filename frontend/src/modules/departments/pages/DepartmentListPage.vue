@@ -17,7 +17,7 @@ import { departmentPeople, useStructureStore } from '../departments.store'
 
 const structure = useStructureStore()
 const auth = useAuthStore()
-const isAdmin = computed(() => auth.isOrganizationAdmin)
+const isAdmin = computed(() => (auth.isOrganizationAdmin || auth.hasPermission('workspace.structure')))
 const { isDesktop } = useDevice()
 const search = ref('')
 const loadError = ref('')

@@ -1,4 +1,4 @@
-import { Organization, OrganizationMember } from '../../database/models.js';
+import { Organization, OrganizationMember, OrganizationRole } from '../../database/models.js';
 import { withPlan } from '../plans/plan.service.js';
 
 import { UUID_PATTERN } from '../../shared/utils/ids.js';
@@ -7,7 +7,10 @@ import { UUID_PATTERN } from '../../shared/utils/ids.js';
 export const listActiveMemberships = (userId) =>
   OrganizationMember.findAll({
     where: { userId, status: 'active' },
-    include: [{ model: Organization, as: 'organization', include: withPlan() }],
+    include: [
+      { model: Organization, as: 'organization', include: withPlan() },
+      { model: OrganizationRole, as: 'customRole' },
+    ],
     order: [['createdAt', 'ASC']],
   });
 

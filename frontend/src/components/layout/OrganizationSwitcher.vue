@@ -89,7 +89,7 @@ async function copyLink() {
       <DropdownMenuSeparator />
       <DropdownMenuItem v-if="auth.canCreateOrganization" @select="router.push({ name: 'organization-create' })"><Plus /> Create organization</DropdownMenuItem>
       <DropdownMenuItem v-if="auth.organization" :title="organizationAddress(auth.organization.slug)" @select="copyLink"><Link2 /> Copy organization link</DropdownMenuItem>
-      <DropdownMenuItem v-if="auth.isOrganizationAdmin" @select="router.push({ name: 'workspace-admin' })"><Settings2 /> Organization settings</DropdownMenuItem>
+      <DropdownMenuItem v-if="auth.canAccessWorkspaceAdmin" @select="router.push({ name: 'workspace-admin' })"><Settings2 /> Organization settings</DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
 </template>

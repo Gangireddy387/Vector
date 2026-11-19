@@ -65,12 +65,18 @@ OrganizationMember.init(
     organizationId: { type: DataTypes.UUID, allowNull: false },
     userId: { type: DataTypes.UUID, allowNull: false },
     role: { type: DataTypes.ENUM(...ORGANIZATION_ROLES), allowNull: false, defaultValue: 'member' },
+    /** Optional custom role (plan feature `customRoles`); ignored when role is admin. */
+    customRoleId: { type: DataTypes.UUID, allowNull: true },
     status: { type: DataTypes.ENUM(...ORGANIZATION_MEMBER_STATUSES), allowNull: false, defaultValue: 'active' },
   },
   {
     sequelize,
     modelName: 'OrganizationMember',
     tableName: 'organization_members',
-    indexes: [{ unique: true, fields: ['organization_id', 'user_id'] }, { fields: ['user_id'] }],
+    indexes: [
+      { unique: true, fields: ['organization_id', 'user_id'] },
+      { fields: ['user_id'] },
+      { fields: ['custom_role_id'] },
+    ],
   },
 );

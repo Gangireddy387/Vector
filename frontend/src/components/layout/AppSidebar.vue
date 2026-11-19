@@ -12,7 +12,6 @@ import { useNotificationsStore } from '@/modules/notifications/notifications.sto
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import { useUiStore } from '@/stores/ui.store'
-import { useWorkspaceStore } from '@/stores/workspace.store'
 import OrganizationSwitcher from './OrganizationSwitcher.vue'
 import { getProjectNavigation } from './projectNavigation'
 import SidebarLink from './SidebarLink.vue'
@@ -25,7 +24,6 @@ const ui = useUiStore()
 const projects = useProjectsStore()
 const notifications = useNotificationsStore()
 const messages = useMessagesStore()
-const workspace = useWorkspaceStore()
 const auth = useAuthStore()
 const { isTablet } = useDevice()
 
@@ -82,7 +80,14 @@ const workspaceLinks = computed(() => [
     to: auth.hasFeature('meetings') ? ({ name: 'meetings' } as const) : ({ name: 'feature-locked', query: { feature: 'meetings' } } as const),
   },
   { name: 'reports', label: 'Reports', icon: BarChart3, show: auth.hasFeature('reports'), locked: false, to: { name: 'reports' } as const, shortcut: 'G R', exact: true },
-  { name: 'departments', label: 'Departments', icon: Network, show: true, locked: false, to: { name: 'departments' } as const },
+  {
+    name: 'departments',
+    label: 'Departments',
+    icon: Network,
+    show: auth.isOrganizationAdmin || auth.hasPermission('workspace.structure'),
+    locked: false,
+    to: { name: 'departments' } as const,
+  },
 ])
 
 const messagesLink = computed(() =>
@@ -234,7 +239,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
 
     <div class="space-y-1 p-2">
       <!-- Growing the team is one click away for admins -->
-      <Tooltip v-if="workspace.isAdmin" :disabled="!isCollapsed">
+      <Tooltip v-if="auth.hasPermission('workspace.people')" :disabled="!isCollapsed">
         <TooltipTrigger as-child>
           <RouterLink
             :to="{ name: 'workspace-admin', query: { tab: 'people' } }"

@@ -184,7 +184,7 @@ router.beforeEach((to) => {
   if (requiredFeatures?.length && !requiredFeatures.some(auth.hasFeature)) {
     return { name: 'feature-locked', query: { feature: requiredFeatures } }
   }
-  if (to.meta.requiresWorkspaceAdmin && !auth.isOrganizationAdmin) return { name: 'home' }
+  if (to.meta.requiresWorkspaceAdmin && !auth.canAccessWorkspaceAdmin) return { name: 'home' }
   if (to.name === 'organization-create' && auth.isSuperAdmin) return { name: 'super-admin' }
   if (to.name === 'organization-create' && auth.isAuthenticated && !auth.canCreateOrganization) return { name: 'home' }
   return true

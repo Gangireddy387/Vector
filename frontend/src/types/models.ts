@@ -102,6 +102,27 @@ export interface WorkspaceSettings {
 }
 
 /** An organization the signed-in person belongs to, with their role in it. */
+/** Org-scoped permissions granted by admin or a custom role. */
+export type OrgPermission =
+  | 'workspace.manage'
+  | 'workspace.people'
+  | 'workspace.roles'
+  | 'workspace.billing'
+  | 'workspace.structure'
+  | 'workspace.audit'
+  | 'workspace.support'
+  | 'project.create'
+
+export interface OrganizationRole {
+  id: string
+  organizationId?: string
+  name: string
+  key: string
+  description: string | null
+  permissions: OrgPermission[]
+  position: number
+}
+
 export interface OrganizationSummary {
   id: string
   name: string
@@ -116,6 +137,9 @@ export interface OrganizationSummary {
   entitlements?: Entitlements
   updatedAt?: string
   role: WorkspaceRole
+  customRoleId?: string | null
+  /** Effective permissions for the signed-in person in this organization. */
+  permissions?: OrgPermission[]
   memberCount?: number
   projectCount?: number
 }
@@ -174,6 +198,8 @@ export interface TeamWork {
 export interface WorkspaceMember extends UserSummary {
   status: User['status']
   workspaceRole: WorkspaceRole
+  customRoleId?: string | null
+  customRole?: Pick<OrganizationRole, 'id' | 'name' | 'key'> | null
   lastSeenAt: string | null
   createdAt: string
   joinedAt?: string

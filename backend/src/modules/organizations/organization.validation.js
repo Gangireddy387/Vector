@@ -36,7 +36,12 @@ export const updateOrganizationSchema = z
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one setting');
 
 export const updateMemberSchema = z
-  .object({ workspaceRole: z.enum(ORGANIZATION_ROLES), status: z.enum(['active', 'disabled']) })
+  .object({
+    workspaceRole: z.enum(ORGANIZATION_ROLES),
+    status: z.enum(['active', 'disabled']),
+    /** Custom role id (null clears). Only applies when workspaceRole is member. */
+    customRoleId: z.string().uuid().nullable(),
+  })
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Provide a role or status');
 
@@ -45,4 +50,5 @@ export const deleteOrganizationSchema = z.object({ confirmName: z.string().min(1
 export const inviteMemberSchema = z.object({
   email: z.string().trim().toLowerCase().email('Enter a valid email address'),
   role: z.enum(ORGANIZATION_ROLES).default('member'),
+  customRoleId: z.string().uuid().nullable().optional(),
 });

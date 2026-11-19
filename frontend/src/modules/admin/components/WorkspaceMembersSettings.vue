@@ -24,7 +24,7 @@ import RequestUpgradeButton from './RequestUpgradeButton.vue'
 import MeetButton from '@/modules/meetings/components/MeetButton.vue'
 import { useDirectMessage } from '@/modules/messages/useDirectMessage'
 import { usePresenceStore } from '@/stores/presence.store'
-import type { WorkspaceMember, WorkspaceRole } from '@/types/models'
+import type { OrganizationRole, WorkspaceMember, WorkspaceRole } from '@/types/models'
 import { workspaceApi } from '../admin.api'
 import { profileCoverStyle } from '../profile-cover'
 
@@ -32,10 +32,21 @@ const auth = useAuthStore()
 const confirm = useConfirm()
 const { canMessage, messagePerson, openingId } = useDirectMessage()
 const members = ref<WorkspaceMember[] | null>(null)
+const customRoles = ref<OrganizationRole[]>([])
 const search = ref('')
 const organizationName = computed(() => auth.organization?.name ?? 'this organization')
+const canUseCustomRoles = computed(() => auth.hasFeature('customRoles'))
 
-const load = async () => (members.value = await workspaceApi.members())
+const load = async () => {
+  members.value = await workspaceApi.members()
+  if (canUseCustomRoles.value) {
+    try {
+      customRoles.value = await workspaceApi.roles()
+    } catch {
+      customRoles.value = []
+    }
+  }
+}
 onMounted(load)
 
 type PeopleFilter = 'all' | 'admin' | 'member' | 'invited' | 'disabled'
@@ -78,6 +89,15 @@ const ROLE_OPTIONS: SelectFieldOption[] = [
   { value: 'member', label: 'Member', description: 'Works in the projects they join' },
 ]
 
+const customRoleOptions = computed<SelectFieldOption[]>(() => [
+  { value: '', label: 'No custom role', description: 'Standard member' },
+  ...customRoles.value.map((role) => ({
+    value: role.id,
+    label: role.name,
+    description: role.description || role.permissions.join(', '),
+  })),
+])
+
 async function run(task: () => Promise<unknown>, message: string) {
   try {
     await task()
@@ -89,7 +109,26 @@ async function run(task: () => Promise<unknown>, message: string) {
 }
 
 const changeRole = (member: WorkspaceMember, role: WorkspaceRole) =>
-  run(() => workspaceApi.updateMember(member.id, { workspaceRole: role }), `${member.name} is now ${role === 'admin' ? 'an admin' : 'a member'}`)
+  run(
+    () =>
+      workspaceApi.updateMember(member.id, {
+        workspaceRole: role,
+        customRoleId: role === 'admin' ? null : member.customRoleId ?? null,
+      }),
+    `${member.name} is now ${role === 'admin' ? 'an admin' : 'a member'}`,
+  )
+
+const changeCustomRole = (member: WorkspaceMember, customRoleId: string) =>
+  run(
+    () =>
+      workspaceApi.updateMember(member.id, {
+        workspaceRole: 'member',
+        customRoleId: customRoleId || null,
+      }),
+    customRoleId
+      ? `${member.name} assigned “${customRoles.value.find((role) => role.id === customRoleId)?.name ?? 'custom role'}”`
+      : `${member.name} is a standard member`,
+  )
 
 async function toggleStatus(member: WorkspaceMember) {
   const disabling = member.status === 'active'
@@ -139,7 +178,7 @@ async function resend(member: WorkspaceMember) {
 }
 
 // --- Invite -----------------------------------------------------------------
-const invite = ref({ emails: '', role: 'member' as WorkspaceRole })
+const invite = ref({ emails: '', role: 'member' as WorkspaceRole, customRoleId: '' })
 const inviteError = ref('')
 const isInviting = ref(false)
 const seatLimitHit = ref(false)
@@ -178,7 +217,11 @@ async function sendInvite() {
   try {
     for (const email of emails) {
       try {
-        const member = await workspaceApi.invite({ email, role: invite.value.role })
+        const member = await workspaceApi.invite({
+          email,
+          role: invite.value.role,
+          customRoleId: invite.value.role === 'member' && invite.value.customRoleId ? invite.value.customRoleId : null,
+        })
         sent += 1
         if (progress) toast.loading(`Inviting ${sent} of ${emails.length}…`, { id: progress })
         if (emails.length === 1) {
@@ -209,7 +252,7 @@ async function sendInvite() {
       inviteError.value = failures[0]!.replace(/^[^:]+:\s*/, '')
     }
     if (sent) {
-      invite.value = { emails: '', role: 'member' }
+      invite.value = { emails: '', role: 'member', customRoleId: '' }
       await load()
     }
   } finally {
@@ -252,6 +295,15 @@ async function sendInvite() {
             <p v-if="inviteError" class="text-xs text-destructive" role="alert">{{ inviteError }}</p>
           </div>
           <SelectField v-model="invite.role" :options="ROLE_OPTIONS" class="w-full sm:w-36" content-class="w-72" align="end" aria-label="Role" />
+          <SelectField
+            v-if="canUseCustomRoles && invite.role === 'member' && customRoles.length"
+            v-model="invite.customRoleId"
+            :options="customRoleOptions"
+            class="w-full sm:w-44"
+            content-class="w-80"
+            align="end"
+            aria-label="Custom role"
+          />
           <Button type="submit" class="max-sm:w-full" :loading="isInviting" :disabled="!inviteEmails.length">
             <UserPlus /> {{ inviteEmails.length > 1 ? `Invite ${inviteEmails.length}` : 'Invite' }}
           </Button>
@@ -361,7 +413,14 @@ async function sendInvite() {
               <span class="line-clamp-2 min-h-10 text-sm text-muted-foreground">{{ member.title || 'No job title yet' }}</span>
               <span class="mt-2 flex flex-wrap justify-center gap-1.5">
                 <Badge :variant="member.workspaceRole === 'admin' ? 'default' : 'secondary'">
-                  <Crown v-if="member.workspaceRole === 'admin'" /> {{ member.workspaceRole === 'admin' ? 'Admin' : 'Member' }}
+                  <Crown v-if="member.workspaceRole === 'admin'" />
+                  {{
+                    member.workspaceRole === 'admin'
+                      ? 'Admin'
+                      : member.customRole?.name
+                        ? member.customRole.name
+                        : 'Member'
+                  }}
                 </Badge>
                 <Badge :variant="STATUS_BADGE[member.status]">{{ STATUS_LABEL[member.status] }}</Badge>
               </span>
@@ -432,6 +491,18 @@ async function sendInvite() {
               align="end"
               :aria-label="`Organization role of ${member.name}`"
               @update:model-value="(value) => value && value !== member.workspaceRole && changeRole(member, value as WorkspaceRole)"
+            />
+            <SelectField
+              v-if="canUseCustomRoles && member.workspaceRole === 'member' && customRoles.length"
+              :model-value="member.customRoleId ?? ''"
+              :options="customRoleOptions"
+              :disabled="member.id === auth.user?.id"
+              size="sm"
+              class="w-44"
+              content-class="w-80"
+              align="end"
+              :aria-label="`Custom role of ${member.name}`"
+              @update:model-value="(value) => value !== (member.customRoleId ?? '') && changeCustomRole(member, String(value ?? ''))"
             />
             <Button
               v-if="member.status !== 'invited'"

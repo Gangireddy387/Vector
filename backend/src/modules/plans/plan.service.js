@@ -165,12 +165,23 @@ async function unlockCustomFields() {
   }
 }
 
+/** Plans that already include custom fields also get custom roles when the switch is introduced. */
+async function unlockCustomRoles() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.customRoles || !features.customFields) continue;
+    await plan.update({ features: { ...features, customRoles: true } });
+    console.info(`[plans] ${plan.name} plan now includes custom roles`);
+  }
+}
+
 export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
     await unlockFreeWorkdayLoop();
     await unlockEnterpriseSso();
     await unlockCustomFields();
+    await unlockCustomRoles();
     return;
   }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);

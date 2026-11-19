@@ -3,6 +3,8 @@ import { resolveApiToken } from '../../modules/auth/api-token.service.js';
 import { isAccessToken, isRevoked, verifyAccessToken } from '../../modules/auth/token.js';
 import { User } from '../../database/models.js';
 import { resolveOrganization } from '../../modules/organizations/organization-access.js';
+import { resolveMembershipPermissions } from '../../modules/organizations/organization-role.service.js';
+import { ORG_PERMISSION_KEYS } from '../../modules/organizations/organization-role.constants.js';
 import { runWithContext } from '../context/request-context.js';
 
 const LAST_SEEN_INTERVAL_MS = 60_000;
@@ -42,8 +44,20 @@ export async function authenticate(req, _res, next) {
   req.user = user;
   req.organization = membership?.organization ?? null;
   req.organizationRole = membership?.role ?? null;
+  req.organizationMembership = membership ?? null;
+  req.organizationPermissions = membership
+    ? await resolveMembershipPermissions(membership, membership.organization)
+    : [];
   req.organizationMemberships = memberships;
-  return runWithContext({ userId: user.id, organizationId: req.organization?.id ?? null, organizationRole: req.organizationRole }, next);
+  return runWithContext(
+    {
+      userId: user.id,
+      organizationId: req.organization?.id ?? null,
+      organizationRole: req.organizationRole,
+      organizationPermissions: req.organizationPermissions,
+    },
+    next,
+  );
 }
 
 /** Pending and rejected organizations cannot use the portal until the super admin approves them. */
@@ -74,3 +88,26 @@ export function requireOrganizationAdmin(req, _res, next) {
   if (req.organizationRole !== 'admin') throw ApiError.forbidden('Only organization admins can do this');
   next();
 }
+
+/**
+ * Allows built-in admins, or members whose custom role includes the permission.
+ * Use for delegated workspace areas (people, billing, structure…).
+ */
+export const requireOrgPermission = (permission) => (req, _res, next) => {
+  if (!req.organization) throw new ApiError(409, 'Create or join an organization first', { code: 'no_organization' });
+  assertApproved(req.organization);
+  if (!ORG_PERMISSION_KEYS.includes(permission)) throw ApiError.forbidden('Unknown permission');
+  if (req.organizationRole === 'admin') return next();
+  if ((req.organizationPermissions ?? []).includes(permission)) return next();
+  throw ApiError.forbidden('You do not have permission to do this');
+};
+
+/** Any of the listed permissions (or admin) is enough. */
+export const requireAnyOrgPermission = (...permissions) => (req, _res, next) => {
+  if (!req.organization) throw new ApiError(409, 'Create or join an organization first', { code: 'no_organization' });
+  assertApproved(req.organization);
+  if (req.organizationRole === 'admin') return next();
+  const granted = new Set(req.organizationPermissions ?? []);
+  if (permissions.some((permission) => granted.has(permission))) return next();
+  throw ApiError.forbidden('You do not have permission to do this');
+};

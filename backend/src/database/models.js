@@ -27,6 +27,7 @@ import { WorkspaceAuditLog } from '../modules/workspace/workspace-audit-log.mode
 import { ChatFile, ChatMessage, ChatMessageIssue, ChatReaction } from '../modules/chat/chat.model.js';
 import { StandupUpdate } from '../modules/standups/standup.model.js';
 import { Organization, OrganizationMember } from '../modules/organizations/organization.model.js';
+import { OrganizationRole } from '../modules/organizations/organization-role.model.js';
 import { Plan } from '../modules/plans/plan.model.js';
 import { Department, Team, TeamMember } from '../modules/departments/department.model.js';
 import { CalendarEvent } from '../modules/calendar/calendar-event.model.js';
@@ -86,6 +87,10 @@ Organization.hasMany(OrganizationMember, { as: 'memberships', foreignKey: 'organ
 User.hasMany(OrganizationMember, { as: 'organizationMemberships', foreignKey: 'userId', ...cascade });
 OrganizationMember.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
 OrganizationMember.belongsTo(User, { as: 'user', foreignKey: 'userId' });
+Organization.hasMany(OrganizationRole, { as: 'roles', foreignKey: 'organizationId', ...cascade });
+OrganizationRole.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+OrganizationMember.belongsTo(OrganizationRole, { as: 'customRole', foreignKey: 'customRoleId', onDelete: 'SET NULL' });
+OrganizationRole.hasMany(OrganizationMember, { as: 'members', foreignKey: 'customRoleId', constraints: false });
 Organization.hasMany(Project, { as: 'projects', foreignKey: 'organizationId', ...cascade });
 Project.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
 
@@ -311,6 +316,7 @@ export {
   StandupUpdate,
   Organization,
   OrganizationMember,
+  OrganizationRole,
   Plan,
   Department,
   Team,

@@ -2,10 +2,19 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { clearThread, deleteMessage, editMessage, getThread, hideMessage, markRead, sendMessage, setDisappearing } from '../support/support.service.js';
-import { requireOrganization, requireOrganizationAdmin, requireOrganizationCreator } from '../../shared/middleware/authenticate.js';
+import {
+  requireAnyOrgPermission,
+  requireOrganization,
+  requireOrganizationAdmin,
+  requireOrganizationCreator,
+  requireOrgPermission,
+} from '../../shared/middleware/authenticate.js';
+import { requireFeature } from '../plans/plan.service.js';
 import { validate } from '../../shared/middleware/validate.js';
 import * as controller from './organization.controller.js';
 import { logoUpload } from './organization.service.js';
+import * as roleController from './organization-role.controller.js';
+import { createOrganizationRoleSchema, updateOrganizationRoleSchema } from './organization-role.validation.js';
 import { createOrganizationSchema, deleteOrganizationSchema, inviteMemberSchema, slugQuery, updateMemberSchema, updateOrganizationSchema } from './organization.validation.js';
 import { exportAuditLogCsv, listAuditLog } from '../workspace/workspace-audit.service.js';
 
@@ -26,17 +35,17 @@ organizationRoutes.get('/organizations', controller.list);
 organizationRoutes.post('/organizations', requireOrganizationCreator, validate({ body: createOrganizationSchema }), controller.create);
 organizationRoutes.post('/organizations/:organizationId/switch', controller.switchTo);
 
-/** The current organization's settings and people (organization admins). */
+/** The current organization's settings and people (organization admins + delegated roles). */
 export const organizationAdminRoutes = Router();
-organizationAdminRoutes.patch('/workspace', requireOrganizationAdmin, validate({ body: updateOrganizationSchema }), controller.update);
+organizationAdminRoutes.patch('/workspace', requireOrgPermission('workspace.manage'), validate({ body: updateOrganizationSchema }), controller.update);
 organizationAdminRoutes.delete('/workspace', requireOrganizationAdmin, validate({ body: deleteOrganizationSchema }), controller.remove);
-organizationAdminRoutes.post('/workspace/logo', requireOrganizationAdmin, logoUpload, controller.uploadLogo);
-organizationAdminRoutes.delete('/workspace/logo', requireOrganizationAdmin, controller.removeLogo);
+organizationAdminRoutes.post('/workspace/logo', requireOrgPermission('workspace.manage'), logoUpload, controller.uploadLogo);
+organizationAdminRoutes.delete('/workspace/logo', requireOrgPermission('workspace.manage'), controller.removeLogo);
 organizationAdminRoutes.get('/workspace/plan', requireOrganization, controller.showPlan);
-organizationAdminRoutes.get('/workspace/metrics/workday-nudges', requireOrganizationAdmin, controller.showWorkdayNudgeMetrics);
+organizationAdminRoutes.get('/workspace/metrics/workday-nudges', requireOrgPermission('workspace.billing'), controller.showWorkdayNudgeMetrics);
 organizationAdminRoutes.post(
   '/workspace/plan/upgrade-request',
-  requireOrganizationAdmin,
+  requireOrgPermission('workspace.billing'),
   validate({
     body: z.object({
       target: z.enum(['pro', 'seats', 'projects']),
@@ -45,10 +54,42 @@ organizationAdminRoutes.post(
   }),
   controller.requestUpgrade,
 );
-organizationAdminRoutes.get('/workspace/members', requireOrganizationAdmin, controller.listMembers);
+
+organizationAdminRoutes.get(
+  '/workspace/roles/permissions',
+  requireAnyOrgPermission('workspace.roles', 'workspace.people'),
+  roleController.catalog,
+);
+organizationAdminRoutes.get(
+  '/workspace/roles',
+  requireAnyOrgPermission('workspace.roles', 'workspace.people'),
+  roleController.list,
+);
+organizationAdminRoutes.post(
+  '/workspace/roles',
+  requireFeature('customRoles'),
+  requireOrgPermission('workspace.roles'),
+  validate({ body: createOrganizationRoleSchema }),
+  roleController.create,
+);
+organizationAdminRoutes.patch(
+  '/workspace/roles/:roleId',
+  requireFeature('customRoles'),
+  requireOrgPermission('workspace.roles'),
+  validate({ body: updateOrganizationRoleSchema }),
+  roleController.update,
+);
+organizationAdminRoutes.delete(
+  '/workspace/roles/:roleId',
+  requireFeature('customRoles'),
+  requireOrgPermission('workspace.roles'),
+  roleController.remove,
+);
+
+organizationAdminRoutes.get('/workspace/members', requireOrgPermission('workspace.people'), controller.listMembers);
 organizationAdminRoutes.get(
   '/workspace/audit-log',
-  requireOrganizationAdmin,
+  requireOrgPermission('workspace.audit'),
   validate({
     query: z.object({
       limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -57,46 +98,46 @@ organizationAdminRoutes.get(
   }),
   async (req, res) => res.json(await listAuditLog(req.organization.id, req.filters)),
 );
-organizationAdminRoutes.get('/workspace/audit-log/export', requireOrganizationAdmin, async (req, res) => {
+organizationAdminRoutes.get('/workspace/audit-log/export', requireOrgPermission('workspace.audit'), async (req, res) => {
   const csv = await exportAuditLogCsv(req.organization.id);
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="vector-audit-log.csv"');
   res.send(csv);
 });
-organizationAdminRoutes.get('/workspace/backup', requireOrganizationAdmin, backupLimiter, controller.exportBackup);
-organizationAdminRoutes.post('/workspace/invitations', requireOrganizationAdmin, validate({ body: inviteMemberSchema }), controller.invite);
+organizationAdminRoutes.get('/workspace/backup', requireOrgPermission('workspace.audit'), backupLimiter, controller.exportBackup);
+organizationAdminRoutes.post('/workspace/invitations', requireOrgPermission('workspace.people'), validate({ body: inviteMemberSchema }), controller.invite);
 /** Support chat with the portal's super admin; one conversation per organization, shared by its admins. */
 const supportMessageSchema = z.object({ body: z.string().trim().min(1, 'Write a message').max(4000) });
-organizationAdminRoutes.get('/workspace/support', requireOrganizationAdmin, async (req, res) =>
+organizationAdminRoutes.get('/workspace/support', requireOrgPermission('workspace.support'), async (req, res) =>
   res.json(await getThread(req.organization.id, 'organization', req.user.id)),
 );
-organizationAdminRoutes.post('/workspace/support', requireOrganizationAdmin, validate({ body: supportMessageSchema }), async (req, res) =>
+organizationAdminRoutes.post('/workspace/support', requireOrgPermission('workspace.support'), validate({ body: supportMessageSchema }), async (req, res) =>
   res.status(201).json(await sendMessage(req.organization.id, req.user, 'organization', req.body.body)),
 );
-organizationAdminRoutes.post('/workspace/support/read', requireOrganizationAdmin, async (req, res) =>
+organizationAdminRoutes.post('/workspace/support/read', requireOrgPermission('workspace.support'), async (req, res) =>
   res.json({ updated: await markRead(req.organization.id, 'organization', req.user) }),
 );
-organizationAdminRoutes.patch('/workspace/support/messages/:messageId', requireOrganizationAdmin, validate({ body: supportMessageSchema }), async (req, res) =>
+organizationAdminRoutes.patch('/workspace/support/messages/:messageId', requireOrgPermission('workspace.support'), validate({ body: supportMessageSchema }), async (req, res) =>
   res.json({ message: await editMessage(req.organization.id, req.user, 'organization', req.params.messageId, req.body.body) }),
 );
-organizationAdminRoutes.delete('/workspace/support/messages/:messageId', requireOrganizationAdmin, async (req, res) =>
+organizationAdminRoutes.delete('/workspace/support/messages/:messageId', requireOrgPermission('workspace.support'), async (req, res) =>
   res.json({ message: await deleteMessage(req.organization.id, req.user, 'organization', req.params.messageId) }),
 );
-organizationAdminRoutes.post('/workspace/support/messages/:messageId/hide', requireOrganizationAdmin, async (req, res) => {
+organizationAdminRoutes.post('/workspace/support/messages/:messageId/hide', requireOrgPermission('workspace.support'), async (req, res) => {
   await hideMessage(req.organization.id, req.user, req.params.messageId);
   res.status(204).end();
 });
-organizationAdminRoutes.post('/workspace/support/clear', requireOrganizationAdmin, async (req, res) =>
+organizationAdminRoutes.post('/workspace/support/clear', requireOrgPermission('workspace.support'), async (req, res) =>
   res.json(await clearThread(req.organization.id, req.user, 'organization')),
 );
 organizationAdminRoutes.put(
   '/workspace/support/disappearing',
-  requireOrganizationAdmin,
+  requireOrgPermission('workspace.support'),
   validate({ body: z.object({ hours: z.union([z.literal(24), z.literal(168), z.null()]) }) }),
   async (req, res) => res.json(await setDisappearing(req.organization.id, req.user, 'organization', req.body.hours)),
 );
-organizationAdminRoutes.get('/workspace/members/:userId/profile', requireOrganizationAdmin, controller.showMemberProfile);
-organizationAdminRoutes.patch('/workspace/members/:userId', requireOrganizationAdmin, validate({ body: updateMemberSchema }), controller.updateMember);
-organizationAdminRoutes.delete('/workspace/members/:userId', requireOrganizationAdmin, controller.removeMember);
+organizationAdminRoutes.get('/workspace/members/:userId/profile', requireOrgPermission('workspace.people'), controller.showMemberProfile);
+organizationAdminRoutes.patch('/workspace/members/:userId', requireOrgPermission('workspace.people'), validate({ body: updateMemberSchema }), controller.updateMember);
+organizationAdminRoutes.delete('/workspace/members/:userId', requireOrgPermission('workspace.people'), controller.removeMember);
 /** A fresh invitation for someone who has not accepted yet (the old link stops working). */
-organizationAdminRoutes.post('/workspace/members/:userId/resend-invitation', requireOrganizationAdmin, controller.resendInvitation);
+organizationAdminRoutes.post('/workspace/members/:userId/resend-invitation', requireOrgPermission('workspace.people'), controller.resendInvitation);

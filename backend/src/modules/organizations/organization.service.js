@@ -12,6 +12,7 @@ import {
   MeetingRecording,
   Organization,
   OrganizationMember,
+  OrganizationRole,
   Project,
   ProjectMember,
   sequelize,
@@ -39,6 +40,7 @@ import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
 import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
 import { cleanSsoInput, publicSso, ssoSettingsFor } from './organization-sso.js';
+import { customRolesEnabled, resolveMembershipPermissions } from './organization-role.service.js';
 
 /** What an org admin can request from the portal. */
 export const UPGRADE_TARGETS = ['pro', 'seats', 'projects'];
@@ -150,12 +152,16 @@ export async function listMyOrganizations(memberships) {
     OrganizationMember.findAll({ where: { organizationId: ids, status: 'active' }, attributes: ['organizationId'], raw: true }),
     Project.findAll({ where: { organizationId: ids, archivedAt: null }, attributes: ['organizationId'], raw: true }),
   ]);
-  return memberships.map((membership) => ({
-    ...toPublicOrganization(membership.organization),
-    role: membership.role,
-    memberCount: people.filter((row) => row.organizationId === membership.organizationId).length,
-    projectCount: projects.filter((row) => row.organizationId === membership.organizationId).length,
-  }));
+  return Promise.all(
+    memberships.map(async (membership) => ({
+      ...toPublicOrganization(membership.organization),
+      role: membership.role,
+      customRoleId: membership.role === 'admin' ? null : membership.customRoleId ?? null,
+      permissions: await resolveMembershipPermissions(membership, membership.organization),
+      memberCount: people.filter((row) => row.organizationId === membership.organizationId).length,
+      projectCount: projects.filter((row) => row.organizationId === membership.organizationId).length,
+    })),
+  );
 }
 
 export async function switchOrganization(user, memberships, organizationId) {
@@ -375,7 +381,10 @@ export async function clearLogo(organization, actor) {
 export async function listMembers(organizationId) {
   const memberships = await OrganizationMember.findAll({
     where: { organizationId },
-    include: [{ model: User, as: 'user', attributes: [...USER_SUMMARY_ATTRIBUTES, 'status', 'lastSeenAt', 'createdAt'] }],
+    include: [
+      { model: User, as: 'user', attributes: [...USER_SUMMARY_ATTRIBUTES, 'status', 'lastSeenAt', 'createdAt'] },
+      { model: OrganizationRole, as: 'customRole', attributes: ['id', 'name', 'key'] },
+    ],
   });
   const projectIds = (await Project.findAll({ where: { organizationId }, attributes: ['id'], raw: true })).map((project) => project.id);
   const projectMemberships = projectIds.length ? await ProjectMember.findAll({ where: { projectId: projectIds }, attributes: ['userId'], raw: true }) : [];
@@ -383,11 +392,14 @@ export async function listMembers(organizationId) {
     .filter((membership) => membership.user)
     .map((membership) => {
       const user = membership.user.toJSON();
+      const customRole = membership.role === 'member' && membership.customRole ? membership.customRole.toJSON() : null;
       return {
         ...user,
         // An invited account that has not been accepted yet shows as invited; otherwise the organization-level status applies.
         status: user.status === 'invited' ? 'invited' : membership.status,
         workspaceRole: membership.role,
+        customRoleId: customRole?.id ?? null,
+        customRole,
         joinedAt: membership.createdAt,
         projectCount: projectMemberships.filter((row) => row.userId === user.id).length,
       };
@@ -406,15 +418,40 @@ async function assertAnotherAdmin(organizationId, userId) {
   if (!others) throw ApiError.badRequest('The organization needs at least one active admin');
 }
 
-export async function updateMember(organizationId, actor, userId, { workspaceRole, status }) {
+async function assertCustomRole(organizationId, customRoleId) {
+  if (!customRoleId) return null;
+  const role = await OrganizationRole.findOne({ where: { id: customRoleId, organizationId } });
+  if (!role) throw ApiError.badRequest('Custom role not found in this organization');
+  return role;
+}
+
+export async function updateMember(organizationId, actor, userId, { workspaceRole, status, customRoleId }) {
   if (userId === actor.id) throw ApiError.badRequest('You cannot change your own role or status');
   const membership = await loadMembership(organizationId, userId);
   const losesAdmin = membership.role === 'admin' && (workspaceRole === 'member' || status === 'disabled');
   if (losesAdmin) await assertAnotherAdmin(organizationId, userId);
   if (status && membership.user.status === 'invited') throw ApiError.badRequest('Invited people become active when they accept');
   if (status === 'active' && membership.status === 'disabled') await assertWithinLimit(organizationId, 'members');
-  const previous = { role: membership.role, status: membership.status };
-  await membership.update({ ...(workspaceRole ? { role: workspaceRole } : {}), ...(status ? { status } : {}) });
+
+  const organization = await Organization.findByPk(organizationId, { include: withPlan() });
+  const nextRole = workspaceRole ?? membership.role;
+  const updates = {
+    ...(workspaceRole ? { role: workspaceRole } : {}),
+    ...(status ? { status } : {}),
+  };
+
+  if (nextRole === 'admin') {
+    updates.customRoleId = null;
+  } else if (customRoleId !== undefined) {
+    if (customRoleId && !customRolesEnabled(organization)) {
+      throw ApiError.forbidden('The current plan does not include custom roles');
+    }
+    await assertCustomRole(organizationId, customRoleId);
+    updates.customRoleId = customRoleId;
+  }
+
+  const previous = { role: membership.role, status: membership.status, customRoleId: membership.customRoleId };
+  await membership.update(updates);
   // A deactivated member keeps their project memberships (for when they come back) but loses access at once.
   if (status === 'disabled') revokeRealtimeAccess(userId, { organizationId, projectIds: await projectIdsOf(organizationId) });
   if (workspaceRole && workspaceRole !== previous.role) {
@@ -425,6 +462,16 @@ export async function updateMember(organizationId, actor, userId, { workspaceRol
       targetType: 'user',
       targetId: userId,
       meta: { email: membership.user.email, from: previous.role, to: workspaceRole },
+    });
+  }
+  if (customRoleId !== undefined && customRoleId !== previous.customRoleId) {
+    await logWorkspaceAction({
+      organizationId,
+      actorId: actor.id,
+      action: 'member.custom_role_changed',
+      targetType: 'user',
+      targetId: userId,
+      meta: { email: membership.user.email, from: previous.customRoleId, to: customRoleId },
     });
   }
   if (status && status !== previous.status) {
@@ -564,7 +611,7 @@ async function renewInvitation(user, organizationId) {
  * were invited before but never accepted get a fresh invitation (they have no password yet, so "you were added"
  * would leave them locked out).
  */
-export async function ensureOrganizationMember(organizationId, email, role = 'member') {
+export async function ensureOrganizationMember(organizationId, email, role = 'member', customRoleId = null) {
   let user = await User.scope('withSecrets').findOne({ where: { email } });
   const isMember = user && (await OrganizationMember.count({ where: { organizationId, userId: user.id } }));
   if (!isMember) await assertWithinLimit(organizationId, 'members');
@@ -576,7 +623,11 @@ export async function ensureOrganizationMember(organizationId, email, role = 'me
   } else if (user.status === 'invited') {
     inviteToken = await renewInvitation(user, organizationId);
   }
-  const [membership, created] = await OrganizationMember.findOrCreate({ where: { organizationId, userId: user.id }, defaults: { role } });
+  const roleId = role === 'admin' ? null : customRoleId;
+  const [membership, created] = await OrganizationMember.findOrCreate({
+    where: { organizationId, userId: user.id },
+    defaults: { role, customRoleId: roleId },
+  });
   return { user, membership, created, inviteToken };
 }
 
@@ -602,8 +653,13 @@ export async function resendInvitation(organization, inviter, userId) {
  * Invitation emails (to new people) follow the plan; when the plan leaves them out, the admin gets the sign-up link
  * to share themselves. People who already have an account are always told they were added.
  */
-export async function inviteMember(organization, inviter, { email, role }) {
-  const { user, created, inviteToken } = await ensureOrganizationMember(organization.id, email, role);
+export async function inviteMember(organization, inviter, { email, role, customRoleId = null }) {
+  if (customRoleId) {
+    if (!customRolesEnabled(organization)) throw ApiError.forbidden('The current plan does not include custom roles');
+    if (role === 'admin') throw ApiError.badRequest('Admins do not use a custom role');
+    await assertCustomRole(organization.id, customRoleId);
+  }
+  const { user, created, inviteToken } = await ensureOrganizationMember(organization.id, email, role, customRoleId);
   if (!created) throw ApiError.conflict(`${email} is already in ${organization.name}`);
   const details = { inviterName: inviter.name, inviterEmail: inviter.email, organization, role };
   const mayEmailInvite = entitlementsFor(organization).features.emailInvitations;

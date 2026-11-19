@@ -21,7 +21,7 @@ const props = defineProps<{ team: Team }>()
 const structure = useStructureStore()
 const auth = useAuthStore()
 const confirm = useConfirm()
-const isAdmin = computed(() => auth.isOrganizationAdmin)
+const isAdmin = computed(() => (auth.isOrganizationAdmin || auth.hasPermission('workspace.structure')))
 const { canMessage, messagePerson, openingId } = useDirectMessage()
 
 const busy = ref(false)

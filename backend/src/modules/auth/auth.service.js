@@ -19,6 +19,7 @@ import { createOneTimeToken, hashOneTimeToken, isMfaToken, isRevoked, signAccess
 import { listMyOrganizations, resolveOrganization, toPublicOrganization } from '../organizations/index.js';
 import { assertPasswordLoginAllowed } from '../organizations/organization-sso.js';
 import { checkSlug, createOrganization } from '../organizations/organization.service.js';
+import { resolveMembershipPermissions } from '../organizations/organization-role.service.js';
 import { isSuperAdmin } from '../super-admin/super-admin.service.js';
 import { pickAvatarColor } from '../users/user.service.js';
 
@@ -51,7 +52,14 @@ export async function describeSession(user, membership, memberships) {
         microsoft: Boolean(user.microsoftSubject),
       },
     },
-    organization: membership ? { ...toPublicOrganization(membership.organization), role: membership.role } : null,
+    organization: membership
+      ? {
+          ...toPublicOrganization(membership.organization),
+          role: membership.role,
+          customRoleId: membership.role === 'admin' ? null : membership.customRoleId ?? null,
+          permissions: await resolveMembershipPermissions(membership, membership.organization),
+        }
+      : null,
     organizations: await listMyOrganizations(memberships),
   };
 }

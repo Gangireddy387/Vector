@@ -30,7 +30,7 @@ import { departmentPeople, useStructureStore } from '../departments.store'
 const props = defineProps<{ departmentId: string }>()
 const structure = useStructureStore()
 const auth = useAuthStore()
-const isAdmin = computed(() => auth.isOrganizationAdmin)
+const isAdmin = computed(() => (auth.isOrganizationAdmin || auth.hasPermission('workspace.structure')))
 const route = useRoute()
 const router = useRouter()
 const confirm = useConfirm()

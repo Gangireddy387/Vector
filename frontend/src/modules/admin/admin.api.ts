@@ -1,5 +1,15 @@
 import { http } from '@/lib/http'
-import type { Activity, Entitlements, ProjectRole, UserSummary, WorkspaceMember, WorkspaceRole, WorkspaceSettings } from '@/types/models'
+import type {
+  Activity,
+  Entitlements,
+  OrganizationRole,
+  OrgPermission,
+  ProjectRole,
+  UserSummary,
+  WorkspaceMember,
+  WorkspaceRole,
+  WorkspaceSettings,
+} from '@/types/models'
 
 type ProjectBadge = { id: string; name: string; key: string; color: string }
 
@@ -84,13 +94,27 @@ export const workspaceApi = {
   removeLogo: () => http.delete<{ settings: WorkspaceSettings & { id: string } }>('/workspace/logo').then((r) => r.data.settings),
   members: () => http.get<{ members: WorkspaceMember[] }>('/workspace/members').then((r) => r.data.members),
   memberProfile: (userId: string) => http.get<MemberProfile>(`/workspace/members/${userId}/profile`).then((r) => r.data),
-  invite: (payload: { email: string; role: WorkspaceRole }) =>
+  invite: (payload: { email: string; role: WorkspaceRole; customRoleId?: string | null }) =>
     http
       .post<{ member: WorkspaceMember & { invited: boolean; emailed: boolean; inviteLink: string | null } }>('/workspace/invitations', payload)
       .then((r) => r.data.member),
-  updateMember: (userId: string, changes: { workspaceRole?: WorkspaceRole; status?: 'active' | 'disabled' }) =>
-    http.patch(`/workspace/members/${userId}`, changes),
+  updateMember: (
+    userId: string,
+    changes: { workspaceRole?: WorkspaceRole; status?: 'active' | 'disabled'; customRoleId?: string | null },
+  ) => http.patch(`/workspace/members/${userId}`, changes),
   removeMember: (userId: string) => http.delete(`/workspace/members/${userId}`),
+  rolePermissions: () =>
+    http
+      .get<{ permissions: Array<{ key: OrgPermission; label: string; description: string }> }>('/workspace/roles/permissions')
+      .then((r) => r.data.permissions),
+  roles: () => http.get<{ roles: OrganizationRole[] }>('/workspace/roles').then((r) => r.data.roles),
+  createRole: (input: { name: string; description?: string | null; permissions: OrgPermission[]; key?: string }) =>
+    http.post<{ role: OrganizationRole }>('/workspace/roles', input).then((r) => r.data.role),
+  updateRole: (
+    roleId: string,
+    changes: { name?: string; description?: string | null; permissions?: OrgPermission[]; position?: number },
+  ) => http.patch<{ role: OrganizationRole }>(`/workspace/roles/${roleId}`, changes).then((r) => r.data.role),
+  removeRole: (roleId: string) => http.delete(`/workspace/roles/${roleId}`),
   /** A new invitation for someone who has not accepted yet; without invitation emails the link comes back to share. */
   resendInvitation: (userId: string) =>
     http.post<{ emailed: boolean; inviteLink: string | null }>(`/workspace/members/${userId}/resend-invitation`).then((r) => r.data),

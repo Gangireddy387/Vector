@@ -12,7 +12,8 @@ export const useStructureStore = defineStore('structure', () => {
 
   /** Everyone gets the departments they may see; the list of people to pick from is only needed (and allowed) for admins. */
   async function load() {
-    const isAdmin = useAuthStore().isOrganizationAdmin
+    const auth = useAuthStore()
+    const isAdmin = auth.isOrganizationAdmin || auth.hasPermission('workspace.structure')
     const [structure, members] = await Promise.all([structureApi.list(), isAdmin ? workspaceApi.members() : Promise.resolve([])])
     departments.value = structure
     people.value = members.filter((member) => member.status === 'active')

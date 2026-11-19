@@ -81,6 +81,7 @@ const ADDED_COLUMNS = [
   { table: 'organizations', column: 'sso', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'users', column: 'google_subject', definition: { type: DataTypes.STRING(120), allowNull: true } },
   { table: 'users', column: 'microsoft_subject', definition: { type: DataTypes.STRING(120), allowNull: true } },
+  { table: 'organization_members', column: 'custom_role_id', definition: { type: DataTypes.UUID, allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

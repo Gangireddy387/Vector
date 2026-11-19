@@ -18,7 +18,7 @@ const props = defineProps<{ teamId: string; teamName: string }>()
 const emit = defineEmits<{ changed: [] }>()
 const confirm = useConfirm()
 const auth = useAuthStore()
-const isAdmin = computed(() => auth.isOrganizationAdmin)
+const isAdmin = computed(() => (auth.isOrganizationAdmin || auth.hasPermission('workspace.structure')))
 
 const work = ref<TeamWork | null>(null)
 const busyId = ref<string | null>(null)

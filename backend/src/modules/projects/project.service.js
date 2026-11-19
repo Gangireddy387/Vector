@@ -21,7 +21,7 @@ import { revokeRealtimeAccess } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { addedToProjectEmail, inviteEmail, inviteLinkFor } from '../../shared/services/email-templates.js';
 import { logActivity } from '../activity/activity.service.js';
-import { currentOrganizationId, currentOrganizationRole } from '../../shared/context/request-context.js';
+import { currentHasOrgPermission, currentOrganizationId, currentOrganizationRole } from '../../shared/context/request-context.js';
 import { DEFAULT_LABELS } from '../labels/label.model.js';
 import { grantTeamAccess } from '../departments/department.service.js';
 import { ensureOrganizationMember } from '../organizations/organization.service.js';
@@ -139,7 +139,9 @@ export async function createProject(user, input) {
   const existing = await Project.findOne({ where: { organizationId, key: input.key } });
   if (existing) throw ApiError.conflict(`Project key "${input.key}" is already used in this organization`);
   if (input.teamId) {
-    if (currentOrganizationRole() !== 'admin') throw ApiError.forbidden('Only organization admins can create projects for a team');
+    if (!currentHasOrgPermission('project.create')) {
+      throw ApiError.forbidden('You do not have permission to create projects for a team');
+    }
     if (!(await Team.count({ where: { id: input.teamId, organizationId } }))) throw ApiError.badRequest('Team not found');
   }
 

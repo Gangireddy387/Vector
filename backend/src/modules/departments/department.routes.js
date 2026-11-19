@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireOrganizationAdmin } from '../../shared/middleware/authenticate.js';
+import { requireOrgPermission } from '../../shared/middleware/authenticate.js';
 import { validate } from '../../shared/middleware/validate.js';
 import * as service from './department.service.js';
 import {
@@ -18,8 +18,11 @@ import {
  * everyone else sees only the departments and teams they belong to, read-only.
  */
 const router = Router();
-const admin = requireOrganizationAdmin;
-const viewer = (req) => ({ userId: req.user.id, isAdmin: req.organizationRole === 'admin' });
+const admin = requireOrgPermission('workspace.structure');
+const viewer = (req) => ({
+  userId: req.user.id,
+  isAdmin: req.organizationRole === 'admin' || (req.organizationPermissions ?? []).includes('workspace.structure'),
+});
 
 const respond = async (req, res, status = 200) => res.status(status).json({ departments: await service.listDepartments(req.organization.id, viewer(req)) });
 

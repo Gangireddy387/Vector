@@ -13,4 +13,11 @@ export const currentOrganizationId = () => storage.getStore()?.organizationId ??
 
 export const currentOrganizationRole = () => storage.getStore()?.organizationRole ?? null;
 
+export const currentOrganizationPermissions = () => storage.getStore()?.organizationPermissions ?? [];
+
+export const currentHasOrgPermission = (permission) => {
+  if (currentOrganizationRole() === 'admin') return true;
+  return currentOrganizationPermissions().includes(permission);
+};
+
 export const currentRequestId = () => storage.getStore()?.requestId ?? null;
