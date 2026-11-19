@@ -11,6 +11,33 @@ import { notifyUsers } from '../notifications/notification.service.js';
 import { projectHasFeature } from '../plans/plan.service.js';
 import { MAX_AUTOMATION_DEPTH } from './automation.constants.js';
 
+/** Rejects localhost / private / metadata hosts so automations cannot SSRF internal networks. */
+export function assertSafeWebhookUrl(url) {
+  let parsed;
+  try {
+    parsed = new URL(String(url || '').trim());
+  } catch {
+    throw new Error('Webhook URL is invalid');
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Webhook URL must be http(s)');
+  const host = parsed.hostname.toLowerCase();
+  if (
+    host === 'localhost' ||
+    host === 'metadata.google.internal' ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal') ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
+    host === '::1' ||
+    host === '0.0.0.0'
+  ) {
+    throw new Error('Webhook URL cannot target a private or local address');
+  }
+  return parsed;
+}
+
 // ---------------------------------------------------------------------------
 // Conditions
 // ---------------------------------------------------------------------------
@@ -159,28 +186,7 @@ const ACTION_HANDLERS = {
   async send_webhook({ issue, params, variables, rule }) {
     const url = String(params.url || '').trim();
     if (!url) return;
-    let parsed;
-    try {
-      parsed = new URL(url);
-    } catch {
-      throw new Error('Webhook URL is invalid');
-    }
-    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Webhook URL must be http(s)');
-    const host = parsed.hostname.toLowerCase();
-    if (
-      host === 'localhost' ||
-      host === 'metadata.google.internal' ||
-      host.endsWith('.local') ||
-      host.endsWith('.internal') ||
-      /^127\./.test(host) ||
-      /^10\./.test(host) ||
-      /^192\.168\./.test(host) ||
-      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host) ||
-      host === '::1' ||
-      host === '0.0.0.0'
-    ) {
-      throw new Error('Webhook URL cannot target a private or local address');
-    }
+    assertSafeWebhookUrl(url);
 
     const body = JSON.stringify({
       event: 'automation',

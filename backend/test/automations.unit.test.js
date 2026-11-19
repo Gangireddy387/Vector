@@ -1,7 +1,7 @@
-/* Unit tests for automation conditions; run with `npm test` / `node --test test/automations.unit.test.js`. */
+/* Unit tests for automation conditions and webhook SSRF checks. */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { conditionMatches } from '../src/modules/automations/automation.engine.js';
+import { assertSafeWebhookUrl, conditionMatches } from '../src/modules/automations/automation.engine.js';
 
 describe('conditionMatches', () => {
   const issue = {
@@ -46,5 +46,26 @@ describe('conditionMatches', () => {
       }),
       true,
     );
+  });
+});
+
+describe('assertSafeWebhookUrl', () => {
+  it('allows public https hosts', () => {
+    assert.equal(assertSafeWebhookUrl('https://hooks.example.com/vector').hostname, 'hooks.example.com');
+  });
+
+  it('rejects localhost, private ranges and metadata hosts', () => {
+    for (const url of [
+      'http://localhost/hook',
+      'http://127.0.0.1/hook',
+      'http://10.0.0.5/hook',
+      'http://192.168.1.10/hook',
+      'http://172.16.0.2/hook',
+      'http://metadata.google.internal/',
+      'http://svc.internal/hook',
+      'ftp://example.com/hook',
+    ]) {
+      assert.throws(() => assertSafeWebhookUrl(url), (error) => /private|local|http\(s\)/i.test(error.message));
+    }
   });
 });
