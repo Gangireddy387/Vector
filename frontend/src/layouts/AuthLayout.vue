@@ -311,8 +311,8 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
             />
           </span>
           <span class="text-xs leading-snug text-white/80">
-            <span class="block font-semibold text-white">Built for teams</span>
-            Product, design, ops
+            <span class="block font-semibold text-white">Teams &amp; feedback</span>
+            Developers who ship with Vector
           </span>
         </div>
       </aside>
@@ -361,7 +361,10 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
             <ShowcaseChip kind="online" class="float-pill" :style="{ animationDelay: '1s, -0.8s' }" />
           </div>
           <div class="absolute w-max -translate-y-1/2" :style="place(0.52, -0.12)" data-obstacle>
-            <ShowcaseChip kind="activity" class="float-pill" :style="{ animationDelay: '1.2s, -3.2s' }" />
+            <ShowcaseChip kind="quote" :quote-index="0" class="float-pill" :style="{ animationDelay: '1.2s, -3.2s' }" />
+          </div>
+          <div class="absolute w-max -translate-x-full -translate-y-1/2" :style="place(-0.48, 0.18)" data-obstacle>
+            <ShowcaseChip kind="quote" :quote-index="1" class="float-pill" :style="{ animationDelay: '1.5s, -1.6s' }" />
           </div>
           <div class="absolute w-max -translate-y-1/2" :style="place(0.36, 0.47)" data-obstacle>
             <ShowcaseChip kind="standup" class="float-pill" :style="{ animationDelay: '1.4s, -2.4s' }" />
@@ -451,7 +454,8 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
 
       <div class="hidden flex-wrap gap-2.5 sm:flex">
         <ShowcaseChip kind="online" />
-        <ShowcaseChip kind="activity" />
+        <ShowcaseChip kind="quote" :quote-index="0" />
+        <ShowcaseChip kind="quote" :quote-index="1" />
         <ShowcaseChip kind="standup" />
       </div>
 
@@ -475,8 +479,8 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
           />
         </span>
         <span class="min-w-0 text-xs leading-snug text-white/80">
-          <span class="block font-semibold text-white">Built for teams</span>
-          Product, design, ops
+          <span class="block font-semibold text-white">Teams &amp; feedback</span>
+          Developers who ship with Vector
         </span>
       </div>
     </section>

@@ -26,9 +26,13 @@ const store = createImageStore({
 export const showcaseUpload = store.upload;
 export const resolveShowcaseFile = store.resolve;
 
+const trim = (value, max) => String(value ?? '').trim().slice(0, max);
+
 const toPublic = (row) => ({
   id: row.id,
   name: row.name,
+  role: row.role || '',
+  feedback: row.feedback || '',
   tone: row.tone,
   imageUrl: row.imageUrl,
   sortOrder: row.sortOrder,
@@ -44,7 +48,7 @@ async function broadcastShowcase() {
   emitToAll('showcase:updated', await listShowcase());
 }
 
-export async function addShowcasePortrait(file, { name } = {}) {
+export async function addShowcasePortrait(file, { name, role, feedback } = {}) {
   const imageUrl = await store.save(file);
   const count = await ShowcasePortrait.count();
   if (count >= 20) {
@@ -52,7 +56,9 @@ export async function addShowcasePortrait(file, { name } = {}) {
     throw ApiError.badRequest('Gallery is limited to 20 portraits');
   }
   const portrait = await ShowcasePortrait.create({
-    name: String(name || 'Teammate').trim().slice(0, 60) || 'Teammate',
+    name: trim(name, 60) || 'Teammate',
+    role: trim(role, 80),
+    feedback: trim(feedback, 280),
     tone: TONES[count % TONES.length],
     imageUrl,
     sortOrder: count,
@@ -64,7 +70,9 @@ export async function addShowcasePortrait(file, { name } = {}) {
 export async function updateShowcasePortrait(id, changes) {
   const portrait = await ShowcasePortrait.findByPk(id);
   if (!portrait) throw ApiError.notFound('Portrait not found');
-  if (changes.name != null) portrait.name = String(changes.name).trim().slice(0, 60) || portrait.name;
+  if (changes.name != null) portrait.name = trim(changes.name, 60) || portrait.name;
+  if (changes.role != null) portrait.role = trim(changes.role, 80);
+  if (changes.feedback != null) portrait.feedback = trim(changes.feedback, 280);
   if (changes.sortOrder != null) portrait.sortOrder = Number(changes.sortOrder) || 0;
   await portrait.save();
   await broadcastShowcase();

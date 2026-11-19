@@ -7,24 +7,53 @@ import ImageCropDialog from '@/components/common/ImageCropDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
 import { reloadShowcaseTeam, type ShowcasePortrait } from '@/composables/useShowcaseTeam'
 import { assetUrl, getErrorMessage, http } from '@/lib/http'
 import { ACCEPTED_IMAGE_TYPES, assertImageFile } from '@/lib/image'
 import { useSocketEvents } from '@/lib/socket-events'
 
-/** Super admin uploads portraits used on About / sign-in rich UI. */
+/** Super admin uploads developers + feedback used on About / sign-in rich UI. */
 const portraits = ref<ShowcasePortrait[] | null>(null)
 const name = ref('')
+const role = ref('')
+const feedback = ref('')
 const isUploading = ref(false)
 const removingId = ref<string | null>(null)
+const savingId = ref<string | null>(null)
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 const pendingFile = ref<File | null>(null)
 const isCropOpen = ref(false)
+const drafts = ref<Record<string, { name: string; role: string; feedback: string }>>({})
+
+function draftFor(portrait: ShowcasePortrait) {
+  if (!drafts.value[portrait.id]) {
+    drafts.value[portrait.id] = {
+      name: portrait.name,
+      role: portrait.role ?? '',
+      feedback: portrait.feedback ?? '',
+    }
+  }
+  return drafts.value[portrait.id]!
+}
+
+function syncDrafts(list: ShowcasePortrait[]) {
+  const next: Record<string, { name: string; role: string; feedback: string }> = {}
+  for (const portrait of list) {
+    next[portrait.id] = drafts.value[portrait.id] ?? {
+      name: portrait.name,
+      role: portrait.role ?? '',
+      feedback: portrait.feedback ?? '',
+    }
+  }
+  drafts.value = next
+}
 
 async function load() {
   try {
     const { data } = await http.get<{ portraits: ShowcasePortrait[] }>('/super-admin/showcase')
     portraits.value = data.portraits
+    syncDrafts(data.portraits)
   } catch (error) {
     toast.error(getErrorMessage(error))
     portraits.value = []
@@ -34,11 +63,12 @@ async function load() {
 onMounted(load)
 useSocketEvents({
   'showcase:updated': (payload: { portraits?: ShowcasePortrait[] }) => {
-    portraits.value = payload?.portraits ?? []
+    const list = payload?.portraits ?? []
+    portraits.value = list
+    syncDrafts(list)
   },
 })
 
-/** Opens the adjust dialog; nothing uploads until Save photo. */
 function pick(file: File | undefined) {
   if (fileInput.value) fileInput.value.value = ''
   if (!file) return
@@ -58,11 +88,15 @@ async function upload(blob: Blob, fileName: string) {
     const body = new FormData()
     body.append('image', blob, fileName)
     if (name.value.trim()) body.append('name', name.value.trim())
+    if (role.value.trim()) body.append('role', role.value.trim())
+    if (feedback.value.trim()) body.append('feedback', feedback.value.trim())
     await http.post('/super-admin/showcase', body)
     name.value = ''
+    role.value = ''
+    feedback.value = ''
     isCropOpen.value = false
     pendingFile.value = null
-    toast.success('Portrait added to the gallery')
+    toast.success('Developer added to the gallery')
     await load()
     await reloadShowcaseTeam()
   } catch (error) {
@@ -72,11 +106,31 @@ async function upload(blob: Blob, fileName: string) {
   }
 }
 
+async function save(id: string) {
+  const draft = drafts.value[id]
+  if (!draft) return
+  savingId.value = id
+  try {
+    await http.patch(`/super-admin/showcase/${id}`, {
+      name: draft.name.trim(),
+      role: draft.role.trim(),
+      feedback: draft.feedback.trim(),
+    })
+    toast.success('Developer details saved')
+    await load()
+    await reloadShowcaseTeam()
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    savingId.value = null
+  }
+}
+
 async function remove(id: string) {
   removingId.value = id
   try {
     await http.delete(`/super-admin/showcase/${id}`)
-    toast.success('Portrait removed')
+    toast.success('Removed from gallery')
     await load()
     await reloadShowcaseTeam()
   } catch (error) {
@@ -90,15 +144,31 @@ async function remove(id: string) {
 <template>
   <div class="space-y-4">
     <div class="rounded-xl border border-border bg-card p-4 shadow-soft sm:p-5">
-      <h2 class="text-sm font-semibold">Showcase gallery</h2>
+      <h2 class="text-sm font-semibold">Developers &amp; feedback</h2>
       <p class="mt-1 text-sm text-muted-foreground">
-        Photos here appear in the floating people on About and sign-in. Upload up to 20 images — you can crop, zoom and rotate before saving.
+        Photos, roles and short quotes appear as floating people and testimonials on About and sign-in. Up to 20.
       </p>
-      <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
-        <div class="min-w-0 flex-1 space-y-1">
-          <label class="text-xs font-medium text-muted-foreground" for="showcase-name">Display name (optional)</label>
-          <Input id="showcase-name" v-model="name" placeholder="e.g. Priya" maxlength="60" />
+      <div class="mt-4 grid gap-3 sm:grid-cols-2">
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-muted-foreground" for="showcase-name">Name</label>
+          <Input id="showcase-name" v-model="name" placeholder="e.g. Gangireddy" maxlength="60" />
         </div>
+        <div class="space-y-1">
+          <label class="text-xs font-medium text-muted-foreground" for="showcase-role">Role / title</label>
+          <Input id="showcase-role" v-model="role" placeholder="e.g. Product engineer" maxlength="80" />
+        </div>
+        <div class="space-y-1 sm:col-span-2">
+          <label class="text-xs font-medium text-muted-foreground" for="showcase-feedback">Feedback quote</label>
+          <Textarea
+            id="showcase-feedback"
+            v-model="feedback"
+            rows="2"
+            maxlength="280"
+            placeholder="e.g. Less busywork — standups and boards finally live in one place."
+          />
+        </div>
+      </div>
+      <div class="mt-3 flex flex-wrap items-center gap-2">
         <input
           ref="fileInput"
           type="file"
@@ -110,45 +180,57 @@ async function remove(id: string) {
           <ImagePlus />
           Upload photo
         </Button>
+        <p class="text-xs text-muted-foreground">PNG, JPEG, WebP or GIF — crop before saving.</p>
       </div>
-      <p class="mt-2 text-xs text-muted-foreground">PNG, JPEG, WebP or GIF. Position, zoom and rotate in the adjust dialog before saving.</p>
     </div>
 
-    <div v-if="!portraits" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <Skeleton v-for="index in 4" :key="index" class="h-28" />
+    <div v-if="!portraits" class="grid gap-3 lg:grid-cols-2">
+      <Skeleton v-for="index in 2" :key="index" class="h-44" />
     </div>
     <EmptyState
       v-else-if="!portraits.length"
-      title="No portraits yet"
-      description="Upload a few faces — the rich About and login UI will use them instead of the built-in illustrations."
+      title="No developers yet"
+      description="Add a photo, role and short feedback — they show up on About and sign-in right away."
     />
-    <ul v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <ul v-else class="grid gap-3 lg:grid-cols-2">
       <li
         v-for="portrait in portraits"
         :key="portrait.id"
-        class="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-soft"
+        class="rounded-xl border border-border bg-card p-3 shadow-soft sm:p-4"
       >
-        <img
-          :src="assetUrl(portrait.imageUrl)"
-          :alt="portrait.name"
-          class="size-14 rounded-full object-cover ring-2 ring-border"
-          :class="`bg-linear-to-br ${portrait.tone}`"
-        />
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-sm font-medium">{{ portrait.name }}</p>
-          <p class="truncate text-[11px] text-muted-foreground">Used on marketing &amp; sign-in</p>
+        <div class="flex items-start gap-3">
+          <img
+            :src="assetUrl(portrait.imageUrl)"
+            :alt="portrait.name"
+            class="size-14 shrink-0 rounded-full object-cover ring-2 ring-border"
+            :class="`bg-linear-to-br ${portrait.tone}`"
+          />
+          <div class="min-w-0 flex-1 space-y-2">
+            <Input v-model="draftFor(portrait).name" maxlength="60" placeholder="Name" aria-label="Name" />
+            <Input v-model="draftFor(portrait).role" maxlength="80" placeholder="Role / title" aria-label="Role" />
+            <Textarea
+              v-model="draftFor(portrait).feedback"
+              rows="2"
+              maxlength="280"
+              placeholder="Feedback quote"
+              aria-label="Feedback"
+            />
+            <div class="flex flex-wrap gap-2">
+              <Button type="button" size="sm" :loading="savingId === portrait.id" @click="save(portrait.id)">Save</Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                class="text-destructive"
+                :loading="removingId === portrait.id"
+                @click="remove(portrait.id)"
+              >
+                <Trash2 />
+                Remove
+              </Button>
+            </div>
+          </div>
         </div>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          class="shrink-0 text-destructive"
-          :loading="removingId === portrait.id"
-          aria-label="Remove"
-          @click="remove(portrait.id)"
-        >
-          <Trash2 />
-        </Button>
       </li>
     </ul>
 

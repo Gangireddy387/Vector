@@ -1,20 +1,26 @@
 <script setup lang="ts">
-import { Video } from 'lucide-vue-next'
+import { Quote, Video } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useShowcaseTeam } from '@/composables/useShowcaseTeam'
 
-/* A glass pill about the team for the sign-in showcase: who is online, a recent update, or a meeting in progress. */
-defineProps<{ kind: 'online' | 'activity' | 'standup' }>()
+/* Glass pill for the sign-in showcase: online, activity, standup, or a developer quote. */
+const props = defineProps<{ kind: 'online' | 'activity' | 'standup' | 'quote'; quoteIndex?: number }>()
 
-const { byIndex } = useShowcaseTeam()
+const { byIndex, quotes } = useShowcaseTeam()
 const ONLINE = computed(() => [byIndex(0), byIndex(1), byIndex(2)])
 const STANDUP = computed(() => [byIndex(3), byIndex(4), byIndex(5)])
 const activityPerson = computed(() => byIndex(0))
+const quotePerson = computed(() => {
+  const list = quotes.value
+  if (list.length) return list[(props.quoteIndex ?? 0) % list.length]!
+  return byIndex(props.quoteIndex ?? 0)
+})
 </script>
 
 <template>
   <span
     class="flex w-max items-center gap-2.5 rounded-full border border-white/20 bg-white/10 py-1.5 pr-4 pl-1.5 whitespace-nowrap text-white shadow-xl shadow-black/15 backdrop-blur-md"
+    :class="kind === 'quote' && 'max-w-[18rem] whitespace-normal rounded-2xl py-2 pr-3.5'"
   >
     <template v-if="kind === 'online'">
       <span class="flex shrink-0 -space-x-2">
@@ -38,7 +44,7 @@ const activityPerson = computed(() => byIndex(0))
       </span>
     </template>
 
-    <template v-else>
+    <template v-else-if="kind === 'standup'">
       <span class="flex shrink-0 -space-x-2">
         <img v-for="who in STANDUP" :key="who.name + who.src" :src="who.src" alt="" class="size-8 rounded-full bg-linear-to-br object-cover ring-2 ring-white/70" :class="who.tone" />
       </span>
@@ -46,6 +52,22 @@ const activityPerson = computed(() => byIndex(0))
         <span class="flex items-center gap-1.5 text-xs leading-tight font-semibold"><Video class="size-3.5" /> Daily standup</span>
         <span class="flex items-center gap-1.5 text-[11px] text-white/70 short:hidden">
           <span class="size-1.5 animate-pulse rounded-full bg-rose-400" /> Live · 3 joined
+        </span>
+      </span>
+    </template>
+
+    <template v-else>
+      <span class="relative shrink-0">
+        <img :src="quotePerson.src" alt="" class="size-9 rounded-full bg-linear-to-br object-cover ring-2 ring-white/70" :class="quotePerson.tone" />
+        <span class="absolute -right-0.5 -bottom-0.5 flex size-4 items-center justify-center rounded-full bg-white/90 text-brand">
+          <Quote class="size-2.5" />
+        </span>
+      </span>
+      <span class="min-w-0">
+        <span class="block text-[11px] leading-snug text-white/95">“{{ quotePerson.feedback || 'Less busywork. More shipped work.' }}”</span>
+        <span class="mt-0.5 block text-[10px] font-semibold text-white/75">
+          {{ quotePerson.name }}
+          <template v-if="quotePerson.role"> · {{ quotePerson.role }}</template>
         </span>
       </span>
     </template>

@@ -8,6 +8,10 @@ ShowcasePortrait.init(
   {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     name: { type: DataTypes.STRING(60), allowNull: false },
+    /** Job title / role shown with the person (e.g. Product engineer). */
+    role: { type: DataTypes.STRING(80), allowNull: false, defaultValue: '' },
+    /** Short quote / feedback shown on About and sign-in. */
+    feedback: { type: DataTypes.STRING(280), allowNull: false, defaultValue: '' },
     tone: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'from-sky-200 to-blue-300' },
     imageUrl: { type: DataTypes.STRING(255), allowNull: false },
     sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },

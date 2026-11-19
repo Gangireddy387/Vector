@@ -113,7 +113,10 @@ const SECTIONS = [
 const HEADINGS = {
   organizations: { title: 'Organizations', text: 'Review every team that signs up, approve or reject it, and choose the plan it is on.' },
   plans: { title: 'Plans & access', text: 'Create plans, decide what each one includes, and set the default for new signups.' },
-  gallery: { title: 'Showcase gallery', text: 'Upload portraits used on About and sign-in — they replace the built-in illustrations in the rich UI.' },
+  gallery: {
+    title: 'Showcase gallery',
+    text: 'Add developers with photos, roles and short feedback — they appear as people and quotes on About and sign-in.',
+  },
   legal: { title: 'Legal contact', text: 'Company name, email, phone and address shown on the public Privacy Policy and Terms pages.' },
   ops: { title: 'Ops', text: 'Payments, scheduled jobs, and automation health for this backend.' },
   profile: { title: 'Your profile', text: 'Your name and photo, as organization admins see them in the Vector team chat.' },

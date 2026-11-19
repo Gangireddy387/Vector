@@ -9,23 +9,29 @@ export interface Teammate {
   /* Tailwind gradient classes for the portrait's background. */
   tone: string
   src: string
+  /** Optional role / title from the showcase gallery. */
+  role?: string
+  /** Optional feedback quote from the showcase gallery. */
+  feedback?: string
 }
 
-const person = (name: string, tone: string): Teammate => ({
+const person = (name: string, tone: string, role = '', feedback = ''): Teammate => ({
   name,
   tone,
   src: PORTRAITS[`../../assets/avatars/${name.toLowerCase()}.svg`]!,
+  role,
+  feedback,
 })
 
 export const TEAM = {
-  priya: person('Priya', 'from-rose-200 to-pink-300'),
-  arjun: person('Arjun', 'from-amber-200 to-orange-300'),
-  maria: person('Maria', 'from-sky-200 to-blue-300'),
-  james: person('James', 'from-emerald-200 to-teal-300'),
-  aisha: person('Aisha', 'from-violet-200 to-purple-300'),
-  kenji: person('Kenji', 'from-cyan-200 to-sky-300'),
-  sofia: person('Sofia', 'from-fuchsia-200 to-pink-300'),
-  david: person('David', 'from-lime-200 to-emerald-300'),
-  meera: person('Meera', 'from-indigo-200 to-violet-300'),
-  liam: person('Liam', 'from-orange-200 to-rose-300'),
+  priya: person('Priya', 'from-rose-200 to-pink-300', 'Product lead', 'Standups and boards finally live in one place.'),
+  arjun: person('Arjun', 'from-amber-200 to-orange-300', 'Engineer', 'Automation cleared our triage queue overnight.'),
+  maria: person('Maria', 'from-sky-200 to-blue-300', 'Designer', 'The team sees what shipped without chasing chats.'),
+  james: person('James', 'from-emerald-200 to-teal-300', 'Engineering manager', 'Less status meetings, more shipping.'),
+  aisha: person('Aisha', 'from-violet-200 to-purple-300', 'PM', 'Recurring work just shows up — no spreadsheet.'),
+  kenji: person('Kenji', 'from-cyan-200 to-sky-300', 'Developer', 'AI drafts save me a first pass on every ticket.'),
+  sofia: person('Sofia', 'from-fuchsia-200 to-pink-300', 'Designer', 'Reviews and chat stay next to the work.'),
+  david: person('David', 'from-lime-200 to-emerald-300', 'Ops', 'Meetings and tasks finally share one timeline.'),
+  meera: person('Meera', 'from-indigo-200 to-violet-300', 'Engineer', 'I know who owns what without asking Slack.'),
+  liam: person('Liam', 'from-orange-200 to-rose-300', 'Tech lead', 'Velocity without the busywork tax.'),
 }

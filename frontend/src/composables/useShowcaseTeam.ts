@@ -7,6 +7,8 @@ import { bindSocketEvents } from '@/lib/socket-events'
 export interface ShowcasePortrait {
   id: string
   name: string
+  role: string
+  feedback: string
   tone: string
   imageUrl: string
   sortOrder: number
@@ -22,6 +24,8 @@ function toTeammates(portraits: ShowcasePortrait[]): Teammate[] {
     name: portrait.name,
     tone: portrait.tone,
     src: assetUrl(portrait.imageUrl) ?? portrait.imageUrl,
+    role: portrait.role || '',
+    feedback: portrait.feedback || '',
   }))
 }
 
@@ -49,7 +53,6 @@ function ensureShowcaseSocket() {
 function listenForShowcaseUpdates() {
   if (listening) return
   listening = true
-  // Module-level: keep listening across About / login / super-admin navigations.
   bindSocketEvents({
     'showcase:updated': (payload: { portraits?: ShowcasePortrait[] }) => {
       applyPortraits(payload?.portraits ?? [])
@@ -57,7 +60,7 @@ function listenForShowcaseUpdates() {
   })
 }
 
-/** Uploaded showcase portraits for auth/marketing rich UI; falls back to built-in avatars. Live via Socket.IO. */
+/** Uploaded showcase people + feedback for auth/marketing rich UI. Live via Socket.IO. */
 export function useShowcaseTeam() {
   const portraits = ensureCache()
   ensureShowcaseSocket()
@@ -77,9 +80,10 @@ export function useShowcaseTeam() {
   })
 
   const community = computed(() => portraits.value.slice(0, 5))
+  const quotes = computed(() => portraits.value.filter((who) => who.feedback?.trim()).slice(0, 4))
   const byIndex = (index: number) => portraits.value[index % portraits.value.length] ?? FALLBACK[0]!
 
-  return { portraits, community, byIndex, fallback: FALLBACK }
+  return { portraits, community, quotes, byIndex, fallback: FALLBACK }
 }
 
 export async function reloadShowcaseTeam() {
@@ -87,10 +91,6 @@ export async function reloadShowcaseTeam() {
   try {
     applyPortraits(await fetchPortraits())
   } catch {
-    applyCacheFallback()
+    ensureCache().value = [...FALLBACK]
   }
-}
-
-function applyCacheFallback() {
-  ensureCache().value = [...FALLBACK]
 }
