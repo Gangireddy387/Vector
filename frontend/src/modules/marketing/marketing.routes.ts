@@ -3,6 +3,12 @@ import type { RouteRecordRaw } from 'vue-router'
 /** Public marketing / viral surfaces — no auth required. */
 export const marketingRoutes: RouteRecordRaw[] = [
   {
+    path: '/about',
+    name: 'landing',
+    component: () => import('./pages/LandingPage.vue'),
+    meta: { title: 'Vector' },
+  },
+  {
     path: '/pricing',
     name: 'pricing',
     component: () => import('./pages/PricingPage.vue'),

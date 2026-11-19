@@ -70,12 +70,12 @@ async function submit() {
       step === 1
         ? fromGuest
           ? 'You joined a meeting as a guest. Create a free workspace for your own team next.'
-          : 'Start on Free with the full workday loop — board, standup, chat, messages and meetings. Automation and AI unlock on Pro.'
-        : 'Your team’s own space in Vector, with its own address. Invite people and Start my day right after.'
+          : 'Free includes the workday loop. Automation and AI unlock on Pro.'
+        : 'Your team’s space with its own address. Invite people after.'
     "
   />
 
-  <ol class="mb-5 grid grid-cols-2 gap-2 text-xs short:mb-3" aria-label="Signup steps">
+  <ol class="mb-3 grid grid-cols-2 gap-2 text-xs short:mb-2" aria-label="Signup steps">
     <li
       v-for="(item, index) in [
         { label: 'Your account', icon: UserRound },
@@ -90,21 +90,21 @@ async function submit() {
     </li>
   </ol>
 
-  <form v-if="step === 1" class="space-y-4 short:space-y-3" novalidate @submit.prevent="continueToOrganization">
+  <form v-if="step === 1" class="space-y-3 short:space-y-2.5" novalidate @submit.prevent="continueToOrganization">
     <FormField label="Full name" for="name" :error="fieldErrors.name">
       <Input id="name" v-model="form.name" autocomplete="name" placeholder="Jane Doe" required />
     </FormField>
     <FormField label="Work email" for="email" :error="fieldErrors.email">
       <Input id="email" v-model="form.email" type="email" autocomplete="email" placeholder="you@company.com" required />
     </FormField>
-    <FormField label="Password" for="password" :error="fieldErrors.password" hint="At least 8 characters with a letter and a number.">
+    <FormField label="Password" for="password" :error="fieldErrors.password" hint="8+ characters, letter and number.">
       <PasswordInput id="password" v-model="form.password" autocomplete="new-password" required show-strength />
     </FormField>
     <p v-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
     <Button type="submit" variant="brand" class="w-full" size="lg">Continue</Button>
   </form>
 
-  <form v-else class="space-y-4 short:space-y-3" novalidate @submit.prevent="submit">
+  <form v-else class="space-y-3 short:space-y-2.5" novalidate @submit.prevent="submit">
     <OrganizationFields v-model:name="form.organizationName" v-model:slug="form.organizationSlug" v-model:available="slugAvailable" :errors="fieldErrors" autofocus />
     <p v-if="errorMessage" class="bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
     <div class="flex gap-2">
@@ -128,7 +128,7 @@ async function submit() {
     </p>
   </form>
 
-  <p class="mt-6 text-center text-sm text-muted-foreground short:mt-4">
+  <p class="mt-3 text-center text-sm text-muted-foreground short:mt-2">
     Already have an account?
     <RouterLink :to="{ name: 'login' }" class="font-medium text-primary hover:underline">Sign in</RouterLink>
     ·

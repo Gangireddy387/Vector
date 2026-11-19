@@ -281,7 +281,11 @@ async function sendInvite() {
       <CardHeader>
         <CardTitle>Invite people</CardTitle>
         <CardDescription>
-          They join {{ organizationName }} and land on Start my day. New people get an email to set up their account.
+          They join {{ organizationName }} and land on Start my day.
+          <template v-if="auth.hasFeature('emailInvitations')"> New people get an email to set up their account.</template>
+          <template v-else>
+            Invitation emails are off on this plan — you’ll get a link to share after inviting.
+          </template>
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-3">

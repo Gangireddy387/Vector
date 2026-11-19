@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Bell, CalendarDays, Download, KeyRound, Monitor, Moon, Palette, Sun, SunDim, Trash2, UserRound, Volume2 } from 'lucide-vue-next'
 import { computed, reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
@@ -25,6 +25,7 @@ import CalendarConnectionsCard from '../components/CalendarConnectionsCard.vue'
 import IntegrationsHealthCard from '../components/IntegrationsHealthCard.vue'
 import MfaSettingsCard from '../components/MfaSettingsCard.vue'
 import ProfilePhotoField from '../components/ProfilePhotoField.vue'
+import EmailEntitlementsCard from '../components/EmailEntitlementsCard.vue'
 import QuietHoursCard from '../components/QuietHoursCard.vue'
 import SoundSettingsCard from '../components/SoundSettingsCard.vue'
 import SkillsInput from '../components/SkillsInput.vue'
@@ -86,28 +87,53 @@ const activeSection = computed({
   },
 })
 
-const NOTIFICATION_PREFS = [
+type PrefKey = 'emailNotifications' | 'dailyDigest' | 'weeklyReportsEmail' | 'pushEnabled'
+
+const NOTIFICATION_PREFS: Array<{
+  key: PrefKey
+  title: string
+  description: string
+  /** Plan feature that must be on for this toggle to send mail. */
+  planKey?: 'emailNotifications' | 'emailDigest' | 'reports'
+}> = [
   {
-    key: 'emailNotifications' as const,
+    key: 'emailNotifications',
     title: 'Email notifications',
     description: 'Assignments, mentions, due-date reminders and completed work you watch.',
+    planKey: 'emailNotifications',
   },
   {
-    key: 'pushEnabled' as const,
+    key: 'pushEnabled',
     title: 'Push notifications',
     description: 'Mentions, standups, due dates and similar alerts on this device when Vector is closed.',
   },
   {
-    key: 'dailyDigest' as const,
+    key: 'dailyDigest',
     title: 'Daily digest',
     description: 'A short 8:00 email with what is overdue, due today and coming up.',
+    planKey: 'emailDigest',
   },
   {
-    key: 'weeklyReportsEmail' as const,
+    key: 'weeklyReportsEmail',
     title: 'Weekly reports email',
     description: 'A Monday morning overview of open work, completions and overdue tasks.',
+    planKey: 'reports',
   },
 ]
+
+function prefLocked(item: (typeof NOTIFICATION_PREFS)[number]) {
+  if (!item.planKey) return false
+  if (item.planKey === 'emailNotifications') {
+    return !auth.hasFeature('emailNotifications') && !auth.hasFeature('emailReminders')
+  }
+  return !auth.hasFeature(item.planKey)
+}
+
+const planSettingsLink = computed(() =>
+  auth.isOrganizationAdmin
+    ? { name: 'workspace-admin' as const, query: { tab: 'plan' } }
+    : { name: 'org-plan' as const },
+)
 
 const isExporting = ref(false)
 const isDeleteOpen = ref(false)
@@ -354,6 +380,7 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
 
       <template #notifications>
         <div class="w-full space-y-3">
+          <EmailEntitlementsCard />
           <Card class="gap-3">
             <CardHeader class="border-b border-border/60 pb-3">
               <CardTitle>Notifications</CardTitle>
@@ -366,16 +393,24 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
                 <label
                   v-for="(item, index) in NOTIFICATION_PREFS"
                   :key="item.key"
-                  class="flex cursor-pointer items-start justify-between gap-4 px-3.5 py-3 transition-colors hover:bg-muted/35"
-                  :class="index > 0 && 'border-t border-border/70'"
+                  class="flex items-start justify-between gap-4 px-3.5 py-3 transition-colors"
+                  :class="[
+                    index > 0 && 'border-t border-border/70',
+                    prefLocked(item) ? 'cursor-not-allowed bg-muted/20 opacity-80' : 'cursor-pointer hover:bg-muted/35',
+                  ]"
                 >
                   <span class="min-w-0">
                     <span class="block text-sm font-medium">{{ item.title }}</span>
                     <span class="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{{ item.description }}</span>
+                    <span v-if="prefLocked(item)" class="mt-1 block text-xs text-amber-800 dark:text-amber-200">
+                      Not on your organization’s plan.
+                      <RouterLink :to="planSettingsLink" class="font-medium text-primary hover:underline">View plan</RouterLink>
+                    </span>
                   </span>
                   <Switch
                     class="mt-0.5"
-                    :model-value="preferenceValue(item.key)"
+                    :model-value="prefLocked(item) ? false : preferenceValue(item.key)"
+                    :disabled="prefLocked(item)"
                     @update:model-value="(value: boolean) => setPreference(item.key, value)"
                   />
                 </label>

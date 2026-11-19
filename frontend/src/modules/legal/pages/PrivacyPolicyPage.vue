@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
+import BrandOrbitShell from '@/components/layout/BrandOrbitShell.vue'
+import { Button } from '@/components/ui/button'
 import { LEGAL } from '@/constants/legal'
 import LegalDocument, { type LegalSection } from '../components/LegalDocument.vue'
 
@@ -21,7 +24,26 @@ const SECTIONS: LegalSection[] = [
 </script>
 
 <template>
+  <BrandOrbitShell
+    variant="sheet"
+    :show-radar="false"
+    eyebrow="Legal · Privacy"
+    headline="Your data,"
+    headline-accent="your control."
+    description="We collect only what we need to run Vector. We never sell your data and we do not use advertising trackers."
+    header-hint="Work management for every team"
+  >
+    <template #header-actions>
+      <Button variant="ghost" size="sm" class="hidden text-inherit hover:bg-white/10 sm:inline-flex lg:text-white lg:hover:bg-white/10" as-child>
+        <RouterLink :to="{ name: 'landing' }">About</RouterLink>
+      </Button>
+      <Button variant="ghost" size="sm" class="hidden text-inherit hover:bg-white/10 sm:inline-flex lg:text-white lg:hover:bg-white/10" as-child>
+        <RouterLink :to="{ name: 'terms' }">Terms</RouterLink>
+      </Button>
+    </template>
+
   <LegalDocument
+    embedded
     title="Privacy Policy"
     :summary="`This policy explains what personal information ${LEGAL.productName} collects when you use it, why, who it is shared with and the choices you have. We collect only what we need to run the service, we never sell your data and we do not use advertising trackers.`"
     :sections="SECTIONS"
@@ -151,4 +173,13 @@ const SECTIONS: LegalSection[] = [
       <template v-if="LEGAL.postalAddress"> · {{ LEGAL.companyName }}, {{ LEGAL.postalAddress }}</template>.
     </p>
   </LegalDocument>
+
+    <template #footer>
+      <nav class="flex flex-wrap justify-end gap-x-3 gap-y-1">
+        <RouterLink :to="{ name: 'landing' }" class="hover:text-foreground hover:underline lg:hover:text-white">About</RouterLink>
+        <RouterLink :to="{ name: 'terms' }" class="hover:text-foreground hover:underline lg:hover:text-white">Terms</RouterLink>
+        <RouterLink :to="{ name: 'pricing' }" class="hover:text-foreground hover:underline lg:hover:text-white">Pricing</RouterLink>
+      </nav>
+    </template>
+  </BrandOrbitShell>
 </template>

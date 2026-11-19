@@ -10,8 +10,11 @@ import { getErrorMessage } from '@/lib/http'
 import { PLAN_FEATURES } from '@/lib/plan-features'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import UsageMeters from '@/modules/plan/components/UsageMeters.vue'
+import EmailEntitlementsCard from '@/modules/settings/components/EmailEntitlementsCard.vue'
 import { type UpgradeTarget, workspaceApi } from '../admin.api'
 import RequestUpgradeButton from './RequestUpgradeButton.vue'
+
+const appFeatures = PLAN_FEATURES.filter((feature) => feature.group === 'app')
 
 /** The organization's plan as the super admin set it: limits with current usage, and included features. */
 const auth = useAuthStore()
@@ -269,7 +272,7 @@ const seatNearHint = computed(() =>
       <CardContent>
         <ul v-if="overview" class="grid gap-2 sm:grid-cols-2">
           <li
-            v-for="feature in PLAN_FEATURES"
+            v-for="feature in appFeatures"
             :key="feature.key"
             class="flex items-center gap-3 border p-3"
             :class="overview.entitlements.features[feature.key] ? 'border-border/70' : 'border-dashed border-border/60 opacity-70'"
@@ -291,6 +294,16 @@ const seatNearHint = computed(() =>
             </span>
           </li>
         </ul>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Emails</CardTitle>
+        <CardDescription>Which transactional emails this plan sends through SendGrid.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <EmailEntitlementsCard bare :features="overview?.entitlements.features ?? null" />
       </CardContent>
     </Card>
   </div>

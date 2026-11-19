@@ -174,7 +174,9 @@ export const router = createRouter({
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.matched.some((record) => record.meta.requiresAuth) && !auth.isAuthenticated) {
-    return { name: 'login', query: to.fullPath !== '/' ? { redirect: to.fullPath } : {} }
+    // Guests hitting the app root see the marketing home; deep links still go to login.
+    if (to.path === '/' || to.name === 'home') return { name: 'landing' }
+    return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (to.meta.guestOnly && auth.isAuthenticated) return { name: 'home' }
   if (to.meta.requiresSuperAdmin && !auth.isSuperAdmin) return { name: 'home' }

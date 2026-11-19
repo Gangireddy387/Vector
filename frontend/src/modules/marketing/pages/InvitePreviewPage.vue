@@ -73,7 +73,7 @@ async function copyWorkspaceLink() {
     />
     <div class="relative mx-auto flex min-h-svh w-full max-w-lg flex-col px-4 py-6 sm:px-6 sm:py-10">
       <header class="flex items-center justify-between gap-3">
-        <RouterLink :to="{ name: 'workday-preview' }" class="inline-flex items-center gap-2.5" aria-label="Vector workday">
+        <RouterLink :to="{ name: 'landing' }" class="inline-flex items-center gap-2.5" aria-label="Vector home">
           <BrandMark class="size-8" />
           <span class="text-lg font-semibold tracking-tight">Vector</span>
         </RouterLink>

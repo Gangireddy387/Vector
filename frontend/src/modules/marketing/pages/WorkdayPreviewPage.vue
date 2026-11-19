@@ -1,17 +1,12 @@
 <script setup lang="ts">
-import { ArrowRight } from 'lucide-vue-next'
+import { ArrowRight, ClipboardList, ListTodo, MessageCircle, Video } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import BrandMark from '@/components/layout/BrandMark.vue'
-import ThemeSwitch from '@/components/layout/ThemeSwitch.vue'
+import BrandOrbitShell from '@/components/layout/BrandOrbitShell.vue'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/modules/auth/auth.store'
-import WorkdayLoopDemo from '../components/WorkdayLoopDemo.vue'
 
-/**
- * Public shareable surface: Vector’s workday loop without signup.
- * Linked from guest join, invite preview, and shareable /workday.
- */
+/** Public shareable surface — same rich orbit as About / sign-in. */
 const auth = useAuthStore()
 const route = useRoute()
 
@@ -24,48 +19,76 @@ const ctaTo = computed(() => {
   }
 })
 const ctaLabel = computed(() => (auth.isAuthenticated ? 'Start my day' : 'Start free workspace'))
+
+const steps = [
+  { icon: ClipboardList, label: 'Standup', detail: 'Post blockers and plans' },
+  { icon: ListTodo, label: 'Tasks', detail: 'Clear overdue and due today' },
+  { icon: Video, label: 'Meetings', detail: 'Turn actions into tasks' },
+  { icon: MessageCircle, label: 'Messages', detail: 'Close the loop with people' },
+]
 </script>
 
 <template>
-  <div class="relative min-h-svh overflow-hidden bg-background text-foreground">
-    <div
-      class="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/12 via-background to-background"
-      aria-hidden="true"
-    />
-    <div class="relative mx-auto flex min-h-svh w-full max-w-3xl flex-col px-4 py-6 sm:px-6 sm:py-10">
-      <header class="flex items-center justify-between gap-3">
-        <RouterLink to="/" class="inline-flex items-center gap-2.5" aria-label="Vector home">
-          <BrandMark class="size-8" />
-          <span class="text-lg font-semibold tracking-tight">Vector</span>
-        </RouterLink>
-        <div class="flex items-center gap-2">
-          <ThemeSwitch />
-          <Button v-if="!auth.isAuthenticated" variant="ghost" size="sm" as-child>
-            <RouterLink :to="{ name: 'login' }">Sign in</RouterLink>
-          </Button>
-        </div>
-      </header>
+  <BrandOrbitShell
+    :show-radar="false"
+    eyebrow="Workday OS · Standup · Meetings"
+    headline="One loop"
+    headline-accent="every morning."
+    description="Standup → tasks → meetings → messages. Managers unblock people in minutes; the team feels Vector before noon."
+    header-hint="Work management for every team"
+  >
+    <template #header-actions>
+      <Button variant="ghost" size="sm" class="hidden text-inherit hover:bg-white/10 sm:inline-flex lg:text-white lg:hover:bg-white/10" as-child>
+        <RouterLink :to="{ name: 'landing' }">About</RouterLink>
+      </Button>
+      <Button v-if="!auth.isAuthenticated" variant="ghost" size="sm" class="text-inherit hover:bg-white/10 lg:text-white lg:hover:bg-white/10" as-child>
+        <RouterLink :to="{ name: 'login' }">Sign in</RouterLink>
+      </Button>
+    </template>
 
-      <main class="flex flex-1 flex-col justify-center gap-8 py-10 sm:py-14">
-        <div class="space-y-3 text-center sm:text-left">
-          <p class="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Workday OS</p>
-          <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">One loop every morning</h1>
-          <p class="max-w-xl text-sm text-muted-foreground sm:text-base">
-            Standup → tasks → meetings → messages. Managers unblock people in minutes; the team feels Vector working before noon.
-          </p>
-        </div>
+    <div class="space-y-4 text-center">
+      <div class="space-y-2">
+        <p class="text-xs font-semibold tracking-[0.16em] text-primary uppercase">Workday OS</p>
+        <h1 class="text-2xl font-semibold tracking-tight sm:text-[1.65rem]">One loop every morning</h1>
+        <p class="text-sm leading-relaxed text-muted-foreground">
+          Free includes the full loop. No card needed.
+        </p>
+      </div>
 
-        <WorkdayLoopDemo :cta-to="ctaTo" :cta-label="ctaLabel" />
+      <ul class="grid grid-cols-2 gap-2 text-left">
+        <li
+          v-for="step in steps"
+          :key="step.label"
+          class="rounded-xl border border-border/70 bg-background/50 px-2.5 py-2"
+        >
+          <span class="flex items-center gap-1.5 text-xs font-semibold">
+            <component :is="step.icon" class="size-3.5 text-primary" />
+            {{ step.label }}
+          </span>
+          <span class="mt-0.5 block text-[11px] leading-snug text-muted-foreground">{{ step.detail }}</span>
+        </li>
+      </ul>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Button variant="brand" size="lg" class="sm:min-w-56" as-child>
-            <RouterLink :to="ctaTo">{{ ctaLabel }} <ArrowRight /></RouterLink>
-          </Button>
-          <Button v-if="!auth.isAuthenticated" variant="outline" size="lg" as-child>
-            <RouterLink :to="{ name: 'login' }">I already have an account</RouterLink>
-          </Button>
-        </div>
-      </main>
+      <div class="flex flex-col gap-2.5">
+        <Button variant="brand" size="lg" class="w-full" as-child>
+          <RouterLink :to="ctaTo">{{ ctaLabel }} <ArrowRight /></RouterLink>
+        </Button>
+        <Button v-if="!auth.isAuthenticated" variant="outline" size="lg" class="w-full" as-child>
+          <RouterLink :to="{ name: 'login' }">I already have an account</RouterLink>
+        </Button>
+        <Button variant="ghost" size="sm" class="w-full" as-child>
+          <RouterLink :to="{ name: 'pricing' }">See pricing</RouterLink>
+        </Button>
+      </div>
     </div>
-  </div>
+
+    <template #footer>
+      <nav class="flex flex-wrap justify-end gap-x-3 gap-y-1">
+        <RouterLink :to="{ name: 'landing' }" class="hover:text-foreground hover:underline lg:hover:text-white">About</RouterLink>
+        <RouterLink :to="{ name: 'pricing' }" class="hover:text-foreground hover:underline lg:hover:text-white">Pricing</RouterLink>
+        <RouterLink :to="{ name: 'developers' }" class="hover:text-foreground hover:underline lg:hover:text-white">Developers</RouterLink>
+        <RouterLink :to="{ name: 'privacy' }" class="hover:text-foreground hover:underline lg:hover:text-white">Privacy</RouterLink>
+      </nav>
+    </template>
+  </BrandOrbitShell>
 </template>

@@ -13,6 +13,9 @@ import RequestUpgradeButton from '@/modules/admin/components/RequestUpgradeButto
 import { type UpgradeTarget, workspaceApi } from '@/modules/admin/admin.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import UsageMeters from '@/modules/plan/components/UsageMeters.vue'
+import EmailEntitlementsCard from '@/modules/settings/components/EmailEntitlementsCard.vue'
+
+const appFeatures = PLAN_FEATURES.filter((feature) => feature.group === 'app')
 
 /** Read-only plan overview for every org member (billing stays admin-only). */
 const auth = useAuthStore()
@@ -52,7 +55,7 @@ const isEnterprise = computed(() => String(planName.value).toLowerCase() === 'en
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-3xl space-y-4 p-3 sm:space-y-5 sm:p-5 lg:p-6">
+  <div class="w-full space-y-4 p-3 sm:space-y-5 sm:p-5 lg:p-6">
     <PageHeader
       title="Plan"
       :description="`${auth.organization?.name ?? 'Your organization'} is on ${planName}.`"
@@ -136,7 +139,7 @@ const isEnterprise = computed(() => String(planName.value).toLowerCase() === 'en
       <CardContent>
         <ul v-if="overview" class="grid gap-2 sm:grid-cols-2">
           <li
-            v-for="feature in PLAN_FEATURES"
+            v-for="feature in appFeatures"
             :key="feature.key"
             class="flex items-center gap-3 border p-3"
             :class="overview.entitlements.features[feature.key] ? 'border-border/70' : 'border-dashed border-border/60 opacity-70'"
@@ -160,6 +163,16 @@ const isEnterprise = computed(() => String(planName.value).toLowerCase() === 'en
         <div v-else class="grid gap-2 sm:grid-cols-2">
           <Skeleton v-for="index in 6" :key="index" class="h-16" />
         </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Emails</CardTitle>
+        <CardDescription>Which transactional emails this plan sends.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <EmailEntitlementsCard bare :features="overview?.entitlements.features ?? null" />
       </CardContent>
     </Card>
   </div>

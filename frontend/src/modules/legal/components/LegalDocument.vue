@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowLeft, ChevronDown } from 'lucide-vue-next'
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import AppLogo from '@/components/layout/AppLogo.vue'
 import { LEGAL } from '@/constants/legal'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -10,10 +11,13 @@ export interface LegalSection {
   title: string
 }
 
-const props = defineProps<{ title: string; summary: string; sections: LegalSection[] }>()
+const props = withDefaults(
+  defineProps<{ title: string; summary: string; sections: LegalSection[]; /** Inside BrandOrbitShell — no page chrome. */ embedded?: boolean }>(),
+  { embedded: false },
+)
 
 const auth = useAuthStore()
-const backTo = computed(() => (auth.isAuthenticated ? { name: 'home' } : { name: 'login' }))
+const backTo = computed(() => (auth.isAuthenticated ? { name: 'home' } : { name: 'landing' }))
 const year = new Date().getFullYear()
 
 function goToSection(id: string) {
@@ -23,8 +27,8 @@ function goToSection(id: string) {
 </script>
 
 <template>
-  <div class="min-h-dvh bg-background">
-    <header class="glass sticky top-0 z-30 border-b border-border/60 pt-safe">
+  <div :class="embedded ? 'min-w-0' : 'min-h-dvh bg-background'">
+    <header v-if="!embedded" class="glass sticky top-0 z-30 border-b border-border/60 pt-safe">
       <div class="mx-auto flex h-14 w-full max-w-[90rem] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <AppLogo />
         <RouterLink :to="backTo" class="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
@@ -33,13 +37,16 @@ function goToSection(id: string) {
       </div>
     </header>
 
-    <div class="mx-auto grid w-full max-w-[90rem] gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:px-8">
-      <div class="lg:hidden">
+    <div
+      class="grid w-full gap-6"
+      :class="embedded ? 'gap-4' : 'mx-auto max-w-[90rem] gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:px-8'"
+    >
+      <div :class="embedded ? '' : 'lg:hidden'">
         <label class="mb-1.5 block text-xs font-semibold tracking-wider text-muted-foreground uppercase" for="legal-toc">On this page</label>
         <div class="relative">
           <select
             id="legal-toc"
-            class="h-10 w-full appearance-none rounded-md border border-border bg-card px-3 pr-9 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
+            class="h-10 w-full appearance-none rounded-md border border-border bg-card/80 px-3 pr-9 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30"
             :value="''"
             @change="goToSection(($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''"
           >
@@ -50,7 +57,7 @@ function goToSection(id: string) {
         </div>
       </div>
 
-      <nav class="hidden lg:block" aria-label="On this page">
+      <nav v-if="!embedded" class="hidden lg:block" aria-label="On this page">
         <div class="sticky top-24 space-y-1 text-sm">
           <p class="mb-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">On this page</p>
           <a
@@ -64,7 +71,7 @@ function goToSection(id: string) {
         </div>
       </nav>
 
-      <article class="legal-body min-w-0 max-w-4xl">
+      <article class="legal-body min-w-0" :class="embedded ? '' : 'max-w-4xl'">
         <p class="text-xs font-semibold tracking-wider text-primary uppercase">Legal</p>
         <h1>{{ title }}</h1>
         <p class="text-sm text-muted-foreground">Effective {{ LEGAL.effectiveDate }} · {{ LEGAL.companyName }}</p>
@@ -73,7 +80,7 @@ function goToSection(id: string) {
       </article>
     </div>
 
-    <footer class="border-t border-border/60">
+    <footer v-if="!embedded" class="border-t border-border/60">
       <div class="mx-auto flex h-14 w-full max-w-[90rem] items-center justify-between gap-4 px-4 text-xs text-muted-foreground sm:px-6 lg:px-8">
         <span>© {{ year }} {{ LEGAL.companyName }}</span>
         <nav class="flex gap-4" aria-label="Legal">

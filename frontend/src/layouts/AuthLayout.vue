@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { useMediaQuery, useResizeObserver } from '@vueuse/core'
 import { Bot, CalendarSync, Check, MessageCircle, Sparkles, ThumbsUp, Zap } from 'lucide-vue-next'
-import { onMounted, ref, type Component } from 'vue'
+import { nextTick, onMounted, ref, watch, type Component } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import AppLogo from '@/components/layout/AppLogo.vue'
 import FeaturePreview from '@/components/layout/FeaturePreview.vue'
 import FeatureRadar from '@/components/layout/FeatureRadar.vue'
@@ -11,8 +12,11 @@ import ThemeSwitch from '@/components/layout/ThemeSwitch.vue'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 
 const workspace = useWorkspaceStore()
+const route = useRoute()
 const year = new Date().getFullYear()
 const isPhone = useMediaQuery('(max-width: 39.99rem)')
+const authCardEl = ref<HTMLElement>()
+const authCardBodyEl = ref<HTMLElement>()
 
 /*
  * Pills floating just outside the radar, in the gaps between its feature icons. `x` and `y` are the point next to the
@@ -167,10 +171,43 @@ function arrange() {
   offStage.value = away
 }
 
-useResizeObserver([stageEl, radarEl], () => arrange())
+/** Scale the glass form so register/login fit the disc without an inner scrollbar. */
+function fitAuthCard() {
+  const card = authCardEl.value
+  const body = authCardBodyEl.value
+  if (!card || !body || isPhone.value) {
+    card?.style.removeProperty('--compact')
+    return
+  }
+  card.style.setProperty('--compact', '1')
+  // Force layout at full size, then shrink until content fits the disc.
+  void card.offsetHeight
+  const room = card.clientHeight * 0.88
+  const need = body.scrollHeight
+  if (need <= room || room <= 0) return
+  const scale = Math.min(1, Math.max(0.68, room / need))
+  card.style.setProperty('--compact', String(Number(scale.toFixed(3))))
+}
+
+useResizeObserver([stageEl, radarEl], () => {
+  arrange()
+  void nextTick(fitAuthCard)
+})
+useResizeObserver([authCardEl, authCardBodyEl], () => void nextTick(fitAuthCard))
+watch(
+  () => route.fullPath,
+  async () => {
+    await nextTick()
+    fitAuthCard()
+  },
+)
 onMounted(() => {
   arrange()
-  void document.fonts?.ready.then(arrange)
+  void nextTick(fitAuthCard)
+  void document.fonts?.ready.then(() => {
+    arrange()
+    fitAuthCard()
+  })
 })
 
 /* Tablets and phones show every feature card in a strip that scrolls by on its own. */
@@ -351,13 +388,15 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
       </div>
 
       <!-- The form, in the middle of the radar -->
-      <main class="relative z-10 flex w-full min-h-0 flex-col px-4 pb-4 sm:px-12 lg:col-[2/3] lg:row-[1/2] lg:overflow-y-auto lg:px-0 lg:py-6">
-        <div class="flex flex-1 flex-col items-center justify-center py-3 short:py-2 sm:py-6 lg:py-0">
-          <div class="auth-card w-full sm:max-w-[22rem] lg:text-card-foreground">
+      <main class="relative z-10 flex w-full min-h-0 flex-col px-4 pb-4 sm:px-12 lg:col-[2/3] lg:row-[1/2] lg:overflow-hidden lg:px-0 lg:py-2">
+        <div class="flex flex-1 flex-col items-center justify-center py-3 short:py-2 sm:py-4 lg:py-0">
+          <div ref="authCardEl" class="auth-card w-full sm:max-w-[22rem] lg:text-card-foreground">
             <span class="auth-card-sheen" aria-hidden="true" />
-            <div class="auth-card-body">
+            <div ref="authCardBodyEl" class="auth-card-body">
               <RouterView />
-              <nav class="mt-3 flex items-center justify-center gap-3 text-xs text-muted-foreground" aria-label="Legal">
+              <nav class="mt-2 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-[11px] text-muted-foreground lg:hidden" aria-label="Legal">
+                <RouterLink :to="{ name: 'landing' }" class="hover:text-foreground hover:underline">About</RouterLink>
+                <span aria-hidden="true">·</span>
                 <RouterLink :to="{ name: 'pricing' }" class="hover:text-foreground hover:underline">Pricing</RouterLink>
                 <span aria-hidden="true">·</span>
                 <RouterLink :to="{ name: 'developers' }" class="hover:text-foreground hover:underline">Developers</RouterLink>
@@ -437,9 +476,16 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
     </section>
 
     <footer
-      class="relative z-10 flex h-11 shrink-0 flex-wrap items-center justify-between gap-x-4 px-4 pb-safe text-xs text-muted-foreground sm:h-12 sm:px-12 lg:text-white/70 xl:px-16"
+      class="relative z-10 flex h-10 shrink-0 flex-wrap items-center justify-between gap-x-4 px-4 pb-safe text-xs text-muted-foreground sm:h-11 sm:px-12 lg:text-white/70 xl:px-16"
     >
       <span>© {{ year }} Vector</span>
+      <nav class="hidden items-center gap-x-3 lg:flex" aria-label="Legal">
+        <RouterLink :to="{ name: 'landing' }" class="hover:text-white hover:underline">About</RouterLink>
+        <RouterLink :to="{ name: 'pricing' }" class="hover:text-white hover:underline">Pricing</RouterLink>
+        <RouterLink :to="{ name: 'developers' }" class="hover:text-white hover:underline">Developers</RouterLink>
+        <RouterLink :to="{ name: 'privacy' }" class="hover:text-white hover:underline">Privacy</RouterLink>
+        <RouterLink :to="{ name: 'terms' }" class="hover:text-white hover:underline">Terms</RouterLink>
+      </nav>
     </footer>
   </div>
 </template>
@@ -540,18 +586,22 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
 @media (min-width: 64rem) {
   .auth-stage {
     /* Room is kept on both sides for the headline and the highlights. */
-    --radar: min(48rem, calc(100dvh - 6.5rem), calc(100vw - 32rem));
-    --disc: calc(var(--radar) * 0.78);
+    --radar: min(48rem, calc(100dvh - 5.5rem), calc(100vw - 32rem));
+    --disc: calc(var(--radar) * 0.82);
   }
   .radar-frame-small {
     display: none;
   }
 }
-/* Short desktop screens: a slightly larger disc and a more compact form, so even registering fits. */
+/* Shorter desktops: larger disc so register fits; JS also scales --compact. */
+@media (min-width: 64rem) and (max-height: 900px) {
+  .auth-stage {
+    --disc: calc(var(--radar) * 0.86);
+  }
+}
 @media (min-width: 64rem) and (max-height: 760px) {
   .auth-stage {
-    --disc: calc(var(--radar) * 0.8);
-    --compact: 0.86;
+    --disc: calc(var(--radar) * 0.9);
   }
 }
 /* Tablets: circular glass disc sized to the viewport. */
@@ -599,10 +649,20 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
 /* The form inside the disc: as wide as the circle allows at its middle, scrolling when taller than it. */
 .auth-card-body {
   zoom: var(--compact, 1);
-  width: calc(var(--disc) * 0.65 / var(--compact, 1));
-  max-height: calc(var(--disc) * 0.9 / var(--compact, 1));
+  width: calc(var(--disc) * 0.68 / var(--compact, 1));
+  max-height: calc(var(--disc) * 0.88 / var(--compact, 1));
+  overflow-x: hidden;
   overflow-y: auto;
-  padding: 0.5rem 0.25rem;
+  padding: 0.35rem 0.2rem;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--muted-foreground) 35%, transparent) transparent;
+}
+.auth-card-body::-webkit-scrollbar {
+  width: 4px;
+}
+.auth-card-body::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--muted-foreground) 35%, transparent);
+  border-radius: 999px;
 }
 
 .dark .auth-card {

@@ -231,8 +231,11 @@ export const PLAN_FEATURES: PlanFeature[] = [
     description: 'A morning summary for people who turn it on in Settings',
     icon: Newspaper,
     group: 'email',
-    includes: [{ name: 'Daily digest', detail: 'At 8:00 local time: overdue, due today, due this week and in-progress tasks' }],
-    whenOff: 'The Daily digest setting has no effect for this organization’s work.',
+    includes: [
+      { name: 'Daily digest', detail: 'At 8:00 local time: overdue, due today, due this week and in-progress tasks' },
+      { name: 'Workday nudge email', detail: 'Day 2 / day 7 habit reminder email when someone has not started their day' },
+    ],
+    whenOff: 'The Daily digest setting has no effect for this organization’s work. Workday nudges still appear in the Inbox.',
   },
   {
     key: 'emailAutomations',
