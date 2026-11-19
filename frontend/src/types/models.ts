@@ -593,3 +593,51 @@ export interface SavedFilter {
   /** Applied automatically when Tasks opens with no URL filters (per person, per project/global). */
   isDefault?: boolean
 }
+
+export type GoalStatus = 'draft' | 'active' | 'completed' | 'cancelled'
+export type KeyResultMetricType = 'percent' | 'number' | 'binary' | 'linked_progress'
+
+export interface KeyResultLink {
+  id: string
+  keyResultId: string
+  issueId: string
+  issue?: IssueReference & { status?: StatusSummary; projectId?: string }
+}
+
+export interface KeyResult {
+  id: string
+  goalId: string
+  title: string
+  metricType: KeyResultMetricType
+  startValue: number
+  targetValue: number
+  currentValue: number
+  unit: string | null
+  ownerId: string | null
+  owner?: UserSummary | null
+  position: number
+  progress: number
+  linkedDone?: number | null
+  linkedTotal?: number | null
+  links?: KeyResultLink[]
+}
+
+export interface Goal {
+  id: string
+  organizationId: string
+  projectId: string | null
+  project?: ProjectReference | null
+  title: string
+  description: string | null
+  ownerId: string | null
+  owner?: UserSummary | null
+  createdById: string | null
+  status: GoalStatus
+  periodStart: string | null
+  periodEnd: string | null
+  position: number
+  progress: number
+  keyResults: KeyResult[]
+  createdAt?: string
+  updatedAt?: string
+}

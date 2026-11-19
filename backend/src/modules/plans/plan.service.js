@@ -185,6 +185,16 @@ async function unlockRoadmap() {
   }
 }
 
+/** Plans that already include roadmap also get goals/OKRs when the switch is introduced. */
+async function unlockGoals() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.goals || !features.roadmap) continue;
+    await plan.update({ features: { ...features, goals: true } });
+    console.info(`[plans] ${plan.name} plan now includes goals`);
+  }
+}
+
 export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
@@ -193,6 +203,7 @@ export async function ensureDefaultPlans() {
     await unlockCustomFields();
     await unlockCustomRoles();
     await unlockRoadmap();
+    await unlockGoals();
     return;
   }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);

@@ -123,7 +123,6 @@ function reset() {
         size="sm"
         class="max-sm:w-full sm:w-40"
         :clearable="false"
-        display-format="d MMM yyyy"
         aria-label="From"
         @update:model-value="(value) => value && setCustomDate('from', value)"
       />
@@ -133,7 +132,6 @@ function reset() {
         size="sm"
         class="max-sm:w-full sm:w-40"
         :clearable="false"
-        display-format="d MMM yyyy"
         aria-label="To"
         @update:model-value="(value) => value && setCustomDate('to', value)"
       />

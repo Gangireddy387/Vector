@@ -43,9 +43,9 @@ function setDate(key: keyof Period, value: string) {
   <div class="flex flex-wrap items-center gap-2">
     <SelectField :model-value="preset" :options="options" size="sm" class="w-44" aria-label="Review period" @update:model-value="choose" />
     <template v-if="preset === 'custom'">
-      <DatePicker :model-value="period.from" size="sm" class="w-40" :clearable="false" display-format="d MMM yyyy" aria-label="From" @update:model-value="(value) => setDate('from', value)" />
+      <DatePicker :model-value="period.from" size="sm" class="w-40" :clearable="false" aria-label="From" @update:model-value="(value) => setDate('from', value)" />
       <span class="text-xs text-muted-foreground">to</span>
-      <DatePicker :model-value="period.to" size="sm" class="w-40" :clearable="false" display-format="d MMM yyyy" aria-label="To" @update:model-value="(value) => setDate('to', value)" />
+      <DatePicker :model-value="period.to" size="sm" class="w-40" :clearable="false" aria-label="To" @update:model-value="(value) => setDate('to', value)" />
     </template>
   </div>
 </template>

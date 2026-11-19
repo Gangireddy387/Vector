@@ -278,7 +278,6 @@ async function setStatus(statusId: string) {
             :model-value="typeof customValue(field) === 'string' ? (customValue(field) as string) : ''"
             size="sm"
             placeholder="None"
-            display-format="d MMM yyyy"
             :disabled="!canEditCustomFields"
             @update:model-value="(value) => setCustomField(field.id, value || null)"
           />
@@ -339,7 +338,6 @@ async function setStatus(statusId: string) {
           :model-value="issue.startDate ?? ''"
           size="sm"
           placeholder="None"
-          display-format="d MMM yyyy"
           :disabled="!editable"
           @update:model-value="(value) => emit('update', { startDate: value || null })"
         />
@@ -350,7 +348,6 @@ async function setStatus(statusId: string) {
           :model-value="issue.dueDate ?? ''"
           size="sm"
           placeholder="None"
-          display-format="d MMM yyyy"
           :disabled="!editable"
           @update:model-value="(value) => emit('update', { dueDate: value || null })"
         />

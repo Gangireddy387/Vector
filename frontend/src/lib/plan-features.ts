@@ -17,6 +17,7 @@ import {
   Send,
   Shield,
   Sparkles,
+  Target,
   UsersRound,
   Video,
   Workflow,
@@ -33,6 +34,7 @@ export type PlanFeatureKey =
   | 'customRoles'
   | 'reports'
   | 'roadmap'
+  | 'goals'
   | 'chat'
   | 'directMessages'
   | 'teamChat'
@@ -99,6 +101,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     label: 'Roadmap & timeline',
     description: 'Timeline of epics and tasks by start and due dates',
     icon: CalendarDays,
+    group: 'app',
+  },
+  {
+    key: 'goals',
+    label: 'Goals & OKRs',
+    description: 'Organization objectives with measurable key results linked to work',
+    icon: Target,
     group: 'app',
   },
   { key: 'chat', label: 'Team chat & standups', description: 'Project chat, follow-ups and daily standups', icon: MessagesSquare, group: 'app' },

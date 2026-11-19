@@ -63,8 +63,8 @@ async function save() {
           <Textarea id="sprint-goal" v-model="form.goal" rows="2" placeholder="What should this sprint achieve?" />
         </FormField>
         <div class="grid grid-cols-2 gap-3">
-          <FormField label="Start" for="sprint-start" optional><DatePicker id="sprint-start" v-model="form.startDate" :clearable="false" display-format="d MMM yyyy" /></FormField>
-          <FormField label="End" for="sprint-end" optional><DatePicker id="sprint-end" v-model="form.endDate" :clearable="false" display-format="d MMM yyyy" /></FormField>
+          <FormField label="Start" for="sprint-start" optional><DatePicker id="sprint-start" v-model="form.startDate" :clearable="false" /></FormField>
+          <FormField label="End" for="sprint-end" optional><DatePicker id="sprint-end" v-model="form.endDate" :clearable="false" /></FormField>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" @click="open = false">Cancel</Button>

@@ -141,7 +141,6 @@ async function copySummary() {
           class="min-w-0 flex-1 sm:w-48 sm:flex-none"
           :clearable="false"
           :presets="false"
-          display-format="EEE, d MMM yyyy"
           aria-label="Standup day"
           @update:model-value="(value) => value && value <= today && (date = value)"
         />

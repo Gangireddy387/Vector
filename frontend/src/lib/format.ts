@@ -2,14 +2,14 @@ import { differenceInCalendarDays, format, formatDistanceToNowStrict, isValid, p
 
 const toDate = (value: string | Date) => (typeof value === 'string' ? parseISO(value) : value)
 
-export function formatDate(value?: string | Date | null, pattern = 'd MMM yyyy') {
+export function formatDate(value?: string | Date | null, pattern = 'dd/MM/yyyy') {
   if (!value) return '—'
   const date = toDate(value)
   return isValid(date) ? format(date, pattern) : '—'
 }
 
 export function formatDateTime(value?: string | Date | null) {
-  return formatDate(value, 'd MMM yyyy, HH:mm')
+  return formatDate(value, 'dd/MM/yyyy, HH:mm')
 }
 
 export function timeAgo(value?: string | Date | null) {

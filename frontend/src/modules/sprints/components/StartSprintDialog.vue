@@ -70,8 +70,8 @@ async function start() {
           <Textarea id="start-goal" v-model="form.goal" rows="2" />
         </FormField>
         <div class="grid grid-cols-2 gap-3">
-          <FormField label="Start date" for="start-date"><DatePicker id="start-date" v-model="form.startDate" :clearable="false" display-format="d MMM yyyy" /></FormField>
-          <FormField label="End date" for="end-date"><DatePicker id="end-date" v-model="form.endDate" :clearable="false" display-format="d MMM yyyy" /></FormField>
+          <FormField label="Start date" for="start-date"><DatePicker id="start-date" v-model="form.startDate" :clearable="false" /></FormField>
+          <FormField label="End date" for="end-date"><DatePicker id="end-date" v-model="form.endDate" :clearable="false" /></FormField>
         </div>
         <div class="flex flex-wrap gap-2">
           <Button v-for="days in DURATIONS" :key="days" type="button" variant="outline" size="xs" @click="setDuration(days)">

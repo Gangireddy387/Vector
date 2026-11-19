@@ -44,6 +44,7 @@ import { publicWorkspaceRoutes } from './modules/workspace/workspace.routes.js';
 import { organizationAdminRoutes, organizationRoutes, publicOrganizationRoutes } from './modules/organizations/organization.routes.js';
 import superAdminRoutes from './modules/super-admin/super-admin.routes.js';
 import supportCallRoutes from './modules/support/support-call.routes.js';
+import goalRoutes from './modules/goals/goal.routes.js';
 
 export function createApiRouter() {
   const router = Router();
@@ -103,6 +104,7 @@ export function createApiRouter() {
     messageRoutes,
     conversationFileRoutes,
     meetingRoutes,
+    goalRoutes,
     aiRoutes,
   ].forEach((moduleRouter) => router.use(moduleRouter));
 

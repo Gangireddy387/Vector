@@ -62,6 +62,7 @@ import {
   MeetingUpdate,
 } from '../modules/meetings/meeting.model.js';
 import { PushSubscription } from '../modules/push/push-subscription.model.js';
+import { Goal, KeyResult, KeyResultLink } from '../modules/goals/goal.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
 
@@ -272,6 +273,19 @@ MeetingCalendarLink.belongsTo(Meeting, { as: 'meeting', foreignKey: 'meetingId' 
 User.hasMany(CalendarConnection, { as: 'calendarConnections', foreignKey: 'userId', ...cascade });
 CalendarConnection.hasMany(MeetingCalendarLink, { as: 'links', foreignKey: 'connectionId', ...cascade });
 
+// Organization goals & key results (OKRs)
+Organization.hasMany(Goal, { as: 'goals', foreignKey: 'organizationId', ...cascade });
+Goal.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+Goal.belongsTo(Project, { as: 'project', foreignKey: 'projectId', onDelete: 'SET NULL', constraints: false });
+Goal.belongsTo(User, { as: 'owner', foreignKey: 'ownerId', onDelete: 'SET NULL' });
+Goal.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+Goal.hasMany(KeyResult, { as: 'keyResults', foreignKey: 'goalId', ...cascade });
+KeyResult.belongsTo(Goal, { as: 'goal', foreignKey: 'goalId' });
+KeyResult.belongsTo(User, { as: 'owner', foreignKey: 'ownerId', onDelete: 'SET NULL' });
+KeyResult.hasMany(KeyResultLink, { as: 'links', foreignKey: 'keyResultId', ...cascade });
+KeyResultLink.belongsTo(KeyResult, { as: 'keyResult', foreignKey: 'keyResultId' });
+KeyResultLink.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId', ...cascade });
+
 // Devices that receive this person's push notifications
 User.hasMany(PushSubscription, { as: 'pushSubscriptions', foreignKey: 'userId', ...cascade });
 
@@ -355,4 +369,7 @@ export {
   CalendarConnection,
   MeetingCalendarLink,
   PushSubscription,
+  Goal,
+  KeyResult,
+  KeyResultLink,
 };
