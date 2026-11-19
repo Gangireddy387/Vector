@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { BarChart3, CalendarDays, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, House, Inbox, LayoutGrid, ListTodo, MessageCircle, Network, Plus, Target, UserPlus, UsersRound, Video } from 'lucide-vue-next'
+import { BarChart3, BookOpen, CalendarDays, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, House, Inbox, LayoutGrid, ListTodo, MessageCircle, Network, Plus, Target, UserPlus, UsersRound, Video } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
@@ -106,6 +106,16 @@ const workspaceLinks = computed(() => [
     to: auth.hasFeature('portfolio')
       ? ({ name: 'portfolio' } as const)
       : ({ name: 'feature-locked', query: { feature: 'portfolio' } } as const),
+  },
+  {
+    name: 'wiki',
+    label: 'Wiki',
+    icon: BookOpen,
+    show: true,
+    locked: !auth.hasFeature('wiki'),
+    to: auth.hasFeature('wiki')
+      ? ({ name: 'wiki' } as const)
+      : ({ name: 'feature-locked', query: { feature: 'wiki' } } as const),
   },
   {
     name: 'departments',

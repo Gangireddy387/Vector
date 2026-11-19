@@ -81,6 +81,7 @@ const section = computed<SuperAdminSection>({
 const organizations = ref<ReviewedOrganization[] | null>(null)
 const plans = ref<Plan[] | null>(null)
 const isLoading = ref(false)
+const opsPanel = ref<InstanceType<typeof OpsPanel> | null>(null)
 const filter = ref<OrganizationStatus | 'all'>('all')
 const busyId = ref<string | null>(null)
 const openId = ref<string | null>(null)
@@ -106,7 +107,7 @@ const SECTIONS = [
 const HEADINGS = {
   organizations: { title: 'Organizations', text: 'Review every team that signs up, approve or reject it, and choose the plan it is on.' },
   plans: { title: 'Plans & access', text: 'Create plans, decide what each one includes, and set the default for new signups.' },
-  ops: { title: 'Ops signals', text: 'Stripe webhooks, background jobs and automation failures on this backend.' },
+  ops: { title: 'Ops', text: 'Payments, scheduled jobs, and automation health for this backend.' },
   profile: { title: 'Your profile', text: 'Your name and photo, as organization admins see them in the Vector team chat.' },
 } as const
 
@@ -170,6 +171,19 @@ useSocketEvents(
     },
   },
 )
+
+async function refresh() {
+  if (section.value === 'ops') {
+    isLoading.value = true
+    try {
+      await opsPanel.value?.reload()
+    } finally {
+      isLoading.value = false
+    }
+    return
+  }
+  await load()
+}
 
 async function load() {
   isLoading.value = true
@@ -455,13 +469,13 @@ function signOut() {
           >
             <Clock class="size-3.5" /> {{ pendingCount }} waiting
           </span>
-          <Button variant="outline" size="icon-sm" class="sm:hidden" :loading="isLoading" aria-label="Refresh" @click="load"><RefreshCw /></Button>
-          <Button variant="outline" size="sm" class="max-sm:hidden" :loading="isLoading" @click="load"><RefreshCw /> Refresh</Button>
+          <Button variant="outline" size="icon-sm" class="sm:hidden" :loading="isLoading" aria-label="Refresh" @click="refresh"><RefreshCw /></Button>
+          <Button variant="outline" size="sm" class="max-sm:hidden" :loading="isLoading" @click="refresh"><RefreshCw /> Refresh</Button>
         </div>
       </section>
 
       <PlansPanel v-if="section === 'plans'" :plans="plans" @changed="load" />
-      <OpsPanel v-else-if="section === 'ops'" />
+      <OpsPanel v-else-if="section === 'ops'" ref="opsPanel" />
       <SuperAdminProfile v-else-if="section === 'profile'" />
 
       <template v-else>

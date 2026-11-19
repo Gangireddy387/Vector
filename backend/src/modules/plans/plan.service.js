@@ -245,6 +245,16 @@ async function unlockWebhooks() {
   }
 }
 
+/** Plans that already include goals also get the shared wiki. */
+async function unlockWiki() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.wiki || !features.goals) continue;
+    await plan.update({ features: { ...features, wiki: true } });
+    console.info(`[plans] ${plan.name} plan now includes shared docs & wiki`);
+  }
+}
+
 export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
@@ -259,6 +269,7 @@ export async function ensureDefaultPlans() {
     await unlockChannelNotifications();
     await unlockVcsLinks();
     await unlockWebhooks();
+    await unlockWiki();
     return;
   }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);

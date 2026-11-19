@@ -64,12 +64,9 @@ const unlocks = computed(() =>
         <Button variant="outline" @click="router.push(fromLoop ? { name: 'home', query: { startDay: '1' } } : { name: 'home' })">
           {{ fromLoop ? 'Back to workday loop' : 'Back to Home' }}
         </Button>
-        <RequestUpgradeButton v-if="auth.isOrganizationAdmin" target="pro" size="default" />
-        <Button v-if="auth.isOrganizationAdmin" variant="outline" as-child>
-          <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'plan' } }"><Sparkles /> View plan</RouterLink>
-        </Button>
-        <Button v-else variant="outline" as-child>
-          <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'plan' } }">See plan</RouterLink>
+        <RequestUpgradeButton target="pro" size="default" />
+        <Button variant="outline" as-child>
+          <RouterLink :to="{ name: 'org-plan' }"><Sparkles /> View plan</RouterLink>
         </Button>
         <Button variant="ghost" as-child>
           <RouterLink :to="{ name: 'pricing' }" target="_blank">Compare plans</RouterLink>

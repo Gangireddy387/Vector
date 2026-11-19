@@ -32,9 +32,9 @@ const show = computed(() => lockedCore.value.length >= 1)
       </p>
       <CollabGuide dense />
       <div class="flex flex-wrap gap-2">
-        <RequestUpgradeButton v-if="auth.isOrganizationAdmin" target="pro" />
-        <Button v-else size="sm" variant="outline" as-child>
-          <RouterLink :to="{ name: 'workspace-admin', query: { tab: 'plan' } }">Ask admin to upgrade</RouterLink>
+        <RequestUpgradeButton target="pro" />
+        <Button size="sm" variant="outline" as-child>
+          <RouterLink :to="{ name: 'org-plan' }">View plan</RouterLink>
         </Button>
         <Button size="sm" variant="outline" as-child>
           <RouterLink :to="{ name: 'feature-locked', query: { feature: lockedCore } }">See what’s gated</RouterLink>

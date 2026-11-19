@@ -44,10 +44,11 @@ export function toastPlanLimit(
     action: {
       label: options.isAdmin ? label : 'View plan',
       onClick: () => {
-        void options.router.push({
-          name: 'workspace-admin',
-          query: { tab: 'plan', ...(options.isAdmin ? { request: target } : {}) },
-        })
+        void options.router.push(
+          options.isAdmin
+            ? { name: 'workspace-admin', query: { tab: 'plan', request: target } }
+            : { name: 'org-plan', query: { request: target } },
+        )
       },
     },
   })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, ChevronsUpDown, Link2, Plus, Settings2 } from 'lucide-vue-next'
+import { Check, ChevronsUpDown, Gem, Link2, Plus, Settings2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
@@ -89,6 +89,7 @@ async function copyLink() {
       <DropdownMenuSeparator />
       <DropdownMenuItem v-if="auth.canCreateOrganization" @select="router.push({ name: 'organization-create' })"><Plus /> Create organization</DropdownMenuItem>
       <DropdownMenuItem v-if="auth.organization" :title="organizationAddress(auth.organization.slug)" @select="copyLink"><Link2 /> Copy organization link</DropdownMenuItem>
+      <DropdownMenuItem v-if="auth.organization" @select="router.push({ name: 'org-plan' })"><Gem /> Plan</DropdownMenuItem>
       <DropdownMenuItem v-if="auth.canAccessWorkspaceAdmin" @select="router.push({ name: 'workspace-admin' })"><Settings2 /> Organization settings</DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>

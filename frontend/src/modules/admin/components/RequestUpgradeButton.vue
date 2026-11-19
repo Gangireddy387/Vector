@@ -78,6 +78,7 @@ const buttonLabel = computed(() => {
 })
 
 onMounted(async () => {
+  // Stripe checkout is admin-only; members can still request an upgrade.
   if ((props.target !== 'pro' && props.target !== 'enterprise' && props.target !== 'seats') || !auth.isOrganizationAdmin) return
   try {
     const status = await workspaceApi.billingStatus()
@@ -97,11 +98,7 @@ onMounted(async () => {
 })
 
 async function request() {
-  if (!auth.isOrganizationAdmin) {
-    toast.message('Ask an organization admin', { description: 'Only admins can change the plan.' })
-    return
-  }
-  if (canPay.value) {
+  if (auth.isOrganizationAdmin && canPay.value) {
     seatDialogOpen.value = true
     return
   }
@@ -116,7 +113,9 @@ async function request() {
     toast.success(result.alreadyPending ? 'Request already pending' : 'Request sent', {
       description: result.alreadyPending
         ? 'The portal admin already has this request.'
-        : 'Posted to Vector support and emailed the portal admin.',
+        : auth.isOrganizationAdmin
+          ? 'Posted to Vector support and emailed the portal admin.'
+          : 'Your organization admin and the portal team will see this request.',
     })
     emit('requested', result.upgradeRequest)
     emit('update')
@@ -132,7 +131,7 @@ async function request() {
   <Button
     :variant="isPending && !canPay ? 'outline' : variant"
     :size="size"
-    :disabled="isSending || (isPending && !canPay && !auth.isOrganizationAdmin)"
+    :disabled="isSending || (isPending && !canPay)"
     @click="request"
   >
     <LoaderCircle v-if="isSending" class="animate-spin" />

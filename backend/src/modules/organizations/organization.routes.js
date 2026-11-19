@@ -46,7 +46,7 @@ organizationAdminRoutes.get('/workspace/plan', requireOrganization, controller.s
 organizationAdminRoutes.get('/workspace/metrics/workday-nudges', requireOrgPermission('workspace.billing'), controller.showWorkdayNudgeMetrics);
 organizationAdminRoutes.post(
   '/workspace/plan/upgrade-request',
-  requireOrgPermission('workspace.billing'),
+  requireOrganization,
   validate({
     body: z.object({
       target: z.enum(['pro', 'enterprise', 'seats', 'projects']),

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, Building2, CalendarDays, Check, ChevronRight, ClipboardList, Crown, Download, FolderKanban, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck, Video } from 'lucide-vue-next'
+import { BarChart3, Building2, CalendarDays, Check, ChevronRight, ClipboardList, Crown, Download, FolderKanban, Gem, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck, Video } from 'lucide-vue-next'
 import { computed } from 'vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useDevice } from '@/composables/useDevice'
@@ -29,6 +29,7 @@ const LINKS = computed(() => [
   ...(auth.hasFeature('reports') ? [{ to: { name: 'reports' }, label: 'Reports', icon: BarChart3 }] : []),
   { to: { name: 'search' }, label: 'Search', icon: Search },
   { to: { name: 'settings' }, label: 'Settings', icon: Settings },
+  { to: { name: 'org-plan' }, label: 'Plan', icon: Gem },
   { to: { name: 'departments' }, label: 'Departments', icon: Building2 },
   {
     to: auth.hasFeature('calendar') ? { name: 'calendar' } : { name: 'feature-locked', query: { feature: 'calendar' } },

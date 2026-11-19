@@ -1,29 +1,25 @@
 <script setup lang="ts">
-import { Activity, AlertTriangle, CheckCircle2, CreditCard, RefreshCw, Server, Workflow } from 'lucide-vue-next'
+import { AlertTriangle, CheckCircle2, CreditCard, Server, Workflow } from 'lucide-vue-next'
 import { onMounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime, timeAgo } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
 import { type OpsStatus, superAdminApi } from '../super-admin.api'
 
 const ops = ref<OpsStatus | null>(null)
-const loading = ref(false)
 
 async function load() {
-  loading.value = true
   try {
     ops.value = await superAdminApi.ops()
   } catch (error) {
     toast.error(getErrorMessage(error))
-  } finally {
-    loading.value = false
   }
 }
 
 onMounted(load)
+defineExpose({ reload: load })
 
 function formatUptime(seconds: number) {
   const hours = Math.floor(seconds / 3600)
@@ -36,14 +32,9 @@ function formatUptime(seconds: number) {
 
 <template>
   <section class="space-y-4 sm:space-y-5">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <p class="max-w-2xl text-[13px] text-muted-foreground sm:text-sm">
-        Stripe webhooks, background jobs and automation failures for this backend process. Counters reset on restart; automation rule errors also live in the database.
-      </p>
-      <Button variant="outline" size="sm" class="shrink-0 max-sm:w-full" :loading="loading" @click="load">
-        <RefreshCw /> Refresh
-      </Button>
-    </div>
+    <p class="max-w-2xl text-[13px] text-muted-foreground sm:text-sm">
+      A simple health check: payments, scheduled work, and automation rules. Numbers reset when the server restarts.
+    </p>
 
     <div v-if="!ops" class="grid gap-3 sm:grid-cols-3">
       <Skeleton v-for="index in 3" :key="index" class="h-28 rounded-xl" />
@@ -110,26 +101,13 @@ function formatUptime(seconds: number) {
       </article>
 
       <article v-if="ops.jobs.unhealthy.length" class="rounded-xl border border-destructive/30 bg-card p-4 shadow-soft">
-        <div class="flex items-center gap-2 text-sm font-medium text-destructive"><AlertTriangle class="size-4" /> Jobs last failed</div>
+        <div class="flex items-center gap-2 text-sm font-medium text-destructive"><AlertTriangle class="size-4" /> Jobs that need a look</div>
         <ul class="mt-3 space-y-2 text-sm">
           <li v-for="job in ops.jobs.unhealthy" :key="job.name">
             <span class="font-medium">{{ job.name }}</span>
             <span class="text-xs text-destructive"> — {{ job.lastError }}</span>
           </li>
         </ul>
-      </article>
-
-      <article class="rounded-xl border border-border/80 bg-card p-4 shadow-soft">
-        <div class="flex items-center gap-2 text-sm font-medium"><Activity class="size-4 text-primary" /> Recent signals</div>
-        <ul v-if="ops.recent.length" class="mt-3 max-h-64 space-y-1.5 overflow-y-auto text-xs">
-          <li v-for="(entry, index) in ops.recent" :key="`${entry.at}-${index}`" class="flex flex-wrap gap-x-2">
-            <span class="tabular-nums text-muted-foreground">{{ formatDateTime(entry.at) }}</span>
-            <Badge :variant="entry.ok ? 'secondary' : 'destructive'" class="px-1.5 py-0">{{ entry.ok ? 'ok' : 'fail' }}</Badge>
-            <span>{{ entry.area }}/{{ entry.name }}</span>
-            <span v-if="entry.error" class="text-destructive">{{ entry.error }}</span>
-          </li>
-        </ul>
-        <p v-else class="mt-2 text-xs text-muted-foreground">Nothing recorded since this process started.</p>
       </article>
     </template>
   </section>

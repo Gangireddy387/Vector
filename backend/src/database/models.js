@@ -66,6 +66,7 @@ import {
 } from '../modules/meetings/meeting.model.js';
 import { PushSubscription } from '../modules/push/push-subscription.model.js';
 import { Goal, KeyResult, KeyResultLink } from '../modules/goals/goal.model.js';
+import { WikiPage } from '../modules/wiki/wiki.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
 
@@ -293,6 +294,12 @@ KeyResult.hasMany(KeyResultLink, { as: 'links', foreignKey: 'keyResultId', ...ca
 KeyResultLink.belongsTo(KeyResult, { as: 'keyResult', foreignKey: 'keyResultId' });
 KeyResultLink.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId', ...cascade });
 
+// Organization wiki pages
+Organization.hasMany(WikiPage, { as: 'wikiPages', foreignKey: 'organizationId', ...cascade });
+WikiPage.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+WikiPage.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+WikiPage.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
+
 // Devices that receive this person's push notifications
 User.hasMany(PushSubscription, { as: 'pushSubscriptions', foreignKey: 'userId', ...cascade });
 
@@ -388,6 +395,7 @@ export {
   MeetingCalendarLink,
   PushSubscription,
   Goal,
+  WikiPage,
   KeyResult,
   KeyResultLink,
 };

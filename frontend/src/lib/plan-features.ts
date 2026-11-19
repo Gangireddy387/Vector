@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BellRing,
+  BookOpen,
   CalendarDays,
   Clock,
   LayoutGrid,
@@ -40,6 +41,7 @@ export type PlanFeatureKey =
   | 'roadmap'
   | 'goals'
   | 'portfolio'
+  | 'wiki'
   | 'chat'
   | 'directMessages'
   | 'teamChat'
@@ -124,6 +126,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     label: 'Portfolio view',
     description: 'Multi-project health, progress and overdue work across the organization',
     icon: LayoutGrid,
+    group: 'app',
+  },
+  {
+    key: 'wiki',
+    label: 'Shared docs & wiki',
+    description: 'Organization-wide markdown pages for handbooks, runbooks and shared notes',
+    icon: BookOpen,
     group: 'app',
   },
   { key: 'chat', label: 'Team chat & standups', description: 'Project chat, follow-ups and daily standups', icon: MessagesSquare, group: 'app' },

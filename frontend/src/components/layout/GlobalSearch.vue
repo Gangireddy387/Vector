@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onClickOutside, watchDebounced } from '@vueuse/core'
-import { BarChart3, CalendarDays, ClipboardList, FolderKanban, Hash, House, Inbox, LayoutGrid, ListTodo, Loader2, MessageCircle, Moon, Plus, Search, Settings, Sparkles, Sun, Target, User as UserIcon, Video, X } from 'lucide-vue-next'
+import { BarChart3, BookOpen, CalendarDays, ClipboardList, FolderKanban, Gem, Hash, House, Inbox, LayoutGrid, ListTodo, Loader2, MessageCircle, Moon, Plus, Search, Settings, Sparkles, Sun, Target, User as UserIcon, Video, X } from 'lucide-vue-next'
 import { type Component, computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
@@ -82,6 +82,8 @@ const actions = computed<SearchItem[]>(() => [
   ...(auth.hasFeature('portfolio')
     ? [{ id: 'portfolio', group: 'Navigate', label: 'Go to Portfolio', icon: LayoutGrid, run: go({ name: 'portfolio' }) }]
     : []),
+  ...(auth.hasFeature('wiki') ? [{ id: 'wiki', group: 'Navigate', label: 'Go to Wiki', icon: BookOpen, run: go({ name: 'wiki' }) }] : []),
+  { id: 'plan', group: 'Navigate', label: 'Go to Plan', icon: Gem, run: go({ name: 'org-plan' }) },
   { id: 'settings', group: 'Navigate', label: 'Open settings', icon: Settings, run: go({ name: 'settings' }) },
   {
     id: 'theme',
