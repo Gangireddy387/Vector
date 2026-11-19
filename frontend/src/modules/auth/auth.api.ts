@@ -101,8 +101,8 @@ export const authApi = {
     Object.assign(document.createElement('a'), { href: url, download: 'vector-account-export.json' }).click()
     URL.revokeObjectURL(url)
   },
-  /** Soft-deletes the account after password confirmation. */
-  deleteAccount: (password: string) => http.delete('/auth/me', { data: { password } }),
+  /** Soft-deletes the account — password accounts send `password`; OAuth-only send `confirmEmail`. */
+  deleteAccount: (payload: { password?: string; confirmEmail?: string }) => http.delete('/auth/me', { data: payload }),
 }
 
 export interface ApiTokenInfo {

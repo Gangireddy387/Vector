@@ -164,6 +164,10 @@ export interface User extends UserSummary {
   isSuperAdmin?: boolean
   /** Signed in with a temporary password from a one-click invitation: must choose their own first. */
   mustChangePassword?: boolean
+  /** False for Google/Microsoft-only accounts until they set a local password in Settings. */
+  hasPassword?: boolean
+  /** How this account can sign in (local password and/or OAuth providers). */
+  authProviders?: { password: boolean; google: boolean; microsoft: boolean }
   /** Authenticator app required after password on sign-in. */
   mfaEnabled?: boolean
   /** Current organization requires MFA and this account has not enabled it yet. */

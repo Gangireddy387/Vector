@@ -73,9 +73,16 @@ export const changePasswordSchema = z.object({
 
 export const acceptInviteQuickSchema = z.object({ token: z.string().min(10) });
 
-export const deleteAccountSchema = z.object({
-  password: z.string().min(1, 'Password is required'),
-});
+/** Password accounts send `password`; OAuth-only accounts send `confirmEmail` (checked in the service). */
+export const deleteAccountSchema = z
+  .object({
+    password: z.string().min(1).optional(),
+    confirmEmail: z.string().trim().email('Enter a valid email address').optional(),
+  })
+  .refine((body) => Boolean(body.password) || Boolean(body.confirmEmail), {
+    message: 'Confirm with your password or account email',
+    path: ['password'],
+  });
 
 const totpCode = z
   .string()

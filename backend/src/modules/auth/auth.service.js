@@ -34,8 +34,22 @@ const DUMMY_HASH = bcrypt.hashSync('vector-timing-equalizer', PASSWORD_HASH_ROUN
 export async function describeSession(user, membership, memberships) {
   const org = membership?.organization ?? null;
   const mfaSetupRequired = Boolean(org?.requireMfa && !user.mfaEnabled);
+  // passwordHash is scoped out of normal loads; OAuth accounts need this flag for Settings.
+  const secret = await User.scope('withSecrets').findByPk(user.id, { attributes: ['passwordHash'] });
+  const hasPassword = Boolean(secret?.passwordHash);
   return {
-    user: { ...user.toJSON(), workspaceRole: membership?.role ?? 'member', isSuperAdmin: isSuperAdmin(user), mfaSetupRequired },
+    user: {
+      ...user.toJSON(),
+      workspaceRole: membership?.role ?? 'member',
+      isSuperAdmin: isSuperAdmin(user),
+      mfaSetupRequired,
+      hasPassword,
+      authProviders: {
+        password: hasPassword,
+        google: Boolean(user.googleSubject),
+        microsoft: Boolean(user.microsoftSubject),
+      },
+    },
     organization: membership ? { ...toPublicOrganization(membership.organization), role: membership.role } : null,
     organizations: await listMyOrganizations(memberships),
   };
@@ -251,18 +265,30 @@ export async function updateProfile(user, changes) {
 
 /** Signs out every other session; returns a new token for this one. */
 /**
- * Changes the password (other devices are signed out). Someone still on a temporary password from a one-click
- * invitation does not need to type it again: they are signed in with it and must replace it now.
+ * Changes or sets the password (other devices are signed out).
+ * - Temporary invite password: no current password; must pick a different one.
+ * - OAuth-only (no password yet): no current password — this is “set a password”.
+ * - Normal accounts: current password required.
  */
 export async function changePassword(user, { currentPassword, newPassword }) {
   const withSecrets = await User.scope('withSecrets').findByPk(user.id);
-  if (!withSecrets.mustChangePassword) {
+  if (withSecrets.mustChangePassword) {
+    if (await bcrypt.compare(newPassword, withSecrets.passwordHash ?? DUMMY_HASH)) {
+      throw ApiError.badRequest('Choose a password different from the temporary one', [
+        { path: 'newPassword', message: 'Choose a password different from the temporary one' },
+      ]);
+    }
+  } else if (!withSecrets.passwordHash) {
+    // Google / Microsoft sign-in with no local password yet.
+  } else {
     const isValid = await bcrypt.compare(currentPassword ?? '', withSecrets.passwordHash ?? DUMMY_HASH);
-    if (!withSecrets.passwordHash || !isValid) throw ApiError.badRequest('Current password is incorrect');
-  } else if (await bcrypt.compare(newPassword, withSecrets.passwordHash ?? DUMMY_HASH)) {
-    throw ApiError.badRequest('Choose a password different from the temporary one', [{ path: 'newPassword', message: 'Choose a password different from the temporary one' }]);
+    if (!isValid) throw ApiError.badRequest('Current password is incorrect');
   }
-  await withSecrets.update({ passwordHash: await hashPassword(newPassword), mustChangePassword: false, tokenVersion: (withSecrets.tokenVersion ?? 0) + 1 });
+  await withSecrets.update({
+    passwordHash: await hashPassword(newPassword),
+    mustChangePassword: false,
+    tokenVersion: (withSecrets.tokenVersion ?? 0) + 1,
+  });
   return { token: signAccessToken(withSecrets) };
 }
 
@@ -357,16 +383,28 @@ export async function exportAccount(user) {
 
 /**
  * Soft-deletes the account: disables it, anonymizes the email, and invalidates all sessions.
- * Requires the current password. The portal super-admin email cannot be deleted this way.
+ * Password accounts confirm with their password; OAuth-only accounts type their email instead.
+ * The portal super-admin email cannot be deleted this way.
  */
-export async function deleteAccount(user, { password }) {
+export async function deleteAccount(user, { password, confirmEmail } = {}) {
   if (config.superAdmin.email && user.email?.toLowerCase() === config.superAdmin.email) {
     throw ApiError.badRequest('The portal owner account cannot be deleted this way');
   }
   const withSecrets = await User.scope('withSecrets').findByPk(user.id);
-  const isValid = await bcrypt.compare(password ?? '', withSecrets?.passwordHash ?? DUMMY_HASH);
-  if (!withSecrets?.passwordHash || !isValid) {
-    throw ApiError.badRequest('Password is incorrect', [{ path: 'password', message: 'Password is incorrect' }]);
+  if (withSecrets?.passwordHash) {
+    const isValid = await bcrypt.compare(password ?? '', withSecrets.passwordHash ?? DUMMY_HASH);
+    if (!isValid) {
+      throw ApiError.badRequest('Password is incorrect', [{ path: 'password', message: 'Password is incorrect' }]);
+    }
+  } else {
+    const typed = String(confirmEmail ?? '')
+      .trim()
+      .toLowerCase();
+    if (!typed || typed !== String(user.email ?? '').toLowerCase()) {
+      throw ApiError.badRequest('Type your account email to confirm', [
+        { path: 'confirmEmail', message: 'Type your account email to confirm' },
+      ]);
+    }
   }
 
   const stamp = Date.now().toString(36);
@@ -384,6 +422,8 @@ export async function deleteAccount(user, { password }) {
     inviteToken: null,
     resetToken: null,
     resetTokenExpiresAt: null,
+    googleSubject: null,
+    microsoftSubject: null,
     passwordHash: await hashPassword(crypto.randomBytes(32).toString('hex')),
     mustChangePassword: false,
     tokenVersion: (withSecrets.tokenVersion ?? 0) + 1,

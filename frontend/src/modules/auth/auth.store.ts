@@ -236,7 +236,18 @@ export const useAuthStore = defineStore('auth', () => {
     const { token: next } = await authApi.changePassword(payload)
     token.value = next
     localStorage.setItem(currentTokenKey(), next)
-    if (user.value?.mustChangePassword) user.value = { ...user.value, mustChangePassword: false }
+    if (user.value) {
+      user.value = {
+        ...user.value,
+        mustChangePassword: false,
+        hasPassword: true,
+        authProviders: {
+          password: true,
+          google: user.value.authProviders?.google ?? false,
+          microsoft: user.value.authProviders?.microsoft ?? false,
+        },
+      }
+    }
     connectRealtime()
   }
 

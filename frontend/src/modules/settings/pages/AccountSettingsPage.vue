@@ -50,9 +50,10 @@ const profile = reactive({
   skills: [...(auth.user?.skills ?? [])],
 })
 const ABOUT_LIMIT = 1000
-const passwords = reactive({ currentPassword: '', newPassword: '' })
+const passwords = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' })
 const isSavingProfile = ref(false)
 const isSavingPassword = ref(false)
+const hasPassword = computed(() => Boolean(auth.user?.hasPassword ?? auth.user?.authProviders?.password))
 
 const THEMES: Array<{ value: ThemePreference; label: string; hint: string; icon: typeof Sun }> = [
   { value: 'light', label: 'Light', hint: 'Bright and clean', icon: Sun },
@@ -110,8 +111,12 @@ const NOTIFICATION_PREFS = [
 const isExporting = ref(false)
 const isDeleteOpen = ref(false)
 const deletePassword = ref('')
+const deleteEmail = ref('')
 const isDeleting = ref(false)
 const isRevokingSessions = ref(false)
+const canConfirmDelete = computed(() =>
+  hasPassword.value ? Boolean(deletePassword.value) : deleteEmail.value.trim().toLowerCase() === (auth.user?.email ?? '').toLowerCase(),
+)
 
 async function revokeSessions() {
   isRevokingSessions.value = true
@@ -167,7 +172,9 @@ async function exportData() {
 async function deleteAccount() {
   isDeleting.value = true
   try {
-    await authApi.deleteAccount(deletePassword.value)
+    await authApi.deleteAccount(
+      hasPassword.value ? { password: deletePassword.value } : { confirmEmail: deleteEmail.value.trim() },
+    )
     toast.success('Account deleted')
     await auth.logout()
   } catch (error) {
@@ -178,16 +185,38 @@ async function deleteAccount() {
 }
 
 async function changePassword() {
+  const settingFirstPassword = !hasPassword.value
+  if (settingFirstPassword && passwords.newPassword !== passwords.confirmPassword) {
+    toast.error('The two passwords do not match')
+    return
+  }
   isSavingPassword.value = true
   try {
-    await auth.changePassword({ ...passwords })
+    await auth.changePassword(
+      settingFirstPassword
+        ? { newPassword: passwords.newPassword }
+        : { currentPassword: passwords.currentPassword, newPassword: passwords.newPassword },
+    )
     passwords.currentPassword = ''
     passwords.newPassword = ''
-    toast.success('Password changed', { description: 'You were signed out on your other devices.' })
+    passwords.confirmPassword = ''
+    toast.success(settingFirstPassword ? 'Password set' : 'Password changed', {
+      description: settingFirstPassword
+        ? 'You can sign in with email and this password as well as Google/Microsoft.'
+        : 'You were signed out on your other devices.',
+    })
   } catch (error) {
     toast.error(getErrorMessage(error))
   } finally {
     isSavingPassword.value = false
+  }
+}
+
+function onDeleteDialogOpen(open: boolean) {
+  isDeleteOpen.value = open
+  if (!open) {
+    deletePassword.value = ''
+    deleteEmail.value = ''
   }
 }
 
@@ -277,19 +306,29 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
           </div>
           <Card class="gap-3">
             <CardHeader class="border-b border-border/60 pb-3">
-              <CardTitle>Password</CardTitle>
-              <CardDescription>Change the password used to sign in to your account.</CardDescription>
+              <CardTitle>{{ hasPassword ? 'Password' : 'Set a password' }}</CardTitle>
+              <CardDescription>
+                <template v-if="hasPassword">Change the password used to sign in to your account.</template>
+                <template v-else>
+                  You signed in with Google or Microsoft. Optionally set a password so you can also sign in with email.
+                </template>
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form class="grid gap-3 sm:grid-cols-2" @submit.prevent="changePassword">
-                <FormField label="Current password" for="current-password">
+                <FormField v-if="hasPassword" label="Current password" for="current-password">
                   <PasswordInput id="current-password" v-model="passwords.currentPassword" autocomplete="current-password" required />
                 </FormField>
-                <FormField label="New password" for="new-password" hint="At least 8 characters.">
+                <FormField :label="hasPassword ? 'New password' : 'Password'" for="new-password" hint="At least 8 characters.">
                   <PasswordInput id="new-password" v-model="passwords.newPassword" autocomplete="new-password" required />
                 </FormField>
+                <FormField v-if="!hasPassword" label="Repeat password" for="confirm-password">
+                  <PasswordInput id="confirm-password" v-model="passwords.confirmPassword" autocomplete="new-password" required />
+                </FormField>
                 <div class="sm:col-span-2">
-                  <Button type="submit" variant="outline" class="max-sm:w-full" :loading="isSavingPassword">Change password</Button>
+                  <Button type="submit" variant="outline" class="max-sm:w-full" :loading="isSavingPassword">
+                    {{ hasPassword ? 'Change password' : 'Set password' }}
+                  </Button>
                 </div>
               </form>
             </CardContent>
@@ -457,20 +496,25 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
       </template>
     </SettingsLayout>
 
-    <Dialog v-model:open="isDeleteOpen">
+    <Dialog :open="isDeleteOpen" @update:open="onDeleteDialogOpen">
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete your account?</DialogTitle>
           <DialogDescription>
-            Your account will be disabled and your email anonymized. You will be signed out immediately. Type your password to confirm.
+            Your account will be disabled and your email anonymized. You will be signed out immediately.
+            <template v-if="hasPassword"> Type your password to confirm.</template>
+            <template v-else> Type your account email ({{ auth.user?.email }}) to confirm.</template>
           </DialogDescription>
         </DialogHeader>
-        <FormField label="Password" for="delete-password">
+        <FormField v-if="hasPassword" label="Password" for="delete-password">
           <PasswordInput id="delete-password" v-model="deletePassword" autocomplete="current-password" required />
+        </FormField>
+        <FormField v-else label="Account email" for="delete-email">
+          <Input id="delete-email" v-model="deleteEmail" type="email" autocomplete="email" required :placeholder="auth.user?.email" />
         </FormField>
         <DialogFooter>
           <Button variant="outline" @click="isDeleteOpen = false">Cancel</Button>
-          <Button variant="destructive" :loading="isDeleting" :disabled="!deletePassword" @click="deleteAccount">Delete account</Button>
+          <Button variant="destructive" :loading="isDeleting" :disabled="!canConfirmDelete" @click="deleteAccount">Delete account</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
