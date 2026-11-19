@@ -14,7 +14,7 @@ import { useAuthStore } from '@/modules/auth/auth.store'
 import OrganizationFields from '@/modules/auth/components/OrganizationFields.vue'
 import { organizationUrl } from '@/modules/auth/organization-slug'
 import { useWorkspaceStore } from '@/stores/workspace.store'
-import type { ColorMode, WorkspaceSettings } from '@/types/models'
+import type { ColorMode, OrganizationRetention, WorkspaceSettings } from '@/types/models'
 import { workspaceApi } from '../admin.api'
 import OrganizationLogoField from './OrganizationLogoField.vue'
 import OrganizationThemeField from './OrganizationThemeField.vue'
@@ -24,17 +24,66 @@ const auth = useAuthStore()
 const theme = useTheme()
 const PERSONAL_LABEL = { light: 'Light', dim: 'Dim', dark: 'Dark', auto: 'System' } as const
 
+const RETENTION_DEFAULTS: OrganizationRetention = {
+  auditLogDays: 0,
+  activityDays: 0,
+  notificationDays: 0,
+  transcriptDays: 0,
+  recordingDays: 0,
+}
+
+const RETENTION_FIELDS: { key: keyof OrganizationRetention; label: string; hint: string }[] = [
+  { key: 'auditLogDays', label: 'Audit & sign-in log', hint: 'Admin Activity tab history' },
+  { key: 'activityDays', label: 'Task activity', hint: 'Issue and project activity feed' },
+  { key: 'notificationDays', label: 'Notifications', hint: 'Inbox items tied to this organization’s projects' },
+  { key: 'transcriptDays', label: 'Meeting transcripts', hint: 'Spoken lines and transcript search' },
+  { key: 'recordingDays', label: 'Meeting recordings', hint: 'Stored call recordings and files' },
+]
+
 const form = ref({ name: workspace.settings.name, slug: workspace.settings.slug ?? '' })
+const retentionForm = ref<OrganizationRetention>({
+  ...RETENTION_DEFAULTS,
+  ...(workspace.settings.retention ?? {}),
+})
 const slugAvailable = ref(true)
 const fieldErrors = ref<Record<string, string>>({})
 const isSaving = ref(false)
+const isSavingRetention = ref(false)
 
 watch(
   () => [workspace.settings.name, workspace.settings.slug] as const,
   ([name, slug]) => (form.value = { name, slug: slug ?? '' }),
 )
 
+watch(
+  () => workspace.settings.retention,
+  (value) => {
+    retentionForm.value = { ...RETENTION_DEFAULTS, ...(value ?? {}) }
+  },
+  { deep: true },
+)
+
 const isDirty = computed(() => form.value.name.trim() !== workspace.settings.name || form.value.slug !== workspace.settings.slug)
+const isRetentionDirty = computed(() => {
+  const current = { ...RETENTION_DEFAULTS, ...(workspace.settings.retention ?? {}) }
+  return RETENTION_FIELDS.some(({ key }) => Number(retentionForm.value[key] || 0) !== Number(current[key] || 0))
+})
+
+async function saveRetention() {
+  isSavingRetention.value = true
+  try {
+    const retention = Object.fromEntries(
+      RETENTION_FIELDS.map(({ key }) => [key, Math.max(0, Math.min(3650, Math.floor(Number(retentionForm.value[key]) || 0)))]),
+    ) as OrganizationRetention
+    await workspace.update({ retention })
+    retentionForm.value = { ...retention }
+    toast.success('Data retention saved', { description: 'A nightly job removes older data. 0 keeps everything.' })
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isSavingRetention.value = false
+  }
+}
 const isExporting = ref(false)
 const isImporting = ref(false)
 const isImportOpen = ref(false)
@@ -270,6 +319,41 @@ async function deleteOrganization() {
               <span class="block text-xs text-muted-foreground">{{ mode.description }}</span>
             </span>
           </button>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Data retention</CardTitle>
+        <CardDescription>
+          How long {{ workspace.settings.name }} keeps audit logs, activity, notifications, transcripts and recordings. Use
+          <strong>0</strong> to keep forever. A nightly job deletes anything older.
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-4">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <FormField v-for="field in RETENTION_FIELDS" :key="field.key" :label="field.label" :for="`retention-${field.key}`">
+            <div class="flex items-center gap-2">
+              <Input
+                :id="`retention-${field.key}`"
+                v-model.number="retentionForm[field.key]"
+                type="number"
+                min="0"
+                max="3650"
+                class="max-w-[8rem]"
+                :disabled="isSavingRetention"
+              />
+              <span class="text-xs text-muted-foreground">days</span>
+            </div>
+            <p class="mt-1 text-[11px] text-muted-foreground">{{ field.hint }}</p>
+          </FormField>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="brand" class="max-sm:w-full" :loading="isSavingRetention" :disabled="!isRetentionDirty" @click="saveRetention">
+            Save retention
+          </Button>
+          <span v-if="isRetentionDirty" class="text-xs font-medium text-primary">Unsaved changes</span>
         </div>
       </CardContent>
     </Card>

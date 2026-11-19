@@ -107,6 +107,15 @@ export interface OrganizationChannelNotifications {
   teamsConfigured: boolean
 }
 
+/** Org data retention in days (`0` = keep forever). Applied by the nightly purge job. */
+export interface OrganizationRetention {
+  auditLogDays: number
+  activityDays: number
+  notificationDays: number
+  transcriptDays: number
+  recordingDays: number
+}
+
 export interface WorkspaceSettings {
   name: string
   /** The organization's address (example.com/:slug); absent for the signed-out default branding. */
@@ -119,6 +128,8 @@ export interface WorkspaceSettings {
   requireMfa?: boolean
   sso?: OrganizationSsoSettings
   channelNotifications?: OrganizationChannelNotifications
+  /** Days to keep data (`0` = forever). */
+  retention?: OrganizationRetention
   status?: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements
@@ -157,6 +168,7 @@ export interface OrganizationSummary {
   requireMfa?: boolean
   sso?: OrganizationSsoSettings
   channelNotifications?: OrganizationChannelNotifications
+  retention?: OrganizationRetention
   status: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements

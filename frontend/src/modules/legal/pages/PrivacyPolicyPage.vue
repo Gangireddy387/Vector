@@ -105,6 +105,11 @@ const SECTIONS: LegalSection[] = [
     <ul>
       <li>Account and workspace data is kept while the account or workspace is active.</li>
       <li>When an admin deletes content or a project, it is removed from the live database straight away.</li>
+      <li>
+        Organization admins can set how long audit logs, activity, notifications, meeting transcripts and recordings are kept
+        (Workspace settings → General → Data retention). A nightly job deletes older rows; “0 days” means keep forever.
+      </li>
+      <li>Support chat messages may disappear earlier when an admin enables disappearing messages.</li>
       <li>Server logs are kept for a limited period for security purposes and then deleted.</li>
       <li>Backups, where used, are overwritten on a rolling basis.</li>
       <li>We may keep limited information longer when the law requires it.</li>

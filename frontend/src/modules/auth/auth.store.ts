@@ -216,6 +216,7 @@ export const useAuthStore = defineStore('auth', () => {
         settings.channelNotifications !== undefined
           ? settings.channelNotifications
           : organization.value.channelNotifications,
+      retention: settings.retention !== undefined ? settings.retention : organization.value.retention,
       status: settings.status ?? organization.value.status,
       entitlements: settings.entitlements ?? organization.value.entitlements,
       rejectionReason: settings.rejectionReason !== undefined ? settings.rejectionReason : organization.value.rejectionReason,

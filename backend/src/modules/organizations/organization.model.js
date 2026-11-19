@@ -50,6 +50,11 @@ Organization.init(
      * `{ enabled, events, slackWebhookUrl?, teamsWebhookUrl? }`
      */
     channelNotifications: { type: DataTypes.JSON, allowNull: true },
+    /**
+     * Data retention (days; `0` = keep forever):
+     * `{ auditLogDays, activityDays, notificationDays, transcriptDays, recordingDays }`
+     */
+    retention: { type: DataTypes.JSON, allowNull: true },
     /** Stripe customer / subscription ids when the organization pays for Pro via Checkout. */
     stripeCustomerId: { type: DataTypes.STRING(80), allowNull: true },
     stripeSubscriptionId: { type: DataTypes.STRING(80), allowNull: true },

@@ -47,6 +47,16 @@ const channelNotificationsSchema = z.object({
   teamsWebhookUrl: z.string().max(2000).nullable().optional(),
 });
 
+/** Days to keep data; `0` = forever. Cap matches the purge job. */
+const retentionDays = z.coerce.number().int().min(0).max(3650);
+const retentionSchema = z.object({
+  auditLogDays: retentionDays.optional(),
+  activityDays: retentionDays.optional(),
+  notificationDays: retentionDays.optional(),
+  transcriptDays: retentionDays.optional(),
+  recordingDays: retentionDays.optional(),
+});
+
 export const updateOrganizationSchema = z
   .object({
     name: organizationName,
@@ -56,6 +66,7 @@ export const updateOrganizationSchema = z
     requireMfa: z.boolean(),
     sso: ssoSchema,
     channelNotifications: channelNotificationsSchema,
+    retention: retentionSchema,
   })
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one setting');

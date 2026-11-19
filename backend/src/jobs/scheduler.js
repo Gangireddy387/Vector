@@ -13,6 +13,7 @@ import { settleIdleMeetings } from '../modules/meetings/meeting.signaling.js';
 import { sendStandupDigests } from '../modules/standups/standup-digest.job.js';
 import { sendStandupReminders } from '../modules/standups/standup-reminder.job.js';
 import { purgeExpiredMessages } from '../modules/support/support.service.js';
+import { runDataRetention } from '../modules/organizations/data-retention.service.js';
 import { logger } from '../shared/logger.js';
 import { recordFail, recordOk } from '../shared/ops/signals.js';
 
@@ -38,6 +39,8 @@ const JOBS = [
   // Summaries, chapters, search index and recaps for meetings that ended.
   { name: 'meeting-followups', schedule: '*/2 * * * *', run: runPendingFollowups },
   { name: 'transcript-retention', schedule: '30 3 * * *', run: () => purgeOldTranscripts(config.meetings.transcriptDays) },
+  // Nightly: org-configured audit / activity / notification / transcript / recording retention.
+  { name: 'data-retention', schedule: '30 4 * * *', run: runDataRetention },
 ];
 
 /** Wraps a job so overlapping executions are skipped; successes/failures feed ops signals + structured logs. */

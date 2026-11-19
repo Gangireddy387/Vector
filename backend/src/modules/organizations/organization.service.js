@@ -39,6 +39,7 @@ import { sendMessage, superAdminIds } from '../support/support.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
 import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
+import { normalizeRetention, publicRetention } from './data-retention.service.js';
 import {
   channelNotifySettingsFor,
   cleanChannelNotifyInput,
@@ -76,6 +77,7 @@ export const toPublicOrganization = (organization) => ({
   requireMfa: Boolean(organization.requireMfa),
   sso: ssoSettingsFor(organization),
   channelNotifications: channelNotifySettingsFor(organization),
+  retention: publicRetention(organization),
   status: organization.status ?? 'approved',
   rejectionReason: organization.status === 'rejected' ? (organization.rejectionReason ?? null) : null,
   // Only when the plan was loaded; otherwise clients keep the entitlements they already have.
@@ -220,6 +222,9 @@ export async function updateOrganization(organization, actor, changes) {
       updates.channelNotifications = cleanChannelNotifyInput(changes.channelNotifications, withFeatures);
     }
   }
+  if (changes.retention !== undefined) {
+    updates.retention = normalizeRetention({ ...(organization.retention ?? {}), ...changes.retention });
+  }
   const before = {
     name: organization.name,
     slug: organization.slug,
@@ -228,10 +233,11 @@ export async function updateOrganization(organization, actor, changes) {
     requireMfa: Boolean(organization.requireMfa),
     sso: publicSso(organization, { includeTenant: true, includeOidc: true }),
     channelNotifications: publicChannelNotifications(organization),
+    retention: publicRetention(organization),
   };
   await organization.update(updates);
   const changed = Object.keys(changes).filter((key) =>
-    ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa', 'sso', 'channelNotifications'].includes(key),
+    ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa', 'sso', 'channelNotifications', 'retention'].includes(key),
   );
   if (changed.length) {
     await logWorkspaceAction({
@@ -251,6 +257,7 @@ export async function updateOrganization(organization, actor, changes) {
           requireMfa: Boolean(organization.requireMfa),
           sso: publicSso(organization, { includeTenant: true, includeOidc: true }),
           channelNotifications: publicChannelNotifications(organization),
+          retention: publicRetention(organization),
         },
       },
     });
