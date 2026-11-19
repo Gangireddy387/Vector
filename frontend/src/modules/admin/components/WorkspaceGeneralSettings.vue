@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Copy, Monitor, Moon, Sun, Trash2 } from 'lucide-vue-next'
+import { Copy, Download, Monitor, Moon, Sun, Trash2 } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
@@ -35,6 +35,21 @@ watch(
 )
 
 const isDirty = computed(() => form.value.name.trim() !== workspace.settings.name || form.value.slug !== workspace.settings.slug)
+const isExporting = ref(false)
+
+async function exportBackup() {
+  isExporting.value = true
+  try {
+    await workspaceApi.exportBackup(workspace.settings.slug)
+    toast.success('Backup downloaded', {
+      description: 'JSON includes projects and tasks. Copy the server upload folder separately for file binaries.',
+    })
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isExporting.value = false
+  }
+}
 
 const MODES: Array<{ value: ColorMode; label: string; description: string; icon: typeof Sun }> = [
   { value: 'light', label: 'Light', description: 'Bright and clean', icon: Sun },
@@ -222,6 +237,21 @@ async function deleteOrganization() {
             </span>
           </button>
         </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Backup &amp; export</CardTitle>
+        <CardDescription>
+          Download a JSON backup of {{ workspace.settings.name }}: people, departments, projects, tasks, comments, links, automations and
+          attachment metadata. Binary files stay on the server — also copy the upload directory when you leave the host.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button variant="outline" class="max-sm:w-full" :loading="isExporting" @click="exportBackup">
+          <Download /> Download backup
+        </Button>
       </CardContent>
     </Card>
 

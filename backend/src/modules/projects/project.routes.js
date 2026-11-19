@@ -17,6 +17,7 @@ router.post('/projects', validate({ body: createProjectSchema }), controller.cre
 /** A ready-made project with a running sprint and example work, for exploring Vector. */
 router.post('/projects/sample', controller.createSample);
 router.get('/projects/:projectId', requireProjectRole(), controller.show);
+router.get('/projects/:projectId/dependencies', requireProjectRole(), controller.dependencies);
 router.patch('/projects/:projectId', requireProjectRole('admin'), validate({ body: updateProjectSchema }), controller.update);
 /** Keep demo work as a real project, or wipe the sample entirely. */
 router.post('/projects/:projectId/convert-sample', requireProjectRole('admin'), controller.convertSample);

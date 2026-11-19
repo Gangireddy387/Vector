@@ -10,6 +10,8 @@ import { createOrganizationSchema, deleteOrganizationSchema, inviteMemberSchema,
 import { exportAuditLogCsv, listAuditLog } from '../workspace/workspace-audit.service.js';
 
 const lookupLimiter = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false });
+/** Full org backups are heavy — a few downloads per hour is enough for offboarding. */
+const backupLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false });
 
 /** Public: signup checks an address while typing; /:slug links show which organization you are signing in to. */
 export const publicOrganizationRoutes = Router();
@@ -61,6 +63,7 @@ organizationAdminRoutes.get('/workspace/audit-log/export', requireOrganizationAd
   res.setHeader('Content-Disposition', 'attachment; filename="vector-audit-log.csv"');
   res.send(csv);
 });
+organizationAdminRoutes.get('/workspace/backup', requireOrganizationAdmin, backupLimiter, controller.exportBackup);
 organizationAdminRoutes.post('/workspace/invitations', requireOrganizationAdmin, validate({ body: inviteMemberSchema }), controller.invite);
 /** Support chat with the portal's super admin; one conversation per organization, shared by its admins. */
 const supportMessageSchema = z.object({ body: z.string().trim().min(1, 'Write a message').max(4000) });

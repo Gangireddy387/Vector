@@ -1,3 +1,4 @@
+import { getProjectDependencies } from '../issues/issue-dependencies.service.js';
 import { convertSampleProject, createSampleProject } from './project.sample.js';
 import * as projectService from './project.service.js';
 
@@ -31,3 +32,6 @@ export const removeMember = async (req, res) => {
   await projectService.removeMember(req.params.projectId, req.params.userId, req.user);
   res.status(204).end();
 };
+
+/** Blocks graph + critical path for the project Dependencies view. */
+export const dependencies = async (req, res) => res.json(await getProjectDependencies(req.params.projectId));

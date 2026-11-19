@@ -103,6 +103,14 @@ export const workspaceApi = {
     Object.assign(document.createElement('a'), { href: url, download: 'vector-audit-log.csv' }).click()
     URL.revokeObjectURL(url)
   },
+  /** Full organization JSON backup (projects, issues, comments, attachment metadata). */
+  exportBackup: async (slug?: string | null) => {
+    const response = await http.get<Blob>('/workspace/backup', { responseType: 'blob' })
+    const safe = String(slug || 'workspace').replace(/[^\w.-]+/g, '_')
+    const url = URL.createObjectURL(response.data)
+    Object.assign(document.createElement('a'), { href: url, download: `vector-${safe}-backup.json` }).click()
+    URL.revokeObjectURL(url)
+  },
   billingStatus: () =>
     http
       .get<{

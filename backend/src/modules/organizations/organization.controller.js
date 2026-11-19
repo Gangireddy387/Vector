@@ -1,7 +1,9 @@
 import { describeSession } from '../auth/auth.service.js';
+import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
 import { getMemberProfile } from './member-profile.service.js';
 import { listActiveMemberships } from './organization-access.js';
 import * as organizationService from './organization.service.js';
+import { buildOrganizationBackup } from './workspace-backup.service.js';
 
 const sessionFor = async (user, organizationId) => {
   const memberships = await listActiveMemberships(user.id);
@@ -52,4 +54,21 @@ export const invite = async (req, res) => res.status(201).json({ member: await o
 export const resendInvitation = async (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json(await organizationService.resendInvitation(req.organization, req.user, req.params.userId));
+};
+
+/** Organization-wide JSON backup for offboarding (admins only). */
+export const exportBackup = async (req, res) => {
+  const payload = await buildOrganizationBackup(req.organization, req.user);
+  await logWorkspaceAction({
+    organizationId: req.organization.id,
+    actorId: req.user.id,
+    action: 'backup_exported',
+    targetType: 'organization',
+    targetId: req.organization.id,
+    meta: payload.stats,
+  });
+  const safeSlug = String(req.organization.slug || 'workspace').replace(/[^\w.-]+/g, '_');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="vector-${safeSlug}-backup.json"`);
+  res.json(payload);
 };

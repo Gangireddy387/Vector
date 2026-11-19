@@ -54,8 +54,15 @@ async function removeLink(linkId: string) {
 
 <template>
   <section v-if="issue.links.length || isAdding" class="space-y-3">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between gap-2">
       <h2 class="text-sm font-semibold">Linked tasks</h2>
+      <RouterLink
+        v-if="issue.links.some((link) => link.type === 'blocks') && issue.projectId"
+        :to="{ name: 'project-dependencies', params: { projectId: issue.projectId }, query: { focus: issue.id } }"
+        class="text-xs font-medium text-primary hover:underline"
+      >
+        Dependency graph
+      </RouterLink>
     </div>
     <ul v-if="issue.links.length" class="divide-y overflow-hidden border">
       <li v-for="link in issue.links" :key="link.id" class="flex items-center gap-2 bg-card px-3 py-2 text-sm">
