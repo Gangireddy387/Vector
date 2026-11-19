@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { LEGAL } from '@/constants/legal'
+import { useLegalContact } from '@/composables/useLegalContact'
 import LegalDocument, { type LegalSection } from '../components/LegalDocument.vue'
+
+const { legal, mailto, hasAddress, hasPhone } = useLegalContact()
 
 const SECTIONS: LegalSection[] = [
   { id: 'acceptance', title: 'Accepting these terms' },
@@ -21,12 +23,12 @@ const SECTIONS: LegalSection[] = [
 <template>
   <LegalDocument
     title="Terms of Service"
-    :summary="`These terms govern your use of ${LEGAL.productName}. In short: use it lawfully, keep your account secure, you own your content, and we work hard to keep the service running but cannot promise it will never fail.`"
+    :summary="`These terms govern your use of ${legal.productName}. In short: use it lawfully, keep your account secure, you own your content, and we work hard to keep the service running but cannot promise it will never fail.`"
     :sections="SECTIONS"
   >
     <h2 id="acceptance">Accepting these terms</h2>
     <p>
-      By creating an account, accepting an invitation or using {{ LEGAL.productName }} you agree to these Terms and to our
+      By creating an account, accepting an invitation or using {{ legal.productName }} you agree to these Terms and to our
       <RouterLink :to="{ name: 'privacy' }">Privacy Policy</RouterLink>. If you use the service on behalf of an organisation, you confirm you are authorised to
       accept these terms for it, and “you” includes that organisation.
     </p>
@@ -34,7 +36,7 @@ const SECTIONS: LegalSection[] = [
     <h2 id="accounts">Accounts and workspaces</h2>
     <ul>
       <li>Provide accurate information and keep your password confidential. You are responsible for activity under your account.</li>
-      <li>Tell us promptly at <a :href="`mailto:${LEGAL.contactEmail}`">{{ LEGAL.contactEmail }}</a> if you suspect unauthorised access.</li>
+      <li>Tell us promptly at <a :href="mailto">{{ legal.contactEmail }}</a> if you suspect unauthorised access.</li>
       <li>
         Workspace admins control who can join, members’ roles and workspace settings, and may deactivate accounts. Project admins control their projects’ members,
         workflow and automations.
@@ -54,7 +56,7 @@ const SECTIONS: LegalSection[] = [
 
     <h2 id="content">Your content</h2>
     <p>
-      You and your organisation keep ownership of everything you put into {{ LEGAL.productName }} — tasks, comments, files and other content. You give us a
+      You and your organisation keep ownership of everything you put into {{ legal.productName }} — tasks, comments, files and other content. You give us a
       limited licence to host, copy, process and display that content only as needed to provide and secure the service. You are responsible for having the right
       to upload it.
     </p>
@@ -68,7 +70,7 @@ const SECTIONS: LegalSection[] = [
 
     <h2 id="service">The service</h2>
     <p>
-      We continuously improve {{ LEGAL.productName }} and may add, change or remove features. We aim for high availability but the service may occasionally be
+      We continuously improve {{ legal.productName }} and may add, change or remove features. We aim for high availability but the service may occasionally be
       unavailable for maintenance or for reasons outside our control. Keep your own copies of anything critical.
     </p>
 
@@ -87,14 +89,14 @@ const SECTIONS: LegalSection[] = [
 
     <h2 id="liability">Limitation of liability</h2>
     <p>
-      To the extent the law allows, {{ LEGAL.companyName }} is not liable for indirect, incidental, special or consequential losses, or for lost profits,
+      To the extent the law allows, {{ legal.companyName }} is not liable for indirect, incidental, special or consequential losses, or for lost profits,
       revenue or data. Our total liability for any claim relating to the service is limited to the greater of the amount you paid us for the service in the
       twelve months before the claim, and one hundred US dollars. Nothing in these terms limits liability that cannot be limited by law.
     </p>
 
     <h2 id="law">Governing law</h2>
     <p>
-      These terms are governed by the laws of {{ LEGAL.jurisdiction }}, and its courts have jurisdiction over any dispute, unless the law where you live gives
+      These terms are governed by the laws of {{ legal.jurisdiction }}, and its courts have jurisdiction over any dispute, unless the law where you live gives
       you the right to bring proceedings there.
     </p>
 
@@ -106,8 +108,11 @@ const SECTIONS: LegalSection[] = [
 
     <h2 id="contact">Contact</h2>
     <p>
-      Questions about these terms: <a :href="`mailto:${LEGAL.contactEmail}`">{{ LEGAL.contactEmail }}</a>
-      <template v-if="LEGAL.postalAddress"> · {{ LEGAL.companyName }}, {{ LEGAL.postalAddress }}</template>.
+      Questions about these terms: <a :href="mailto">{{ legal.contactEmail }}</a>
+      <template v-if="hasPhone">
+        · <a :href="`tel:${legal.contactPhone.replace(/\s+/g, '')}`">{{ legal.contactPhone }}</a>
+      </template>
+      <template v-if="hasAddress"> · {{ legal.companyName }}, {{ legal.postalAddress }}</template>.
     </p>
   </LegalDocument>
 </template>

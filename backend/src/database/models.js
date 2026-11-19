@@ -67,6 +67,7 @@ import {
 import { PushSubscription } from '../modules/push/push-subscription.model.js';
 import { Goal, KeyResult, KeyResultLink } from '../modules/goals/goal.model.js';
 import { WikiPage } from '../modules/wiki/wiki.model.js';
+import { ShowcasePortrait } from '../modules/marketing/showcase.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
 
@@ -396,6 +397,7 @@ export {
   PushSubscription,
   Goal,
   WikiPage,
+  ShowcasePortrait,
   KeyResult,
   KeyResultLink,
 };

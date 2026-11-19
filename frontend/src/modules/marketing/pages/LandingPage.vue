@@ -57,8 +57,6 @@ const primaryLabel = computed(() => (auth.isAuthenticated ? 'Open workspace' : '
       <nav class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground" aria-label="Explore">
         <RouterLink :to="{ name: 'workday-preview' }" class="hover:text-foreground hover:underline">Workday preview</RouterLink>
         <span aria-hidden="true">·</span>
-        <RouterLink :to="{ name: 'developers' }" class="hover:text-foreground hover:underline">Developers</RouterLink>
-        <span aria-hidden="true">·</span>
         <RouterLink :to="{ name: 'privacy' }" class="hover:text-foreground hover:underline">Privacy</RouterLink>
       </nav>
     </div>
@@ -66,7 +64,6 @@ const primaryLabel = computed(() => (auth.isAuthenticated ? 'Open workspace' : '
     <template #footer>
       <nav class="flex flex-wrap justify-end gap-x-3 gap-y-1">
         <RouterLink :to="{ name: 'pricing' }" class="hover:text-foreground hover:underline lg:hover:text-white">Pricing</RouterLink>
-        <RouterLink :to="{ name: 'developers' }" class="hover:text-foreground hover:underline lg:hover:text-white">Developers</RouterLink>
         <RouterLink :to="{ name: 'workday-preview' }" class="hover:text-foreground hover:underline lg:hover:text-white">Workday</RouterLink>
         <RouterLink :to="{ name: 'privacy' }" class="hover:text-foreground hover:underline lg:hover:text-white">Privacy</RouterLink>
         <RouterLink :to="{ name: 'terms' }" class="hover:text-foreground hover:underline lg:hover:text-white">Terms</RouterLink>

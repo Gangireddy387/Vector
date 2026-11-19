@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { useMediaQuery, useResizeObserver } from '@vueuse/core'
 import { Bot, CalendarSync, Check, MessageCircle, Sparkles, ThumbsUp, Zap } from 'lucide-vue-next'
-import { onMounted, ref, type Component } from 'vue'
+import { computed, onMounted, ref, watch, type Component } from 'vue'
 import { RouterLink } from 'vue-router'
 import AppLogo from '@/components/layout/AppLogo.vue'
 import FeaturePreview from '@/components/layout/FeaturePreview.vue'
 import FeatureRadar from '@/components/layout/FeatureRadar.vue'
 import ShowcaseChip from '@/components/layout/ShowcaseChip.vue'
-import { TEAM, type Teammate } from '@/components/layout/team'
+import type { Teammate } from '@/components/layout/team'
 import ThemeSwitch from '@/components/layout/ThemeSwitch.vue'
+import { useShowcaseTeam } from '@/composables/useShowcaseTeam'
 
 /**
  * Same rich brand stage as the sign-in page: gradient, grid, radar, floating feature cards.
@@ -17,7 +18,7 @@ import ThemeSwitch from '@/components/layout/ThemeSwitch.vue'
 withDefaults(
   defineProps<{
     variant?: 'disc' | 'sheet'
-    /** Feature radar ring. Off = keep floating cards/chips only (Workday / Developers / Privacy). */
+    /** Feature radar ring. Off = keep floating cards/chips only (Workday / Privacy). */
     showRadar?: boolean
     eyebrow?: string
     headline?: string
@@ -37,6 +38,7 @@ withDefaults(
 )
 const year = new Date().getFullYear()
 const isPhone = useMediaQuery('(max-width: 39.99rem)')
+const { portraits, community: COMMUNITY, byIndex } = useShowcaseTeam()
 
 const HIGHLIGHTS = [
   { icon: Zap, title: 'Automation rules', text: 'Triage and assign on their own.', tone: 'from-amber-300 to-orange-500', x: 0.3, y: -0.42 },
@@ -45,16 +47,17 @@ const HIGHLIGHTS = [
 ]
 
 type PreviewKind = 'board' | 'reports' | 'calendar' | 'chat' | 'meeting'
+type Nearby = { who: Teammate; x: number; y: number; icon: Component; badge: string; card?: PreviewKind }
 
-const NEARBY: { who: Teammate; x: number; y: number; icon: Component; badge: string; card?: PreviewKind }[] = [
-  { who: TEAM.james, x: -0.72, y: -0.34, icon: MessageCircle, badge: 'bg-sky-500', card: 'board' },
-  { who: TEAM.liam, x: -0.82, y: 0.3, icon: ThumbsUp, badge: 'bg-amber-500', card: 'calendar' },
-  { who: TEAM.maria, x: -0.56, y: 0.47, icon: Check, badge: 'bg-emerald-500' },
-  { who: TEAM.arjun, x: 0.74, y: -0.28, icon: Check, badge: 'bg-emerald-500', card: 'reports' },
-  { who: TEAM.sofia, x: 0.68, y: 0.1, icon: MessageCircle, badge: 'bg-sky-500', card: 'chat' },
-  { who: TEAM.david, x: 0.84, y: 0.4, icon: ThumbsUp, badge: 'bg-amber-500', card: 'meeting' },
+const NEARBY_SLOTS: Omit<Nearby, 'who'>[] = [
+  { x: -0.72, y: -0.34, icon: MessageCircle, badge: 'bg-sky-500', card: 'board' },
+  { x: -0.82, y: 0.3, icon: ThumbsUp, badge: 'bg-amber-500', card: 'calendar' },
+  { x: -0.56, y: 0.47, icon: Check, badge: 'bg-emerald-500' },
+  { x: 0.74, y: -0.28, icon: Check, badge: 'bg-emerald-500', card: 'reports' },
+  { x: 0.68, y: 0.1, icon: MessageCircle, badge: 'bg-sky-500', card: 'chat' },
+  { x: 0.84, y: 0.4, icon: ThumbsUp, badge: 'bg-amber-500', card: 'meeting' },
 ]
-const COMMUNITY = [TEAM.david, TEAM.sofia, TEAM.kenji, TEAM.maria, TEAM.arjun]
+const NEARBY = computed<Nearby[]>(() => NEARBY_SLOTS.map((slot, index) => ({ ...slot, who: byIndex(index) })))
 const AVATAR_RADIUS = 30
 
 const PREVIEWS: { kind: PreviewKind; height: number; spot: [number, number] }[] = [
@@ -112,17 +115,18 @@ function arrange() {
     const nearestY = Math.max(box.top, Math.min(centre.y, box.bottom))
     return Math.hypot(nearestX - centre.x, nearestY - centre.y) >= size / 2 - 4
   }
-  const avatarBox = (near: (typeof NEARBY)[number]) => {
+  const nearby = NEARBY.value
+  const avatarBox = (near: Nearby) => {
     const at = point(near.x, near.y)
     return around(at.x, at.y, AVATAR_RADIUS, AVATAR_RADIUS)
   }
 
   const blocked: Box[] = [...stage.querySelectorAll<HTMLElement>('[data-obstacle]')].map((element) => element.getBoundingClientRect())
-  const unlinked = NEARBY.filter((near) => !near.card).map(avatarBox)
+  const unlinked = nearby.filter((near) => !near.card).map(avatarBox)
   const placed: Box[] = []
   const result: Placement[] = []
   for (const preview of PREVIEWS) {
-    const linked = NEARBY.find((near) => near.card === preview.kind)
+    const linked = nearby.find((near) => near.card === preview.kind)
     const want = point(...preview.spot)
     const left = preview.spot[0] < 0
     const obstacles = [...blocked, ...placed, ...unlinked]
@@ -158,7 +162,7 @@ function arrange() {
   }
 
   const away = new Set<string>()
-  for (const near of NEARBY) {
+  for (const near of nearby) {
     const rider = result.find((placement) => placement.rider === near.who)
     const box = avatarBox(near)
     const crowded = !clearOfRadar(box) || [...blocked, ...placed].some((other) => overlaps(box, other))
@@ -175,12 +179,15 @@ function arrange() {
 }
 
 useResizeObserver([stageEl, radarEl], () => arrange())
+watch(portraits, () => arrange())
 onMounted(() => {
   arrange()
   void document.fonts?.ready.then(arrange)
 })
 
-const STRIP = PREVIEWS.map((preview) => ({ kind: preview.kind, person: NEARBY.find((near) => near.card === preview.kind)?.who }))
+const STRIP = computed(() =>
+  PREVIEWS.map((preview) => ({ kind: preview.kind, person: NEARBY.value.find((near) => near.card === preview.kind)?.who })),
+)
 const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x})`, top: `calc(50% + var(--radar) * ${y})` })
 </script>
 
@@ -250,10 +257,10 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
           <span class="flex shrink-0 -space-x-2.5">
             <img
               v-for="who in COMMUNITY"
-              :key="who.name"
+              :key="who.name + who.src"
               :src="who.src"
               alt=""
-              class="size-10 rounded-full bg-linear-to-br shadow-md ring-2 ring-white/80 short:size-8"
+              class="size-10 rounded-full bg-linear-to-br object-cover shadow-md ring-2 ring-white/80 short:size-8"
               :class="who.tone"
             />
           </span>
@@ -329,7 +336,7 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
               class="avatar-blip float-pill relative block size-12 rounded-full shadow-xl shadow-black/20 short:size-10"
               :style="{ animationDelay: `${1.4 + index * 0.15}s, ${index * -0.9}s` }"
             >
-              <img :src="near.who.src" alt="" class="size-full rounded-full bg-linear-to-br ring-2 ring-white/80" :class="near.who.tone" />
+              <img :src="near.who.src" alt="" class="size-full rounded-full bg-linear-to-br object-cover ring-2 ring-white/80" :class="near.who.tone" />
               <span class="absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full text-white ring-2 ring-white" :class="near.badge">
                 <component :is="near.icon" class="size-3" />
               </span>
@@ -411,10 +418,10 @@ const place = (x: number, y: number) => ({ left: `calc(50% + var(--radar) * ${x}
         <span class="flex shrink-0 -space-x-2.5">
           <img
             v-for="who in COMMUNITY"
-            :key="who.name"
+            :key="who.name + who.src"
             :src="who.src"
             alt=""
-            class="size-8 rounded-full bg-linear-to-br shadow-md ring-2 ring-white/80 sm:size-9"
+            class="size-8 rounded-full bg-linear-to-br object-cover shadow-md ring-2 ring-white/80 sm:size-9"
             :class="who.tone"
           />
         </span>

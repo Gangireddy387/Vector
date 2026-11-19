@@ -89,6 +89,7 @@ const ADDED_COLUMNS = [
     column: 'allowed_roles',
     definition: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
   },
+  { table: 'workspace_settings', column: 'legal', definition: { type: DataTypes.JSON, allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

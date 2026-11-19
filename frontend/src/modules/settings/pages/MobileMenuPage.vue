@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, Building2, CalendarDays, Check, ChevronRight, ClipboardList, Crown, Download, FolderKanban, Gem, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck, Video } from 'lucide-vue-next'
+import { BarChart3, BookOpen, Building2, CalendarDays, Check, ChevronRight, ClipboardList, Crown, Download, FolderKanban, Gem, LayoutGrid, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck, Target, Video } from 'lucide-vue-next'
 import { computed } from 'vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useDevice } from '@/composables/useDevice'
@@ -24,28 +24,31 @@ async function signOut() {
   await auth.logout()
 }
 
+function teaser(feature: string, on: boolean, name: string, label: string, icon: typeof BarChart3) {
+  return {
+    to: on ? { name } : { name: 'feature-locked', query: { feature } },
+    label: on ? label : `${label} (Pro)`,
+    icon,
+  }
+}
+
 const LINKS = computed(() => [
   { to: { name: 'issues' }, label: 'Tasks', icon: ListTodo },
-  ...(auth.hasFeature('reports') ? [{ to: { name: 'reports' }, label: 'Reports', icon: BarChart3 }] : []),
+  teaser('reports', auth.hasFeature('reports'), 'reports', 'Reports', BarChart3),
+  teaser('goals', auth.hasFeature('goals'), 'goals', 'Goals', Target),
+  teaser('portfolio', auth.hasFeature('portfolio'), 'portfolio', 'Portfolio', LayoutGrid),
+  teaser('wiki', auth.hasFeature('wiki'), 'wiki', 'Wiki', BookOpen),
   { to: { name: 'search' }, label: 'Search', icon: Search },
   { to: { name: 'settings' }, label: 'Settings', icon: Settings },
   { to: { name: 'org-plan' }, label: 'Plan', icon: Gem },
   { to: { name: 'departments' }, label: 'Departments', icon: Building2 },
-  {
-    to: auth.hasFeature('calendar') ? { name: 'calendar' } : { name: 'feature-locked', query: { feature: 'calendar' } },
-    label: auth.hasFeature('calendar') ? 'Calendar' : 'Calendar (Pro)',
-    icon: CalendarDays,
-  },
+  teaser('calendar', auth.hasFeature('calendar'), 'calendar', 'Calendar', CalendarDays),
   ...(auth.hasFeature('chat') && projects.joinedProjects.some((project) => project.myRole === 'admin' || project.leadId === auth.user?.id)
     ? [{ to: { name: 'standup-rollup' }, label: 'Standup rollup', icon: ClipboardList }]
     : []),
   // Messages lives on the tab bar when available; keep Projects easy to reach from More.
   { to: { name: 'projects' }, label: 'Projects', icon: FolderKanban },
-  {
-    to: auth.hasFeature('meetings') ? { name: 'meetings' } : { name: 'feature-locked', query: { feature: 'meetings' } },
-    label: auth.hasFeature('meetings') ? 'Meetings' : 'Meetings (Pro)',
-    icon: Video,
-  },
+  teaser('meetings', auth.hasFeature('meetings'), 'meetings', 'Meetings', Video),
   ...(auth.isOrganizationAdmin ? [{ to: { name: 'workspace-admin' }, label: 'Organization settings', icon: ShieldCheck }] : []),
   ...(auth.isSuperAdmin ? [{ to: { name: 'super-admin' }, label: 'Super admin', icon: Crown }] : []),
 ])

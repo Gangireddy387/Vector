@@ -39,6 +39,8 @@ import statusRoutes from './modules/statuses/status.routes.js';
 import workflowTransitionRoutes from './modules/workflow-transitions/workflow-transition.routes.js';
 import templateRoutes from './modules/templates/template.routes.js';
 import { avatarRoutes, publicAvatarRoutes } from './modules/users/avatar.routes.js';
+import { publicShowcaseRoutes, showcaseAdminRoutes } from './modules/marketing/showcase.routes.js';
+import { publicLegalRoutes, legalAdminRoutes } from './modules/legal/legal.routes.js';
 import { publicRingtoneRoutes, ringtoneRoutes } from './modules/users/ringtone.routes.js';
 import userRoutes from './modules/users/user.routes.js';
 import worklogRoutes from './modules/worklogs/worklog.routes.js';
@@ -56,6 +58,8 @@ export function createApiRouter() {
   router.use(publicAuthOAuthRoutes);
   router.use(publicWorkspaceRoutes);
   router.use(publicAvatarRoutes);
+  router.use(publicShowcaseRoutes);
+  router.use(publicLegalRoutes);
   router.use(publicRingtoneRoutes);
   router.use(publicOrganizationRoutes);
   router.use(publicMeetingRoutes);
@@ -78,6 +82,8 @@ export function createApiRouter() {
   router.use(scimAdminRoutes);
   router.use(webhookAdminRoutes);
   router.use(superAdminRoutes);
+  router.use(showcaseAdminRoutes);
+  router.use(legalAdminRoutes);
   router.use(supportCallRoutes);
 
   // Everything below works inside the signed-in person's current organization.

@@ -62,7 +62,6 @@ function planHas(plan: (typeof PLANS)[number], key: PlanFeatureKey) {
     >
       <template #actions>
         <Button variant="outline" as-child><RouterLink :to="{ name: 'landing' }">About</RouterLink></Button>
-        <Button variant="outline" as-child><RouterLink :to="{ name: 'developers' }">API</RouterLink></Button>
         <Button variant="outline" as-child><RouterLink :to="{ name: 'register' }">Create free account</RouterLink></Button>
         <Button as-child><RouterLink :to="{ name: 'login' }">Sign in</RouterLink></Button>
       </template>

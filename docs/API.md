@@ -19,8 +19,6 @@ Public: `POST /auth/register`, `POST /auth/login`, password-reset and invite-acc
 
 Create/list/revoke under `GET|POST /auth/me/tokens` and `DELETE /auth/me/tokens/:tokenId` (session auth). The plaintext secret is returned **once** on create. Use it as `Authorization: Bearer vtk_…` for scripts; org scoping is the same as the app (`X-Organization-Id`). Tokens may expire; revoke stops them immediately.
 
-Public quickstart: `/developers` in the web app.
-
 ### Social sign-in
 
 `GET /auth/oauth/providers` → `{ google, microsoft }` booleans.  

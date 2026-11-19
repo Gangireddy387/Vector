@@ -20,6 +20,8 @@ import {
   Sun,
   SunDim,
   Trash2,
+  Images,
+  Scale,
   UserRound,
   Users,
 } from 'lucide-vue-next'
@@ -55,6 +57,8 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import OrganizationDetailSheet from '../components/OrganizationDetailSheet.vue'
 import OpsPanel from '../components/OpsPanel.vue'
 import PlansPanel from '../components/PlansPanel.vue'
+import LegalContactPanel from '../components/LegalContactPanel.vue'
+import ShowcaseGalleryPanel from '../components/ShowcaseGalleryPanel.vue'
 import SuperAdminProfile from '../components/SuperAdminProfile.vue'
 import { type Plan, type ReviewedOrganization, superAdminApi } from '../super-admin.api'
 
@@ -71,7 +75,7 @@ const themeLabel = computed(() => ({ light: 'Light', dim: 'Dim', dark: 'Dark', a
 const themeIcon = computed(() => ({ light: Sun, dim: SunDim, dark: Moon, auto: Monitor })[preference.value])
 const cycleTheme = () => (preference.value = THEME_CYCLE[preference.value])
 
-const SECTION_VALUES = ['organizations', 'plans', 'ops', 'profile'] as const
+const SECTION_VALUES = ['organizations', 'plans', 'gallery', 'legal', 'ops', 'profile'] as const
 type SuperAdminSection = (typeof SECTION_VALUES)[number]
 /** The open section lives in the address (?section=plans) so links land on it. */
 const section = computed<SuperAdminSection>({
@@ -100,6 +104,8 @@ const sidebarOrganizations = computed(() => {
 const SECTIONS = [
   { value: 'organizations', label: 'Organizations', short: 'Orgs', icon: Building2 },
   { value: 'plans', label: 'Plans', short: 'Plans', icon: Gem },
+  { value: 'gallery', label: 'Showcase', short: 'Gallery', icon: Images },
+  { value: 'legal', label: 'Legal', short: 'Legal', icon: Scale },
   { value: 'ops', label: 'Ops', short: 'Ops', icon: Activity },
   { value: 'profile', label: 'Your profile', short: 'Profile', icon: UserRound },
 ] as const
@@ -107,6 +113,8 @@ const SECTIONS = [
 const HEADINGS = {
   organizations: { title: 'Organizations', text: 'Review every team that signs up, approve or reject it, and choose the plan it is on.' },
   plans: { title: 'Plans & access', text: 'Create plans, decide what each one includes, and set the default for new signups.' },
+  gallery: { title: 'Showcase gallery', text: 'Upload portraits used on About and sign-in — they replace the built-in illustrations in the rich UI.' },
+  legal: { title: 'Legal contact', text: 'Company name, email, phone and address shown on the public Privacy Policy and Terms pages.' },
   ops: { title: 'Ops', text: 'Payments, scheduled jobs, and automation health for this backend.' },
   profile: { title: 'Your profile', text: 'Your name and photo, as organization admins see them in the Vector team chat.' },
 } as const
@@ -475,6 +483,8 @@ function signOut() {
       </section>
 
       <PlansPanel v-if="section === 'plans'" :plans="plans" @changed="load" />
+      <ShowcaseGalleryPanel v-else-if="section === 'gallery'" />
+      <LegalContactPanel v-else-if="section === 'legal'" />
       <OpsPanel v-else-if="section === 'ops'" ref="opsPanel" />
       <SuperAdminProfile v-else-if="section === 'profile'" />
 

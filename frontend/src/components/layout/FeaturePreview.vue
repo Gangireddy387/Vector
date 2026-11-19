@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { BarChart3, CalendarDays, LayoutGrid, MessagesSquare, Mic, MicOff, Video } from 'lucide-vue-next'
-import { TEAM, type Teammate } from './team'
+import { computed } from 'vue'
+import { useShowcaseTeam } from '@/composables/useShowcaseTeam'
+import type { Teammate } from './team'
 
 /* A small glass card sketching one of Vector's features, for the sign-in showcase. Decorative only. */
 defineProps<{ kind: 'board' | 'reports' | 'calendar' | 'chat' | 'meeting'; person?: Teammate }>()
+
+const { byIndex } = useShowcaseTeam()
 
 const HEADINGS = {
   board: { icon: LayoutGrid, title: 'Sprint board', meta: 'Sprint 14' },
@@ -29,12 +33,14 @@ const EVENTS = [
   { day: 4, start: 2, span: 3, tone: 'bg-violet-300/90' },
   { day: 5, start: 1, span: 2, tone: 'bg-rose-300/90' },
 ]
-const TILES = [
-  { who: TEAM.aisha, speaking: true, muted: false },
-  { who: TEAM.james, speaking: false, muted: true },
-  { who: TEAM.meera, speaking: false, muted: false },
-  { who: TEAM.david, speaking: false, muted: true },
-]
+const chatLeft = computed(() => byIndex(4))
+const chatTyping = computed(() => byIndex(1))
+const TILES = computed(() => [
+  { who: byIndex(0), speaking: true, muted: false },
+  { who: byIndex(1), speaking: false, muted: true },
+  { who: byIndex(2), speaking: false, muted: false },
+  { who: byIndex(3), speaking: false, muted: true },
+])
 </script>
 
 <template>
@@ -43,7 +49,7 @@ const TILES = [
       v-if="person"
       :src="person.src"
       alt=""
-      class="absolute -top-3.5 -right-3.5 size-9 rounded-full bg-linear-to-br shadow-lg ring-2 ring-white/80"
+      class="absolute -top-3.5 -right-3.5 size-9 rounded-full bg-linear-to-br object-cover shadow-lg ring-2 ring-white/80"
       :class="person.tone"
     />
     <div class="mb-2.5 flex items-center gap-1.5 text-[11px] font-semibold" :class="person && 'pr-4'">
@@ -93,14 +99,14 @@ const TILES = [
 
     <div v-else-if="kind === 'chat'" class="space-y-1.5 text-[10px] leading-snug">
       <div class="flex items-end gap-1.5">
-        <img :src="TEAM.sofia.src" alt="" class="size-5 shrink-0 rounded-full bg-linear-to-br" :class="TEAM.sofia.tone" />
+        <img :src="chatLeft.src" alt="" class="size-5 shrink-0 rounded-full bg-linear-to-br object-cover" :class="chatLeft.tone" />
         <span class="rounded-[0.75rem] rounded-bl-[0.25rem] bg-white/20 px-2 py-1">Mockups are ready</span>
       </div>
       <div class="flex items-end justify-end gap-1.5">
         <span class="rounded-[0.75rem] rounded-br-[0.25rem] bg-linear-to-r from-indigo-400 to-fuchsia-400 px-2 py-1">Looks great, ship it</span>
       </div>
       <div class="flex items-center gap-1.5">
-        <img :src="TEAM.arjun.src" alt="" class="size-5 shrink-0 rounded-full bg-linear-to-br" :class="TEAM.arjun.tone" />
+        <img :src="chatTyping.src" alt="" class="size-5 shrink-0 rounded-full bg-linear-to-br object-cover" :class="chatTyping.tone" />
         <span class="typing flex gap-0.5 rounded-[0.75rem] rounded-bl-[0.25rem] bg-white/20 px-2 py-1.5">
           <span class="size-1 rounded-full bg-white/80" />
           <span class="size-1 rounded-full bg-white/80" />
@@ -112,11 +118,11 @@ const TILES = [
     <div v-else class="grid grid-cols-2 gap-1">
       <div
         v-for="tile in TILES"
-        :key="tile.who.name"
+        :key="tile.who.name + tile.who.src"
         class="relative flex h-10 items-end justify-center overflow-hidden rounded-[0.5rem] bg-linear-to-br"
         :class="[tile.who.tone, tile.speaking && 'ring-2 ring-emerald-300']"
       >
-        <img :src="tile.who.src" alt="" class="h-9" />
+        <img :src="tile.who.src" alt="" class="h-9 w-full object-cover object-top" />
         <span class="absolute bottom-0.5 left-0.5 flex size-3.5 items-center justify-center rounded-full bg-black/40">
           <component :is="tile.muted ? MicOff : Mic" class="size-2" />
         </span>

@@ -1,6 +1,6 @@
 /**
- * Details shown in the Privacy Policy and Terms of Service.
- * Set them per deployment in `.env` (VITE_LEGAL_*); the fallbacks are placeholders only.
+ * Fallback details for Privacy Policy / Terms when the API is unreachable.
+ * Prefer Super Admin → Legal (live values); optional VITE_LEGAL_* overrides these defaults.
  */
 const env = import.meta.env
 

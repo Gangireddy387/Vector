@@ -62,8 +62,33 @@ export function getProjectNavigation(project: Pick<Project, 'type' | 'myRole'>, 
           { name: 'project-progress', label: 'Progress', icon: TrendingUp },
           { name: 'project-reports', label: 'Reports', icon: BarChart3 },
         ]
-      : []),
-    ...(AUTOMATION_FEATURES.some(hasFeature) ? [{ name: 'project-automation', label: 'Automation', icon: Workflow }] : []),
+      : [
+          {
+            name: 'feature-locked',
+            label: 'Progress',
+            icon: TrendingUp,
+            locked: true,
+            to: { name: 'feature-locked', query: { feature: 'reports' } },
+          },
+          {
+            name: 'feature-locked',
+            label: 'Reports',
+            icon: BarChart3,
+            locked: true,
+            to: { name: 'feature-locked', query: { feature: 'reports' } },
+          },
+        ]),
+    ...(AUTOMATION_FEATURES.some(hasFeature)
+      ? [{ name: 'project-automation', label: 'Automation', icon: Workflow }]
+      : [
+          {
+            name: 'feature-locked',
+            label: 'Automation',
+            icon: Workflow,
+            locked: true,
+            to: { name: 'feature-locked', query: { feature: 'automations' } },
+          },
+        ]),
     ...(project.myRole === 'admin' ? [{ name: 'project-settings', label: 'Settings', icon: Settings }] : []),
   ]
 }

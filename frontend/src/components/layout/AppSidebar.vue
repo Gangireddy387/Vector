@@ -88,7 +88,18 @@ const workspaceLinks = computed(() => [
     locked: !auth.hasFeature('meetings'),
     to: auth.hasFeature('meetings') ? ({ name: 'meetings' } as const) : ({ name: 'feature-locked', query: { feature: 'meetings' } } as const),
   },
-  { name: 'reports', label: 'Reports', icon: BarChart3, show: auth.hasFeature('reports'), locked: false, to: { name: 'reports' } as const, shortcut: 'G R', exact: true },
+  {
+    name: 'reports',
+    label: 'Reports',
+    icon: BarChart3,
+    show: true,
+    locked: !auth.hasFeature('reports'),
+    to: auth.hasFeature('reports')
+      ? ({ name: 'reports' } as const)
+      : ({ name: 'feature-locked', query: { feature: 'reports' } } as const),
+    shortcut: 'G R',
+    exact: true,
+  },
   {
     name: 'goals',
     label: 'Goals',

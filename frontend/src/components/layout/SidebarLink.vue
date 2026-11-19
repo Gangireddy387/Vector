@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Lock } from 'lucide-vue-next'
 import type { Component } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -51,7 +52,12 @@ withDefaults(
             :class="(exact ? isExactActive : isActive) && !locked ? 'scale-110 text-primary' : 'text-muted-foreground group-hover:text-sidebar-foreground'"
           />
           <span v-if="!collapsed" class="min-w-0 flex-1 truncate">{{ label }}</span>
-          <span v-if="locked && !collapsed" class="rounded bg-muted px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Pro</span>
+          <span
+            v-if="locked && !collapsed"
+            class="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground"
+          >
+            <Lock class="size-2.5" aria-hidden="true" /> Pro
+          </span>
           <span
             v-if="badge && !collapsed"
             class="pop-in ml-auto flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary/12 px-1.5 text-[10.5px] leading-none font-semibold text-primary tabular-nums dark:bg-primary/20"
@@ -72,7 +78,8 @@ withDefaults(
       </TooltipTrigger>
       <TooltipContent side="right" class="flex items-center gap-2">
         {{ label }}
-        <span v-if="shortcut" class="text-[10.5px] opacity-70">{{ shortcut }}</span>
+        <span v-if="locked" class="inline-flex items-center gap-0.5 text-[10.5px] opacity-70"><Lock class="size-2.5" /> Pro</span>
+        <span v-else-if="shortcut" class="text-[10.5px] opacity-70">{{ shortcut }}</span>
       </TooltipContent>
     </Tooltip>
   </RouterLink>

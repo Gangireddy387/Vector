@@ -11,6 +11,8 @@ WorkspaceSetting.init(
     id: { type: DataTypes.INTEGER, primaryKey: true, defaultValue: 1 },
     name: { type: DataTypes.STRING(80), allowNull: false, defaultValue: 'Vector' },
     defaultMode: { type: DataTypes.ENUM(...COLOR_MODES), allowNull: false, defaultValue: 'system' },
+    /** Privacy / Terms contact block editable by the super admin. */
+    legal: { type: DataTypes.JSON, allowNull: true },
     updatedById: { type: DataTypes.UUID, allowNull: true },
   },
   { sequelize, modelName: 'WorkspaceSetting', tableName: 'workspace_settings' },

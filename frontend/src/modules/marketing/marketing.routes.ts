@@ -15,12 +15,6 @@ export const marketingRoutes: RouteRecordRaw[] = [
     meta: { title: 'Pricing' },
   },
   {
-    path: '/developers',
-    name: 'developers',
-    component: () => import('./pages/DevelopersPage.vue'),
-    meta: { title: 'Developers' },
-  },
-  {
     path: '/workday',
     name: 'workday-preview',
     component: () => import('./pages/WorkdayPreviewPage.vue'),

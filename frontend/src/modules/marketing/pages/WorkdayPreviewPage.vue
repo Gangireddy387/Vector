@@ -86,7 +86,6 @@ const steps = [
       <nav class="flex flex-wrap justify-end gap-x-3 gap-y-1">
         <RouterLink :to="{ name: 'landing' }" class="hover:text-foreground hover:underline lg:hover:text-white">About</RouterLink>
         <RouterLink :to="{ name: 'pricing' }" class="hover:text-foreground hover:underline lg:hover:text-white">Pricing</RouterLink>
-        <RouterLink :to="{ name: 'developers' }" class="hover:text-foreground hover:underline lg:hover:text-white">Developers</RouterLink>
         <RouterLink :to="{ name: 'privacy' }" class="hover:text-foreground hover:underline lg:hover:text-white">Privacy</RouterLink>
       </nav>
     </template>

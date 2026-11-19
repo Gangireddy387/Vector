@@ -64,12 +64,17 @@ export function initRealtime(httpServer, redis = null) {
   }
 
   /**
-   * Only sign-in tokens of active accounts (not revoked by a password change) and meeting guest passes connect;
-   * other tokens (recording links…) are refused.
+   * Sign-in tokens of active accounts (not revoked by a password change) and meeting guest passes connect.
+   * No token = public marketing socket (About / sign-in) that only receives broadcasts like showcase updates.
    */
   io.use((socket, next) => {
     void (async () => {
-      const payload = verifyAccessToken(socket.handshake.auth?.token);
+      const token = socket.handshake.auth?.token;
+      if (!token) {
+        socket.data.public = true;
+        return next();
+      }
+      const payload = verifyAccessToken(token);
       // Guests (meeting guest link) only take part in the one call their pass is for.
       if (payload.typ === TOKEN_TYPES.guest) {
         socket.data.guest = { id: `guest:${payload.gid}`, name: payload.name, meetingId: payload.mid };
@@ -85,6 +90,8 @@ export function initRealtime(httpServer, redis = null) {
 
   io.on('connection', (socket) => {
     guardHandlers(socket);
+    // Public sockets only listen (showcase gallery on About / login); no rooms or meeting handlers.
+    if (socket.data.public) return;
     registerMeetingSignaling(io, socket);
     registerMeetingCollab(io, socket);
     registerMeetingQa(io, socket);

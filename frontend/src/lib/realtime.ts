@@ -14,12 +14,31 @@ function replace(next: Socket | null, guest: boolean) {
 export function connectRealtime() {
   const token = getStoredToken()
   if (!token) return null
-  if (socket?.connected) return socket
+  if (socket?.connected && !isGuestSocket) return socket
 
   socket?.disconnect()
   replace(
     io(import.meta.env.VITE_SOCKET_URL || undefined, {
       auth: { token },
+      transports: ['websocket', 'polling'],
+      reconnectionDelayMax: 10000,
+    }),
+    false,
+  )
+  return socket
+}
+
+/**
+ * About / sign-in: a no-auth socket that only receives public broadcasts (e.g. showcase gallery updates).
+ * Skips if a signed-in or guest connection is already open.
+ */
+export function connectPublicRealtime() {
+  if (getStoredToken()) return connectRealtime()
+  if (socket?.connected) return socket
+
+  socket?.disconnect()
+  replace(
+    io(import.meta.env.VITE_SOCKET_URL || undefined, {
       transports: ['websocket', 'polling'],
       reconnectionDelayMax: 10000,
     }),

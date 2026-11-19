@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
-import BrandOrbitShell from '@/components/layout/BrandOrbitShell.vue'
-import { Button } from '@/components/ui/button'
-import { LEGAL } from '@/constants/legal'
+import { useLegalContact } from '@/composables/useLegalContact'
 import LegalDocument, { type LegalSection } from '../components/LegalDocument.vue'
+
+const { legal, mailto, hasAddress, hasPhone } = useLegalContact()
 
 const SECTIONS: LegalSection[] = [
   { id: 'who-we-are', title: 'Who we are' },
@@ -24,34 +23,15 @@ const SECTIONS: LegalSection[] = [
 </script>
 
 <template>
-  <BrandOrbitShell
-    variant="sheet"
-    :show-radar="false"
-    eyebrow="Legal · Privacy"
-    headline="Your data,"
-    headline-accent="your control."
-    description="We collect only what we need to run Vector. We never sell your data and we do not use advertising trackers."
-    header-hint="Work management for every team"
-  >
-    <template #header-actions>
-      <Button variant="ghost" size="sm" class="hidden text-inherit hover:bg-white/10 sm:inline-flex lg:text-white lg:hover:bg-white/10" as-child>
-        <RouterLink :to="{ name: 'landing' }">About</RouterLink>
-      </Button>
-      <Button variant="ghost" size="sm" class="hidden text-inherit hover:bg-white/10 sm:inline-flex lg:text-white lg:hover:bg-white/10" as-child>
-        <RouterLink :to="{ name: 'terms' }">Terms</RouterLink>
-      </Button>
-    </template>
-
   <LegalDocument
-    embedded
     title="Privacy Policy"
-    :summary="`This policy explains what personal information ${LEGAL.productName} collects when you use it, why, who it is shared with and the choices you have. We collect only what we need to run the service, we never sell your data and we do not use advertising trackers.`"
+    :summary="`This policy explains what personal information ${legal.productName} collects when you use it, why, who it is shared with and the choices you have. We collect only what we need to run the service, we never sell your data and we do not use advertising trackers.`"
     :sections="SECTIONS"
   >
     <h2 id="who-we-are">Who we are</h2>
     <p>
-      {{ LEGAL.productName }} is a work-management application operated by <strong>{{ LEGAL.companyName }}</strong>
-      <template v-if="LEGAL.postalAddress"> ({{ LEGAL.postalAddress }})</template> (“we”, “us”). For personal information in workspaces that we host, we act as the
+      {{ legal.productName }} is a work-management application operated by <strong>{{ legal.companyName }}</strong>
+      <template v-if="hasAddress"> ({{ legal.postalAddress }})</template> (“we”, “us”). For personal information in workspaces that we host, we act as the
       <strong>controller</strong> for account data and as a <strong>processor</strong> for the content your organisation stores in its workspace, which your
       organisation controls.
     </p>
@@ -148,7 +128,7 @@ const SECTIONS: LegalSection[] = [
       <li>complain to your local data-protection authority.</li>
     </ul>
     <p>
-      To exercise these rights, email <a :href="`mailto:${LEGAL.contactEmail}`">{{ LEGAL.contactEmail }}</a>. If your account belongs to an organisation’s
+      To exercise these rights, email <a :href="mailto">{{ legal.contactEmail }}</a>. If your account belongs to an organisation’s
       workspace, we may refer your request to that organisation, as it controls the workspace content.
     </p>
 
@@ -159,7 +139,7 @@ const SECTIONS: LegalSection[] = [
     </p>
 
     <h2 id="children">Children</h2>
-    <p>{{ LEGAL.productName }} is a business tool and is not intended for children under 16. We do not knowingly collect their personal information.</p>
+    <p>{{ legal.productName }} is a business tool and is not intended for children under 16. We do not knowingly collect their personal information.</p>
 
     <h2 id="changes">Changes to this policy</h2>
     <p>
@@ -169,17 +149,12 @@ const SECTIONS: LegalSection[] = [
 
     <h2 id="contact">Contact us</h2>
     <p>
-      Questions or requests about privacy: <a :href="`mailto:${LEGAL.contactEmail}`">{{ LEGAL.contactEmail }}</a>
-      <template v-if="LEGAL.postalAddress"> · {{ LEGAL.companyName }}, {{ LEGAL.postalAddress }}</template>.
+      Questions or requests about privacy:
+      <a :href="mailto">{{ legal.contactEmail }}</a>
+      <template v-if="hasPhone">
+        · <a :href="`tel:${legal.contactPhone.replace(/\s+/g, '')}`">{{ legal.contactPhone }}</a>
+      </template>
+      <template v-if="hasAddress"> · {{ legal.companyName }}, {{ legal.postalAddress }}</template>.
     </p>
   </LegalDocument>
-
-    <template #footer>
-      <nav class="flex flex-wrap justify-end gap-x-3 gap-y-1">
-        <RouterLink :to="{ name: 'landing' }" class="hover:text-foreground hover:underline lg:hover:text-white">About</RouterLink>
-        <RouterLink :to="{ name: 'terms' }" class="hover:text-foreground hover:underline lg:hover:text-white">Terms</RouterLink>
-        <RouterLink :to="{ name: 'pricing' }" class="hover:text-foreground hover:underline lg:hover:text-white">Pricing</RouterLink>
-      </nav>
-    </template>
-  </BrandOrbitShell>
 </template>
