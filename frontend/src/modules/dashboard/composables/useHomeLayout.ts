@@ -6,6 +6,7 @@ export const HOME_WIDGETS = [
   { key: 'setup', label: 'Setup checklist' },
   { key: 'habit', label: 'Habit coach' },
   { key: 'density', label: 'Team density' },
+  { key: 'myTeam', label: 'My team' },
   { key: 'quickCapture', label: 'Quick capture' },
   { key: 'dayLoop', label: 'Day loop' },
   { key: 'focus', label: 'Focus cards' },

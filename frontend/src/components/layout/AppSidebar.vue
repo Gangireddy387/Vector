@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { BarChart3, CalendarDays, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, House, Inbox, LayoutGrid, ListTodo, MessageCircle, Network, Plus, Target, UserPlus, Video } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { BarChart3, CalendarDays, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, House, Inbox, LayoutGrid, ListTodo, MessageCircle, Network, Plus, Target, UserPlus, UsersRound, Video } from 'lucide-vue-next'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useDevice } from '@/composables/useDevice'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { useMyTeamHome } from '@/modules/dashboard/composables/useMyTeamHome'
 import { useMessagesStore } from '@/modules/messages/messages.store'
 import { useNotificationsStore } from '@/modules/notifications/notifications.store'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
@@ -26,8 +27,16 @@ const notifications = useNotificationsStore()
 const messages = useMessagesStore()
 const auth = useAuthStore()
 const { isTablet } = useDevice()
+const myTeam = useMyTeamHome()
 
 const isCollapsed = useStorage('vector.sidebar.collapsed', false)
+
+const canManageStructure = computed(() => auth.isOrganizationAdmin || auth.hasPermission('workspace.structure'))
+const showMyTeamNav = computed(() => !canManageStructure.value && Boolean(myTeam.primary.value))
+
+onMounted(() => {
+  if (!canManageStructure.value) void myTeam.load().catch(() => undefined)
+})
 /** Tablets keep the icon rail so the page has room; the user can still expand. */
 watch(isTablet, (tablet) => {
   if (tablet) isCollapsed.value = true
@@ -102,9 +111,19 @@ const workspaceLinks = computed(() => [
     name: 'departments',
     label: 'Departments',
     icon: Network,
-    show: auth.isOrganizationAdmin || auth.hasPermission('workspace.structure'),
+    show: canManageStructure.value,
     locked: false,
     to: { name: 'departments' } as const,
+  },
+  {
+    name: 'my-team',
+    label: 'My team',
+    icon: UsersRound,
+    show: showMyTeamNav.value,
+    locked: false,
+    to: myTeam.primary.value
+      ? ({ name: 'team', params: { teamId: myTeam.primary.value.id } } as const)
+      : ({ name: 'home' } as const),
   },
 ])
 

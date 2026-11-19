@@ -47,6 +47,7 @@ import HomeCustomizeMenu from './HomeCustomizeMenu.vue'
 import HomeDayLoop from './HomeDayLoop.vue'
 import HomeFocusCards from './HomeFocusCards.vue'
 import HomeLoadingShell from './HomeLoadingShell.vue'
+import HomeMyTeamCard from './HomeMyTeamCard.vue'
 import HomeTodayPanel from './HomeTodayPanel.vue'
 import PlanUnlocksCard from './PlanUnlocksCard.vue'
 import QuickCapture from './QuickCapture.vue'
@@ -169,6 +170,7 @@ const daysLeft = (endDate: string | null) => {
     <HabitCoachCard v-if="data && show('habit')" :data="data" @create-project="isCreateProjectOpen = true" />
     <HabitNudgeBanner v-if="data?.habitNudge && show('habit')" :nudge="data.habitNudge" />
     <TeamDensityCard v-if="data && show('density')" :data="data" />
+    <HomeMyTeamCard v-if="show('myTeam')" :data="data" />
 
     <QuickCapture v-if="show('quickCapture')" />
 
