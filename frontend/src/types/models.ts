@@ -224,6 +224,27 @@ export interface Label {
   color: string
 }
 
+export type CustomFieldType = 'text' | 'number' | 'date' | 'select' | 'multi_select' | 'checkbox' | 'url'
+
+export interface CustomField {
+  id: string
+  projectId: string
+  name: string
+  key: string
+  type: CustomFieldType
+  options: string[]
+  required: boolean
+  description: string | null
+  position: number
+}
+
+export type CustomFieldValue = string | number | boolean | string[] | null
+
+export interface IssueCustomFieldValue {
+  fieldId: string
+  value: CustomFieldValue
+}
+
 export interface ProjectSettings {
   autoAssign: AutoAssignStrategy
   defaultAssigneeId: string | null
@@ -276,6 +297,7 @@ export interface Project extends ProjectReference {
 export interface ProjectDetail extends Project {
   statuses: Status[]
   labels: Label[]
+  customFields: CustomField[]
   members: ProjectMember[]
 }
 
@@ -334,6 +356,7 @@ export interface IssueDetail extends Omit<Issue, 'subtaskProgress' | 'commentCou
   watchers: UserSummary[]
   subtasks: Array<IssueReference & { status: StatusSummary; assignee: UserSummary | null; statusId: string }>
   links: IssueLinkItem[]
+  customFieldValues: IssueCustomFieldValue[]
   timeSpentMinutes: number
   isWatching: boolean
 }

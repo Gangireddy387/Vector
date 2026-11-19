@@ -9,6 +9,7 @@ import { Project } from '../modules/projects/project.model.js';
 import { ProjectMember } from '../modules/projects/project-member.model.js';
 import { Status } from '../modules/statuses/status.model.js';
 import { Label } from '../modules/labels/label.model.js';
+import { CustomField, IssueCustomFieldValue } from '../modules/custom-fields/custom-field.model.js';
 import { Issue } from '../modules/issues/issue.model.js';
 import { IssueLabel, IssueLink, IssueWatcher } from '../modules/issues/issue-relations.model.js';
 import { Sprint } from '../modules/sprints/sprint.model.js';
@@ -100,6 +101,12 @@ Project.hasMany(Status, { as: 'statuses', foreignKey: 'projectId', ...cascade })
 Status.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 Project.hasMany(Label, { as: 'labels', foreignKey: 'projectId', ...cascade });
 Label.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+Project.hasMany(CustomField, { as: 'customFields', foreignKey: 'projectId', ...cascade });
+CustomField.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+Issue.hasMany(IssueCustomFieldValue, { as: 'customFieldValues', foreignKey: 'issueId', ...cascade });
+IssueCustomFieldValue.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
+CustomField.hasMany(IssueCustomFieldValue, { as: 'values', foreignKey: 'fieldId', ...cascade });
+IssueCustomFieldValue.belongsTo(CustomField, { as: 'field', foreignKey: 'fieldId' });
 
 // Sprints
 Project.hasMany(Sprint, { as: 'sprints', foreignKey: 'projectId', ...cascade });
@@ -279,6 +286,8 @@ export {
   ProjectMember,
   Status,
   Label,
+  CustomField,
+  IssueCustomFieldValue,
   Issue,
   IssueLabel,
   IssueLink,

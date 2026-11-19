@@ -4,14 +4,16 @@ import { X } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
-import { DatePicker, NumberField } from '@/components/forms'
+import { DatePicker, NumberField, SelectField } from '@/components/forms'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { formatDateTime } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
 import { formatMinutes, parseDuration } from '@/lib/utils'
-import type { IssueDetail, ProjectDetail, Sprint } from '@/types/models'
+import { useAuthStore } from '@/modules/auth/auth.store'
+import type { CustomField, CustomFieldValue, IssueDetail, ProjectDetail, Sprint } from '@/types/models'
 import { type UpdateIssueInput, issuesApi } from '../../api/issues.api'
 import IssueTypeSelect from '../pickers/IssueTypeSelect.vue'
 import LabelMultiSelect from '../pickers/LabelMultiSelect.vue'
@@ -27,6 +29,33 @@ const props = withDefaults(
   { editable: true, showStatus: true },
 )
 const emit = defineEmits<{ update: [changes: UpdateIssueInput]; refreshed: [issue: IssueDetail] }>()
+
+const auth = useAuthStore()
+const canEditCustomFields = computed(() => props.editable && auth.hasFeature('customFields'))
+const customFields = computed(() => props.project.customFields ?? [])
+const customValueMap = computed(() => {
+  const map = new Map<string, CustomFieldValue>()
+  for (const row of props.issue.customFieldValues ?? []) map.set(row.fieldId, row.value)
+  return map
+})
+
+function customValue(field: CustomField): CustomFieldValue {
+  if (customValueMap.value.has(field.id)) return customValueMap.value.get(field.id) ?? null
+  return field.type === 'checkbox' ? false : null
+}
+
+function setCustomField(fieldId: string, value: CustomFieldValue) {
+  if (!canEditCustomFields.value) return
+  const current = customValueMap.value.get(fieldId) ?? null
+  if (JSON.stringify(current) === JSON.stringify(value)) return
+  emit('update', { customFields: { [fieldId]: value } })
+}
+
+function toggleMultiOption(field: CustomField, option: string, on: boolean) {
+  const current = Array.isArray(customValue(field)) ? ([...(customValue(field) as string[])] as string[]) : []
+  const next = on ? [...new Set([...current, option])] : current.filter((item) => item !== option)
+  setCustomField(field.id, next.length ? next : null)
+}
 
 const assignableMembers = computed(() => props.project.members.filter((member) => member.role !== 'viewer'))
 const watcherCandidateId = ref<string | null>(null)
@@ -169,6 +198,87 @@ function setField<K extends keyof UpdateIssueInput>(field: K, value: UpdateIssue
           :disabled="!editable"
           @update:model-value="(value) => setField('labelIds', value)"
         />
+      </IssueFieldRow>
+    </div>
+
+    <div v-if="customFields.length" class="py-2">
+      <IssueFieldRow
+        v-for="field in customFields"
+        :key="field.id"
+        :label="field.name"
+        :for="`cf-${field.id}`"
+        :readonly="field.type === 'checkbox' ? false : !canEditCustomFields && field.type !== 'url'"
+      >
+        <template v-if="field.type === 'text' || field.type === 'url'">
+          <Input
+            :id="`cf-${field.id}`"
+            :model-value="typeof customValue(field) === 'string' ? (customValue(field) as string) : ''"
+            class="h-8"
+            :type="field.type === 'url' ? 'url' : 'text'"
+            :placeholder="field.type === 'url' ? 'https://…' : '–'"
+            :disabled="!canEditCustomFields"
+            @blur="(event) => setCustomField(field.id, (event.target as HTMLInputElement).value.trim() || null)"
+            @keydown.enter="(event) => ((event.target as HTMLInputElement).blur())"
+          />
+        </template>
+        <template v-else-if="field.type === 'number'">
+          <Input
+            :id="`cf-${field.id}`"
+            type="number"
+            class="h-8"
+            :model-value="customValue(field) == null ? '' : String(customValue(field))"
+            placeholder="–"
+            :disabled="!canEditCustomFields"
+            @blur="
+              (event) => {
+                const text = (event.target as HTMLInputElement).value.trim()
+                setCustomField(field.id, text === '' ? null : Number(text))
+              }
+            "
+            @keydown.enter="(event) => ((event.target as HTMLInputElement).blur())"
+          />
+        </template>
+        <template v-else-if="field.type === 'date'">
+          <DatePicker
+            :id="`cf-${field.id}`"
+            :model-value="typeof customValue(field) === 'string' ? (customValue(field) as string) : ''"
+            size="sm"
+            placeholder="None"
+            display-format="d MMM yyyy"
+            :disabled="!canEditCustomFields"
+            @update:model-value="(value) => setCustomField(field.id, value || null)"
+          />
+        </template>
+        <template v-else-if="field.type === 'select'">
+          <SelectField
+            :id="`cf-${field.id}`"
+            :model-value="typeof customValue(field) === 'string' ? (customValue(field) as string) : ''"
+            :options="[{ value: '', label: 'None' }, ...field.options.map((option) => ({ value: option, label: option }))]"
+            size="sm"
+            :disabled="!canEditCustomFields"
+            @update:model-value="(value) => setCustomField(field.id, value || null)"
+          />
+        </template>
+        <template v-else-if="field.type === 'multi_select'">
+          <div class="flex w-full flex-col gap-1.5">
+            <label v-for="option in field.options" :key="option" class="flex items-center gap-2 text-sm">
+              <Checkbox
+                :model-value="Array.isArray(customValue(field)) && (customValue(field) as string[]).includes(option)"
+                :disabled="!canEditCustomFields"
+                @update:model-value="(value) => toggleMultiOption(field, option, value === true)"
+              />
+              {{ option }}
+            </label>
+          </div>
+        </template>
+        <template v-else-if="field.type === 'checkbox'">
+          <Checkbox
+            :id="`cf-${field.id}`"
+            :model-value="Boolean(customValue(field))"
+            :disabled="!canEditCustomFields"
+            @update:model-value="(value) => setCustomField(field.id, value === true)"
+          />
+        </template>
       </IssueFieldRow>
     </div>
 

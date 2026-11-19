@@ -155,11 +155,22 @@ async function unlockEnterpriseSso() {
   console.info('[plans] Enterprise plan now includes SSO');
 }
 
+/** Pro / Enterprise plans that already include templates get custom fields when the switch is introduced. */
+async function unlockCustomFields() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.customFields || !features.templates) continue;
+    await plan.update({ features: { ...features, customFields: true } });
+    console.info(`[plans] ${plan.name} plan now includes custom fields`);
+  }
+}
+
 export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
     await unlockFreeWorkdayLoop();
     await unlockEnterpriseSso();
+    await unlockCustomFields();
     return;
   }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);

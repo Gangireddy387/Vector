@@ -19,6 +19,8 @@ const editableFields = {
   startDate: dateOnly.nullable(),
   dueDate: dateOnly.nullable(),
   labelIds: z.array(uuid).max(20),
+  /** Custom field values keyed by field id. */
+  customFields: z.record(uuid, z.unknown()),
 };
 
 export const createIssueSchema = z

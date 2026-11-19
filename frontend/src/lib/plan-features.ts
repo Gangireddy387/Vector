@@ -4,6 +4,7 @@ import {
   CalendarDays,
   Clock,
   LayoutTemplate,
+  ListTree,
   Mail,
   MailCheck,
   MessageCircle,
@@ -27,6 +28,7 @@ export type PlanFeatureKey =
   | 'automations'
   | 'recurringTasks'
   | 'templates'
+  | 'customFields'
   | 'reports'
   | 'chat'
   | 'directMessages'
@@ -74,6 +76,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
   { key: 'automations', label: 'Automation rules', description: 'When something happens, do the follow-up work', icon: Workflow, group: 'app' },
   { key: 'recurringTasks', label: 'Recurring tasks', description: 'Routine work that creates itself on schedule', icon: Repeat, group: 'app' },
   { key: 'templates', label: 'Task templates', description: 'Pre-filled formats for common tasks', icon: LayoutTemplate, group: 'app' },
+  {
+    key: 'customFields',
+    label: 'Custom fields',
+    description: 'Extra fields on tasks (text, number, date, select, checkbox, URL)',
+    icon: ListTree,
+    group: 'app',
+  },
   { key: 'reports', label: 'Reports & progress', description: 'Charts, velocity, burndown and team insights', icon: BarChart3, group: 'app' },
   { key: 'chat', label: 'Team chat & standups', description: 'Project chat, follow-ups and daily standups', icon: MessagesSquare, group: 'app' },
   { key: 'directMessages', label: 'Direct messages', description: 'Private one-to-one chats between people', icon: MessageCircle, group: 'app' },

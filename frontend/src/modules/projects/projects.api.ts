@@ -1,6 +1,8 @@
 import { http } from '@/lib/http'
 import type {
   Activity,
+  CustomField,
+  CustomFieldType,
   Label,
   Project,
   ProjectDetail,
@@ -74,6 +76,29 @@ export const projectsApi = {
   updateLabel: (projectId: string, labelId: string, changes: { name?: string; color?: string }) =>
     http.patch<{ label: Label }>(`/projects/${projectId}/labels/${labelId}`, changes).then((r) => r.data.label),
   removeLabel: (projectId: string, labelId: string) => http.delete(`/projects/${projectId}/labels/${labelId}`),
+
+  createCustomField: (
+    projectId: string,
+    input: {
+      name: string
+      type: CustomFieldType
+      options?: string[]
+      required?: boolean
+      description?: string | null
+      key?: string
+    },
+  ) => http.post<{ customField: CustomField }>(`/projects/${projectId}/custom-fields`, input).then((r) => r.data.customField),
+  updateCustomField: (
+    projectId: string,
+    fieldId: string,
+    changes: { name?: string; options?: string[]; required?: boolean; description?: string | null; position?: number },
+  ) =>
+    http
+      .patch<{ customField: CustomField }>(`/projects/${projectId}/custom-fields/${fieldId}`, changes)
+      .then((r) => r.data.customField),
+  reorderCustomFields: (projectId: string, fieldIds: string[]) =>
+    http.put<{ customFields: CustomField[] }>(`/projects/${projectId}/custom-fields/order`, { fieldIds }).then((r) => r.data.customFields),
+  removeCustomField: (projectId: string, fieldId: string) => http.delete(`/projects/${projectId}/custom-fields/${fieldId}`),
 
   activity: (projectId: string, limit = 50) =>
     http.get<{ activities: Activity[] }>(`/projects/${projectId}/activity`, { params: { limit } }).then((r) => r.data.activities),

@@ -15,6 +15,7 @@ import dashboardRoutes from './modules/dashboard/dashboard.routes.js';
 import departmentRoutes from './modules/departments/department.routes.js';
 import issueRoutes from './modules/issues/issue.routes.js';
 import labelRoutes from './modules/labels/label.routes.js';
+import customFieldRoutes from './modules/custom-fields/custom-field.routes.js';
 import messageRoutes from './modules/messages/messages.routes.js';
 import { conversationFileRoutes, publicConversationFileRoutes } from './modules/messages/conversation.files.js';
 import { publicMeetingRoutes } from './modules/meetings/meeting.guest.js';
@@ -81,6 +82,7 @@ export function createApiRouter() {
     projectRoutes,
     statusRoutes,
     labelRoutes,
+    customFieldRoutes,
     sprintRoutes,
     issueRoutes,
     commentRoutes,

@@ -1,5 +1,6 @@
 import { fn, col } from 'sequelize';
 import {
+  CustomField,
   Issue,
   IssueWatcher,
   Label,
@@ -166,6 +167,7 @@ export async function getProject(projectId, userId) {
       { model: User, as: 'lead', attributes: USER_SUMMARY_ATTRIBUTES },
       { model: Status, as: 'statuses' },
       { model: Label, as: 'labels' },
+      { model: CustomField, as: 'customFields' },
       {
         model: ProjectMember,
         as: 'memberships',
@@ -175,6 +177,7 @@ export async function getProject(projectId, userId) {
     order: [
       [{ model: Status, as: 'statuses' }, 'position', 'ASC'],
       [{ model: Label, as: 'labels' }, 'name', 'ASC'],
+      [{ model: CustomField, as: 'customFields' }, 'position', 'ASC'],
     ],
   });
   if (!project) throw ApiError.notFound('Project not found');

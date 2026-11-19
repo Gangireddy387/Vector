@@ -1,6 +1,7 @@
 import { Op, literal } from 'sequelize';
 import {
   Attachment,
+  CustomField,
   Issue,
   IssueLabel,
   IssueLink,
@@ -14,6 +15,13 @@ import {
   User,
   WorkLog,
 } from '../../database/models.js';
+import {
+  assertCustomFieldValues,
+  formatFieldValueForActivity,
+  loadIssueCustomFieldValues,
+  setIssueCustomFieldValues,
+} from '../custom-fields/custom-field.service.js';
+import { projectHasFeature } from '../plans/plan.service.js';
 import { likeOperator, writeTransaction } from '../../database/connection.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { DomainEvents, eventBus } from '../../shared/events/event-bus.js';
@@ -340,8 +348,10 @@ export async function getIssueDetail(issueIdOrKey, userId) {
   ]);
 
   const json = issue.toJSON();
+  const customFieldMap = await loadIssueCustomFieldValues([id]);
   return {
     ...json,
+    customFieldValues: customFieldMap.get(id) ?? [],
     subtasks: subtasks.map((subtask) => subtask.toJSON()),
     links: serializeLinks(outward, inward),
     timeSpentMinutes: timeSpentMinutes ?? 0,
@@ -381,6 +391,15 @@ export async function createIssue(rawInput, actor, context = {}) {
   }
 
   const position = await nextPosition(project.id);
+  const customFieldValues =
+    input.customFields && Object.keys(input.customFields).length
+      ? await (async () => {
+          if (!(await projectHasFeature(project.id, 'customFields'))) {
+            throw ApiError.forbidden('The current plan does not include custom fields');
+          }
+          return assertCustomFieldValues(project.id, input.customFields);
+        })()
+      : null;
   // The number comes from the project's counter, locked for the transaction: two tasks created at the same moment
   // get different keys, and a failure leaves neither a used number nor half a task behind.
   const issue = await writeTransaction(async (transaction) => {
@@ -411,6 +430,7 @@ export async function createIssue(rawInput, actor, context = {}) {
       { transaction },
     );
     if (input.labelIds?.length) await created.setLabels([...new Set(input.labelIds)], { transaction });
+    if (customFieldValues) await setIssueCustomFieldValues(created.id, customFieldValues, { transaction });
     return created;
   });
   await addWatchers(issue.id, [issue.reporterId, issue.assigneeId]);
@@ -477,6 +497,40 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
     }
   }
 
+  let customFieldsChanged = false;
+  if (changes.customFields && Object.keys(changes.customFields).length) {
+    if (!(await projectHasFeature(issue.projectId, 'customFields'))) {
+      throw ApiError.forbidden('The current plan does not include custom fields');
+    }
+    const normalized = await assertCustomFieldValues(issue.projectId, changes.customFields);
+    const fieldIds = Object.keys(normalized);
+    const [fields, existingRows] = await Promise.all([
+      CustomField.findAll({ where: { id: fieldIds, projectId: issue.projectId } }),
+      loadIssueCustomFieldValues([issue.id]),
+    ]);
+    const existing = new Map((existingRows.get(issue.id) ?? []).map((row) => [row.fieldId, row.value]));
+    const byId = new Map(fields.map((field) => [field.id, field]));
+    await setIssueCustomFieldValues(issue.id, normalized);
+    for (const fieldId of fieldIds) {
+      const field = byId.get(fieldId);
+      if (!field) continue;
+      const from = existing.has(fieldId) ? existing.get(fieldId) : null;
+      const to = normalized[fieldId];
+      if (JSON.stringify(from) === JSON.stringify(to)) continue;
+      customFieldsChanged = true;
+      await logActivity({
+        projectId: issue.projectId,
+        issueId: issue.id,
+        actorId: actor?.id ?? null,
+        action: 'updated',
+        field: field.name,
+        fromValue: formatFieldValueForActivity(field, from),
+        toValue: formatFieldValueForActivity(field, to),
+        meta: { source: context.source ?? 'user', ruleName: context.ruleName ?? null, customFieldId: field.id },
+      });
+    }
+  }
+
   if (diff.assigneeId?.to) await addWatchers(issue.id, [diff.assigneeId.to]);
 
   const meaningfulFields = Object.keys(diff).filter((field) => !SILENT_FIELDS.has(field));
@@ -493,10 +547,10 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
     });
   }
 
-  if (Object.keys(diff).length) {
+  if (Object.keys(diff).length || customFieldsChanged) {
     eventBus.publish(DomainEvents.ISSUE_UPDATED, {
       issue: await loadEventIssue(issue.id),
-      changes: diff,
+      changes: customFieldsChanged ? { ...diff, customFields: true } : diff,
       actorId: actor?.id ?? null,
       context,
     });

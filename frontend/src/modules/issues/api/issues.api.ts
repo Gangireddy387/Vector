@@ -1,5 +1,5 @@
 import { http } from '@/lib/http'
-import type { Activity, Issue, IssueDetail, IssueLinkType, IssuePriority, IssueType } from '@/types/models'
+import type { Activity, CustomFieldValue, Issue, IssueDetail, IssueLinkType, IssuePriority, IssueType } from '@/types/models'
 
 export interface IssueFilters {
   projectId?: string
@@ -36,6 +36,8 @@ export interface IssueFields {
   startDate: string | null
   dueDate: string | null
   labelIds: string[]
+  /** Custom field values keyed by field id. */
+  customFields: Record<string, CustomFieldValue>
 }
 
 export type CreateIssueInput = Partial<IssueFields> & {
