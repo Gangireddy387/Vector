@@ -137,12 +137,60 @@ const INDEXES = [
   { name: 'conversation_messages_conversation_created', table: 'conversation_messages', columns: ['conversation_id', 'created_at'] },
 ];
 
+/** Expression GIN indexes for global search (Postgres FTS). Table-qualified columns, no model alias. */
+const FTS_GIN_INDEXES = [
+  {
+    name: 'issues_fts_gin',
+    sql: `CREATE INDEX IF NOT EXISTS "issues_fts_gin" ON "issues" USING gin (
+      (setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+       setweight(to_tsvector('english', coalesce(key, '')), 'A') ||
+       setweight(to_tsvector('english', coalesce(description, '')), 'B'))
+    )`,
+  },
+  {
+    name: 'wiki_pages_fts_gin',
+    sql: `CREATE INDEX IF NOT EXISTS "wiki_pages_fts_gin" ON "wiki_pages" USING gin (
+      (setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+       setweight(to_tsvector('english', coalesce(body, '')), 'B'))
+    )`,
+  },
+  {
+    name: 'conversation_messages_fts_gin',
+    sql: `CREATE INDEX IF NOT EXISTS "conversation_messages_fts_gin" ON "conversation_messages" USING gin (
+      (setweight(to_tsvector('english', coalesce(subject, '')), 'A') ||
+       setweight(to_tsvector('english', coalesce(body, '')), 'B'))
+    )`,
+  },
+  {
+    name: 'chat_messages_fts_gin',
+    sql: `CREATE INDEX IF NOT EXISTS "chat_messages_fts_gin" ON "chat_messages" USING gin (
+      (to_tsvector('english', coalesce(body, '')))
+    )`,
+  },
+  {
+    name: 'projects_fts_gin',
+    sql: `CREATE INDEX IF NOT EXISTS "projects_fts_gin" ON "projects" USING gin (
+      (setweight(to_tsvector('english', coalesce(name, '')), 'A') ||
+       setweight(to_tsvector('english', coalesce(key, '')), 'A'))
+    )`,
+  },
+];
+
 export async function applyIndexUpgrades() {
   for (const { name, table, columns, unique } of INDEXES) {
     try {
       await sequelize.query(`CREATE ${unique ? 'UNIQUE ' : ''}INDEX IF NOT EXISTS "${name}" ON "${table}" (${columns.map((column) => `"${column}"`).join(', ')})`);
     } catch (error) {
       console.warn(`[db] could not create index ${name}: ${error.message}`);
+    }
+  }
+
+  if (sequelize.getDialect() !== 'postgres') return;
+  for (const { name, sql } of FTS_GIN_INDEXES) {
+    try {
+      await sequelize.query(sql);
+    } catch (error) {
+      console.warn(`[db] could not create FTS index ${name}: ${error.message}`);
     }
   }
 }

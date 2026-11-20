@@ -85,6 +85,34 @@ describe('global search', () => {
   it('rejects empty queries', async () => {
     assert.equal((await asAlice('GET', '/search?q=')).status, 400);
   });
+
+  it('ranks title matches above description-only matches', async () => {
+    const titleHit = await asAlice('POST', '/issues', {
+      projectId: project.id,
+      title: 'ranktoken in the title',
+      description: 'unrelated body',
+      type: 'task',
+    });
+    assert.equal(titleHit.status, 201, JSON.stringify(titleHit.body));
+
+    const bodyHit = await asAlice('POST', '/issues', {
+      projectId: project.id,
+      title: 'Something else entirely',
+      description: 'ranktoken only appears in the description',
+      type: 'task',
+    });
+    assert.equal(bodyHit.status, 201, JSON.stringify(bodyHit.body));
+
+    const found = await asAlice('GET', `/search?q=${encodeURIComponent('ranktoken')}&scope=issues`);
+    assert.equal(found.status, 200, JSON.stringify(found.body));
+    const ids = found.body.issues.map((row) => row.id);
+    const titleIndex = ids.indexOf(titleHit.body.issue.id);
+    const bodyIndex = ids.indexOf(bodyHit.body.issue.id);
+    assert.ok(titleIndex !== -1 && bodyIndex !== -1, 'both issues should match');
+    assert.ok(titleIndex < bodyIndex, 'title hit should rank above description-only hit');
+    assert.equal(found.body.issues[titleIndex].matchedOn, 'title');
+    assert.equal(found.body.issues[bodyIndex].matchedOn, 'description');
+  });
 });
 
 describe('saved filters', () => {

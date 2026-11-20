@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { criteriaEqual, matchFieldLabel, sanitizeCriteria, summarizeCriteria } from '@/modules/issues/lib/saved-filter-criteria'
+import { highlightParts } from './highlight-query'
 import { clearRecentSearches, readRecentSearches, rememberSearch } from './search-recent'
 
 describe('saved filter criteria', () => {
@@ -29,6 +30,20 @@ describe('saved filter criteria', () => {
     expect(matchFieldLabel('description')).toBe('Description')
     expect(matchFieldLabel('comment')).toBe('Comment')
     expect(matchFieldLabel('unknown')).toBeUndefined()
+  })
+})
+
+describe('highlightParts', () => {
+  it('marks the longest query token case-insensitively', () => {
+    expect(highlightParts('Fix login timeout', 'LOGIN')).toEqual([
+      { text: 'Fix ', hit: false },
+      { text: 'login', hit: true },
+      { text: ' timeout', hit: false },
+    ])
+  })
+
+  it('returns plain text when nothing matches', () => {
+    expect(highlightParts('Board view', 'xyz')).toEqual([{ text: 'Board view', hit: false }])
   })
 })
 

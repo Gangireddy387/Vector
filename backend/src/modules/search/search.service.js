@@ -25,6 +25,19 @@ import { getMemberProjectIds } from '../projects/project-access.js';
 import { searchUsers } from '../users/user.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { STATUS_CATEGORIES } from '../statuses/status.model.js';
+import {
+  CHAT_VECTOR,
+  ISSUE_VECTOR,
+  MESSAGE_VECTOR,
+  PROJECT_VECTOR,
+  WIKI_VECTOR,
+  ftsMatch,
+  ftsRank,
+  isPostgres,
+  rankBonus,
+  recencyBoost,
+  sanitizeFtsTerm,
+} from './search-fts.js';
 
 const previewText = (text, max = 140) =>
   String(text || '')
@@ -34,13 +47,21 @@ const previewText = (text, max = 140) =>
     .slice(0, max);
 
 /** Strip LIKE wildcards so a typed `%` or `_` is literal text, not a pattern. */
-const sanitizeTerm = (q) => q.replace(/[%_]/g, ' ').trim();
+const sanitizeTerm = (q) => sanitizeFtsTerm(q);
 
 const issueIncludes = [
   { model: Status, as: 'status', attributes: ['id', 'name', 'category', 'color'] },
   { model: User, as: 'assignee', attributes: USER_SUMMARY_ATTRIBUTES },
   { model: Project, as: 'project', attributes: ['id', 'key', 'name', 'color'] },
 ];
+
+/** Text match: FTS when Postgres, else ILIKE/LIKE; always OR title/key substring for keys like SRC-12. */
+function textMatchClause(vectorSql, columns, text) {
+  const term = `%${text}%`;
+  const likes = columns.map((column) => ({ [column]: { [likeOperator]: term } }));
+  if (!isPostgres || !vectorSql) return { [Op.or]: likes };
+  return { [Op.or]: [ftsMatch(vectorSql, text), ...likes] };
+}
 
 /**
  * Parses advanced operators from q and returns them plus the free-text remainder.
@@ -113,18 +134,24 @@ export function parseSearchOperators(raw) {
 }
 
 function scoreIssue(issue, q) {
-  if (!q) return { score: 20, matchedOn: 'filter' };
+  const freshness = recencyBoost(issue.updatedAt);
+  const fts = rankBonus(issue.get?.('rank') ?? issue.dataValues?.rank ?? issue.rank);
+  if (!q) return { score: 20 + freshness, matchedOn: 'filter' };
   const needle = q.toLowerCase();
   const key = String(issue.key || '').toLowerCase();
   const title = String(issue.title || '').toLowerCase();
-  if (key === needle) return { score: 100, matchedOn: 'key' };
-  if (key.startsWith(needle) || key.includes(needle)) return { score: 90, matchedOn: 'key' };
-  if (title === needle) return { score: 80, matchedOn: 'title' };
-  if (title.includes(needle)) return { score: 70, matchedOn: 'title' };
-  if (String(issue.description || '').toLowerCase().includes(needle)) return { score: 50, matchedOn: 'description' };
-  if (issue._matchedOn === 'comment') return { score: 40, matchedOn: 'comment' };
-  if (issue._matchedOn === 'label') return { score: 35, matchedOn: 'label' };
-  return { score: 10, matchedOn: 'title' };
+  if (key === needle) return { score: 100 + freshness + fts, matchedOn: 'key' };
+  if (key.startsWith(needle) || key.includes(needle)) return { score: 90 + freshness + fts, matchedOn: 'key' };
+  if (title === needle) return { score: 80 + freshness + fts, matchedOn: 'title' };
+  if (title.includes(needle)) return { score: 70 + freshness + fts, matchedOn: 'title' };
+  if (String(issue.description || '').toLowerCase().includes(needle)) {
+    return { score: 50 + freshness + fts, matchedOn: 'description' };
+  }
+  if (issue._matchedOn === 'comment') return { score: 40 + freshness, matchedOn: 'comment' };
+  if (issue._matchedOn === 'label') return { score: 35 + freshness, matchedOn: 'label' };
+  // FTS hit that substring heuristics missed (stemming) — still surface as title-ish.
+  if (fts > 0) return { score: 55 + freshness + fts, matchedOn: 'title' };
+  return { score: 10 + freshness, matchedOn: 'title' };
 }
 
 async function resolveAssigneeId(userId, assignee) {
@@ -178,22 +205,18 @@ async function searchIssues(userId, projectIds, q, operators, limit, offset = 0)
   /** Pull enough ranked candidates so offset pages still have results to slice. */
   const candidateLimit = Math.min(200, Math.max(limit * 2, offset + limit));
 
-  // Operators alone are enough to search; free text optionally narrows.
+  const issueAttributes = ['id', 'key', 'title', 'description', 'type', 'priority', 'projectId', 'updatedAt'];
+  if (hasText && isPostgres) {
+    issueAttributes.push([ftsRank(ISSUE_VECTOR, text), 'rank']);
+  }
+
+  // Operators alone are enough to search; free text optionally narrows (FTS + substring).
   const [direct, commentHits, labelHits] = await Promise.all([
     Issue.findAll({
-      where: hasText
-        ? {
-            ...where,
-            [Op.or]: [
-              { title: { [likeOperator]: term } },
-              { key: { [likeOperator]: term } },
-              { description: { [likeOperator]: term } },
-            ],
-          }
-        : where,
-      attributes: ['id', 'key', 'title', 'description', 'type', 'priority', 'projectId', 'updatedAt'],
+      where: hasText ? { ...where, ...textMatchClause(ISSUE_VECTOR, ['title', 'key', 'description'], text) } : where,
+      attributes: issueAttributes,
       include: issueIncludes,
-      order: [['updatedAt', 'DESC']],
+      order: hasText && isPostgres ? [[ftsRank(ISSUE_VECTOR, text), 'DESC'], ['updatedAt', 'DESC']] : [['updatedAt', 'DESC']],
       limit: candidateLimit,
     }),
     hasText
@@ -325,30 +348,46 @@ async function searchMessages(userId, q, limit, offset = 0) {
   const clearedByConversation = new Map(
     memberships.filter((row) => allowed.has(row.conversationId)).map((row) => [row.conversationId, row.clearedAt]),
   );
-  const term = `%${text}%`;
   const candidateLimit = Math.min(120, Math.max(limit * 2, offset + limit));
+  const messageAttributes = ['id', 'conversationId', 'subject', 'body', 'createdAt'];
+  if (isPostgres) messageAttributes.push([ftsRank(MESSAGE_VECTOR, text), 'rank']);
 
   const rows = await ConversationMessage.findAll({
     where: {
       conversationId: conversationIds,
       deletedAt: null,
-      [Op.or]: [{ body: { [likeOperator]: term } }, { subject: { [likeOperator]: term } }],
+      ...textMatchClause(MESSAGE_VECTOR, ['body', 'subject'], text),
     },
-    attributes: ['id', 'conversationId', 'subject', 'body', 'createdAt'],
+    attributes: messageAttributes,
     include: [{ model: User, as: 'author', attributes: USER_SUMMARY_ATTRIBUTES }],
-    order: [['createdAt', 'DESC']],
+    order: isPostgres
+      ? [[ftsRank(MESSAGE_VECTOR, text), 'DESC'], ['createdAt', 'DESC']]
+      : [['createdAt', 'DESC']],
     limit: candidateLimit,
   });
 
-  const visible = rows.filter((row) => {
-    const clearedAt = clearedByConversation.get(row.conversationId);
-    return !clearedAt || new Date(row.createdAt) > new Date(clearedAt);
-  });
+  const visible = rows
+    .filter((row) => {
+      const clearedAt = clearedByConversation.get(row.conversationId);
+      return !clearedAt || new Date(row.createdAt) > new Date(clearedAt);
+    })
+    .map((row) => {
+      const needle = text.toLowerCase();
+      const subjectHit = String(row.subject || '')
+        .toLowerCase()
+        .includes(needle);
+      const score =
+        (subjectHit ? 70 : 40) +
+        rankBonus(row.get?.('rank') ?? row.dataValues?.rank) +
+        recencyBoost(row.createdAt);
+      return { row, score };
+    })
+    .sort((a, b) => b.score - a.score || new Date(b.row.createdAt) - new Date(a.row.createdAt));
 
   const byId = new Map(conversations.map((row) => [row.id, row]));
   const titles = await conversationTitles(userId, conversations);
 
-  return visible.slice(offset, offset + limit).map((row) => ({
+  return visible.slice(offset, offset + limit).map(({ row }) => ({
     id: row.id,
     conversationId: row.conversationId,
     kind: byId.get(row.conversationId)?.kind ?? 'direct',
@@ -364,27 +403,37 @@ async function searchProjectChat(projectIds, q, limit, offset = 0) {
   const text = sanitizeTerm(q);
   if (!text || !projectIds.length) return [];
 
-  const term = `%${text}%`;
+  const chatAttributes = ['id', 'projectId', 'body', 'createdAt'];
+  if (isPostgres) chatAttributes.push([ftsRank(CHAT_VECTOR, text), 'rank']);
+  /** Fetch a window then rank so offset pages stay meaningful. */
+  const candidateLimit = Math.min(120, Math.max(limit * 2, offset + limit));
+
   const rows = await ChatMessage.findAll({
-    where: { projectId: projectIds, body: { [likeOperator]: term } },
-    attributes: ['id', 'projectId', 'body', 'createdAt'],
+    where: { projectId: projectIds, ...textMatchClause(CHAT_VECTOR, ['body'], text) },
+    attributes: chatAttributes,
     include: [
       { model: User, as: 'author', attributes: USER_SUMMARY_ATTRIBUTES },
       { model: Project, as: 'project', attributes: ['id', 'key', 'name', 'color'] },
     ],
-    order: [['createdAt', 'DESC']],
-    limit,
-    offset,
+    order: isPostgres ? [[ftsRank(CHAT_VECTOR, text), 'DESC'], ['createdAt', 'DESC']] : [['createdAt', 'DESC']],
+    limit: candidateLimit,
   });
 
-  return rows.map((row) => ({
-    id: row.id,
-    projectId: row.projectId,
-    project: row.project,
-    snippet: previewText(row.body),
-    author: row.author,
-    createdAt: row.createdAt,
-  }));
+  return rows
+    .map((row) => ({
+      row,
+      score: 40 + rankBonus(row.get?.('rank') ?? row.dataValues?.rank) + recencyBoost(row.createdAt),
+    }))
+    .sort((a, b) => b.score - a.score || new Date(b.row.createdAt) - new Date(a.row.createdAt))
+    .slice(offset, offset + limit)
+    .map(({ row }) => ({
+      id: row.id,
+      projectId: row.projectId,
+      project: row.project,
+      snippet: previewText(row.body),
+      author: row.author,
+      createdAt: row.createdAt,
+    }));
 }
 
 async function searchWikiPages(q, limit, offset = 0) {
@@ -395,15 +444,17 @@ async function searchWikiPages(q, limit, offset = 0) {
   const organization = await Organization.findByPk(organizationId, { include: withPlan() });
   if (!organization || !entitlementsFor(organization).features.wiki) return [];
 
-  const term = `%${text}%`;
   const needle = text.toLowerCase();
+  const wikiAttributes = ['id', 'title', 'body', 'updatedAt'];
+  if (isPostgres) wikiAttributes.push([ftsRank(WIKI_VECTOR, text), 'rank']);
+
   const rows = await WikiPage.findAll({
     where: {
       organizationId,
-      [Op.or]: [{ title: { [likeOperator]: term } }, { body: { [likeOperator]: term } }],
+      ...textMatchClause(WIKI_VECTOR, ['title', 'body'], text),
     },
-    attributes: ['id', 'title', 'body', 'updatedAt'],
-    order: [['updatedAt', 'DESC']],
+    attributes: wikiAttributes,
+    order: isPostgres ? [[ftsRank(WIKI_VECTOR, text), 'DESC'], ['updatedAt', 'DESC']] : [['updatedAt', 'DESC']],
     limit: Math.min(80, Math.max(limit * 3, offset + limit)),
   });
 
@@ -412,7 +463,8 @@ async function searchWikiPages(q, limit, offset = 0) {
       const title = String(page.title || '');
       const body = String(page.body || '');
       const titleHit = title.toLowerCase().includes(needle);
-      const score = titleHit ? (title.toLowerCase() === needle ? 100 : 80) : 50;
+      const base = titleHit ? (title.toLowerCase() === needle ? 100 : 80) : 50;
+      const score = base + rankBonus(page.get?.('rank') ?? page.dataValues?.rank) + recencyBoost(page.updatedAt);
       return {
         id: page.id,
         title,
@@ -438,37 +490,65 @@ export async function globalSearch(userId, { q, limit, offset = 0, scope = 'all'
   const wantChat = scope === 'all' || scope === 'chat';
   const wantWiki = scope === 'all' || scope === 'wiki';
   const freeText = text || (!hasOperators ? sanitizeTerm(q) : '');
-  const term = freeText ? `%${sanitizeTerm(freeText)}%` : null;
   const projectLimit = scope === 'projects' ? limit : 5;
   const peopleLimit = scope === 'people' ? limit : 5;
   const messageLimit = scope === 'messages' ? limit : 5;
   const chatLimit = scope === 'chat' ? limit : 5;
   const wikiLimit = scope === 'wiki' ? limit : 5;
 
+  const projectText = sanitizeTerm(freeText);
+  const searchProjects = async () => {
+    if (!wantProjects || !projectIds.length) return [];
+    if (projectText) {
+      const projectAttributes = ['id', 'key', 'name', 'color', 'type', 'updatedAt'];
+      if (isPostgres) projectAttributes.push([ftsRank(PROJECT_VECTOR, projectText), 'rank']);
+      const rows = await Project.findAll({
+        where: {
+          id: projectIds,
+          ...(operators.projectKey ? { key: { [likeOperator]: operators.projectKey } } : {}),
+          ...textMatchClause(PROJECT_VECTOR, ['name', 'key'], projectText),
+        },
+        attributes: projectAttributes,
+        order: isPostgres
+          ? [[ftsRank(PROJECT_VECTOR, projectText), 'DESC'], ['updatedAt', 'DESC']]
+          : [['updatedAt', 'DESC']],
+        limit: Math.min(40, Math.max(projectLimit * 2, (scope === 'projects' ? offset : 0) + projectLimit)),
+      });
+      return rows
+        .map((row) => {
+          const needle = projectText.toLowerCase();
+          const key = String(row.key || '').toLowerCase();
+          const name = String(row.name || '').toLowerCase();
+          let base = 40;
+          if (key === needle || name === needle) base = 100;
+          else if (key.includes(needle)) base = 90;
+          else if (name.includes(needle)) base = 80;
+          return {
+            row,
+            score: base + rankBonus(row.get?.('rank') ?? row.dataValues?.rank) + recencyBoost(row.updatedAt),
+          };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(scope === 'projects' ? offset : 0, (scope === 'projects' ? offset : 0) + projectLimit)
+        .map(({ row }) => ({ id: row.id, key: row.key, name: row.name, color: row.color, type: row.type }));
+    }
+    if (operators.projectKey) {
+      return Project.findAll({
+        where: { id: projectIds, key: { [likeOperator]: operators.projectKey } },
+        attributes: ['id', 'key', 'name', 'color', 'type'],
+        limit: projectLimit,
+        offset: scope === 'projects' ? offset : 0,
+      });
+    }
+    return [];
+  };
+
   // Issue operators only apply to the issues pane; projects/people/messages still use free text.
   const [issues, projectRows, peopleRows, messageRows, chatRows, wikiRows] = await Promise.all([
     wantIssues && (freeText || hasOperators)
       ? searchIssues(userId, projectIds, freeText, operators, limit, offset)
       : Promise.resolve([]),
-    wantProjects && projectIds.length && term && term !== '%%'
-      ? Project.findAll({
-          where: {
-            id: projectIds,
-            ...(operators.projectKey ? { key: { [likeOperator]: operators.projectKey } } : {}),
-            [Op.or]: [{ name: { [likeOperator]: term } }, { key: { [likeOperator]: term } }],
-          },
-          attributes: ['id', 'key', 'name', 'color', 'type'],
-          limit: projectLimit,
-          offset: scope === 'projects' ? offset : 0,
-        })
-      : wantProjects && operators.projectKey && projectIds.length
-        ? Project.findAll({
-            where: { id: projectIds, key: { [likeOperator]: operators.projectKey } },
-            attributes: ['id', 'key', 'name', 'color', 'type'],
-            limit: projectLimit,
-            offset: scope === 'projects' ? offset : 0,
-          })
-        : Promise.resolve([]),
+    searchProjects(),
     wantPeople && freeText
       ? searchUsers(userId, { q: freeText }).then((rows) =>
           scope === 'people' ? rows.slice(offset, offset + peopleLimit) : rows.slice(0, peopleLimit),

@@ -16,6 +16,7 @@ import { getErrorMessage } from '@/lib/http'
 import { latestRequest } from '@/lib/latest'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { matchFieldLabel } from '@/modules/issues/lib/saved-filter-criteria'
+import { highlightParts } from '../highlight-query'
 import { type SearchResults, type SearchScope, searchApi } from '../search.api'
 import { clearRecentSearches, readRecentSearches, rememberSearch } from '../search-recent'
 
@@ -214,7 +215,7 @@ const rowClass =
     <PageHeader
       v-if="isDesktop"
       title="Search"
-      description="Find tasks, projects, people, messages, work chat and wiki pages. Use operators like assignee:me or is:open."
+      description="Results are ranked by relevance (title and key first, then recency). Use operators like assignee:me or is:open."
     />
 
     <div class="relative">
@@ -231,7 +232,7 @@ const rowClass =
       <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">project:KEY</code>
       <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">type:bug</code>
       <code class="rounded bg-muted px-1 py-0.5 font-mono text-[0.7rem]">priority:high</code>
-      — free text still matches title, key, description, comments and labels.
+      — free text ranks title and key above description, comments and labels.
     </p>
     <details v-else class="px-1 text-xs text-muted-foreground">
       <summary class="cursor-pointer select-none font-medium text-foreground/80">Search operators</summary>
@@ -301,6 +302,7 @@ const rowClass =
     <template v-else-if="results">
       <p class="px-1 text-xs text-muted-foreground">
         {{ isSearching ? 'Updating…' : `${totalHits} result${totalHits === 1 ? '' : 's'}` }}
+        <template v-if="!isSearching && totalHits"> · best matches first</template>
         <template v-if="!isSearching && canLoadMore && scope !== 'all'"> · more available</template>
         <template v-else-if="!isSearching && scope === 'all'"> · open a tab for full lists</template>
       </p>
@@ -321,7 +323,12 @@ const rowClass =
               <span class="flex min-w-0 items-center gap-3">
                 <IssueTypeIcon :type="issue.type" />
                 <span class="min-w-0 flex-1">
-                  <span class="block truncate text-sm font-medium">{{ issue.title }}</span>
+                  <span class="block truncate text-sm font-medium">
+                    <template v-for="(part, index) in highlightParts(issue.title, query)" :key="index">
+                      <mark v-if="part.hit" class="rounded-sm bg-primary/15 text-foreground">{{ part.text }}</mark>
+                      <template v-else>{{ part.text }}</template>
+                    </template>
+                  </span>
                   <span class="block text-xs text-muted-foreground">
                     {{ issue.key }} · {{ issue.project.name }}
                     <template v-if="matchFieldLabel(issue.matchedOn)"> · matched in {{ matchFieldLabel(issue.matchedOn) }}</template>

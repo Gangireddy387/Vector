@@ -10,6 +10,7 @@ import { latestRequest } from '@/lib/latest'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import { matchFieldLabel } from '@/modules/issues/lib/saved-filter-criteria'
+import { highlightParts } from '@/modules/search/highlight-query'
 import { type SearchResults, searchApi } from '@/modules/search/search.api'
 import { rememberSearch } from '@/modules/search/search-recent'
 import { useUiStore } from '@/stores/ui.store'
@@ -322,7 +323,15 @@ function clearQuery() {
               <IssueTypeIcon v-if="item.issue" :type="item.issue.type" />
               <span v-else-if="item.color" class="size-3 shrink-0" :style="{ backgroundColor: item.color }" />
               <component :is="item.icon" v-else-if="item.icon" class="size-4 shrink-0 text-muted-foreground" />
-              <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+              <span class="min-w-0 flex-1 truncate">
+                <template v-if="query.trim() && (item.group === 'Tasks' || item.group === 'Projects' || item.group === 'Wiki')">
+                  <template v-for="(part, partIndex) in highlightParts(item.label, query)" :key="partIndex">
+                    <mark v-if="part.hit" class="rounded-sm bg-primary/15 text-foreground">{{ part.text }}</mark>
+                    <template v-else>{{ part.text }}</template>
+                  </template>
+                </template>
+                <template v-else>{{ item.label }}</template>
+              </span>
               <StatusBadge v-if="item.issue" :status="item.issue.status" />
               <span v-if="item.hint" class="shrink-0 text-xs text-muted-foreground">{{ item.hint }}</span>
             </button>
