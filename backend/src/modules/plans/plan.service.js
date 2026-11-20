@@ -255,6 +255,16 @@ async function unlockWiki() {
   }
 }
 
+/** Plans that already include roadmap also get releases & versions. */
+async function unlockReleases() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.releases || !features.roadmap) continue;
+    await plan.update({ features: { ...features, releases: true } });
+    console.info(`[plans] ${plan.name} plan now includes releases & versions`);
+  }
+}
+
 /** Pro-tier plans (reports or automations) also get guest board/issue share links. */
 async function unlockPublicShare() {
   for (const plan of await Plan.findAll()) {
@@ -290,6 +300,7 @@ export async function ensureDefaultPlans() {
     await unlockVcsLinks();
     await unlockWebhooks();
     await unlockWiki();
+    await unlockReleases();
     await unlockPublicShare();
     await unlockIntakeForms();
     return;

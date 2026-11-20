@@ -16,10 +16,12 @@ import { CustomField, IssueCustomFieldValue } from '../modules/custom-fields/cus
 import { Issue } from '../modules/issues/issue.model.js';
 import { IssueExternalLink } from '../modules/issues/issue-external-link.model.js';
 import { IssueLabel, IssueLink, IssueWatcher } from '../modules/issues/issue-relations.model.js';
+import { IssueAffectedVersion, IssueFixVersion, Version } from '../modules/versions/version.model.js';
 import { Sprint } from '../modules/sprints/sprint.model.js';
 import { Comment, CommentReaction } from '../modules/comments/comment.model.js';
 import { Attachment } from '../modules/attachments/attachment.model.js';
 import { WorkLog } from '../modules/worklogs/worklog.model.js';
+import { WorkTimer } from '../modules/worklogs/work-timer.model.js';
 import { Activity } from '../modules/activity/activity.model.js';
 import { Notification } from '../modules/notifications/notification.model.js';
 import { AutomationRule } from '../modules/automations/automation-rule.model.js';
@@ -141,6 +143,8 @@ WorkflowTransitionRule.belongsTo(Project, { as: 'project', foreignKey: 'projectI
 WorkflowTransitionRule.belongsTo(Status, { as: 'fromStatus', foreignKey: 'fromStatusId', ...cascade });
 Project.hasMany(Label, { as: 'labels', foreignKey: 'projectId', ...cascade });
 Label.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+Project.hasMany(Version, { as: 'versions', foreignKey: 'projectId', ...cascade });
+Version.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 Project.hasMany(CustomField, { as: 'customFields', foreignKey: 'projectId', ...cascade });
 CustomField.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 Issue.hasMany(IssueCustomFieldValue, { as: 'customFieldValues', foreignKey: 'issueId', ...cascade });
@@ -166,6 +170,20 @@ Issue.hasMany(Issue, { as: 'subtasks', foreignKey: 'parentId', ...cascade });
 
 Issue.belongsToMany(Label, { through: IssueLabel, as: 'labels', foreignKey: 'issueId', otherKey: 'labelId' });
 Label.belongsToMany(Issue, { through: IssueLabel, as: 'issues', foreignKey: 'labelId', otherKey: 'issueId' });
+Issue.belongsToMany(Version, { through: IssueFixVersion, as: 'fixVersions', foreignKey: 'issueId', otherKey: 'versionId' });
+Version.belongsToMany(Issue, { through: IssueFixVersion, as: 'fixIssues', foreignKey: 'versionId', otherKey: 'issueId' });
+Issue.belongsToMany(Version, {
+  through: IssueAffectedVersion,
+  as: 'affectedVersions',
+  foreignKey: 'issueId',
+  otherKey: 'versionId',
+});
+Version.belongsToMany(Issue, {
+  through: IssueAffectedVersion,
+  as: 'affectedIssues',
+  foreignKey: 'versionId',
+  otherKey: 'issueId',
+});
 Issue.belongsToMany(User, { through: IssueWatcher, as: 'watchers', foreignKey: 'issueId', otherKey: 'userId' });
 User.belongsToMany(Issue, { through: IssueWatcher, as: 'watchedIssues', foreignKey: 'userId', otherKey: 'issueId' });
 
@@ -195,6 +213,11 @@ Attachment.belongsTo(User, { as: 'uploader', foreignKey: 'uploaderId', onDelete:
 Issue.hasMany(WorkLog, { as: 'workLogs', foreignKey: 'issueId', ...cascade });
 WorkLog.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
 WorkLog.belongsTo(User, { as: 'user', foreignKey: 'userId', onDelete: 'SET NULL' });
+Issue.hasMany(WorkTimer, { as: 'workTimers', foreignKey: 'issueId', ...cascade });
+WorkTimer.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
+WorkTimer.belongsTo(User, { as: 'user', foreignKey: 'userId', ...cascade });
+Organization.hasMany(WorkTimer, { as: 'workTimers', foreignKey: 'organizationId', ...cascade });
+WorkTimer.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
 
 // Audit trail & inbox
 Project.hasMany(Activity, { as: 'activities', foreignKey: 'projectId', ...cascade });
@@ -375,6 +398,9 @@ export {
   Status,
   WorkflowTransitionRule,
   Label,
+  Version,
+  IssueFixVersion,
+  IssueAffectedVersion,
   CustomField,
   IssueCustomFieldValue,
   Issue,
@@ -387,6 +413,7 @@ export {
   CommentReaction,
   Attachment,
   WorkLog,
+  WorkTimer,
   Activity,
   Notification,
   AutomationRule,

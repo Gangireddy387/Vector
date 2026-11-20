@@ -22,6 +22,7 @@ import { useMessagesStore } from '@/modules/messages/messages.store'
 import { useNotificationsStore } from '@/modules/notifications/notifications.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import { usePresenceStore } from '@/stores/presence.store'
+import { useTimerStore } from '@/stores/timer.store'
 import { useUiStore } from '@/stores/ui.store'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import type { AppNotification } from '@/types/models'
@@ -40,6 +41,7 @@ const workspace = useWorkspaceStore()
 const auth = useAuthStore()
 const messages = useMessagesStore()
 const presence = usePresenceStore()
+const timers = useTimerStore()
 const isShortcutsOpen = ref(false)
 const callFullscreen = useCallFullscreen()
 useTimezoneSync()
@@ -60,6 +62,7 @@ const stopCriticalRetry = onCriticalRetry(() => {
 onMounted(async () => {
   // Live updates first, so a failed load below never leaves the session without them.
   presence.start()
+  timers.start()
   notifications.bindRealtime(openNotification)
   workspace.bindRealtime()
   messages.bindRealtime()

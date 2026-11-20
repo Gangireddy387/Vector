@@ -36,6 +36,8 @@ export interface IssueFields {
   startDate: string | null
   dueDate: string | null
   labelIds: string[]
+  fixVersionIds: string[]
+  affectedVersionIds: string[]
   /** Custom field values keyed by field id. */
   customFields: Record<string, CustomFieldValue>
 }

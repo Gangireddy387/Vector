@@ -342,11 +342,31 @@ export type IssueFieldAclKey =
   | 'parentId'
   | 'sprintId'
   | 'labelIds'
+  | 'fixVersionIds'
+  | 'affectedVersionIds'
   | 'storyPoints'
   | 'estimateMinutes'
   | 'startDate'
   | 'dueDate'
   | 'customFields'
+
+export type VersionStatus = 'unreleased' | 'released' | 'archived'
+
+/** Project version / release (plan feature `releases`). */
+export interface Version {
+  id: string
+  projectId?: string
+  name: string
+  description?: string | null
+  status: VersionStatus
+  startDate?: string | null
+  releaseDate?: string | null
+  releasedAt?: string | null
+  releaseNotes?: string | null
+  position?: number
+  createdAt?: string
+  updatedAt?: string
+}
 
 export interface ProjectSettings {
   autoAssign: AutoAssignStrategy
@@ -457,6 +477,8 @@ export interface Issue {
   sprint: { id: string; name: string; state: SprintState } | null
   project: ProjectReference
   labels: Label[]
+  fixVersions?: Version[]
+  affectedVersions?: Version[]
   storyPoints: number | null
   estimateMinutes: number | null
   startDate: string | null
@@ -561,6 +583,22 @@ export interface WorkLog {
   note: string | null
   loggedAt: string
   user: UserSummary | null
+}
+
+/** Server-backed running timer (one per user). */
+export interface ActiveTimer {
+  id: string
+  issueId: string
+  startedAt: string
+  note: string | null
+  elapsedMinutes: number
+  issue: {
+    id: string
+    key: string
+    title: string
+    projectId: string
+    project?: ProjectReference | null
+  } | null
 }
 
 export interface Activity {

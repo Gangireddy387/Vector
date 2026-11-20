@@ -319,6 +319,26 @@ export interface CapacityReport {
   people: CapacityPerson[]
 }
 
+export interface TimeReportFilters {
+  from?: string
+  to?: string
+  projectId?: string
+  userId?: string
+}
+
+export interface TimeReport {
+  period: { from: string; to: string }
+  totals: { minutes: number; entries: number }
+  byDay: Array<{ date: string; minutes: number }>
+  byUser: Array<{ user: UserSummary | null; minutes: number }>
+  byProject: Array<{ project: { id: string; key: string; name: string; color: string }; minutes: number }>
+  byIssue: Array<{
+    issue: { id: string; key: string; title: string; projectId: string }
+    minutes: number
+    entries: number
+  }>
+}
+
 export const reportsApi = {
   progress: (projectId: string) => http.get<ProjectProgress>(`/projects/${projectId}/reports/progress`).then((r) => r.data),
   modules: (projectId: string) => http.get<ModulesReport>(`/projects/${projectId}/reports/modules`).then((r) => r.data),
@@ -328,6 +348,7 @@ export const reportsApi = {
     http.get<MemberReview>(`/reports/performance/${userId}`, { params: filters }).then((r) => r.data),
   overview: (filters: ReportFilters) => http.get<ReportOverview>('/reports/overview', { params: filters }).then((r) => r.data),
   capacity: (filters: CapacityFilters = {}) => http.get<CapacityReport>('/reports/capacity', { params: filters }).then((r) => r.data),
+  time: (filters: TimeReportFilters = {}) => http.get<TimeReport>('/time-tracking/report', { params: filters }).then((r) => r.data),
   summary: (projectId: string, days = 30) =>
     http.get<ProjectSummaryReport>(`/projects/${projectId}/reports/summary`, { params: { days } }).then((r) => r.data),
   burndown: (projectId: string, sprintId: string) =>

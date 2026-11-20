@@ -56,6 +56,7 @@ import supportCallRoutes from './modules/support/support-call.routes.js';
 import goalRoutes from './modules/goals/goal.routes.js';
 import portfolioRoutes from './modules/portfolio/portfolio.routes.js';
 import roadmapRoutes from './modules/roadmap/roadmap.routes.js';
+import versionRoutes from './modules/versions/version.routes.js';
 import wikiRoutes from './modules/wiki/wiki.routes.js';
 
 export function createApiRouter() {
@@ -131,6 +132,7 @@ export function createApiRouter() {
     goalRoutes,
     portfolioRoutes,
     roadmapRoutes,
+    versionRoutes,
     wikiRoutes,
     aiRoutes,
   ].forEach((moduleRouter) => router.use(moduleRouter));

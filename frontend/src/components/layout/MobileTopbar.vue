@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import AppLogo from './AppLogo.vue'
+import TimerChip from './TimerChip.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -33,6 +34,7 @@ function goBack() {
       </Button>
       <div v-else class="pl-1.5"><AppLogo compact /></div>
       <h1 class="min-w-0 flex-1 truncate text-base font-semibold">{{ title }}</h1>
+      <TimerChip class="mr-0.5" />
       <Button variant="ghost" size="icon" class="touch-target" as-child>
         <RouterLink :to="{ name: 'search' }" aria-label="Search"><Search class="size-5" /></RouterLink>
       </Button>

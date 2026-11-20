@@ -10,6 +10,8 @@ export const PLAN_FEATURES = [
   { key: 'roadmap', label: 'Roadmap & timeline' },
   { key: 'goals', label: 'Goals & OKRs' },
   { key: 'portfolio', label: 'Portfolio view' },
+  /** Project versions with fix/affected links and markdown release notes. */
+  { key: 'releases', label: 'Releases & versions' },
   /** Organization-wide markdown wiki pages. */
   { key: 'wiki', label: 'Shared docs & wiki' },
   { key: 'chat', label: 'Team chat & standups' },
@@ -68,7 +70,7 @@ export const DEFAULT_PLANS = [
     priceLabel: '₹999 / month',
     maxMembers: 25,
     maxProjects: 20,
-    features: features('aiAssistant', 'automations', 'recurringTasks', 'templates', 'customFields', 'customRoles', 'reports', 'roadmap', 'goals', 'portfolio', 'wiki', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar', 'attachments', 'timeTracking', 'customSounds', 'channelNotifications', 'vcsLinks', 'webhooks', 'publicShare', 'intakeForms', ...EMAIL_FEATURE_KEYS),
+    features: features('aiAssistant', 'automations', 'recurringTasks', 'templates', 'customFields', 'customRoles', 'reports', 'roadmap', 'goals', 'portfolio', 'releases', 'wiki', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar', 'attachments', 'timeTracking', 'customSounds', 'channelNotifications', 'vcsLinks', 'webhooks', 'publicShare', 'intakeForms', ...EMAIL_FEATURE_KEYS),
     isDefault: false,
     position: 1,
   },

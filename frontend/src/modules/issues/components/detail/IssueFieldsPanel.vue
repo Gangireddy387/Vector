@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useDebounceFn } from '@vueuse/core'
 import { X } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { DatePicker, NumberField, SelectField } from '@/components/forms'
@@ -16,7 +16,8 @@ import { askTransitionComment } from '@/lib/transition-comment'
 import { canPerformTransition, transitionRuleFor } from '@/lib/workflow-transitions'
 import { formatMinutes, parseDuration } from '@/lib/utils'
 import { useAuthStore } from '@/modules/auth/auth.store'
-import type { CustomField, CustomFieldValue, IssueDetail, IssueFieldAclKey, ProjectDetail, Sprint } from '@/types/models'
+import { releasesApi } from '@/modules/releases/releases.api'
+import type { CustomField, CustomFieldValue, IssueDetail, IssueFieldAclKey, ProjectDetail, Sprint, Version } from '@/types/models'
 import { type UpdateIssueInput, issuesApi } from '../../api/issues.api'
 import IssueTypeSelect from '../pickers/IssueTypeSelect.vue'
 import LabelMultiSelect from '../pickers/LabelMultiSelect.vue'
@@ -25,6 +26,7 @@ import ParentEpicSelect from '../pickers/ParentEpicSelect.vue'
 import PrioritySelect from '../pickers/PrioritySelect.vue'
 import SprintSelect from '../pickers/SprintSelect.vue'
 import StatusSelect from '../pickers/StatusSelect.vue'
+import VersionMultiSelect from '../pickers/VersionMultiSelect.vue'
 import IssueFieldRow from './IssueFieldRow.vue'
 
 const props = withDefaults(
@@ -49,6 +51,27 @@ function fieldEditable(field: IssueFieldAclKey) {
 const canEditCustomFields = computed(
   () => fieldEditable('customFields') && auth.hasFeature('customFields'),
 )
+const showVersions = computed(() => auth.hasFeature('releases'))
+const projectVersions = ref<Version[]>([])
+
+async function loadVersions() {
+  if (!showVersions.value) {
+    projectVersions.value = []
+    return
+  }
+  try {
+    projectVersions.value = await releasesApi.list(props.project.id)
+  } catch {
+    projectVersions.value = []
+  }
+}
+
+onMounted(() => void loadVersions())
+watch(
+  () => props.project.id,
+  () => void loadVersions(),
+)
+
 const customFields = computed(() => props.project.customFields ?? [])
 const customValueMap = computed(() => {
   const map = new Map<string, CustomFieldValue>()
@@ -254,6 +277,26 @@ async function setStatus(statusId: string) {
           @update:model-value="(value) => setField('labelIds', value)"
         />
       </IssueFieldRow>
+      <template v-if="showVersions">
+        <IssueFieldRow label="Fix versions">
+          <VersionMultiSelect
+            :model-value="(issue.fixVersions ?? []).map((version) => version.id)"
+            :versions="projectVersions"
+            placeholder="Ships in…"
+            :disabled="!fieldEditable('fixVersionIds')"
+            @update:model-value="(value) => setField('fixVersionIds', value)"
+          />
+        </IssueFieldRow>
+        <IssueFieldRow label="Affected versions">
+          <VersionMultiSelect
+            :model-value="(issue.affectedVersions ?? []).map((version) => version.id)"
+            :versions="projectVersions"
+            placeholder="Found in…"
+            :disabled="!fieldEditable('affectedVersionIds')"
+            @update:model-value="(value) => setField('affectedVersionIds', value)"
+          />
+        </IssueFieldRow>
+      </template>
     </div>
 
     <div v-if="customFields.length" class="py-2">

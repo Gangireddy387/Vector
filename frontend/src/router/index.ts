@@ -9,6 +9,7 @@ import { collaborationRoutes } from '@/modules/chat/chat.routes'
 import { dashboardRoutes } from '@/modules/dashboard/dashboard.routes'
 import { dependencyRoutes } from '@/modules/dependencies/dependencies.routes'
 import { roadmapRoutes } from '@/modules/roadmap/roadmap.routes'
+import { releaseRoutes } from '@/modules/releases/releases.routes'
 import { goalRoutes } from '@/modules/goals/goals.routes'
 import { portfolioRoutes } from '@/modules/portfolio/portfolio.routes'
 import { wikiRoutes } from '@/modules/wiki/wiki.routes'
@@ -124,6 +125,7 @@ const routes: RouteRecordRaw[] = [
           ...projectIssueRoutes,
           ...dependencyRoutes,
           ...roadmapRoutes,
+          ...releaseRoutes,
           ...collaborationRoutes,
           ...reportRoutes,
           ...automationRoutes,

@@ -4,6 +4,8 @@ import {
   CustomField,
   Issue,
   IssueExternalLink,
+  IssueAffectedVersion,
+  IssueFixVersion,
   IssueLabel,
   IssueLink,
   IssueTemplate,
@@ -14,6 +16,7 @@ import {
   Sprint,
   Status,
   User,
+  Version,
   WorkLog,
 } from '../../database/models.js';
 import { parseExternalIssueUrl, serializeExternalLink } from './issue-external-link.parse.js';
@@ -52,7 +55,15 @@ const TRACKED_FIELDS = [
   'sprintId', 'storyPoints', 'estimateMinutes', 'startDate', 'dueDate', 'position',
 ];
 const SILENT_FIELDS = new Set(['position']);
-const FIELD_LABELS = { statusId: 'status', assigneeId: 'assignee', parentId: 'parent', sprintId: 'sprint' };
+const FIELD_LABELS = {
+  statusId: 'status',
+  assigneeId: 'assignee',
+  parentId: 'parent',
+  sprintId: 'sprint',
+  fixVersions: 'fix versions',
+  affectedVersions: 'affected versions',
+};
+const RELATION_ACTIVITY_FIELDS = new Set(['labels', 'fixVersions', 'affectedVersions']);
 const PRIORITY_SORT = literal(
   `CASE "Issue"."priority" WHEN 'highest' THEN 5 WHEN 'high' THEN 4 WHEN 'medium' THEN 3 WHEN 'low' THEN 2 ELSE 1 END`,
 );
@@ -137,6 +148,16 @@ async function assertRelations(projectId, data, currentIssueId = null) {
     const count = await Label.count({ where: { id: unique, projectId } });
     if (count !== unique.length) throw ApiError.badRequest('One or more labels do not belong to this project');
   }
+  if (data.fixVersionIds?.length || data.affectedVersionIds?.length) {
+    if (!(await projectHasFeature(projectId, 'releases'))) {
+      throw ApiError.forbidden('The current plan does not include releases & versions');
+    }
+    const ids = [...new Set([...(data.fixVersionIds ?? []), ...(data.affectedVersionIds ?? [])])];
+    if (ids.length) {
+      const count = await Version.count({ where: { id: ids, projectId } });
+      if (count !== ids.length) throw ApiError.badRequest('One or more versions do not belong to this project');
+    }
+  }
   return status;
 }
 
@@ -218,6 +239,28 @@ async function buildListWhere(userId, filters) {
   if (labelIds.length) {
     const tagged = await IssueLabel.findAll({ where: { labelId: labelIds }, attributes: ['issueId'], raw: true });
     where.id = [...new Set(tagged.map((row) => row.issueId))];
+  }
+
+  const fixVersionIds = toList(filters.fixVersionId);
+  if (fixVersionIds.length) {
+    const tagged = await IssueFixVersion.findAll({
+      where: { versionId: fixVersionIds },
+      attributes: ['issueId'],
+      raw: true,
+    });
+    const ids = [...new Set(tagged.map((row) => row.issueId))];
+    where.id = where.id ? ids.filter((id) => where.id.includes(id)) : ids;
+  }
+
+  const affectedVersionIds = toList(filters.affectedVersionId);
+  if (affectedVersionIds.length) {
+    const tagged = await IssueAffectedVersion.findAll({
+      where: { versionId: affectedVersionIds },
+      attributes: ['issueId'],
+      raw: true,
+    });
+    const ids = [...new Set(tagged.map((row) => row.issueId))];
+    where.id = where.id ? ids.filter((id) => where.id.includes(id)) : ids;
   }
 
   if (filters.q) {
@@ -437,6 +480,10 @@ export async function createIssue(rawInput, actor, context = {}) {
       { transaction },
     );
     if (input.labelIds?.length) await created.setLabels([...new Set(input.labelIds)], { transaction });
+    if (input.fixVersionIds) await created.setFixVersions([...new Set(input.fixVersionIds)], { transaction });
+    if (input.affectedVersionIds) {
+      await created.setAffectedVersions([...new Set(input.affectedVersionIds)], { transaction });
+    }
     if (customFieldValues) await setIssueCustomFieldValues(created.id, customFieldValues, { transaction });
     return created;
   });
@@ -485,6 +532,8 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
     ['statusId', 'assigneeId', 'sprintId', 'parentId'].filter((field) => diff[field]).map((field) => [field, changes[field]]),
   );
   if (changes.labelIds) relationChanges.labelIds = changes.labelIds;
+  if (changes.fixVersionIds) relationChanges.fixVersionIds = changes.fixVersionIds;
+  if (changes.affectedVersionIds) relationChanges.affectedVersionIds = changes.affectedVersionIds;
   const newStatus = await assertRelations(issue.projectId, relationChanges, issue.id);
   if (diff.statusId) {
     await assertStatusTransition(issue, changes.statusId, changes, context, actor);
@@ -493,6 +542,8 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
   const aclKeys = [
     ...Object.keys(diff).filter((field) => field !== 'statusId' && field !== 'position' && field !== 'labels'),
     ...(changes.labelIds ? ['labelIds'] : []),
+    ...(changes.fixVersionIds ? ['fixVersionIds'] : []),
+    ...(changes.affectedVersionIds ? ['affectedVersionIds'] : []),
     ...(changes.customFields && Object.keys(changes.customFields).length ? ['customFields'] : []),
   ];
   if (aclKeys.length) {
@@ -524,6 +575,35 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
       await issue.setLabels(after);
       const names = after.length ? (await Label.findAll({ where: { id: after }, attributes: ['name'], raw: true })).map((label) => label.name) : [];
       diff.labels = { from: issue.labels.map((label) => label.name).join(', ') || null, to: names.join(', ') || null };
+    }
+  }
+
+  if (changes.fixVersionIds) {
+    const current = await issue.getFixVersions({ attributes: ['id', 'name'] });
+    const before = current.map((row) => row.id).sort();
+    const after = [...new Set(changes.fixVersionIds)].sort();
+    if (before.join() !== after.join()) {
+      await issue.setFixVersions(after);
+      const names = after.length
+        ? (await Version.findAll({ where: { id: after }, attributes: ['name'], raw: true })).map((row) => row.name)
+        : [];
+      diff.fixVersions = { from: current.map((row) => row.name).join(', ') || null, to: names.join(', ') || null };
+    }
+  }
+
+  if (changes.affectedVersionIds) {
+    const current = await issue.getAffectedVersions({ attributes: ['id', 'name'] });
+    const before = current.map((row) => row.id).sort();
+    const after = [...new Set(changes.affectedVersionIds)].sort();
+    if (before.join() !== after.join()) {
+      await issue.setAffectedVersions(after);
+      const names = after.length
+        ? (await Version.findAll({ where: { id: after }, attributes: ['name'], raw: true })).map((row) => row.name)
+        : [];
+      diff.affectedVersions = {
+        from: current.map((row) => row.name).join(', ') || null,
+        to: names.join(', ') || null,
+      };
     }
   }
 
@@ -571,8 +651,8 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
       actorId: actor?.id ?? null,
       action: 'updated',
       field: FIELD_LABELS[field] ?? field,
-      fromValue: field === 'labels' ? diff.labels.from : await describeValue(field, diff[field].from),
-      toValue: field === 'labels' ? diff.labels.to : await describeValue(field, diff[field].to),
+      fromValue: RELATION_ACTIVITY_FIELDS.has(field) ? diff[field].from : await describeValue(field, diff[field].from),
+      toValue: RELATION_ACTIVITY_FIELDS.has(field) ? diff[field].to : await describeValue(field, diff[field].to),
       meta: { source: context.source ?? 'user', ruleName: context.ruleName ?? null, reason: context.reason ?? null },
     });
   }

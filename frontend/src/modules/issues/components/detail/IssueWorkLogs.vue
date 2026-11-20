@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Timer, Trash2 } from 'lucide-vue-next'
+import { Play, Square, Timer, Trash2 } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -10,13 +10,18 @@ import { formatDateTime } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
 import { formatMinutes, parseDuration } from '@/lib/utils'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { useTimerStore } from '@/stores/timer.store'
 import type { WorkLog } from '@/types/models'
 import { workLogsApi } from '../../api/collaboration.api'
 
-const props = withDefaults(defineProps<{ issueId: string; editable?: boolean; refreshKey?: number }>(), { editable: true, refreshKey: 0 })
+const props = withDefaults(defineProps<{ issueId: string; editable?: boolean; refreshKey?: number }>(), {
+  editable: true,
+  refreshKey: 0,
+})
 const emit = defineEmits<{ changed: [] }>()
 
 const auth = useAuthStore()
+const timers = useTimerStore()
 const workLogs = ref<WorkLog[]>([])
 const duration = ref('')
 const note = ref('')
@@ -24,6 +29,7 @@ const isSaving = ref(false)
 
 const parsedMinutes = computed(() => parseDuration(duration.value))
 const total = computed(() => workLogs.value.reduce((sum, log) => sum + log.minutes, 0))
+const isThisIssueRunning = computed(() => timers.runningIssueId === props.issueId)
 
 const load = async () => (workLogs.value = await workLogsApi.list(props.issueId))
 watch(() => [props.issueId, props.refreshKey], load, { immediate: true })
@@ -52,10 +58,45 @@ async function remove(log: WorkLog) {
   await load()
   emit('changed')
 }
+
+async function startTimer() {
+  await timers.startOnIssue(props.issueId, note.value.trim() || null)
+}
+
+async function stopTimer() {
+  await timers.stop(note.value.trim() || null)
+  note.value = ''
+  await load()
+  emit('changed')
+}
 </script>
 
 <template>
   <div class="space-y-4">
+    <div
+      v-if="editable && auth.hasFeature('timeTracking')"
+      class="flex flex-wrap items-center gap-2 rounded-lg border border-border/80 bg-muted/30 px-3 py-2"
+    >
+      <template v-if="isThisIssueRunning">
+        <span class="inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+          <Timer class="size-4 animate-pulse" />
+          Timer running · {{ timers.elapsedLabel }}
+        </span>
+        <Button size="sm" :loading="timers.acting" @click="stopTimer">
+          <Square class="size-3.5 fill-current" /> Stop & log
+        </Button>
+        <Button size="sm" variant="ghost" :loading="timers.acting" @click="timers.discard()">Discard</Button>
+      </template>
+      <template v-else>
+        <Button size="sm" variant="outline" :loading="timers.acting" @click="startTimer">
+          <Play class="size-3.5" /> Start timer
+        </Button>
+        <span v-if="timers.isRunning" class="text-xs text-muted-foreground">
+          Running on {{ timers.timer?.issue?.key }} — starting here will log that time first.
+        </span>
+      </template>
+    </div>
+
     <form v-if="editable" class="flex flex-col gap-2 sm:flex-row" @submit.prevent="submit">
       <Input v-model="duration" placeholder="Time spent, e.g. 1h 30m" class="sm:w-44" aria-label="Time spent" />
       <Input v-model="note" placeholder="What did you work on? (optional)" class="flex-1" aria-label="Work note" />
@@ -65,14 +106,22 @@ async function remove(log: WorkLog) {
 
     <EmptyState v-if="!workLogs.length" :icon="Timer" title="No time logged" class="py-6" />
     <template v-else>
-      <p class="text-sm text-muted-foreground">Total logged: <span class="font-medium text-foreground">{{ formatMinutes(total) }}</span></p>
+      <p class="text-sm text-muted-foreground">
+        Total logged: <span class="font-medium text-foreground">{{ formatMinutes(total) }}</span>
+      </p>
       <ul class="divide-y border">
         <li v-for="log in workLogs" :key="log.id" class="flex items-center gap-3 px-3 py-2 text-sm">
           <UserAvatar :user="log.user" size="sm" />
           <span class="w-16 font-medium tabular-nums">{{ formatMinutes(log.minutes) }}</span>
           <span class="min-w-0 flex-1 truncate text-muted-foreground">{{ log.note }}</span>
           <span class="hidden text-xs text-muted-foreground sm:inline">{{ formatDateTime(log.loggedAt) }}</span>
-          <Button v-if="log.user?.id === auth.user?.id" variant="ghost" size="icon-sm" aria-label="Delete work log" @click="remove(log)">
+          <Button
+            v-if="log.user?.id === auth.user?.id"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Delete work log"
+            @click="remove(log)"
+          >
             <Trash2 />
           </Button>
         </li>

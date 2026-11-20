@@ -19,6 +19,10 @@ const editableFields = {
   startDate: dateOnly.nullable(),
   dueDate: dateOnly.nullable(),
   labelIds: z.array(uuid).max(20),
+  /** Versions this issue ships in (fix versions). */
+  fixVersionIds: z.array(uuid).max(20),
+  /** Versions where the issue was found (affected versions). */
+  affectedVersionIds: z.array(uuid).max(20),
   /** Custom field values keyed by field id. */
   customFields: z.record(uuid, z.unknown()),
 };
@@ -78,6 +82,8 @@ export const listIssuesQuery = z.object({
   type: z.string().optional(),
   priority: z.string().optional(),
   labelId: z.string().optional(),
+  fixVersionId: z.string().optional(),
+  affectedVersionId: z.string().optional(),
   sprintId: z.string().optional(),
   parentId: z.string().optional(),
   q: z.string().trim().max(200).optional(),

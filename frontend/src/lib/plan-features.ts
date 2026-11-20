@@ -9,6 +9,7 @@ import {
   ListTree,
   KeyRound,
   Mail,
+  Package,
   MailCheck,
   MessageCircle,
   MessagesSquare,
@@ -43,6 +44,7 @@ export type PlanFeatureKey =
   | 'roadmap'
   | 'goals'
   | 'portfolio'
+  | 'releases'
   | 'wiki'
   | 'chat'
   | 'directMessages'
@@ -130,6 +132,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     label: 'Portfolio view',
     description: 'Multi-project health, progress and overdue work across the organization',
     icon: LayoutGrid,
+    group: 'app',
+  },
+  {
+    key: 'releases',
+    label: 'Releases & versions',
+    description: 'Project versions, fix/affected links on issues, and markdown release notes',
+    icon: Package,
     group: 'app',
   },
   {

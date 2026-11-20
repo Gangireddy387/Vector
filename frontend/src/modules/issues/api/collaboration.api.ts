@@ -1,5 +1,5 @@
 import { http } from '@/lib/http'
-import type { Attachment, Comment, CommentReaction, WorkLog } from '@/types/models'
+import type { ActiveTimer, Attachment, Comment, CommentReaction, WorkLog } from '@/types/models'
 
 /** Same fixed set as project chat / DMs. */
 export const COMMENT_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🎉'] as const
@@ -49,4 +49,22 @@ export const workLogsApi = {
   create: (issueId: string, payload: { minutes: number; note?: string | null; loggedAt?: string }) =>
     http.post<{ workLog: WorkLog }>(`/issues/${issueId}/work-logs`, payload).then((r) => r.data.workLog),
   remove: (workLogId: string) => http.delete(`/work-logs/${workLogId}`),
+}
+
+export const timerApi = {
+  get: () => http.get<{ timer: ActiveTimer | null }>('/me/timer').then((r) => r.data.timer),
+  start: (issueId: string, note?: string | null) =>
+    http
+      .post<{ timer: ActiveTimer; stopped: { workLog: WorkLog; issueKey: string; minutes: number } | null }>(
+        `/issues/${issueId}/timer/start`,
+        { note: note ?? null },
+      )
+      .then((r) => r.data),
+  stop: (note?: string | null) =>
+    http
+      .post<{ timer: null; workLog: WorkLog; issueKey: string; minutes: number }>('/me/timer/stop', {
+        note: note ?? null,
+      })
+      .then((r) => r.data),
+  discard: () => http.post<{ timer: null }>('/me/timer/discard').then((r) => r.data),
 }
