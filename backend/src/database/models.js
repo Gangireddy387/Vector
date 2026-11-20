@@ -69,7 +69,7 @@ import { Goal, KeyResult, KeyResultCheckIn, KeyResultLink } from '../modules/goa
 import { WikiPage, WikiPageRevision } from '../modules/wiki/wiki.model.js';
 import { ShowcasePortrait } from '../modules/marketing/showcase.model.js';
 import { ShareLink } from '../modules/shares/share.model.js';
-import { IntakeForm } from '../modules/intake/intake.model.js';
+import { IntakeForm, IntakeSubmission } from '../modules/intake/intake.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
 
@@ -118,6 +118,13 @@ IntakeForm.belongsTo(Organization, { as: 'organization', foreignKey: 'organizati
 Project.hasMany(IntakeForm, { as: 'intakeForms', foreignKey: 'projectId', ...cascade });
 IntakeForm.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 IntakeForm.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+IntakeForm.hasMany(IntakeSubmission, { as: 'submissions', foreignKey: 'intakeFormId', ...cascade });
+IntakeSubmission.belongsTo(IntakeForm, { as: 'intakeForm', foreignKey: 'intakeFormId' });
+Project.hasMany(IntakeSubmission, { as: 'intakeSubmissions', foreignKey: 'projectId', ...cascade });
+IntakeSubmission.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+Issue.hasOne(IntakeSubmission, { as: 'intakeSubmission', foreignKey: 'issueId', ...cascade });
+IntakeSubmission.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
+IntakeSubmission.belongsTo(User, { as: 'reviewedBy', foreignKey: 'reviewedById', onDelete: 'SET NULL' });
 
 // Users & projects
 User.hasMany(ProjectMember, { as: 'memberships', foreignKey: 'userId', ...cascade });
@@ -435,6 +442,7 @@ export {
   ShowcasePortrait,
   ShareLink,
   IntakeForm,
+  IntakeSubmission,
   KeyResult,
   KeyResultCheckIn,
   KeyResultLink,

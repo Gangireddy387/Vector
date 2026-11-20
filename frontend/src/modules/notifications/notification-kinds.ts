@@ -4,6 +4,7 @@ import {
   Bell,
   CircleAlert,
   CircleCheck,
+  ClipboardPenLine,
   Inbox,
   MailOpen,
   MessageCircle,
@@ -49,6 +50,7 @@ const KINDS: Record<string, KindStyle> = {
   standup_digest: { label: 'Standup rollup', icon: Sunrise, tone: 'bg-amber-500/15 text-amber-600 dark:text-amber-400' },
   workday_nudge: { label: 'Workday', icon: Sunrise, tone: 'bg-primary/15 text-primary' },
   plan_upgrade_request: { label: 'Plan request', icon: Rocket, tone: 'bg-brand/15 text-brand' },
+  intake_pending: { label: 'Request to review', icon: ClipboardPenLine, tone: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
 }
 const FALLBACK: KindStyle = { label: 'Update', icon: Bell, tone: 'bg-primary/10 text-primary' }
 
@@ -77,6 +79,7 @@ export const INBOX_FILTERS: Array<{ value: InboxFilter; label: string; icon: Com
       'meeting_invite',
       'meeting_cancelled',
       'plan_upgrade_request',
+      'intake_pending',
     ],
   },
   {

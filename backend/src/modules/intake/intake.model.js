@@ -7,7 +7,13 @@ export const DEFAULT_INTAKE_SETTINGS = Object.freeze({
   askDescription: true,
   /** Let the submitter pick priority (otherwise the form default is used). */
   askPriority: false,
+  /** Hold new requests for admin/lead approval before normal work. */
+  requireApproval: false,
+  /** Status column for pending requests; null → create/reuse “Requests”. */
+  reviewStatusId: null,
 });
+
+export const INTAKE_SUBMISSION_STATES = ['pending', 'approved', 'rejected'];
 
 /**
  * Public request form for a project: anyone with the token can submit work without an account.
@@ -35,5 +41,34 @@ IntakeForm.init(
     modelName: 'IntakeForm',
     tableName: 'intake_forms',
     indexes: [{ fields: ['token'], unique: true }, { fields: ['project_id'] }, { fields: ['organization_id'] }],
+  },
+);
+
+/** One public form submission waiting for (or finished) review. */
+export class IntakeSubmission extends Model {}
+
+IntakeSubmission.init(
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    intakeFormId: { type: DataTypes.UUID, allowNull: false },
+    organizationId: { type: DataTypes.UUID, allowNull: false },
+    projectId: { type: DataTypes.UUID, allowNull: false },
+    issueId: { type: DataTypes.UUID, allowNull: false, unique: true },
+    submitterName: { type: DataTypes.STRING(80), allowNull: false },
+    submitterEmail: { type: DataTypes.STRING(190), allowNull: false },
+    state: { type: DataTypes.STRING(16), allowNull: false, defaultValue: 'pending' },
+    reviewedById: { type: DataTypes.UUID, allowNull: true },
+    reviewedAt: { type: DataTypes.DATE, allowNull: true },
+    reviewNote: { type: DataTypes.TEXT, allowNull: true },
+  },
+  {
+    sequelize,
+    modelName: 'IntakeSubmission',
+    tableName: 'intake_submissions',
+    indexes: [
+      { fields: ['project_id', 'state', 'created_at'] },
+      { fields: ['intake_form_id'] },
+      { fields: ['issue_id'], unique: true },
+    ],
   },
 );

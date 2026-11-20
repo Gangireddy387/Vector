@@ -101,12 +101,19 @@ async function submit() {
 
       <div v-else-if="result" class="space-y-4 rounded-2xl border border-border/70 bg-card/90 p-6 text-center shadow-sm">
         <CheckCircle2 class="mx-auto size-10 text-success" />
-        <h1 class="text-xl font-semibold">Request received</h1>
+        <h1 class="text-xl font-semibold">{{ result.pendingReview ? 'Request submitted for review' : 'Request received' }}</h1>
         <p class="text-sm text-muted-foreground">
           Thank you. Your request was logged as <span class="font-medium text-foreground">{{ result.key }}</span>
           in {{ result.project.name }}.
         </p>
-        <p class="text-xs text-muted-foreground">The team will follow up using the email you provided.</p>
+        <p class="text-xs text-muted-foreground">
+          {{
+            result.message ||
+            (result.pendingReview
+              ? 'A project admin will review it before work starts. We’ll follow up using the email you provided.'
+              : 'The team will follow up using the email you provided.')
+          }}
+        </p>
       </div>
 
       <form v-else-if="form" class="space-y-5 rounded-2xl border border-border/70 bg-card/90 p-5 shadow-sm sm:p-7" @submit.prevent="submit">

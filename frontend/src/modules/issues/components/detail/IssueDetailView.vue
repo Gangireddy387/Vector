@@ -53,6 +53,7 @@ import IssueSubtasks from './IssueSubtasks.vue'
 import IssueTitleEditor from './IssueTitleEditor.vue'
 import IssueWorkLogs from './IssueWorkLogs.vue'
 import IssueShareDialog from '@/modules/shares/components/IssueShareDialog.vue'
+import { intakeApi, type IntakeSubmissionRow } from '@/modules/intake/intake.api'
 
 const props = withDefaults(defineProps<{ issueKey: string; mode?: 'page' | 'panel' }>(), { mode: 'page' })
 const emit = defineEmits<{ close: [] }>()
@@ -70,6 +71,7 @@ const notFound = ref(false)
 const loadError = ref<string | null>(null)
 const refreshKey = ref(0)
 const activeTab = ref('comments')
+const intakeSubmission = ref<Pick<IntakeSubmissionRow, 'id' | 'state' | 'submitterName' | 'submitterEmail' | 'reviewNote' | 'createdAt'> | null>(null)
 
 const attachmentsRef = ref<InstanceType<typeof IssueAttachments> | null>(null)
 const linksRef = ref<InstanceType<typeof IssueLinks> | null>(null)
@@ -117,6 +119,14 @@ async function load(showSkeleton = true) {
     issue.value = loaded
     notFound.value = false
     loadError.value = null
+    intakeSubmission.value = null
+    if (auth.hasFeature('intakeForms')) {
+      intakeApi.forIssue(loaded.id).then((row) => {
+        if (key === props.issueKey) intakeSubmission.value = row
+      }).catch(() => {
+        if (key === props.issueKey) intakeSubmission.value = null
+      })
+    }
   } catch (error) {
     if (key !== props.issueKey) return
     if (isNotFoundError(error)) notFound.value = true
@@ -264,6 +274,28 @@ function startCodeLinking() {
         <div class="mx-auto max-w-3xl space-y-6">
         <div class="space-y-3">
           <IssueTitleEditor :title="issue.title" :editable="canEditTitle" :done="isDone" @save="(title) => update({ title })" />
+
+          <div
+            v-if="intakeSubmission"
+            class="rounded-lg border px-3 py-2 text-sm"
+            :class="
+              intakeSubmission.state === 'pending'
+                ? 'border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-100'
+                : intakeSubmission.state === 'approved'
+                  ? 'border-emerald-500/30 bg-emerald-500/10'
+                  : 'border-border bg-muted/40 text-muted-foreground'
+            "
+          >
+            <p class="font-medium">
+              <template v-if="intakeSubmission.state === 'pending'">Waiting for intake approval</template>
+              <template v-else-if="intakeSubmission.state === 'approved'">Request approved</template>
+              <template v-else>Request rejected</template>
+            </p>
+            <p class="mt-0.5 text-xs opacity-90">
+              Submitted by {{ intakeSubmission.submitterName }} · {{ intakeSubmission.submitterEmail }}
+              <template v-if="intakeSubmission.reviewNote"> · {{ intakeSubmission.reviewNote }}</template>
+            </p>
+          </div>
 
           <!-- Task-focused quick actions (primary when there is no side rail) -->
           <div class="flex flex-wrap items-center gap-2">

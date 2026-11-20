@@ -190,7 +190,7 @@ export const PLAN_FEATURES: PlanFeature[] = [
   {
     key: 'intakeForms',
     label: 'Request forms',
-    description: 'Public forms that let clients and partners submit work without a Vector account',
+    description: 'Public request forms with optional approval before work starts',
     icon: ClipboardPenLine,
     group: 'app',
   },
