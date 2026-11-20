@@ -14,7 +14,7 @@ export const BUCKET_TITLES: Record<WorkBucket, string> = {
 }
 
 export function bucketOf(issue: Issue, today = toDateInput(new Date()), weekEnd = toDateInput(addDays(new Date(), 7))): WorkBucket {
-  if (issue.status.category === 'done') return 'done'
+  if (issue.status?.category === 'done') return 'done'
   if (!issue.dueDate) return 'anytime'
   if (issue.dueDate < today) return 'overdue'
   if (issue.dueDate === today) return 'today'
@@ -37,6 +37,6 @@ export function groupMyWork(issues: Issue[]) {
       title: BUCKET_TITLES[bucket],
       issues: groups
         .get(bucket)!
-        .sort((a, b) => Number(b.status.category === 'in_progress') - Number(a.status.category === 'in_progress')),
+        .sort((a, b) => Number(b.status?.category === 'in_progress') - Number(a.status?.category === 'in_progress')),
     }))
 }

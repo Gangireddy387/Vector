@@ -27,8 +27,8 @@ const props = withDefaults(
 )
 const emit = defineEmits<{ open: [issue: Issue]; complete: [issue: Issue]; toggleSelect: [issue: Issue] }>()
 
-const isDone = computed(() => props.issue.status.category === 'done')
-const visibleLabels = computed(() => props.issue.labels.slice(0, props.grid ? 4 : 3))
+const isDone = computed(() => props.issue.status?.category === 'done')
+const visibleLabels = computed(() => (props.issue.labels ?? []).slice(0, props.grid ? 4 : 3))
 </script>
 
 <template>
@@ -67,15 +67,15 @@ const visibleLabels = computed(() => props.issue.labels.slice(0, props.grid ? 4 
         >
           <Check v-if="isDone" class="size-3" stroke-width="3" />
         </button>
-        <StatusBadge v-if="grid && showStatus" :status="issue.status" class="ml-auto max-w-[9rem] truncate" />
+        <StatusBadge v-if="grid && showStatus && issue.status" :status="issue.status" class="ml-auto max-w-[9rem] truncate" />
       </div>
 
       <div class="min-w-0 flex-1 space-y-2" :class="grid && 'flex flex-col'">
         <div v-if="grid" class="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
           <IssueTypeIcon :type="issue.type" />
           <span class="font-medium" :class="isDone && 'line-through'">{{ issue.key }}</span>
-          <span v-if="showProject" class="min-w-0 truncate">· {{ issue.project.name }}</span>
-          <StatusBadge v-if="showStatus && !selectable && !completable" :status="issue.status" class="ml-auto max-w-[9rem] truncate" />
+          <span v-if="showProject && issue.project" class="min-w-0 truncate">· {{ issue.project.name }}</span>
+          <StatusBadge v-if="showStatus && !selectable && !completable && issue.status" :status="issue.status" class="ml-auto max-w-[9rem] truncate" />
         </div>
 
         <p
@@ -103,10 +103,10 @@ const visibleLabels = computed(() => props.issue.labels.slice(0, props.grid ? 4 
           <template v-if="!grid">
             <IssueTypeIcon :type="issue.type" />
             <span class="font-medium" :class="isDone && 'line-through'">{{ issue.key }}</span>
-            <span v-if="showProject" class="truncate">· {{ issue.project.name }}</span>
-            <span v-if="showStatus" class="truncate">· {{ issue.status.name }}</span>
+            <span v-if="showProject && issue.project" class="truncate">· {{ issue.project.name }}</span>
+            <span v-if="showStatus && issue.status" class="truncate">· {{ issue.status.name }}</span>
           </template>
-          <span v-if="issue.subtaskProgress.total" class="inline-flex items-center gap-0.5" title="Sub-tasks done">
+          <span v-if="issue.subtaskProgress?.total" class="inline-flex items-center gap-0.5" title="Sub-tasks done">
             <CheckSquare class="size-3" /> {{ issue.subtaskProgress.done }}/{{ issue.subtaskProgress.total }}
           </span>
           <span v-if="issue.commentCount" class="inline-flex items-center gap-0.5" title="Comments">

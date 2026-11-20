@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useStorage } from '@vueuse/core'
+import { useOnline, useStorage } from '@vueuse/core'
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import {
   AlarmClock,
@@ -63,14 +63,16 @@ const router = useRouter()
 const openIssue = useOpenIssue()
 const issueActions = useIssueActions()
 const { data, isLoading, error, isStale, reload } = useDashboardData()
+const isOnline = useOnline()
 const offlineLoadHint = computed(() =>
-  !navigator.onLine
+  !isOnline.value
     ? 'You appear to be offline. Connect and try again, or open Home once online so it can load for next time.'
     : error.value,
 )
 const agenda = useTodayAgenda()
-const home = useHomeLayout()
-const show = (key: Parameters<typeof home.isHidden>[0]) => !home.isHidden(key)
+const { layout: homeLayout, isHidden, isCustomized, toggle: toggleHomeWidget, reset: resetHomeLayout } = useHomeLayout()
+const hiddenKeys = computed(() => homeLayout.value?.hidden ?? [])
+const show = (key: Parameters<typeof isHidden>[0]) => !isHidden(key)
 /** Invite deep-link: shared highlight survives clearing ?startDay=1 from the URL. */
 const startDay = consumeStartDayQuery(route, router)
 
@@ -84,7 +86,9 @@ const plural = (count: number, word: string) => `${count} ${word}${count === 1 ?
 /** One sentence that says what the day looks like. */
 const summary = computed(() => {
   if (!data.value) return ''
-  const { open, dueToday, overdue } = data.value.stats
+  const open = data.value.stats?.open ?? 0
+  const dueToday = data.value.stats?.dueToday ?? 0
+  const overdue = data.value.stats?.overdue ?? 0
   const meetings = agenda.items.value?.filter((item) => item.kind === 'meeting').length ?? 0
   const parts = [
     overdue ? `${overdue} overdue` : '',
@@ -158,11 +162,16 @@ const daysLeft = (endDate: string | null) => {
     <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div class="min-w-0">
         <p class="text-xs font-medium text-muted-foreground">{{ today }} · Your workday</p>
-        <h1 class="mt-0.5 text-[22px] font-semibold tracking-tight">{{ greeting }}, {{ auth.user?.name.split(' ')[0] }}</h1>
+        <h1 class="mt-0.5 text-[22px] font-semibold tracking-tight">{{ greeting }}, {{ auth.user?.name?.split(' ')[0] }}</h1>
         <p v-if="summary" class="mt-1 text-[13.5px] text-muted-foreground">{{ summary }}</p>
       </div>
       <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-        <HomeCustomizeMenu :hidden="home.layout.hidden" :customized="home.isCustomized" @toggle="home.toggle" @reset="home.reset" />
+        <HomeCustomizeMenu
+          :hidden="hiddenKeys"
+          :customized="isCustomized"
+          @toggle="toggleHomeWidget"
+          @reset="resetHomeLayout"
+        />
         <Button variant="outline" size="sm" class="max-lg:flex-1" @click="copyShareWorkday(auth.organization?.slug)">
           <Share2 /> Share workday
         </Button>
@@ -176,7 +185,7 @@ const daysLeft = (endDate: string | null) => {
     <HabitCoachCard v-if="data && show('habit')" :data="data" @create-project="isCreateProjectOpen = true" />
     <HabitNudgeBanner v-if="data?.habitNudge && show('habit')" :nudge="data.habitNudge" />
     <TeamDensityCard v-if="data && show('density')" :data="data" />
-    <HomeMyTeamCard v-if="show('myTeam')" :data="data" />
+    <HomeMyTeamCard v-if="data && show('myTeam')" :data="data" />
 
     <QuickCapture v-if="show('quickCapture')" />
 
@@ -195,11 +204,11 @@ const daysLeft = (endDate: string | null) => {
 
     <template v-else-if="data">
       <p
-        v-if="isStale || !navigator.onLine"
+        v-if="isStale || !isOnline"
         class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100"
         role="status"
       >
-        Showing last loaded Home{{ !navigator.onLine ? ' while offline' : '' }}.
+        Showing last loaded Home{{ !isOnline ? ' while offline' : '' }}.
         <button type="button" class="ml-1 font-medium underline" @click="reload">Refresh</button>
       </p>
       <div v-if="show('stats')" class="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5">

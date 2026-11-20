@@ -384,7 +384,10 @@ export async function requestPlanUpgrade(organization, actor, { target, note } =
 
 /** Pushes the organization's current settings and status to every member's open browsers. */
 export async function broadcastOrganization(organization) {
-  const result = toPublicOrganization(organization);
+  // Always include plan so clients get a full entitlements.features map (Home calls hasFeature on render).
+  const withFeatures =
+    organization.plan !== undefined ? organization : await Organization.findByPk(organization.id, { include: withPlan() });
+  const result = toPublicOrganization(withFeatures ?? organization);
   const members = await OrganizationMember.findAll({ where: { organizationId: organization.id, status: 'active' }, attributes: ['userId'], raw: true });
   members.forEach((member) => emitToUser(member.userId, 'workspace:updated', result));
   await notifyPortal('updated', organization);

@@ -61,7 +61,7 @@ function fromScratch() {
     <DialogContent class="gap-0 overflow-hidden p-0 sm:max-w-lg">
       <div class="relative overflow-hidden border-b border-border bg-[radial-gradient(120%_120%_at_0%_0%,color-mix(in_oklch,var(--primary)_18%,transparent),transparent_60%)] px-6 pt-6 pb-5">
         <BrandMark class="size-9" />
-        <DialogTitle class="mt-4 text-xl font-semibold tracking-tight">Welcome to Vector, {{ auth.user?.name.split(' ')[0] }}</DialogTitle>
+        <DialogTitle class="mt-4 text-xl font-semibold tracking-tight">Welcome to Vector, {{ auth.user?.name?.split(' ')[0] }}</DialogTitle>
         <DialogDescription class="mt-1 text-[13px]">
           First 10 minutes: project → invite → task.
           <template v-if="!auth.hasFeature('chat')"> Standup and chat look locked on this plan — ask an admin if that seems wrong.</template>

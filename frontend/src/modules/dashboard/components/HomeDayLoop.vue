@@ -44,7 +44,9 @@ type Step = {
 }
 
 const steps = computed<Step[]>(() => {
-  const { overdue, dueToday, inProgress } = props.data.stats
+  const overdue = props.data.stats?.overdue ?? 0
+  const dueToday = props.data.stats?.dueToday ?? 0
+  const inProgress = props.data.stats?.inProgress ?? 0
   const taskCount = overdue + dueToday + inProgress
   const standupDue = standup.value.length > 0
   const firstStandup = standup.value[0]

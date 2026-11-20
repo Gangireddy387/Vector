@@ -28,13 +28,19 @@ export interface HomeLayoutState {
 
 const defaults = (): HomeLayoutState => ({ hidden: [] })
 
+function normalize(value: unknown): HomeLayoutState {
+  const raw = value && typeof value === 'object' ? (value as Partial<HomeLayoutState>) : null
+  const hidden = Array.isArray(raw?.hidden) ? (raw!.hidden as HomeWidgetKey[]) : []
+  return { hidden: [...hidden] }
+}
+
 /** How this person likes Home laid out; kept in the browser (same idea as board Display). */
 export function useHomeLayout() {
   const stored = useLocalStorage<HomeLayoutState>('vector.home.layout', defaults(), { mergeDefaults: true })
 
   const layout = computed({
-    get: () => ({ ...defaults(), ...stored.value, hidden: [...(stored.value.hidden ?? [])] }),
-    set: (value: HomeLayoutState) => (stored.value = value),
+    get: () => normalize(stored.value),
+    set: (value: HomeLayoutState) => (stored.value = normalize(value)),
   })
 
   const isHidden = (key: HomeWidgetKey) => layout.value.hidden.includes(key)

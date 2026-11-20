@@ -41,7 +41,7 @@ export const useAuthStore = defineStore('auth', () => {
   /** The current organization exists but the super admin has not approved it (pending or rejected). */
   const isOrganizationBlocked = computed(() => Boolean(organization.value && organization.value.status !== 'approved'))
   /** Whether the current organization's plan includes a feature (no plan information means full access). */
-  const hasFeature = (key: PlanFeatureKey) => organization.value?.entitlements?.features[key] ?? true
+  const hasFeature = (key: PlanFeatureKey) => organization.value?.entitlements?.features?.[key] ?? true
   /** Built-in admin, or a custom role that includes the permission. */
   const hasPermission = (permission: OrgPermission) =>
     isOrganizationAdmin.value || Boolean(organization.value?.permissions?.includes(permission))
@@ -222,7 +222,9 @@ export const useAuthStore = defineStore('auth', () => {
       capacity: settings.capacity !== undefined ? settings.capacity : organization.value.capacity,
       aiGrounding: settings.aiGrounding !== undefined ? settings.aiGrounding : organization.value.aiGrounding,
       status: settings.status ?? organization.value.status,
-      entitlements: settings.entitlements ?? organization.value.entitlements,
+      entitlements: settings.entitlements?.features
+        ? settings.entitlements
+        : organization.value.entitlements,
       rejectionReason: settings.rejectionReason !== undefined ? settings.rejectionReason : organization.value.rejectionReason,
     }
     organization.value = next

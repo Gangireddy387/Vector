@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useOnline } from '@vueuse/core'
 import { format, isThisWeek, isToday, isYesterday, parseISO } from 'date-fns'
 import { ArrowLeft, ArrowUpRight, BellOff, CheckCheck, EllipsisVertical, Eraser, Inbox, MessageCircle, Search, Trash2 } from 'lucide-vue-next'
 import { computed, defineAsyncComponent, onMounted, ref, useTemplateRef } from 'vue'
@@ -27,6 +28,7 @@ const notifications = useNotificationsStore()
 const auth = useAuthStore()
 const router = useRouter()
 const { isDesktop, isWide } = useDevice()
+const isOnline = useOnline()
 const filter = ref<InboxFilter>('all')
 const supportChat = useTemplateRef<InstanceType<typeof SupportChatThread>>('supportChat')
 const search = ref('')
@@ -306,7 +308,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
             :icon="Inbox"
             title="Inbox did not load"
             :description="
-              !navigator.onLine
+              !isOnline
                 ? 'You appear to be offline. Connect and try again, or open Inbox once online so it can load for next time.'
                 : notifications.loadError
             "

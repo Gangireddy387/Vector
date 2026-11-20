@@ -46,7 +46,7 @@ export function useTodayAgenda() {
         end: clock(meeting.endsAt),
         live: meeting.status === 'live',
         to: { name: 'meeting-room', params: { meetingId: meeting.id } },
-        detail: meeting.participants.length ? `${meeting.participants.length} people` : null,
+        detail: meeting.participants?.length ? `${meeting.participants.length} people` : null,
         color: null,
       }))
     const fromEvents: AgendaItem[] = events

@@ -18,7 +18,17 @@ async function bootstrap() {
   // A bug in one component shows a message instead of a blank or frozen screen, and is logged for diagnosis.
   app.config.errorHandler = (error, _instance, info) => {
     console.error(`[app] ${info}:`, error)
-    toast.error('Something went wrong on this page', { description: 'Try again; if it keeps happening, reload the page.' })
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+          ? error
+          : error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string'
+            ? (error as { message: string }).message
+            : null
+    toast.error('Something went wrong on this page', {
+      description: message ? `${message}${info ? ` (${info})` : ''}` : 'Try again; if it keeps happening, reload the page.',
+    })
   }
 
   const auth = useAuthStore(pinia)

@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { RotateCcw, SlidersHorizontal } from 'lucide-vue-next'
+import { computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import { type HomeWidgetKey, HOME_WIDGETS } from '../composables/useHomeLayout'
 
-defineProps<{ hidden: HomeWidgetKey[]; customized: boolean }>()
+const props = withDefaults(defineProps<{ hidden?: HomeWidgetKey[] | null; customized?: boolean }>(), {
+  hidden: () => [],
+  customized: false,
+})
 const emit = defineEmits<{ toggle: [key: HomeWidgetKey]; reset: [] }>()
+const hiddenKeys = computed(() => (Array.isArray(props.hidden) ? props.hidden : []))
 </script>
 
 <template>
@@ -32,7 +37,7 @@ const emit = defineEmits<{ toggle: [key: HomeWidgetKey]; reset: [] }>()
           class="flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-muted/60"
         >
           <span>{{ widget.label }}</span>
-          <Switch :model-value="!hidden.includes(widget.key)" @update:model-value="emit('toggle', widget.key)" />
+          <Switch :model-value="!hiddenKeys.includes(widget.key)" @update:model-value="emit('toggle', widget.key)" />
         </label>
       </section>
       <div class="p-2">

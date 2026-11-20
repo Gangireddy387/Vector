@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useOnline } from '@vueuse/core'
 import { PartyPopper, RefreshCw, Share2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -39,13 +40,15 @@ const router = useRouter()
 const actions = useIssueActions()
 const openIssue = useOpenIssue()
 const { data, isLoading, error, isStale, reload } = useDashboardData()
+const isOnline = useOnline()
 const offlineLoadHint = computed(() =>
-  !navigator.onLine
+  !isOnline.value
     ? 'You appear to be offline. Connect and try again, or open Home once online so it can load for next time.'
     : error.value,
 )
-const home = useHomeLayout()
-const show = (key: Parameters<typeof home.isHidden>[0]) => !home.isHidden(key)
+const { layout: homeLayout, isHidden, isCustomized, toggle: toggleHomeWidget, reset: resetHomeLayout } = useHomeLayout()
+const hiddenKeys = computed(() => homeLayout.value?.hidden ?? [])
+const show = (key: Parameters<typeof isHidden>[0]) => !isHidden(key)
 const isCreateProjectOpen = ref(false)
 const segment = ref<Segment>('today')
 /** Invite deep-link: shared highlight survives clearing ?startDay=1 from the URL. */
@@ -62,7 +65,7 @@ const SEGMENTS: Array<{ value: Segment; label: string }> = [
 const segmentOf = (issue: Issue): Segment => {
   const bucket = bucketOf(issue)
   if (bucket === 'done') return 'done'
-  if (bucket === 'overdue' || bucket === 'today' || issue.status.category === 'in_progress') return 'today'
+  if (bucket === 'overdue' || bucket === 'today' || issue.status?.category === 'in_progress') return 'today'
   if (bucket === 'anytime') return 'anytime'
   return 'upcoming'
 }
@@ -90,11 +93,16 @@ async function complete(issue: Issue) {
     <div class="flex flex-col gap-2 px-1 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <p class="text-[11px] font-medium text-muted-foreground">Your workday</p>
-        <p class="text-lg font-semibold">Hi {{ auth.user?.name.split(' ')[0] }}</p>
-        <p class="text-sm" :class="data?.stats.overdue ? 'text-destructive' : 'text-muted-foreground'">{{ summary }}</p>
+        <p class="text-lg font-semibold">Hi {{ auth.user?.name?.split(' ')[0] }}</p>
+        <p class="text-sm" :class="data?.stats?.overdue ? 'text-destructive' : 'text-muted-foreground'">{{ summary }}</p>
       </div>
       <div class="flex self-end items-center gap-1 sm:self-start">
-        <HomeCustomizeMenu :hidden="home.layout.hidden" :customized="home.isCustomized" @toggle="home.toggle" @reset="home.reset" />
+        <HomeCustomizeMenu
+          :hidden="hiddenKeys"
+          :customized="isCustomized"
+          @toggle="toggleHomeWidget"
+          @reset="resetHomeLayout"
+        />
         <Button
           variant="ghost"
           size="icon"
@@ -111,7 +119,7 @@ async function complete(issue: Issue) {
     <HabitCoachCard v-if="data && show('habit')" :data="data" @create-project="isCreateProjectOpen = true" />
     <HabitNudgeBanner v-if="data?.habitNudge && show('habit')" :nudge="data.habitNudge" />
     <TeamDensityCard v-if="data && show('density')" :data="data" />
-    <HomeMyTeamCard v-if="show('myTeam')" :data="data" />
+    <HomeMyTeamCard v-if="data && show('myTeam')" :data="data" />
     <CreateProjectDialog v-model:open="isCreateProjectOpen" />
 
     <QuickCapture v-if="show('quickCapture')" stacked />
@@ -128,11 +136,11 @@ async function complete(issue: Issue) {
     </EmptyState>
     <template v-else-if="data">
       <p
-        v-if="isStale || !navigator.onLine"
+        v-if="isStale || !isOnline"
         class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100"
         role="status"
       >
-        Showing last loaded Home{{ !navigator.onLine ? ' while offline' : '' }}.
+        Showing last loaded Home{{ !isOnline ? ' while offline' : '' }}.
         <button type="button" class="ml-1 font-medium underline" @click="reload">Refresh</button>
       </p>
       <WeeklyPulseCard v-if="show('pulse')" :data="data" />

@@ -37,14 +37,14 @@ const todayTasks = computed(() => {
     const bucket = bucketOf(issue)
     if (bucket === 'overdue') return 0
     if (bucket === 'today') return 1
-    if (issue.status.category === 'in_progress') return 2
+    if (issue.status?.category === 'in_progress') return 2
     return 3
   }
   return (props.data.myWork ?? [])
     .filter((issue) => {
-      if (issue.status.category === 'done') return false
+      if (issue.status?.category === 'done') return false
       const bucket = bucketOf(issue)
-      return bucket === 'overdue' || bucket === 'today' || issue.status.category === 'in_progress'
+      return bucket === 'overdue' || bucket === 'today' || issue.status?.category === 'in_progress'
     })
     .sort((a, b) => rank(a) - rank(b))
     .slice(0, 7)
@@ -54,7 +54,9 @@ const focusTask = computed(() => todayTasks.value[0] ?? null)
 const remaining = computed(() => todayTasks.value.length)
 
 const chips = computed(() => {
-  const { dueToday, overdue, inProgress } = props.data.stats
+  const dueToday = props.data.stats?.dueToday ?? 0
+  const overdue = props.data.stats?.overdue ?? 0
+  const inProgress = props.data.stats?.inProgress ?? 0
   return [
     overdue ? { label: `${overdue} overdue`, tone: 'danger' as const, to: { name: 'issues', query: { assigneeId: 'me', overdue: 'true', sort: 'dueDate' } } } : null,
     dueToday ? { label: `${dueToday} due today`, tone: 'warn' as const, to: { name: 'issues', query: { assigneeId: 'me', sort: 'dueDate' } } } : null,
@@ -83,8 +85,8 @@ const taskHint = (issue: Issue) => {
   const bucket = bucketOf(issue)
   if (bucket === 'overdue') return 'Overdue'
   if (bucket === 'today') return 'Due today'
-  if (issue.status.category === 'in_progress') return 'In progress'
-  return issue.status.name
+  if (issue.status?.category === 'in_progress') return 'In progress'
+  return issue.status?.name ?? 'Open'
 }
 
 async function complete(issue: Issue) {

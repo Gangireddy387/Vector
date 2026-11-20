@@ -19,10 +19,10 @@ const reasonLabel: Record<string, string> = {
   dueToday: 'due today',
 }
 
-const detail = computed(() => props.nudge.reasons.map((reason) => reasonLabel[reason] ?? reason).join(' · '))
+const detail = computed(() => (props.nudge.reasons ?? []).map((reason) => reasonLabel[reason] ?? reason).join(' · '))
 
 const ctaTo = computed(() => {
-  const first = props.nudge.standupPending[0]
+  const first = props.nudge.standupPending?.[0]
   if (first) return { name: 'project-standup' as const, params: { projectId: first.projectId }, query: { date: first.date } }
   return { name: 'home' as const, query: { startDay: '1' } }
 })
