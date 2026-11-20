@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import ColorSwatchPicker from '@/components/common/ColorSwatchPicker.vue'
@@ -7,6 +7,7 @@ import FormField from '@/components/common/FormField.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
@@ -22,6 +23,8 @@ const router = useRouter()
 const confirm = useConfirm()
 const form = reactive({ name: '', description: '', color: '', leadId: null as string | null })
 const isSaving = ref(false)
+const isSavingAccess = ref(false)
+const commentOnly = computed(() => Boolean(props.project.settings?.commentOnly))
 
 watch(
   () => props.project,
@@ -39,6 +42,22 @@ async function save() {
     toast.error(getErrorMessage(error))
   } finally {
     isSaving.value = false
+  }
+}
+
+async function setCommentOnly(enabled: boolean) {
+  isSavingAccess.value = true
+  try {
+    await projects.updateProject(props.project.id, { settings: { ...props.project.settings, commentOnly: enabled } })
+    toast.success(enabled ? 'Comment-only mode on' : 'Comment-only mode off', {
+      description: enabled
+        ? 'Non-admins can view and comment. New invites default to Viewer.'
+        : 'Members can create and edit tasks again.',
+    })
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isSavingAccess.value = false
   }
 }
 
@@ -82,6 +101,30 @@ async function remove() {
           <FormField label="Color"><ColorSwatchPicker v-model="form.color" /></FormField>
           <Button type="submit" :loading="isSaving">Save changes</Button>
         </form>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Access</CardTitle>
+        <CardDescription>Limit who can change work in this project without inventing a new role.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-border/70 px-3.5 py-3">
+          <span class="min-w-0">
+            <span class="block text-sm font-medium">Comment-only</span>
+            <span class="mt-0.5 block text-xs text-muted-foreground">
+              Non-admins may view and comment, but not edit tasks. New people join as Viewers; the Member role is locked until you turn this off. Admins keep full access.
+            </span>
+          </span>
+          <Switch
+            class="mt-0.5"
+            :model-value="commentOnly"
+            :disabled="isSavingAccess"
+            aria-label="Comment-only project"
+            @update:model-value="(value) => setCommentOnly(Boolean(value))"
+          />
+        </label>
       </CardContent>
     </Card>
 

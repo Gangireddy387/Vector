@@ -116,6 +116,12 @@ export interface OrganizationRetention {
   recordingDays: number
 }
 
+/** Who may be invited into the organization by email domain. */
+export interface OrganizationInvitePolicy {
+  restrictDomains: boolean
+  allowedDomains: string[]
+}
+
 export interface WorkspaceSettings {
   name: string
   /** The organization's address (example.com/:slug); absent for the signed-out default branding. */
@@ -130,6 +136,8 @@ export interface WorkspaceSettings {
   channelNotifications?: OrganizationChannelNotifications
   /** Days to keep data (`0` = forever). */
   retention?: OrganizationRetention
+  /** Limit invitations to listed email domains. */
+  invitePolicy?: OrganizationInvitePolicy
   status?: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements
@@ -169,6 +177,7 @@ export interface OrganizationSummary {
   sso?: OrganizationSsoSettings
   channelNotifications?: OrganizationChannelNotifications
   retention?: OrganizationRetention
+  invitePolicy?: OrganizationInvitePolicy
   status: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements
@@ -319,6 +328,11 @@ export interface ProjectSettings {
   standupEnabled?: boolean
   standupReminderHour?: number
   standupDigestHour?: number
+  /**
+   * Comment-only: non-admins may view and comment but not edit. Invites default to Viewer;
+   * the Member role cannot be assigned while this is on.
+   */
+  commentOnly?: boolean
   /** The ready-made sample project (offered to new organizations); it can be deleted in one click. */
   isSample?: boolean
 }

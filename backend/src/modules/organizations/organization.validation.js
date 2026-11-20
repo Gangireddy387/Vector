@@ -57,6 +57,11 @@ const retentionSchema = z.object({
   recordingDays: retentionDays.optional(),
 });
 
+const invitePolicySchema = z.object({
+  restrictDomains: z.boolean().optional(),
+  allowedDomains: z.array(z.string().trim().max(80)).max(25).optional(),
+});
+
 export const updateOrganizationSchema = z
   .object({
     name: organizationName,
@@ -67,6 +72,7 @@ export const updateOrganizationSchema = z
     sso: ssoSchema,
     channelNotifications: channelNotificationsSchema,
     retention: retentionSchema,
+    invitePolicy: invitePolicySchema,
   })
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one setting');

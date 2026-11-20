@@ -25,6 +25,7 @@ import { logActivity } from '../activity/activity.service.js';
 import { currentHasOrgPermission, currentOrganizationId, currentOrganizationRole } from '../../shared/context/request-context.js';
 import { DEFAULT_LABELS } from '../labels/label.model.js';
 import { grantTeamAccess } from '../departments/department.service.js';
+import { assertInviteEmailAllowed } from '../organizations/invite-policy.service.js';
 import { ensureOrganizationMember } from '../organizations/organization.service.js';
 import { assertWithinLimit, entitlementsFor, withPlan } from '../plans/plan.service.js';
 import { getHeadedProjectIds, isOrganizationAdminRequest, sprintManagerRule } from './project-access.js';
@@ -250,35 +251,44 @@ async function assertIsMember(projectId, userId) {
  * Adds someone to a project. People already in the organization can be added by the project's admins; bringing in
  * someone new to the organization (and inviting new emails) stays with the organization's admins.
  */
+function resolveInviteRole(project, role) {
+  const settings = withDefaultSettings(project);
+  if (!settings.commentOnly) return role;
+  if (role === 'admin') return 'admin';
+  return 'viewer';
+}
+
 export async function addMember(projectId, inviter, { email, role }) {
   const project = await Project.findByPk(projectId);
   const known = await User.findOne({ where: { email }, attributes: ['id'] });
   const inOrganization = known && (await OrganizationMember.findOne({ where: { organizationId: project.organizationId, userId: known.id }, attributes: ['status'] }));
   if (inOrganization?.status === 'disabled') throw ApiError.badRequest(`${email} is deactivated in this organization. An admin can reactivate them first.`);
+  const organization = await Organization.findByPk(project.organizationId, { include: withPlan() });
   if (!inOrganization) {
     const inviterIsAdmin = await OrganizationMember.count({ where: { organizationId: project.organizationId, userId: inviter.id, role: 'admin', status: 'active' } });
     if (!inviterIsAdmin) throw ApiError.forbidden(`${email} is not in this organization yet. Ask an organization admin to invite them first.`);
+    assertInviteEmailAllowed(organization, email);
   }
+  const assignedRole = resolveInviteRole(project, role);
   const { user, inviteToken } = await ensureOrganizationMember(project.organizationId, email);
 
   const existing = await ProjectMember.findOne({ where: { projectId, userId: user.id } });
   if (existing) throw ApiError.conflict(`${email} is already a member of this project`);
-  await ProjectMember.create({ projectId, userId: user.id, role });
+  await ProjectMember.create({ projectId, userId: user.id, role: assignedRole });
 
   // Invitation and added-to-project emails follow the plan; without them, new people get their sign-up link from the admin.
-  const organization = await Organization.findByPk(project.organizationId, { include: withPlan() });
   const mayEmail = entitlementsFor(organization).features.emailInvitations;
   if (mayEmail) {
-    const details = { inviterName: inviter.name, inviterEmail: inviter.email, organization, project, role };
+    const details = { inviterName: inviter.name, inviterEmail: inviter.email, organization, project, role: assignedRole };
     const message = inviteToken ? inviteEmail({ ...details, email, token: inviteToken }) : addedToProjectEmail(details);
     await sendEmail({ to: email, ...message });
   }
 
-  await logActivity({ projectId, actorId: inviter.id, action: 'member_added', toValue: user.name, meta: { role } });
+  await logActivity({ projectId, actorId: inviter.id, action: 'member_added', toValue: user.name, meta: { role: assignedRole } });
   eventBus.publish(DomainEvents.MEMBER_ADDED, { project, user, actorId: inviter.id });
   return {
     ...user.toJSON(),
-    role,
+    role: assignedRole,
     invited: Boolean(inviteToken),
     emailed: mayEmail,
     inviteLink: inviteToken && !mayEmail ? inviteLinkFor(inviteToken) : null,
@@ -294,6 +304,10 @@ async function ensureAnotherAdminRemains(projectId, userId) {
 }
 
 export async function updateMemberRole(projectId, userId, role) {
+  const project = await Project.findByPk(projectId, { attributes: ['id', 'settings'] });
+  if (withDefaultSettings(project).commentOnly && role === 'member') {
+    throw ApiError.badRequest('This project is comment-only. People can be Viewers (comment) or Admins (edit). Turn off comment-only to assign Members.');
+  }
   const membership = role === 'admin'
     ? await ProjectMember.findOne({ where: { projectId, userId } })
     : await ensureAnotherAdminRemains(projectId, userId);

@@ -32,6 +32,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
           requireMfa: Boolean(auth.organization.requireMfa),
           sso: auth.organization.sso,
           channelNotifications: auth.organization.channelNotifications,
+          retention: auth.organization.retention,
+          invitePolicy: auth.organization.invitePolicy,
           updatedAt: auth.organization.updatedAt,
         }
       : branding.value,

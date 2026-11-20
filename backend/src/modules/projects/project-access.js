@@ -64,11 +64,28 @@ export async function projectRoleOf(projectId, userId) {
   return projectMembership ?? (await departmentHeadAccess(projectId, userId));
 }
 
+/**
+ * Comment-only projects: non-admins (including department heads and team members) act as viewers for write checks.
+ * Organization and project admins keep full access.
+ */
+async function withCommentOnlyCap(membership, projectId) {
+  if (!membership || membership.role === 'admin' || membership.viaOrganization) return membership;
+  if (membership.role !== 'member') return membership;
+  const project = await Project.findByPk(projectId, { attributes: ['settings'] });
+  if (!project?.settings?.commentOnly) return membership;
+  const base = typeof membership.toJSON === 'function' ? membership.toJSON() : { ...membership };
+  return { ...base, role: 'viewer', commentOnlyCapped: true };
+}
+
 export async function assertProjectRole(projectId, userId, minimumRole = 'viewer') {
-  const membership = await projectRoleOf(projectId, userId);
+  const membership = await withCommentOnlyCap(await projectRoleOf(projectId, userId), projectId);
   if (!membership) throw ApiError.notFound('Project not found');
   if (ROLE_RANK[membership.role] < ROLE_RANK[minimumRole]) {
-    throw ApiError.forbidden(`This action requires the ${minimumRole} role in this project`);
+    throw ApiError.forbidden(
+      membership.commentOnlyCapped
+        ? 'This project is comment-only. Ask a project admin if you need to edit work.'
+        : `This action requires the ${minimumRole} role in this project`,
+    );
   }
   return membership;
 }

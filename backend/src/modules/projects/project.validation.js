@@ -36,6 +36,7 @@ export const updateProjectSchema = z.object({
       standupEnabled: z.boolean().optional(),
       standupReminderHour: z.number().int().min(0).max(23).optional(),
       standupDigestHour: z.number().int().min(0).max(23).optional(),
+      commentOnly: z.boolean().optional(),
     })
     .optional(),
 });

@@ -16,6 +16,11 @@ export const DEFAULT_PROJECT_SETTINGS = Object.freeze({
   standupEnabled: true,
   standupReminderHour: 9,
   standupDigestHour: 11,
+  /**
+   * Comment-only: non-admins may view and comment but not edit work. New invites default to viewer;
+   * the Member role cannot be assigned while this is on (Admin and Viewer only).
+   */
+  commentOnly: false,
 });
 
 export class Project extends Model {}

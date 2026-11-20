@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Mail, Trash2 } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -21,7 +21,7 @@ import { useProjectsStore } from '../../projects.store'
 
 const props = defineProps<{ project: ProjectDetail }>()
 
-const ROLES: Array<{ value: ProjectRole; label: string; description: string }> = [
+const ALL_ROLES: Array<{ value: ProjectRole; label: string; description: string }> = [
   { value: 'admin', label: 'Admin', description: 'Manage settings, members and automation' },
   { value: 'member', label: 'Member', description: 'Create and edit tasks' },
   { value: 'viewer', label: 'Viewer', description: 'View work, comment, and post standup — chat is read-only' },
@@ -35,6 +35,16 @@ const email = ref('')
 const role = ref<ProjectRole>('member')
 const isInviting = ref(false)
 const seatLimitHit = ref(false)
+const commentOnly = computed(() => Boolean(props.project.settings?.commentOnly))
+const ROLES = computed(() => (commentOnly.value ? ALL_ROLES.filter((item) => item.value !== 'member') : ALL_ROLES))
+
+watch(
+  commentOnly,
+  (enabled) => {
+    if (enabled && role.value === 'member') role.value = 'viewer'
+  },
+  { immediate: true },
+)
 
 const refresh = () => projects.fetchProject(props.project.id, true)
 
@@ -93,6 +103,12 @@ async function remove(member: ProjectMember) {
       <CardDescription>Invite by email. New people land on Home to Start my day after they accept.</CardDescription>
     </CardHeader>
     <CardContent class="space-y-5">
+      <p
+        v-if="commentOnly"
+        class="rounded-lg border border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+      >
+        This project is <span class="font-medium text-foreground">comment-only</span>. Invites default to Viewer; the Member role is unavailable until an admin turns comment-only off in General settings.
+      </p>
       <div
         v-if="seatLimitHit && auth.isOrganizationAdmin"
         class="flex flex-col gap-2 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/10 px-3 py-2.5 sm:flex-row sm:items-center"
@@ -126,7 +142,7 @@ async function remove(member: ProjectMember) {
           </div>
           <SelectField
             :model-value="member.role"
-            :options="ROLES"
+            :options="member.role === 'member' && commentOnly ? ALL_ROLES : ROLES"
             :disabled="member.id === auth.user?.id"
             size="sm"
             class="w-36"

@@ -93,6 +93,7 @@ const ADDED_COLUMNS = [
   { table: 'showcase_portraits', column: 'role', definition: { type: DataTypes.STRING(80), allowNull: false, defaultValue: '' } },
   { table: 'showcase_portraits', column: 'feedback', definition: { type: DataTypes.STRING(280), allowNull: false, defaultValue: '' } },
   { table: 'organizations', column: 'retention', definition: { type: DataTypes.JSON, allowNull: true } },
+  { table: 'organizations', column: 'invite_policy', definition: { type: DataTypes.JSON, allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

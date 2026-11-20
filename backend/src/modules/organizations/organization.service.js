@@ -40,6 +40,7 @@ import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
 import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
 import { normalizeRetention, publicRetention } from './data-retention.service.js';
+import { assertInviteEmailAllowed, normalizeInvitePolicy, publicInvitePolicy } from './invite-policy.service.js';
 import {
   channelNotifySettingsFor,
   cleanChannelNotifyInput,
@@ -78,6 +79,7 @@ export const toPublicOrganization = (organization) => ({
   sso: ssoSettingsFor(organization),
   channelNotifications: channelNotifySettingsFor(organization),
   retention: publicRetention(organization),
+  invitePolicy: publicInvitePolicy(organization),
   status: organization.status ?? 'approved',
   rejectionReason: organization.status === 'rejected' ? (organization.rejectionReason ?? null) : null,
   // Only when the plan was loaded; otherwise clients keep the entitlements they already have.
@@ -225,6 +227,9 @@ export async function updateOrganization(organization, actor, changes) {
   if (changes.retention !== undefined) {
     updates.retention = normalizeRetention({ ...(organization.retention ?? {}), ...changes.retention });
   }
+  if (changes.invitePolicy !== undefined) {
+    updates.invitePolicy = normalizeInvitePolicy({ ...(organization.invitePolicy ?? {}), ...changes.invitePolicy });
+  }
   const before = {
     name: organization.name,
     slug: organization.slug,
@@ -234,10 +239,11 @@ export async function updateOrganization(organization, actor, changes) {
     sso: publicSso(organization, { includeTenant: true, includeOidc: true }),
     channelNotifications: publicChannelNotifications(organization),
     retention: publicRetention(organization),
+    invitePolicy: publicInvitePolicy(organization),
   };
   await organization.update(updates);
   const changed = Object.keys(changes).filter((key) =>
-    ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa', 'sso', 'channelNotifications', 'retention'].includes(key),
+    ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa', 'sso', 'channelNotifications', 'retention', 'invitePolicy'].includes(key),
   );
   if (changed.length) {
     await logWorkspaceAction({
@@ -258,6 +264,7 @@ export async function updateOrganization(organization, actor, changes) {
           sso: publicSso(organization, { includeTenant: true, includeOidc: true }),
           channelNotifications: publicChannelNotifications(organization),
           retention: publicRetention(organization),
+          invitePolicy: publicInvitePolicy(organization),
         },
       },
     });
@@ -675,6 +682,7 @@ export async function resendInvitation(organization, inviter, userId) {
  * to share themselves. People who already have an account are always told they were added.
  */
 export async function inviteMember(organization, inviter, { email, role, customRoleId = null }) {
+  assertInviteEmailAllowed(organization, email);
   if (customRoleId) {
     if (!customRolesEnabled(organization)) throw ApiError.forbidden('The current plan does not include custom roles');
     if (role === 'admin') throw ApiError.badRequest('Admins do not use a custom role');

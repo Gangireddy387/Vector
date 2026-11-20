@@ -81,7 +81,12 @@ export const useProjectsStore = defineStore('projects', () => {
     projectId ? (details.value[projectId]?.myRole ?? projects.value.find((project) => project.id === projectId)?.myRole ?? null) : null
   const canEdit = (projectId?: string | null) => {
     const role = roleOf(projectId)
-    return role === 'admin' || role === 'member'
+    if (role === 'admin') return true
+    if (role !== 'member') return false
+    const detail = projectId ? details.value[projectId] : null
+    // Comment-only projects: members may view and comment, not edit.
+    if (detail?.settings?.commentOnly) return false
+    return true
   }
   const isAdmin = (projectId?: string | null) => (projectId ? details.value[projectId]?.myRole === 'admin' : false)
   /** Planning, starting and completing sprints: not every member, only the people who run the project. */

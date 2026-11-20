@@ -14,7 +14,7 @@ import { useAuthStore } from '@/modules/auth/auth.store'
 import OrganizationFields from '@/modules/auth/components/OrganizationFields.vue'
 import { organizationUrl } from '@/modules/auth/organization-slug'
 import { useWorkspaceStore } from '@/stores/workspace.store'
-import type { ColorMode, OrganizationRetention, WorkspaceSettings } from '@/types/models'
+import type { ColorMode, OrganizationInvitePolicy, OrganizationRetention, WorkspaceSettings } from '@/types/models'
 import { workspaceApi } from '../admin.api'
 import OrganizationLogoField from './OrganizationLogoField.vue'
 import OrganizationThemeField from './OrganizationThemeField.vue'
@@ -32,6 +32,8 @@ const RETENTION_DEFAULTS: OrganizationRetention = {
   recordingDays: 0,
 }
 
+const INVITE_DEFAULTS: OrganizationInvitePolicy = { restrictDomains: false, allowedDomains: [] }
+
 const RETENTION_FIELDS: { key: keyof OrganizationRetention; label: string; hint: string }[] = [
   { key: 'auditLogDays', label: 'Audit & sign-in log', hint: 'Admin Activity tab history' },
   { key: 'activityDays', label: 'Task activity', hint: 'Issue and project activity feed' },
@@ -45,10 +47,15 @@ const retentionForm = ref<OrganizationRetention>({
   ...RETENTION_DEFAULTS,
   ...(workspace.settings.retention ?? {}),
 })
+const inviteForm = ref({
+  restrictDomains: Boolean(workspace.settings.invitePolicy?.restrictDomains),
+  domainsText: (workspace.settings.invitePolicy?.allowedDomains ?? []).join(', '),
+})
 const slugAvailable = ref(true)
 const fieldErrors = ref<Record<string, string>>({})
 const isSaving = ref(false)
 const isSavingRetention = ref(false)
+const isSavingInvite = ref(false)
 
 watch(
   () => [workspace.settings.name, workspace.settings.slug] as const,
@@ -63,10 +70,39 @@ watch(
   { deep: true },
 )
 
+watch(
+  () => workspace.settings.invitePolicy,
+  (value) => {
+    inviteForm.value = {
+      restrictDomains: Boolean(value?.restrictDomains),
+      domainsText: (value?.allowedDomains ?? []).join(', '),
+    }
+  },
+  { deep: true },
+)
+
+const parsedInviteDomains = computed(() =>
+  [
+    ...new Set(
+      inviteForm.value.domainsText
+        .split(/[\s,;]+/)
+        .map((item) => item.trim().toLowerCase().replace(/^@/, ''))
+        .filter(Boolean),
+    ),
+  ].slice(0, 25),
+)
+
 const isDirty = computed(() => form.value.name.trim() !== workspace.settings.name || form.value.slug !== workspace.settings.slug)
 const isRetentionDirty = computed(() => {
   const current = { ...RETENTION_DEFAULTS, ...(workspace.settings.retention ?? {}) }
   return RETENTION_FIELDS.some(({ key }) => Number(retentionForm.value[key] || 0) !== Number(current[key] || 0))
+})
+const isInviteDirty = computed(() => {
+  const current = { ...INVITE_DEFAULTS, ...(workspace.settings.invitePolicy ?? {}) }
+  return (
+    inviteForm.value.restrictDomains !== current.restrictDomains ||
+    parsedInviteDomains.value.join(',') !== current.allowedDomains.join(',')
+  )
 })
 
 async function saveRetention() {
@@ -82,6 +118,35 @@ async function saveRetention() {
     toast.error(getErrorMessage(error))
   } finally {
     isSavingRetention.value = false
+  }
+}
+
+async function saveInvitePolicy() {
+  isSavingInvite.value = true
+  fieldErrors.value = {}
+  try {
+    const invitePolicy: OrganizationInvitePolicy = {
+      restrictDomains: inviteForm.value.restrictDomains,
+      allowedDomains: parsedInviteDomains.value,
+    }
+    await workspace.update({ invitePolicy })
+    inviteForm.value = {
+      restrictDomains: invitePolicy.restrictDomains,
+      domainsText: invitePolicy.allowedDomains.join(', '),
+    }
+    toast.success(
+      invitePolicy.restrictDomains ? 'Invitation domains limited' : 'Invitation domain limit off',
+      {
+        description: invitePolicy.restrictDomains
+          ? `Only ${invitePolicy.allowedDomains.join(', ')} can be invited.`
+          : 'Anyone with an email can be invited (subject to your plan).',
+      },
+    )
+  } catch (error) {
+    fieldErrors.value = getFieldErrors(error)
+    toast.error(getErrorMessage(error))
+  } finally {
+    isSavingInvite.value = false
   }
 }
 const isExporting = ref(false)
@@ -319,6 +384,47 @@ async function deleteOrganization() {
               <span class="block text-xs text-muted-foreground">{{ mode.description }}</span>
             </span>
           </button>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Invitation domains</CardTitle>
+        <CardDescription>
+          Limit who can be invited into {{ workspace.settings.name }} by email domain (for example
+          <code class="text-xs">company.com</code>). Applies to People invites and to project invites that bring someone new into the organization.
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-4">
+        <label class="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-border/70 px-3.5 py-3">
+          <span class="min-w-0">
+            <span class="block text-sm font-medium">Restrict invites to listed domains</span>
+            <span class="mt-0.5 block text-xs text-muted-foreground">
+              People already in the organization can still be added to projects. Turning this on requires at least one domain.
+            </span>
+          </span>
+          <Switch
+            class="mt-0.5"
+            :model-value="inviteForm.restrictDomains"
+            :disabled="isSavingInvite"
+            @update:model-value="(value: boolean) => (inviteForm.restrictDomains = value)"
+          />
+        </label>
+        <FormField label="Allowed domains" for="invite-domains" :error="fieldErrors['invitePolicy.allowedDomains']">
+          <Input
+            id="invite-domains"
+            v-model="inviteForm.domainsText"
+            placeholder="company.com, partner.org"
+            :disabled="isSavingInvite"
+          />
+          <p class="mt-1 text-[11px] text-muted-foreground">Comma-separated. Example: acme.com, acme.co.uk</p>
+        </FormField>
+        <div class="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="brand" class="max-sm:w-full" :loading="isSavingInvite" :disabled="!isInviteDirty" @click="saveInvitePolicy">
+            Save invitation policy
+          </Button>
+          <span v-if="isInviteDirty" class="text-xs font-medium text-primary">Unsaved changes</span>
         </div>
       </CardContent>
     </Card>
