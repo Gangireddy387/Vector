@@ -6,6 +6,12 @@ import PriorityIcon from '@/components/common/PriorityIcon.vue'
 import { formatDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { Issue, Sprint } from '@/types/models'
+import type { DependencyEdge } from '@/modules/dependencies/dependencies.api'
+import {
+  buildDependencyLines,
+  cycleEdgeKeys,
+  type DependencyBarBox,
+} from '../lib/roadmap-dependency-lines'
 import {
   computeRange,
   dayDeltaFromPixels,
@@ -35,8 +41,22 @@ const props = withDefaults(
     labelWidth?: number
     compact?: boolean
     canEdit?: boolean
+    /** Block edges (`from` blocks `to`). Empty = hide lines. */
+    dependencyEdges?: DependencyEdge[]
+    criticalIssueIds?: string[]
+    dependencyCycles?: string[][]
   }>(),
-  { sprints: () => [], scale: 'week', dayWidth: 28, labelWidth: 280, compact: false, canEdit: false },
+  {
+    sprints: () => [],
+    scale: 'week',
+    dayWidth: 28,
+    labelWidth: 280,
+    compact: false,
+    canEdit: false,
+    dependencyEdges: () => [],
+    criticalIssueIds: () => [],
+    dependencyCycles: () => [],
+  },
 )
 
 const emit = defineEmits<{
@@ -44,6 +64,9 @@ const emit = defineEmits<{
   open: [issue: Issue]
   reschedule: [issue: Issue, changes: { startDate?: string; dueDate?: string }]
 }>()
+
+const hoverLineId = ref<string | null>(null)
+const hoverIssueIds = ref<Set<string>>(new Set())
 
 const rowHeight = computed(() => (props.compact ? 36 : 40))
 const flat = computed(() => flattenRows(props.rows, props.expanded))
@@ -87,6 +110,47 @@ function barGeometry(row: RoadmapRow) {
   }
 
   return { left, width }
+}
+
+const dependencyLines = computed(() => {
+  if (props.compact || !props.dependencyEdges.length || drag.value?.moved) return []
+  const bars = new Map<string, DependencyBarBox>()
+  const issueKeys = new Map<string, string>()
+  flat.value.forEach((row, rowIndex) => {
+    issueKeys.set(row.issue.id, row.issue.key)
+    const geometry = barGeometry(row)
+    if (!geometry) return
+    bars.set(row.issue.id, { left: geometry.left, width: geometry.width, rowIndex })
+  })
+  return buildDependencyLines({
+    edges: props.dependencyEdges,
+    bars,
+    rowHeight: rowHeight.value,
+    criticalIds: props.criticalIssueIds,
+    cycleKeys: cycleEdgeKeys(props.dependencyCycles),
+    issueKeys,
+  })
+})
+
+function setLineHover(lineId: string | null, from?: string, to?: string) {
+  hoverLineId.value = lineId
+  hoverIssueIds.value = lineId && from && to ? new Set([from, to]) : new Set()
+}
+
+function lineEmphasis(lineId: string, from: string, to: string) {
+  if (!hoverLineId.value && !hoverIssueIds.value.size) return 'full'
+  if (hoverLineId.value === lineId) return 'full'
+  if (hoverIssueIds.value.has(from) || hoverIssueIds.value.has(to)) return 'full'
+  return 'dim'
+}
+
+function barLinked(issueId: string) {
+  return hoverIssueIds.value.has(issueId)
+}
+
+function openBlockedIssue(toId: string) {
+  const row = flat.value.find((item) => item.issue.id === toId)
+  if (row) emit('open', row.issue)
 }
 
 function barStyle(row: RoadmapRow) {
@@ -306,6 +370,53 @@ onBeforeUnmount(() => {
           </span>
         </div>
 
+        <svg
+          v-if="dependencyLines.length"
+          class="pointer-events-none absolute top-0 z-[1]"
+          :width="chartWidth"
+          :height="flat.length * rowHeight"
+          :style="{ left: `${labelWidth}px`, width: `${chartWidth}px`, height: `${flat.length * rowHeight}px` }"
+          aria-hidden="true"
+        >
+          <defs>
+            <marker id="roadmap-dep-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" class="fill-muted-foreground/55" />
+            </marker>
+            <marker id="roadmap-dep-arrow-critical" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" class="fill-primary" />
+            </marker>
+            <marker id="roadmap-dep-arrow-cycle" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" class="fill-destructive/80" />
+            </marker>
+          </defs>
+          <path
+            v-for="line in dependencyLines"
+            :key="line.id"
+            :d="line.d"
+            fill="none"
+            class="cursor-pointer transition-opacity"
+            :class="[
+              line.cycle ? 'stroke-destructive/70' : line.critical ? 'stroke-primary' : 'stroke-muted-foreground/45',
+              lineEmphasis(line.id, line.from, line.to) === 'dim' ? 'opacity-20' : 'opacity-100',
+            ]"
+            :stroke-width="line.critical || line.cycle ? 2 : 1.35"
+            :stroke-dasharray="line.cycle ? '5 4' : undefined"
+            :marker-end="
+              line.cycle
+                ? 'url(#roadmap-dep-arrow-cycle)'
+                : line.critical
+                  ? 'url(#roadmap-dep-arrow-critical)'
+                  : 'url(#roadmap-dep-arrow)'
+            "
+            style="pointer-events: stroke"
+            @pointerenter="setLineHover(line.id, line.from, line.to)"
+            @pointerleave="setLineHover(null)"
+            @click.stop="openBlockedIssue(line.to)"
+          >
+            <title>{{ line.fromKey }} blocks {{ line.toKey }}</title>
+          </path>
+        </svg>
+
         <div
           v-for="row in flat"
           :key="row.issue.id"
@@ -365,11 +476,12 @@ onBeforeUnmount(() => {
               type="button"
               :class="
                 cn(
-                  'absolute top-1/2 z-[1] flex -translate-y-1/2 items-center overflow-hidden px-1.5 text-left text-[10px] font-medium text-white shadow-sm transition-[filter] hover:brightness-110 sm:px-2 sm:text-[11px]',
+                  'absolute top-1/2 z-[2] flex -translate-y-1/2 items-center overflow-hidden px-1.5 text-left text-[10px] font-medium text-white shadow-sm transition-[filter,box-shadow] hover:brightness-110 sm:px-2 sm:text-[11px]',
                   row.bar?.point ? 'rounded-full' : 'rounded-md',
                   row.bar?.derived && 'opacity-70 ring-1 ring-dashed ring-white/40',
                   canInteract(row) && 'cursor-grab touch-none active:cursor-grabbing',
-                  drag?.issueId === row.issue.id && drag.moved && 'z-[2] cursor-grabbing shadow-md',
+                  drag?.issueId === row.issue.id && drag.moved && 'z-[3] cursor-grabbing shadow-md',
+                  barLinked(row.issue.id) && 'brightness-110 ring-2 ring-primary/70 ring-offset-1 ring-offset-background',
                 )
               "
               :style="{ ...barStyle(row)!, backgroundColor: barColor(row.issue) }"
@@ -378,6 +490,8 @@ onBeforeUnmount(() => {
                   ? `${row.issue.key}: drag to move · edges to resize · click to open`
                   : `${row.issue.key}: ${formatDate(row.issue.startDate)} → ${formatDate(row.issue.dueDate)}${row.bar?.derived ? ' (from children)' : ''}`
               "
+              @pointerenter="hoverIssueIds = new Set([row.issue.id])"
+              @pointerleave="!hoverLineId && (hoverIssueIds = new Set())"
               @pointerdown.stop="canInteract(row) && onBarPointerDown($event, row)"
               @pointermove="canInteract(row) && drag?.mode !== 'paint' && onPointerMove($event, row)"
               @pointerup="canInteract(row) && drag?.mode !== 'paint' && finishInteraction($event, row)"
@@ -425,6 +539,12 @@ onBeforeUnmount(() => {
         <span class="inline-flex items-center gap-1.5"><span class="h-2 w-4 rounded-sm bg-primary" /> Dated bar</span>
         <span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-primary" /> Single date</span>
         <span class="inline-flex items-center gap-1.5"><span class="h-2 w-4 rounded-sm bg-primary/50 ring-1 ring-dashed ring-primary/40" /> Derived</span>
+        <span v-if="dependencyEdges.length" class="inline-flex items-center gap-1.5">
+          <span class="h-px w-4 bg-muted-foreground/50" /> Blocks (finish → start)
+        </span>
+        <span v-if="criticalIssueIds.length" class="inline-flex items-center gap-1.5">
+          <span class="h-px w-4 bg-primary" /> Critical path
+        </span>
         <span v-if="canEdit">Drag to move · edges to resize · empty row to paint dates</span>
         <span v-else>View only · open a work item to see details</span>
       </div>

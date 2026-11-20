@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CalendarRange, ChevronDown, ChevronUp, RefreshCw } from 'lucide-vue-next'
+import { CalendarRange, ChevronDown, ChevronUp, GitBranch, RefreshCw } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
 import { useSocketEvents } from '@/lib/socket-events'
+import { dependenciesApi, type DependencyEdge } from '@/modules/dependencies/dependencies.api'
 import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import type { Issue, Sprint } from '@/types/models'
@@ -25,6 +26,9 @@ const projectId = computed(() => route.params.projectId as string)
 
 const issues = ref<Issue[]>([])
 const sprints = ref<Sprint[]>([])
+const dependencyEdges = ref<DependencyEdge[]>([])
+const criticalIssueIds = ref<string[]>([])
+const dependencyCycles = ref<string[][]>([])
 const loading = ref(false)
 const loadError = ref<string | null>(null)
 
@@ -33,6 +37,7 @@ const datedOnly = ref(false)
 const scale = ref<RoadmapScale>('week')
 const expanded = ref<Set<string>>(new Set())
 const showFilters = ref(false)
+const showDependencies = ref(true)
 
 const project = computed(() => projects.details[projectId.value])
 const isScrum = computed(() => project.value?.type === 'scrum')
@@ -72,10 +77,16 @@ async function load() {
   loadError.value = null
   try {
     await projects.fetchProject(id)
-    const roadmap = await roadmapApi.get(id)
+    const [roadmap, deps] = await Promise.all([
+      roadmapApi.get(id),
+      dependenciesApi.forProject(id).catch(() => null),
+    ])
     if (projectId.value !== id) return
     issues.value = roadmap.issues
     sprints.value = roadmap.sprints
+    dependencyEdges.value = deps?.edges ?? []
+    criticalIssueIds.value = deps?.criticalPath.issueIds ?? []
+    dependencyCycles.value = deps?.cycles ?? []
     const next = new Set(expanded.value)
     for (const issue of roadmap.issues) {
       if (issue.type === 'epic') next.add(issue.id)
@@ -89,6 +100,8 @@ async function load() {
     if (projectId.value === id) loading.value = false
   }
 }
+
+const visibleDependencyEdges = computed(() => (showDependencies.value && !isPhone.value ? dependencyEdges.value : []))
 
 watch(projectId, load, { immediate: true })
 useSocketEvents({
@@ -147,6 +160,7 @@ async function onReschedule(issue: Issue, changes: { startDate?: string; dueDate
           <h1 class="text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">Roadmap</h1>
           <p class="hidden max-w-2xl text-sm text-muted-foreground sm:block">
             Timeline of epics and tasks — drag to move, resize edges for duration, or paint dates on empty rows.
+            Block links draw finish→start connectors on the Gantt.
           </p>
           <p class="text-xs text-muted-foreground sm:hidden">
             {{ stats.total }} items · {{ stats.dated }} dated
@@ -204,6 +218,23 @@ async function onReschedule(issue: Issue, changes: { startDate?: string; dueDate
         </div>
         <Button variant="outline" size="sm" @click="expandAll">Expand</Button>
         <Button variant="outline" size="sm" @click="collapseAll">Collapse</Button>
+        <Button
+          v-if="dependencyEdges.length && !isPhone"
+          variant="outline"
+          size="sm"
+          :aria-pressed="showDependencies"
+          @click="showDependencies = !showDependencies"
+        >
+          <GitBranch class="size-3.5" />
+          {{ showDependencies ? 'Hide dependencies' : 'Show dependencies' }}
+        </Button>
+        <RouterLink
+          v-if="dependencyEdges.length && !isPhone"
+          :to="{ name: 'project-dependencies', params: { projectId } }"
+          class="inline-flex h-8 items-center rounded-md px-2.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          Open graph
+        </RouterLink>
       </div>
     </header>
 
@@ -259,6 +290,9 @@ async function onReschedule(issue: Issue, changes: { startDate?: string; dueDate
       :day-width="dayWidth"
       :label-width="labelWidth"
       :can-edit="canEdit"
+      :dependency-edges="visibleDependencyEdges"
+      :critical-issue-ids="criticalIssueIds"
+      :dependency-cycles="dependencyCycles"
       @toggle="toggleExpand"
       @open="openIssue"
       @reschedule="onReschedule"
