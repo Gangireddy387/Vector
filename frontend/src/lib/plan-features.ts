@@ -169,7 +169,7 @@ export const PLAN_FEATURES: PlanFeature[] = [
   {
     key: 'vcsLinks',
     label: 'GitHub & GitLab links',
-    description: 'Link GitHub/GitLab URLs on tasks and sync PR/issue activity into Vector via GitHub webhooks',
+    description: 'Link GitHub/GitLab URLs on tasks; sync PR opens, reviews, checks, comments, and merges via GitHub webhooks',
     icon: GitBranch,
     group: 'app',
   },

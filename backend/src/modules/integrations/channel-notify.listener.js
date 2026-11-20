@@ -25,8 +25,10 @@ async function onIssueUpdated({ issue, changes, actorId }) {
   });
 }
 
-async function onCommentCreated({ issue, comment, mentionedUserIds = [], actorId }) {
+async function onCommentCreated({ issue, comment, mentionedUserIds = [], actorId, context }) {
   if (!issue || !comment?.body) return;
+  // GitHub-synced comments already live on the task — don't echo them to Slack/Teams.
+  if (context?.source === 'github') return;
   const name = await formatActorName(actorId);
   const preview = String(comment.body)
     .replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1')

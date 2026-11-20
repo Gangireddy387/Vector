@@ -33,6 +33,8 @@ export interface WebhookEndpointRow {
 export interface GithubIntegrationSettings {
   available: boolean
   enabled: boolean
+  /** When a linked PR merges, move the Vector task to Done (default true). */
+  mergeClosesIssue: boolean
   webhookUrl: string
   secretPrefix: string | null
   lastDeliveryAt: string | null
@@ -189,7 +191,7 @@ export const workspaceApi = {
   testWebhook: (endpointId: string) =>
     http.post<WebhookEndpointRow & { ok: boolean; status: number }>(`/workspace/webhooks/${endpointId}/test`).then((r) => r.data),
   githubIntegration: () => http.get<GithubIntegrationSettings>('/workspace/integrations/github').then((r) => r.data),
-  updateGithubIntegration: (payload: { enabled: boolean }) =>
+  updateGithubIntegration: (payload: { enabled?: boolean; mergeClosesIssue?: boolean }) =>
     http.put<GithubIntegrationSettings>('/workspace/integrations/github', payload).then((r) => r.data),
   regenerateGithubSecret: () =>
     http.post<GithubIntegrationSettings>('/workspace/integrations/github/regenerate-secret').then((r) => r.data),

@@ -20,15 +20,24 @@ githubAdminRoutes.put(
   manage,
   feature,
   validate({
-    body: z.object({
-      enabled: z.boolean(),
-    }),
+    body: z
+      .object({
+        enabled: z.boolean().optional(),
+        mergeClosesIssue: z.boolean().optional(),
+      })
+      .refine((body) => body.enabled !== undefined || body.mergeClosesIssue !== undefined, {
+        message: 'Provide enabled and/or mergeClosesIssue',
+      }),
   }),
   async (req, res) => {
-    const result = req.body.enabled
-      ? await service.enableGithubIntegration(req.organization)
-      : await service.disableGithubIntegration(req.organization);
-    res.json(result);
+    const { enabled, mergeClosesIssue } = req.body;
+    if (enabled === true) {
+      return res.json(await service.enableGithubIntegration(req.organization, { mergeClosesIssue }));
+    }
+    if (enabled === false) {
+      return res.json(await service.disableGithubIntegration(req.organization));
+    }
+    res.json(await service.updateGithubIntegrationSettings(req.organization, { mergeClosesIssue }));
   },
 );
 

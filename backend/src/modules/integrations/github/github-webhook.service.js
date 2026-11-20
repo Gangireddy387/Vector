@@ -5,6 +5,7 @@ import { encryptSecret, decryptSecret } from '../../auth/mfa.js';
 import { createComment } from '../../comments/comment.service.js';
 import { updateIssue } from '../../issues/issue.service.js';
 import { entitlementsFor } from '../../plans/plan.service.js';
+import { mergeClosesIssueOf, planGithubWebhookActions } from './github-webhook.messages.js';
 import { newGithubWebhookSecret, secretPrefixOf, verifyGithubSignature } from './github-webhook.verify.js';
 
 function webhookUrlFor(org) {
@@ -21,6 +22,7 @@ function publicView(org, { secret } = {}) {
   return {
     available: Boolean(entitlementsFor(org).features?.vcsLinks),
     enabled: Boolean(settings.enabled),
+    mergeClosesIssue: mergeClosesIssueOf(settings),
     webhookUrl: webhookUrlFor(org),
     secretPrefix: settings.secretPrefix ?? null,
     lastDeliveryAt: settings.lastDeliveryAt ?? null,
@@ -41,12 +43,14 @@ export async function getGithubIntegration(organization) {
   return publicView(organization);
 }
 
-export async function enableGithubIntegration(organization) {
+export async function enableGithubIntegration(organization, { mergeClosesIssue } = {}) {
   await assertVcsFeature(organization);
+  const previous = settingsOf(organization);
   const secret = newGithubWebhookSecret();
   const next = {
-    ...settingsOf(organization),
+    ...previous,
     enabled: true,
+    mergeClosesIssue: mergeClosesIssue !== undefined ? Boolean(mergeClosesIssue) : mergeClosesIssueOf(previous),
     secretEncrypted: encryptSecret(secret),
     secretPrefix: secretPrefixOf(secret),
     lastError: null,
@@ -65,6 +69,17 @@ export async function disableGithubIntegration(organization) {
       lastError: null,
     },
   });
+  return publicView(organization);
+}
+
+/** Update sync options without rotating the webhook secret. */
+export async function updateGithubIntegrationSettings(organization, { mergeClosesIssue } = {}) {
+  await assertVcsFeature(organization);
+  const previous = settingsOf(organization);
+  if (!previous.enabled) throw ApiError.badRequest('Enable GitHub sync before changing options');
+  const next = { ...previous };
+  if (mergeClosesIssue !== undefined) next.mergeClosesIssue = Boolean(mergeClosesIssue);
+  await organization.update({ githubWebhook: next });
   return publicView(organization);
 }
 
@@ -129,12 +144,6 @@ async function markDone(issue) {
   await updateIssue(issue.id, { statusId: done.id }, null, { source: 'github' });
 }
 
-function repoFromPayload(payload) {
-  const full = payload?.repository?.full_name || '';
-  const [owner, repo] = String(full).split('/');
-  return { owner: owner || null, repo: repo || null };
-}
-
 /**
  * Handle a verified GitHub webhook delivery for one organization.
  * Returns quickly; comments/status updates are awaited but failures are recorded on the org.
@@ -170,54 +179,25 @@ export async function handleGithubWebhook({ orgSlug, rawBody, signature, event, 
   }
 
   try {
-    if (event === 'ping') {
-      await markDelivery(organization, { event: 'ping' });
-      return { ok: true, handled: 'ping' };
-    }
-
-    const { owner, repo } = repoFromPayload(payload);
+    const { actions } = planGithubWebhookActions(event, payload, settings);
     let touched = 0;
 
-    if (event === 'issue_comment' && payload.action === 'created' && payload.comment) {
-      const number = payload.issue?.number;
-      const kind = payload.issue?.pull_request ? 'pull' : 'issue';
-      const issues = await findLinkedIssues(organization.id, { owner, repo, number, kind });
-      const author = payload.comment.user?.login || 'GitHub';
-      const body = [
-        `**${author}** commented on GitHub [${owner}/${repo}#${number}](${payload.comment.html_url}):`,
-        '',
-        payload.comment.body || '_(empty comment)_',
-      ].join('\n');
-      for (const issue of issues) {
-        await createComment(issue, null, body, { source: 'github', deliveryId });
-        touched += 1;
+    for (const action of actions) {
+      if (action.type === 'ping') {
+        await markDelivery(organization, { event: 'ping' });
+        return { ok: true, handled: 'ping' };
       }
-    }
+      if (action.type !== 'comment') continue;
 
-    if (event === 'pull_request' && payload.action === 'closed' && payload.pull_request) {
-      const number = payload.pull_request.number;
-      const issues = await findLinkedIssues(organization.id, { owner, repo, number, kind: 'pull' });
-      const merged = Boolean(payload.pull_request.merged);
-      const title = payload.pull_request.title || `PR #${number}`;
-      const url = payload.pull_request.html_url;
-      const body = merged
-        ? `GitHub pull request [#${number} ${title}](${url}) was **merged**.`
-        : `GitHub pull request [#${number} ${title}](${url}) was closed without merging.`;
+      const issues = await findLinkedIssues(organization.id, {
+        owner: action.owner,
+        repo: action.repo,
+        number: action.number,
+        kind: action.kind,
+      });
       for (const issue of issues) {
-        await createComment(issue, null, body, { source: 'github', deliveryId });
-        if (merged) await markDone(issue);
-        touched += 1;
-      }
-    }
-
-    if (event === 'issues' && payload.action === 'closed' && payload.issue) {
-      const number = payload.issue.number;
-      const issues = await findLinkedIssues(organization.id, { owner, repo, number, kind: 'issue' });
-      const title = payload.issue.title || `Issue #${number}`;
-      const url = payload.issue.html_url;
-      const body = `GitHub issue [#${number} ${title}](${url}) was **closed**.`;
-      for (const issue of issues) {
-        await createComment(issue, null, body, { source: 'github', deliveryId });
+        await createComment(issue, null, action.body, { source: 'github', deliveryId });
+        if (action.markDone) await markDone(issue);
         touched += 1;
       }
     }

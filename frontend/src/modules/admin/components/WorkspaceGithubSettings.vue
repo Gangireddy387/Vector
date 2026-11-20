@@ -50,6 +50,18 @@ async function setEnabled(enabled: boolean) {
   }
 }
 
+async function setMergeClosesIssue(mergeClosesIssue: boolean) {
+  saving.value = true
+  try {
+    settings.value = await workspaceApi.updateGithubIntegration({ mergeClosesIssue })
+    toast.success(mergeClosesIssue ? 'Merged PRs will mark linked tasks Done' : 'Merged PRs will only leave a comment')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    saving.value = false
+  }
+}
+
 async function regenerate() {
   saving.value = true
   try {
@@ -89,7 +101,7 @@ async function copy(text: string, which: 'url' | 'secret') {
     <CardHeader>
       <CardTitle>GitHub sync</CardTitle>
       <CardDescription>
-        Paste GitHub issue/PR URLs on tasks, then receive comments and merge updates from GitHub webhooks.
+        Paste GitHub issue/PR URLs on tasks. Webhooks sync opens, reviews, checks, comments, and merges into Vector.
       </CardDescription>
     </CardHeader>
     <CardContent class="space-y-5 text-sm">
@@ -114,6 +126,20 @@ async function copy(text: string, which: 'url' | 'secret') {
         </div>
 
         <div v-if="settings?.enabled" class="space-y-4">
+          <div class="flex items-center justify-between gap-3 rounded-lg border p-3">
+            <div>
+              <p class="font-medium text-foreground">Mark task Done on merge</p>
+              <p class="mt-0.5 text-xs text-muted-foreground">
+                When a linked pull request merges, move the Vector task to the first Done status.
+              </p>
+            </div>
+            <Switch
+              :model-value="settings.mergeClosesIssue !== false"
+              :disabled="loading || saving"
+              @update:model-value="(value: boolean) => setMergeClosesIssue(value)"
+            />
+          </div>
+
           <div class="space-y-1.5">
             <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Payload URL</p>
             <div class="flex gap-2">
@@ -152,7 +178,14 @@ async function copy(text: string, which: 'url' | 'secret') {
             <li>In GitHub: repo → Settings → Webhooks → Add webhook</li>
             <li>Paste the Payload URL and Secret above</li>
             <li>Content type: <span class="font-medium text-foreground">application/json</span></li>
-            <li>Events: Issues, Issue comments, Pull requests</li>
+            <li>
+              Events:
+              <span class="font-medium text-foreground">Issues</span>,
+              <span class="font-medium text-foreground">Issue comments</span>,
+              <span class="font-medium text-foreground">Pull requests</span>,
+              <span class="font-medium text-foreground">Pull request reviews</span>,
+              <span class="font-medium text-foreground">Check runs</span>
+            </li>
             <li>On a Vector task, paste the matching GitHub URL under Code</li>
           </ol>
 
