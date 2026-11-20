@@ -1,10 +1,18 @@
 import { http } from '@/lib/http'
-import type { Goal, GoalStatus, KeyResultMetricType, ProjectReference, StatusSummary } from '@/types/models'
+import type {
+  Goal,
+  GoalStatus,
+  KeyResultCheckIn,
+  KeyResultMetricType,
+  ProjectReference,
+  StatusSummary,
+} from '@/types/models'
 
 export interface GoalInput {
   title: string
   description?: string | null
   projectId?: string | null
+  parentGoalId?: string | null
   ownerId?: string | null
   status?: GoalStatus
   periodStart?: string | null
@@ -45,6 +53,16 @@ export const goalsApi = {
     http.patch<{ goal: Goal }>(`/goals/${goalId}/key-results/${keyResultId}`, changes).then((r) => r.data.goal),
   removeKeyResult: (goalId: string, keyResultId: string) =>
     http.delete<{ goal: Goal }>(`/goals/${goalId}/key-results/${keyResultId}`).then((r) => r.data.goal),
+  listCheckIns: (goalId: string, keyResultId: string, limit = 30) =>
+    http
+      .get<{ checkIns: KeyResultCheckIn[] }>(`/goals/${goalId}/key-results/${keyResultId}/check-ins`, {
+        params: { limit },
+      })
+      .then((r) => r.data.checkIns),
+  createCheckIn: (goalId: string, keyResultId: string, payload: { value: number; note?: string | null }) =>
+    http
+      .post<{ goal: Goal; checkIn: KeyResultCheckIn }>(`/goals/${goalId}/key-results/${keyResultId}/check-ins`, payload)
+      .then((r) => r.data),
   addLink: (goalId: string, keyResultId: string, issueId: string) =>
     http.post<{ goal: Goal }>(`/goals/${goalId}/key-results/${keyResultId}/links`, { issueId }).then((r) => r.data.goal),
   removeLink: (goalId: string, keyResultId: string, linkId: string) =>

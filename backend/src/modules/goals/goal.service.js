@@ -1,5 +1,14 @@
 import { Op } from 'sequelize';
-import { Goal, Issue, KeyResult, KeyResultLink, Project, Status, User } from '../../database/models.js';
+import {
+  Goal,
+  Issue,
+  KeyResult,
+  KeyResultCheckIn,
+  KeyResultLink,
+  Project,
+  Status,
+  User,
+} from '../../database/models.js';
 import { likeOperator } from '../../database/connection.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { currentOrganizationId } from '../../shared/context/request-context.js';
@@ -13,6 +22,22 @@ function orgId() {
   return id;
 }
 
+const keyResultInclude = [
+  { model: User, as: 'owner', attributes: USER_SUMMARY_ATTRIBUTES },
+  {
+    model: KeyResultLink,
+    as: 'links',
+    include: [
+      {
+        model: Issue,
+        as: 'issue',
+        attributes: ['id', 'key', 'title', 'type', 'statusId', 'projectId'],
+        include: [{ model: Status, as: 'status', attributes: ['id', 'name', 'category', 'color'] }],
+      },
+    ],
+  },
+];
+
 async function loadGoal(goalId, { forUpdate = false } = {}) {
   const goal = await Goal.findOne({
     where: { id: goalId, organizationId: orgId() },
@@ -21,24 +46,11 @@ async function loadGoal(goalId, { forUpdate = false } = {}) {
       : [
           { model: User, as: 'owner', attributes: USER_SUMMARY_ATTRIBUTES },
           { model: Project, as: 'project', attributes: ['id', 'key', 'name', 'color'] },
+          { model: Goal, as: 'parent', attributes: ['id', 'title', 'status'] },
           {
             model: KeyResult,
             as: 'keyResults',
-            include: [
-              { model: User, as: 'owner', attributes: USER_SUMMARY_ATTRIBUTES },
-              {
-                model: KeyResultLink,
-                as: 'links',
-                include: [
-                  {
-                    model: Issue,
-                    as: 'issue',
-                    attributes: ['id', 'key', 'title', 'type', 'statusId', 'projectId'],
-                    include: [{ model: Status, as: 'status', attributes: ['id', 'name', 'category', 'color'] }],
-                  },
-                ],
-              },
-            ],
+            include: keyResultInclude,
             order: [['position', 'ASC']],
           },
         ],
@@ -88,13 +100,89 @@ async function enrichKeyResult(kr) {
   return { ...json, progress: manualProgress(json), linkedDone: null, linkedTotal: null };
 }
 
+async function krProgressOnly(goalId) {
+  const keyResults = await KeyResult.findAll({
+    where: { goalId },
+    include: keyResultInclude,
+  });
+  const enriched = await Promise.all(keyResults.map((kr) => enrichKeyResult(kr)));
+  if (!enriched.length) return 0;
+  return clampProgress(enriched.reduce((sum, kr) => sum + (kr.progress ?? 0), 0) / enriched.length);
+}
+
+/** Child goals' average progress, or KR average when there are no children. */
+async function cascadeProgress(goalId, seen = new Set()) {
+  if (seen.has(goalId)) return 0;
+  seen.add(goalId);
+  const children = await Goal.findAll({
+    where: { parentGoalId: goalId, organizationId: orgId() },
+    attributes: ['id'],
+    raw: true,
+  });
+  if (children.length) {
+    const scores = await Promise.all(children.map((child) => cascadeProgress(child.id, seen)));
+    return clampProgress(scores.reduce((sum, value) => sum + value, 0) / scores.length);
+  }
+  return krProgressOnly(goalId);
+}
+
 async function presentGoal(goal) {
   const json = goal.toJSON();
   const keyResults = await Promise.all((json.keyResults ?? []).map((kr) => enrichKeyResult(kr)));
-  const progress = keyResults.length
-    ? clampProgress(keyResults.reduce((sum, kr) => sum + (kr.progress ?? 0), 0) / keyResults.length)
-    : 0;
-  return { ...json, keyResults, progress };
+
+  const children = await Goal.findAll({
+    where: { parentGoalId: json.id, organizationId: orgId() },
+    attributes: ['id', 'title', 'status', 'periodStart', 'periodEnd'],
+    include: [{ model: User, as: 'owner', attributes: USER_SUMMARY_ATTRIBUTES }],
+    order: [
+      ['position', 'ASC'],
+      ['createdAt', 'DESC'],
+    ],
+  });
+
+  const childSummaries = await Promise.all(
+    children.map(async (child) => ({
+      id: child.id,
+      title: child.title,
+      status: child.status,
+      periodStart: child.periodStart,
+      periodEnd: child.periodEnd,
+      owner: child.owner ?? null,
+      progress: await cascadeProgress(child.id),
+    })),
+  );
+
+  const progress = childSummaries.length
+    ? clampProgress(childSummaries.reduce((sum, child) => sum + child.progress, 0) / childSummaries.length)
+    : keyResults.length
+      ? clampProgress(keyResults.reduce((sum, kr) => sum + (kr.progress ?? 0), 0) / keyResults.length)
+      : 0;
+
+  const lastByKr = new Map();
+  const krIds = keyResults.map((kr) => kr.id);
+  if (krIds.length) {
+    const lastCheckIns = await KeyResultCheckIn.findAll({
+      where: { keyResultId: krIds },
+      attributes: ['keyResultId', 'createdAt'],
+      order: [['createdAt', 'DESC']],
+    });
+    for (const row of lastCheckIns) {
+      if (!lastByKr.has(row.keyResultId)) lastByKr.set(row.keyResultId, row.createdAt);
+    }
+  }
+
+  return {
+    ...json,
+    keyResults: keyResults.map((kr) => ({
+      ...kr,
+      lastCheckInAt: lastByKr.get(kr.id) ?? null,
+    })),
+    progress,
+    children: childSummaries,
+    parent: json.parent
+      ? { id: json.parent.id, title: json.parent.title, status: json.parent.status }
+      : null,
+  };
 }
 
 export async function listGoals(filters = {}) {
@@ -107,24 +195,11 @@ export async function listGoals(filters = {}) {
     include: [
       { model: User, as: 'owner', attributes: USER_SUMMARY_ATTRIBUTES },
       { model: Project, as: 'project', attributes: ['id', 'key', 'name', 'color'] },
+      { model: Goal, as: 'parent', attributes: ['id', 'title', 'status'] },
       {
         model: KeyResult,
         as: 'keyResults',
-        include: [
-          { model: User, as: 'owner', attributes: USER_SUMMARY_ATTRIBUTES },
-          {
-            model: KeyResultLink,
-            as: 'links',
-            include: [
-              {
-                model: Issue,
-                as: 'issue',
-                attributes: ['id', 'key', 'title', 'type', 'statusId', 'projectId'],
-                include: [{ model: Status, as: 'status', attributes: ['id', 'name', 'category', 'color'] }],
-              },
-            ],
-          },
-        ],
+        include: keyResultInclude,
       },
     ],
     order: [
@@ -149,15 +224,34 @@ async function assertOptionalProject(projectId, userId) {
   return project;
 }
 
+async function assertParentGoal(parentGoalId, selfId = null) {
+  if (!parentGoalId) return null;
+  if (selfId && parentGoalId === selfId) throw ApiError.badRequest('A goal cannot be its own parent');
+  const parent = await Goal.findOne({ where: { id: parentGoalId, organizationId: orgId() }, attributes: ['id', 'parentGoalId'] });
+  if (!parent) throw ApiError.badRequest('Parent goal not found');
+  let cursor = parent.parentGoalId;
+  const seen = new Set([parent.id]);
+  while (cursor) {
+    if (selfId && cursor === selfId) throw ApiError.badRequest('That parent would create a cycle');
+    if (seen.has(cursor)) break;
+    seen.add(cursor);
+    const next = await Goal.findOne({ where: { id: cursor, organizationId: orgId() }, attributes: ['parentGoalId'], raw: true });
+    cursor = next?.parentGoalId ?? null;
+  }
+  return parent;
+}
+
 export async function createGoal(input, actor) {
   await assertOptionalProject(input.projectId, actor.id);
   if (input.status && !GOAL_STATUSES.includes(input.status)) throw ApiError.badRequest('Invalid status');
+  await assertParentGoal(input.parentGoalId ?? null);
   const max = (await Goal.max('position', { where: { organizationId: orgId() } })) ?? 0;
   const goal = await Goal.create({
     organizationId: orgId(),
     title: input.title.trim(),
     description: input.description?.trim() || null,
     projectId: input.projectId ?? null,
+    parentGoalId: input.parentGoalId ?? null,
     ownerId: input.ownerId ?? actor.id,
     createdById: actor.id,
     status: input.status ?? 'active',
@@ -171,8 +265,9 @@ export async function createGoal(input, actor) {
 export async function updateGoal(goalId, changes, actor) {
   const goal = await loadGoal(goalId, { forUpdate: true });
   if ('projectId' in changes) await assertOptionalProject(changes.projectId, actor.id);
+  if ('parentGoalId' in changes) await assertParentGoal(changes.parentGoalId, goal.id);
   const updates = {};
-  for (const key of ['title', 'description', 'projectId', 'ownerId', 'status', 'periodStart', 'periodEnd']) {
+  for (const key of ['title', 'description', 'projectId', 'ownerId', 'status', 'periodStart', 'periodEnd', 'parentGoalId']) {
     if (key in changes) {
       if (key === 'title') updates.title = String(changes.title).trim();
       else if (key === 'description') updates.description = changes.description?.trim() || null;
@@ -217,7 +312,7 @@ export async function createKeyResult(goalId, input) {
   return getGoal(goal.id);
 }
 
-export async function updateKeyResult(goalId, keyResultId, changes) {
+export async function updateKeyResult(goalId, keyResultId, changes, actor = null) {
   await loadGoal(goalId, { forUpdate: true });
   const kr = await KeyResult.findOne({ where: { id: keyResultId, goalId } });
   if (!kr) throw ApiError.notFound('Key result not found');
@@ -230,8 +325,56 @@ export async function updateKeyResult(goalId, keyResultId, changes) {
   for (const key of ['startValue', 'targetValue', 'currentValue', 'unit', 'ownerId']) {
     if (key in changes) updates[key] = key === 'unit' ? changes.unit?.trim() || null : changes[key];
   }
+  const previousValue = Number(kr.currentValue);
   await kr.update(updates);
+  if ('currentValue' in updates && Number(updates.currentValue) !== previousValue && kr.metricType !== 'linked_progress') {
+    const next = { ...kr.toJSON(), ...updates };
+    await KeyResultCheckIn.create({
+      keyResultId: kr.id,
+      value: Number(updates.currentValue),
+      progress: manualProgress(next),
+      note: null,
+      createdById: actor?.id ?? null,
+    });
+  }
   return getGoal(goalId);
+}
+
+export async function createKeyResultCheckIn(goalId, keyResultId, { value, note }, actor) {
+  await loadGoal(goalId, { forUpdate: true });
+  const kr = await KeyResult.findOne({ where: { id: keyResultId, goalId } });
+  if (!kr) throw ApiError.notFound('Key result not found');
+  if (kr.metricType === 'linked_progress') {
+    throw ApiError.badRequest('Linked-task key results update from task status — use a note-only comment on the goal if needed');
+  }
+  if (!Number.isFinite(Number(value))) throw ApiError.badRequest('Enter a numeric value');
+
+  await kr.update({ currentValue: Number(value) });
+  const progress = manualProgress({ ...kr.toJSON(), currentValue: Number(value) });
+  const checkIn = await KeyResultCheckIn.create({
+    keyResultId: kr.id,
+    value: Number(value),
+    progress,
+    note: note?.trim() || null,
+    createdById: actor?.id ?? null,
+  });
+  const withAuthor = await KeyResultCheckIn.findByPk(checkIn.id, {
+    include: [{ model: User, as: 'createdBy', attributes: USER_SUMMARY_ATTRIBUTES }],
+  });
+  return { goal: await getGoal(goalId), checkIn: withAuthor.toJSON() };
+}
+
+export async function listKeyResultCheckIns(goalId, keyResultId, { limit = 30 } = {}) {
+  await loadGoal(goalId, { forUpdate: true });
+  const kr = await KeyResult.findOne({ where: { id: keyResultId, goalId }, attributes: ['id'] });
+  if (!kr) throw ApiError.notFound('Key result not found');
+  const checkIns = await KeyResultCheckIn.findAll({
+    where: { keyResultId: kr.id },
+    include: [{ model: User, as: 'createdBy', attributes: USER_SUMMARY_ATTRIBUTES }],
+    order: [['createdAt', 'DESC']],
+    limit: Math.min(Number(limit) || 30, 100),
+  });
+  return checkIns.map((row) => row.toJSON());
 }
 
 export async function removeKeyResult(goalId, keyResultId) {

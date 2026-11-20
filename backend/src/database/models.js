@@ -65,7 +65,7 @@ import {
   MeetingUpdate,
 } from '../modules/meetings/meeting.model.js';
 import { PushSubscription } from '../modules/push/push-subscription.model.js';
-import { Goal, KeyResult, KeyResultLink } from '../modules/goals/goal.model.js';
+import { Goal, KeyResult, KeyResultCheckIn, KeyResultLink } from '../modules/goals/goal.model.js';
 import { WikiPage } from '../modules/wiki/wiki.model.js';
 import { ShowcasePortrait } from '../modules/marketing/showcase.model.js';
 import { ShareLink } from '../modules/shares/share.model.js';
@@ -306,12 +306,17 @@ Goal.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' 
 Goal.belongsTo(Project, { as: 'project', foreignKey: 'projectId', onDelete: 'SET NULL', constraints: false });
 Goal.belongsTo(User, { as: 'owner', foreignKey: 'ownerId', onDelete: 'SET NULL' });
 Goal.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+Goal.belongsTo(Goal, { as: 'parent', foreignKey: 'parentGoalId', onDelete: 'SET NULL' });
+Goal.hasMany(Goal, { as: 'children', foreignKey: 'parentGoalId' });
 Goal.hasMany(KeyResult, { as: 'keyResults', foreignKey: 'goalId', ...cascade });
 KeyResult.belongsTo(Goal, { as: 'goal', foreignKey: 'goalId' });
 KeyResult.belongsTo(User, { as: 'owner', foreignKey: 'ownerId', onDelete: 'SET NULL' });
 KeyResult.hasMany(KeyResultLink, { as: 'links', foreignKey: 'keyResultId', ...cascade });
+KeyResult.hasMany(KeyResultCheckIn, { as: 'checkIns', foreignKey: 'keyResultId', ...cascade });
 KeyResultLink.belongsTo(KeyResult, { as: 'keyResult', foreignKey: 'keyResultId' });
 KeyResultLink.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId', ...cascade });
+KeyResultCheckIn.belongsTo(KeyResult, { as: 'keyResult', foreignKey: 'keyResultId' });
+KeyResultCheckIn.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
 
 // Organization wiki pages
 Organization.hasMany(WikiPage, { as: 'wikiPages', foreignKey: 'organizationId', ...cascade });
@@ -419,5 +424,6 @@ export {
   ShareLink,
   IntakeForm,
   KeyResult,
+  KeyResultCheckIn,
   KeyResultLink,
 };

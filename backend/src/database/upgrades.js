@@ -81,6 +81,7 @@ const ADDED_COLUMNS = [
   { table: 'organizations', column: 'sso', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'organizations', column: 'channel_notifications', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'organizations', column: 'github_webhook', definition: { type: DataTypes.JSON, allowNull: true } },
+  { table: 'goals', column: 'parent_goal_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'users', column: 'google_subject', definition: { type: DataTypes.STRING(120), allowNull: true } },
   { table: 'users', column: 'microsoft_subject', definition: { type: DataTypes.STRING(120), allowNull: true } },
   { table: 'users', column: 'oidc_subject', definition: { type: DataTypes.STRING(255), allowNull: true } },

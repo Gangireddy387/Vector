@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Link2, Plus, Trash2 } from 'lucide-vue-next'
-import { ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
@@ -15,6 +15,7 @@ import { getErrorMessage } from '@/lib/http'
 import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import type { Goal, GoalStatus, IssueType, KeyResult, KeyResultMetricType } from '@/types/models'
 import GoalProgressBar from '../components/GoalProgressBar.vue'
+import KeyResultCheckInPanel from '../components/KeyResultCheckInPanel.vue'
 import { goalsApi, type LinkableIssue } from '../goals.api'
 
 const props = defineProps<{ goalId: string }>()
@@ -23,6 +24,7 @@ const confirm = useConfirm()
 const openIssue = useOpenIssue()
 
 const goal = ref<Goal | null>(null)
+const allGoals = ref<Goal[]>([])
 const loading = ref(false)
 const loadError = ref<string | null>(null)
 const krTitle = ref('')
@@ -31,14 +33,21 @@ const linkQuery = ref('')
 const linkTarget = ref<KeyResult | null>(null)
 const linkResults = ref<LinkableIssue[]>([])
 const searching = ref(false)
+const expandedCheckIn = ref<string | null>(null)
 
 const statuses: GoalStatus[] = ['draft', 'active', 'completed', 'cancelled']
+
+const parentOptions = computed(() =>
+  allGoals.value.filter((item) => item.id !== props.goalId && item.parentGoalId !== props.goalId),
+)
 
 async function load() {
   loading.value = true
   loadError.value = null
   try {
-    goal.value = await goalsApi.get(props.goalId)
+    const [detail, list] = await Promise.all([goalsApi.get(props.goalId), goalsApi.list()])
+    goal.value = detail
+    allGoals.value = list
   } catch (error) {
     loadError.value = getErrorMessage(error)
     toast.error(loadError.value)
@@ -62,16 +71,19 @@ async function setStatus(status: GoalStatus) {
   await run(() => goalsApi.update(goal.value!.id, { status }))
 }
 
+async function setParent(raw: string) {
+  if (!goal.value) return
+  await run(() => goalsApi.update(goal.value!.id, { parentGoalId: raw || null }))
+}
+
 async function addKeyResult() {
   if (!goal.value || !krTitle.value.trim()) return
   await run(() => goalsApi.createKeyResult(goal.value!.id, { title: krTitle.value.trim(), metricType: krType.value }))
   krTitle.value = ''
 }
 
-async function setCurrent(kr: KeyResult, raw: string) {
-  const currentValue = Number(raw)
-  if (!Number.isFinite(currentValue) || !goal.value) return
-  await run(() => goalsApi.updateKeyResult(goal.value!.id, kr.id, { currentValue }))
+function onCheckInUpdated(next: Goal) {
+  goal.value = next
 }
 
 async function removeKr(kr: KeyResult) {
@@ -202,6 +214,29 @@ function metricLabel(type: KeyResultMetricType) {
                 @update:model-value="(value) => run(() => goalsApi.update(goal!.id, { periodEnd: value || null }))"
               />
             </div>
+            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              <label class="flex items-center gap-1.5 text-muted-foreground">
+                Parent objective
+                <select
+                  class="h-8 rounded-md border bg-background px-2 text-foreground"
+                  :value="goal.parentGoalId ?? ''"
+                  aria-label="Parent objective"
+                  @change="setParent(($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">None (top-level)</option>
+                  <option v-for="option in parentOptions" :key="option.id" :value="option.id">
+                    {{ option.title }}
+                  </option>
+                </select>
+              </label>
+              <RouterLink
+                v-if="goal.parent"
+                :to="{ name: 'goal', params: { goalId: goal.parent.id } }"
+                class="text-primary hover:underline"
+              >
+                {{ goal.parent.title }}
+              </RouterLink>
+            </div>
           </div>
           <div class="flex items-center gap-2">
             <UserAvatar v-if="goal.owner" :user="goal.owner" class="size-8" />
@@ -224,6 +259,25 @@ function metricLabel(type: KeyResultMetricType) {
       </header>
 
       <section class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pb-4">
+        <div v-if="goal.children?.length" class="rounded-xl border bg-card p-3 shadow-soft sm:p-4">
+          <h2 class="text-sm font-semibold">Contributing goals</h2>
+          <p class="mt-0.5 text-xs text-muted-foreground">Parent progress averages these child objectives.</p>
+          <ul class="mt-3 space-y-2">
+            <li v-for="child in goal.children" :key="child.id" class="rounded-md border px-3 py-2">
+              <div class="flex items-center justify-between gap-2">
+                <RouterLink
+                  :to="{ name: 'goal', params: { goalId: child.id } }"
+                  class="min-w-0 truncate text-sm font-medium hover:underline"
+                >
+                  {{ child.title }}
+                </RouterLink>
+                <span class="shrink-0 text-xs tabular-nums text-muted-foreground">{{ child.progress ?? 0 }}%</span>
+              </div>
+              <GoalProgressBar :progress="child.progress ?? 0" size="sm" class="mt-2" />
+            </li>
+          </ul>
+        </div>
+
         <div class="flex flex-wrap items-end justify-between gap-2">
           <h2 class="text-sm font-semibold">Key results</h2>
           <form class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row" @submit.prevent="addKeyResult">
@@ -271,22 +325,30 @@ function metricLabel(type: KeyResultMetricType) {
           <div class="mt-3 space-y-2">
             <GoalProgressBar :progress="kr.progress" size="sm" />
             <div v-if="kr.metricType !== 'linked_progress'" class="flex flex-wrap items-center gap-2 text-xs">
-              <label class="flex items-center gap-1.5">
-                Current
-                <Input
-                  :model-value="String(kr.currentValue)"
-                  type="number"
-                  class="h-8 w-24"
-                  @change="(event: Event) => setCurrent(kr, (event.target as HTMLInputElement).value)"
-                />
-              </label>
+              <span class="tabular-nums font-medium">
+                {{ kr.currentValue }}{{ kr.unit ? ` ${kr.unit}` : '' }}
+              </span>
               <span class="text-muted-foreground">
                 of {{ kr.targetValue }}{{ kr.unit ? ` ${kr.unit}` : '' }}
               </span>
+              <Button
+                variant="outline"
+                size="sm"
+                class="h-7"
+                @click="expandedCheckIn = expandedCheckIn === kr.id ? null : kr.id"
+              >
+                {{ expandedCheckIn === kr.id ? 'Hide check-ins' : 'Check in' }}
+              </Button>
             </div>
             <p v-else class="text-xs text-muted-foreground">
-              {{ kr.linkedDone ?? 0 }} / {{ kr.linkedTotal ?? 0 }} linked tasks done
+              {{ kr.linkedDone ?? 0 }} / {{ kr.linkedTotal ?? 0 }} linked tasks done · updates when tasks move
             </p>
+            <KeyResultCheckInPanel
+              v-if="kr.metricType !== 'linked_progress' && expandedCheckIn === kr.id"
+              :goal-id="goal.id"
+              :key-result="kr"
+              @updated="onCheckInUpdated"
+            />
           </div>
 
           <ul v-if="kr.links?.length" class="mt-3 space-y-1.5 border-t pt-3">

@@ -169,6 +169,8 @@ function periodLabel(goal: Goal) {
           <GoalProgressBar :progress="goal.progress" />
           <p class="text-[11px] text-muted-foreground">
             {{ goal.keyResults?.length ?? 0 }} key result{{ (goal.keyResults?.length ?? 0) === 1 ? '' : 's' }}
+            <template v-if="goal.children?.length"> · {{ goal.children.length }} child goal{{ goal.children.length === 1 ? '' : 's' }}</template>
+            <template v-if="goal.parent"> · under {{ goal.parent.title }}</template>
             · {{ periodLabel(goal) }}
           </p>
         </div>

@@ -4,12 +4,14 @@ import { validate } from '../../shared/middleware/validate.js';
 import { requireFeature } from '../plans/plan.service.js';
 import * as controller from './goal.controller.js';
 import {
+  createCheckInSchema,
   createGoalSchema,
   createKeyResultSchema,
   createLinkSchema,
   goalIdParams,
   keyResultParams,
   linkParams,
+  listCheckInsQuery,
   listGoalsQuery,
   updateGoalSchema,
   updateKeyResultSchema,
@@ -31,6 +33,18 @@ router.patch(
   feature,
   validate({ params: keyResultParams, body: updateKeyResultSchema }),
   controller.updateKeyResult,
+);
+router.get(
+  '/goals/:goalId/key-results/:keyResultId/check-ins',
+  feature,
+  validate({ params: keyResultParams, query: listCheckInsQuery }),
+  controller.listCheckIns,
+);
+router.post(
+  '/goals/:goalId/key-results/:keyResultId/check-ins',
+  feature,
+  validate({ params: keyResultParams, body: createCheckInSchema }),
+  controller.createCheckIn,
 );
 router.delete('/goals/:goalId/key-results/:keyResultId', feature, validate({ params: keyResultParams }), controller.removeKeyResult);
 

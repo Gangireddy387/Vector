@@ -17,6 +17,7 @@ export const createGoalSchema = z.object({
   title: z.string().trim().min(1).max(160),
   description: z.string().trim().max(4000).nullable().optional(),
   projectId: uuid.nullable().optional(),
+  parentGoalId: uuid.nullable().optional(),
   ownerId: uuid.nullable().optional(),
   status: z.enum(GOAL_STATUSES).optional(),
   periodStart: dateOnly,
@@ -24,6 +25,15 @@ export const createGoalSchema = z.object({
 });
 
 export const updateGoalSchema = createGoalSchema.partial();
+
+export const createCheckInSchema = z.object({
+  value: z.number().finite(),
+  note: z.string().trim().max(2000).nullable().optional(),
+});
+
+export const listCheckInsQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
 
 export const createKeyResultSchema = z.object({
   title: z.string().trim().min(1).max(200),

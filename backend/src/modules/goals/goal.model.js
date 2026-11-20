@@ -19,6 +19,8 @@ Goal.init(
     status: { type: DataTypes.STRING(16), allowNull: false, defaultValue: 'active' },
     periodStart: { type: DataTypes.DATEONLY, allowNull: true },
     periodEnd: { type: DataTypes.DATEONLY, allowNull: true },
+    /** Parent objective for cascade rollup (null = top-level). */
+    parentGoalId: { type: DataTypes.UUID, allowNull: true },
     position: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   },
   {
@@ -28,6 +30,7 @@ Goal.init(
     indexes: [
       { fields: ['organization_id', 'status'] },
       { fields: ['organization_id', 'period_start'] },
+      { fields: ['parent_goal_id'] },
     ],
   },
 );
@@ -70,5 +73,26 @@ KeyResultLink.init(
     modelName: 'KeyResultLink',
     tableName: 'key_result_links',
     indexes: [{ unique: true, fields: ['key_result_id', 'issue_id'] }],
+  },
+);
+
+/** Snapshot when someone checks in a key result value (progress history). */
+export class KeyResultCheckIn extends Model {}
+
+KeyResultCheckIn.init(
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    keyResultId: { type: DataTypes.UUID, allowNull: false },
+    value: { type: DataTypes.DOUBLE, allowNull: false },
+    progress: { type: DataTypes.DOUBLE, allowNull: false, defaultValue: 0 },
+    note: { type: DataTypes.TEXT, allowNull: true },
+    createdById: { type: DataTypes.UUID, allowNull: true },
+  },
+  {
+    sequelize,
+    modelName: 'KeyResultCheckIn',
+    tableName: 'key_result_check_ins',
+    updatedAt: false,
+    indexes: [{ fields: ['key_result_id', 'created_at'] }],
   },
 );

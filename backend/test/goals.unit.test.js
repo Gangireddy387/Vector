@@ -34,4 +34,10 @@ describe('goal progress math', () => {
     const progress = clampProgress(keyResults.reduce((sum, kr) => sum + kr.progress, 0) / keyResults.length);
     assert.equal(progress, 50);
   });
+
+  it('cascades parent progress from child goals', () => {
+    const children = [{ progress: 80 }, { progress: 40 }];
+    const progress = clampProgress(children.reduce((sum, child) => sum + child.progress, 0) / children.length);
+    assert.equal(progress, 60);
+  });
 });

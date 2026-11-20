@@ -17,7 +17,19 @@ export const createKeyResult = async (req, res) =>
   res.status(201).json({ goal: await service.createKeyResult(req.params.goalId, req.body) });
 
 export const updateKeyResult = async (req, res) =>
-  res.json({ goal: await service.updateKeyResult(req.params.goalId, req.params.keyResultId, req.body) });
+  res.json({
+    goal: await service.updateKeyResult(req.params.goalId, req.params.keyResultId, req.body, req.user),
+  });
+
+export const createCheckIn = async (req, res) =>
+  res.status(201).json(
+    await service.createKeyResultCheckIn(req.params.goalId, req.params.keyResultId, req.body, req.user),
+  );
+
+export const listCheckIns = async (req, res) =>
+  res.json({
+    checkIns: await service.listKeyResultCheckIns(req.params.goalId, req.params.keyResultId, req.filters ?? {}),
+  });
 
 export const removeKeyResult = async (req, res) =>
   res.json({ goal: await service.removeKeyResult(req.params.goalId, req.params.keyResultId) });

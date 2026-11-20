@@ -678,6 +678,17 @@ export interface KeyResultLink {
   issue?: IssueReference & { status?: StatusSummary; projectId?: string }
 }
 
+export interface KeyResultCheckIn {
+  id: string
+  keyResultId: string
+  value: number
+  progress: number
+  note: string | null
+  createdById: string | null
+  createdBy?: UserSummary | null
+  createdAt: string
+}
+
 export interface KeyResult {
   id: string
   goalId: string
@@ -693,7 +704,18 @@ export interface KeyResult {
   progress: number
   linkedDone?: number | null
   linkedTotal?: number | null
+  lastCheckInAt?: string | null
   links?: KeyResultLink[]
+}
+
+export interface GoalSummary {
+  id: string
+  title: string
+  status: GoalStatus
+  progress?: number
+  periodStart?: string | null
+  periodEnd?: string | null
+  owner?: UserSummary | null
 }
 
 export interface Goal {
@@ -701,6 +723,9 @@ export interface Goal {
   organizationId: string
   projectId: string | null
   project?: ProjectReference | null
+  parentGoalId?: string | null
+  parent?: GoalSummary | null
+  children?: GoalSummary[]
   title: string
   description: string | null
   ownerId: string | null
