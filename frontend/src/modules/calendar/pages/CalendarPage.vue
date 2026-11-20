@@ -14,14 +14,15 @@ import {
   startOfWeek,
   startOfYear,
 } from 'date-fns'
-import { CalendarCheck2, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Clock3, Grid3x3, ListTodo, Plus, Rows3, Square } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { CalendarCheck2, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Clock3, Grid3x3, ListTodo, Plus, Rows3, Square, UsersRound } from 'lucide-vue-next'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
+import { SelectField, type SelectFieldOption } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -31,10 +32,11 @@ import { useHotkeys } from '@/composables/useHotkeys'
 import { toDateInput } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { structureApi } from '@/modules/departments/departments.api'
 import { issuesApi } from '@/modules/issues/api/issues.api'
-import type { Issue } from '@/types/models'
+import type { Issue, Team } from '@/types/models'
 import { type CalendarView, clockIn, durationMinutes, formatHours, hasStarted, isPastDay, toMinutes } from '../calendar-categories'
-import { type CalendarEvent, calendarApi } from '../calendar.api'
+import { type CalendarEvent, calendarApi, type TeamEventKind } from '../calendar.api'
 import DayAgenda from '../components/DayAgenda.vue'
 import EventSheet, { type EventSheetTarget } from '../components/EventSheet.vue'
 import MonthView from '../components/MonthView.vue'
@@ -61,6 +63,8 @@ const view = computed<CalendarView>({
   set: (value) => (storedView.value = value),
 })
 const showTasks = useStorage('vector.calendar.tasks', true)
+type ScopeMode = 'me' | 'team'
+const scope = ref<ScopeMode>(route.query.scope === 'team' || typeof route.query.team === 'string' ? 'team' : 'me')
 const selected = ref(now.value.date)
 const cursor = ref(parseISO(selected.value))
 const sheetTarget = ref<EventSheetTarget | null>(null)
@@ -71,6 +75,24 @@ const tasks = ref<Issue[]>([])
 const tasksHiddenCount = ref(0)
 const isLoading = ref(true)
 const loadError = ref('')
+const teams = ref<Team[]>([])
+const teamId = ref<string | null>(typeof route.query.team === 'string' ? route.query.team : null)
+const projectId = ref<string | null>(typeof route.query.project === 'string' ? route.query.project : null)
+const teamProjects = ref<SelectFieldOption[]>([])
+const showMeetings = useStorage('vector.calendar.team.meetings', true)
+const showDue = useStorage('vector.calendar.team.due', true)
+const showOther = useStorage('vector.calendar.team.other', true)
+const isTeam = computed(() => scope.value === 'team')
+const teamOptions = computed<SelectFieldOption[]>(() =>
+  teams.value.map((team) => ({ value: team.id, label: team.name })),
+)
+const teamKinds = computed<TeamEventKind[]>(() => {
+  const kinds: TeamEventKind[] = []
+  if (showMeetings.value) kinds.push('meeting')
+  if (showDue.value) kinds.push('due')
+  if (showOther.value) kinds.push('other')
+  return kinds.length ? kinds : ['meeting', 'due', 'other']
+})
 
 const days = computed(() => {
   switch (view.value) {
@@ -107,21 +129,70 @@ const heading = computed(() => {
 })
 
 let request = 0
+async function loadTeams() {
+  try {
+    const departments = await structureApi.list()
+    teams.value = departments.flatMap((department) => department.teams ?? [])
+    if (teamId.value && !teams.value.some((team) => team.id === teamId.value)) teamId.value = null
+    if (!teamId.value && teams.value[0]) teamId.value = teams.value[0].id
+  } catch {
+    teams.value = []
+  }
+}
+
+async function loadTeamProjects() {
+  if (!teamId.value) {
+    teamProjects.value = []
+    projectId.value = null
+    return
+  }
+  try {
+    const work = await structureApi.teamWork(teamId.value)
+    teamProjects.value = work.projects.map((project) => ({
+      value: project.id,
+      label: `${project.key} · ${project.name}`,
+    }))
+    if (projectId.value && !teamProjects.value.some((option) => option.value === projectId.value)) projectId.value = null
+  } catch {
+    teamProjects.value = []
+  }
+}
+
 async function load() {
   const current = ++request
   isLoading.value = true
   loadError.value = ''
   try {
-    const [loadedEvents, loadedTasks] = await Promise.all([
-      calendarApi.list(from.value, to.value),
-      showTasks.value
-        ? issuesApi.list({ assigneeId: 'me', dueFrom: from.value, dueTo: to.value, sort: 'dueDate', limit: TASK_LIMIT })
-        : Promise.resolve({ issues: [] as Issue[], total: 0 }),
-    ])
-    if (current !== request) return
-    events.value = loadedEvents
-    tasks.value = loadedTasks.issues
-    tasksHiddenCount.value = showTasks.value ? Math.max(0, loadedTasks.total - loadedTasks.issues.length) : 0
+    if (isTeam.value) {
+      if (!teamId.value) {
+        events.value = []
+        tasks.value = []
+        tasksHiddenCount.value = 0
+        return
+      }
+      const loadedEvents = await calendarApi.listTeam({
+        teamId: teamId.value,
+        from: from.value,
+        to: to.value,
+        projectId: projectId.value || undefined,
+        kinds: teamKinds.value,
+      })
+      if (current !== request) return
+      events.value = loadedEvents
+      tasks.value = []
+      tasksHiddenCount.value = 0
+    } else {
+      const [loadedEvents, loadedTasks] = await Promise.all([
+        calendarApi.list(from.value, to.value),
+        showTasks.value
+          ? issuesApi.list({ assigneeId: 'me', dueFrom: from.value, dueTo: to.value, sort: 'dueDate', limit: TASK_LIMIT })
+          : Promise.resolve({ issues: [] as Issue[], total: 0 }),
+      ])
+      if (current !== request) return
+      events.value = loadedEvents
+      tasks.value = loadedTasks.issues
+      tasksHiddenCount.value = showTasks.value ? Math.max(0, loadedTasks.total - loadedTasks.issues.length) : 0
+    }
   } catch (error) {
     if (current === request) {
       loadError.value = getErrorMessage(error)
@@ -131,7 +202,32 @@ async function load() {
     if (current === request) isLoading.value = false
   }
 }
-watch([from, to, showTasks], load, { immediate: true })
+
+function syncScopeQuery() {
+  const query = { ...route.query }
+  if (isTeam.value) {
+    query.scope = 'team'
+    if (teamId.value) query.team = teamId.value
+    else delete query.team
+    if (projectId.value) query.project = projectId.value
+    else delete query.project
+    // Empty SelectField value means "all projects".
+    if (query.project === '') delete query.project
+  } else {
+    delete query.scope
+    delete query.team
+    delete query.project
+  }
+  void router.replace({ query })
+}
+
+watch([from, to, showTasks, scope, teamId, projectId, showMeetings, showDue, showOther], load, { immediate: true })
+watch(teamId, () => void loadTeamProjects())
+watch(projectId, (value) => {
+  if (value === '') projectId.value = null
+})
+watch([scope, teamId, projectId], syncScopeQuery)
+onMounted(() => void loadTeams().then(() => loadTeamProjects()))
 
 const sortKey = (event: CalendarEvent) => (event.allDay ? -1 : toMinutes(event.startTime ?? '00:00'))
 const eventsByDay = computed(() => {
@@ -167,6 +263,7 @@ const stats = computed(() => {
     minutes: planned.reduce((total, event) => total + durationMinutes(event), 0),
     tasks: periodTasks.length,
     tasksDone: periodTasks.filter((task) => task.status.category === 'done').length,
+    people: new Set(planned.map((event) => event.ownerId).filter(Boolean)).size,
   }
 })
 const periodLabel = computed(() => {
@@ -217,6 +314,10 @@ function openMonth(firstOfMonth: string) {
 
 /** New events start at the clicked slot, the next full hour today, or 09:00. Past days cannot be scheduled, so those start today. */
 function createOn(requested: string, time?: string) {
+  if (isTeam.value) {
+    toast.message('Team calendar is view-only', { description: 'Switch to Me to plan your own day.' })
+    return
+  }
   const date = isPastDay(requested, now.value) ? now.value.date : requested
   if (date !== requested) toast.info('Past days cannot be scheduled', { description: 'The new event starts today instead.' })
   selected.value = date
@@ -225,10 +326,29 @@ function createOn(requested: string, time?: string) {
   sheetTarget.value = { date, startTime: time && date === requested ? time : fallback }
 }
 const createForSelected = () => createOn(isPastDay(selected.value, now.value) ? now.value.date : selected.value)
-const openEvent = (event: CalendarEvent) => (sheetTarget.value = { event })
 const openTask = (key: string) => router.push({ query: { ...route.query, issue: key } })
 
+function openEvent(event: CalendarEvent) {
+  if (isTeam.value) {
+    if (event.meetingId) {
+      void router.push({ name: 'meeting-room', params: { meetingId: event.meetingId } })
+      return
+    }
+    if (event.issueId) {
+      const keyGuess = event.title.match(/\b([A-Z][A-Z0-9]+-\d+)\b/)?.[1]
+      openTask(keyGuess ?? event.issueId)
+      return
+    }
+    toast.message(event.title, {
+      description: event.owner ? `${event.owner.name} · ${event.allDay ? 'All day' : event.startTime}` : 'Team events are view-only.',
+    })
+    return
+  }
+  sheetTarget.value = { event }
+}
+
 async function toggleDone(event: CalendarEvent) {
+  if (isTeam.value) return
   const status = event.status === 'done' ? 'planned' : 'done'
   if (status === 'done' && !hasStarted(event, now.value)) {
     toast.info('This event has not started yet', { description: 'You can mark it done once it has started.' })
@@ -238,12 +358,17 @@ async function toggleDone(event: CalendarEvent) {
   event.status = status
   try {
     const saved = await calendarApi.update(event.id, { status })
-    events.value = events.value.map((item) => (item.id === saved.id ? saved : item))
+    events.value = events.value.map((item) => (item.id === saved.id ? { ...saved, owner: item.owner } : item))
     if (status === 'done') toast.success('Marked as done', { description: event.title })
   } catch (error) {
     event.status = previous
     toast.error(getErrorMessage(error))
   }
+}
+
+function setScope(next: ScopeMode) {
+  scope.value = next
+  if (next === 'team' && !teams.value.length) void loadTeams().then(() => loadTeamProjects())
 }
 
 useHotkeys({
@@ -264,14 +389,21 @@ useHotkeys({
     class="flex min-h-0 w-full flex-1 flex-col space-y-4 overflow-y-auto sm:space-y-5 lg:gap-4 lg:space-y-0 lg:overflow-hidden"
     :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'"
   >
-    <PageHeader title="Calendar" description="Plan each day, tick off what you finished and see how your time was spent. Only you see your events.">
+    <PageHeader
+      title="Calendar"
+      :description="
+        isTeam
+          ? 'Shared view of your team’s meetings, due dates and work blocks. Personal events stay private.'
+          : 'Plan each day, tick off what you finished and see how your time was spent. Only you see your events.'
+      "
+    >
       <template #actions>
-        <Button variant="brand" class="max-sm:w-full" title="New event (N)" @click="createForSelected"><Plus /> New event</Button>
+        <Button v-if="!isTeam" variant="brand" class="max-sm:w-full" title="New event (N)" @click="createForSelected"><Plus /> New event</Button>
       </template>
     </PageHeader>
 
     <p
-      v-if="showTasks && tasksHiddenCount"
+      v-if="!isTeam && showTasks && tasksHiddenCount"
       class="shrink-0 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 dark:text-warning"
       role="status"
     >
@@ -289,11 +421,11 @@ useHotkeys({
       <StatCard variant="card" label="Time scheduled" :value="formatHours(stats.minutes)" :icon="Clock3" tone="warning" :hint="periodLabel" />
       <StatCard
         variant="card"
-        label="Your tasks due"
-        :value="showTasks ? stats.tasks : '–'"
-        :icon="ListTodo"
+        :label="isTeam ? 'People on events' : 'Your tasks due'"
+        :value="isTeam ? stats.people : showTasks ? stats.tasks : '–'"
+        :icon="isTeam ? UsersRound : ListTodo"
         tone="info"
-        :hint="showTasks ? `${stats.tasksDone} done` : 'Tasks are hidden'"
+        :hint="isTeam ? 'With work this period' : showTasks ? `${stats.tasksDone} done` : 'Tasks are hidden'"
       />
     </div>
 
@@ -320,6 +452,28 @@ useHotkeys({
 
         <div class="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center">
           <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <div class="inline-flex h-8 items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="Calendar scope">
+              <button
+                type="button"
+                role="tab"
+                class="flex h-7 items-center rounded-[5px] px-3 text-xs font-medium transition-colors"
+                :class="!isTeam ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
+                :aria-selected="!isTeam"
+                @click="setScope('me')"
+              >
+                Me
+              </button>
+              <button
+                type="button"
+                role="tab"
+                class="flex h-7 items-center gap-1 rounded-[5px] px-3 text-xs font-medium transition-colors"
+                :class="isTeam ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
+                :aria-selected="isTeam"
+                @click="setScope('team')"
+              >
+                <UsersRound class="size-3.5" /> Team
+              </button>
+            </div>
             <Button variant="outline" size="sm" title="Today (T)" @click="goToday">Today</Button>
             <div class="flex">
               <Button variant="ghost" size="icon-sm" :aria-label="`Previous ${stepLabel}`" :title="`Previous ${stepLabel} (←)`" @click="shift(-1)"><ChevronLeft /></Button>
@@ -329,7 +483,29 @@ useHotkeys({
           </div>
 
           <div class="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto">
-            <label class="flex items-center gap-2 text-xs text-muted-foreground"><Switch v-model="showTasks" aria-label="Show my tasks due" /> My tasks</label>
+            <template v-if="isTeam">
+              <SelectField
+                v-model="teamId"
+                :options="teamOptions"
+                placeholder="Choose team…"
+                size="sm"
+                class="w-40"
+                aria-label="Team"
+              />
+              <SelectField
+                v-if="teamProjects.length"
+                v-model="projectId"
+                :options="[{ value: '', label: 'All projects' }, ...teamProjects]"
+                placeholder="All projects"
+                size="sm"
+                class="w-44"
+                aria-label="Project filter"
+              />
+              <label class="flex items-center gap-1.5 text-xs text-muted-foreground"><Switch v-model="showMeetings" /> Meetings</label>
+              <label class="flex items-center gap-1.5 text-xs text-muted-foreground"><Switch v-model="showDue" /> Due dates</label>
+              <label class="flex items-center gap-1.5 text-xs text-muted-foreground"><Switch v-model="showOther" /> Other</label>
+            </template>
+            <label v-else class="flex items-center gap-2 text-xs text-muted-foreground"><Switch v-model="showTasks" aria-label="Show my tasks due" /> My tasks</label>
             <MobileSectionSelect
               v-if="!isWide"
               :model-value="view"
@@ -417,6 +593,8 @@ useHotkeys({
         :events="eventsByDay.get(selected) ?? []"
         :tasks="tasksByDay.get(selected) ?? []"
         :now="now"
+        :read-only="isTeam"
+        :tasks-label="isTeam ? 'Tasks due' : 'Your tasks due'"
         @create="createOn(selected)"
         @open="openEvent"
         @toggle="toggleDone"
@@ -424,6 +602,6 @@ useHotkeys({
       />
     </div>
 
-    <EventSheet v-model:target="sheetTarget" @changed="load" />
+    <EventSheet v-if="!isTeam" v-model:target="sheetTarget" @changed="load" />
   </div>
 </template>

@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { Op } from 'sequelize';
-import { CalendarEvent, Project } from '../../database/models.js';
+import { CalendarEvent, Project, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { localDateTime } from '../../shared/utils/timezone.js';
+import { assertTeamVisible, listTeamMemberUserIds } from '../departments/department.service.js';
 import { assertProjectRole } from '../projects/project-access.js';
+import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 
 const DAY_MS = 86_400_000;
 /** Enough for the year view. */
@@ -13,6 +15,10 @@ const MAX_REPEATS = 90;
 const PAST_GRACE_MS = 5 * 60_000;
 
 const include = [{ model: Project, as: 'project', attributes: ['id', 'name', 'key', 'color'] }];
+const teamInclude = [
+  ...include,
+  { model: User, as: 'owner', attributes: USER_SUMMARY_ATTRIBUTES },
+];
 const order = [
   ['date', 'ASC'],
   ['allDay', 'DESC'],
@@ -24,11 +30,60 @@ const parseDay = (value) => new Date(`${value}T00:00:00Z`);
 const formatDay = (date) => date.toISOString().slice(0, 10);
 const daysBetween = (from, to) => Math.round((parseDay(to) - parseDay(from)) / DAY_MS);
 
-export async function listEvents(organizationId, ownerId, { from, to }) {
+function assertRange(from, to) {
   const span = daysBetween(from, to);
   if (span < 0) throw ApiError.badRequest('The end of the range must come after its start');
   if (span > MAX_RANGE_DAYS) throw ApiError.badRequest(`Ask for at most ${MAX_RANGE_DAYS} days at a time`);
+}
+
+export async function listEvents(organizationId, ownerId, { from, to }) {
+  assertRange(from, to);
   return CalendarEvent.findAll({ where: { organizationId, ownerId, date: { [Op.between]: [from, to] } }, include, order });
+}
+
+/**
+ * Shared team calendar: teammates’ work events (meetings, due dates, non-personal).
+ * Personal events stay private. Read-only — create/update/delete stay on `/calendar/events`.
+ */
+export async function listTeamEvents(organizationId, viewer, { teamId, from, to, projectId = null, kinds = ['meeting', 'due', 'other'] }) {
+  assertRange(from, to);
+  await assertTeamVisible(organizationId, teamId, viewer);
+  const memberIds = await listTeamMemberUserIds(teamId);
+  if (!memberIds.length) return [];
+
+  if (projectId) {
+    const project = await Project.findOne({ where: { id: projectId, organizationId }, attributes: ['id', 'teamId'] });
+    if (!project) throw ApiError.notFound('Project not found');
+    if (project.teamId !== teamId) {
+      throw ApiError.badRequest('That project does not belong to this team');
+    }
+  }
+
+  const kindSet = new Set(kinds);
+  const or = [];
+  if (kindSet.has('meeting')) or.push({ meetingId: { [Op.ne]: null } });
+  if (kindSet.has('due')) or.push({ issueId: { [Op.ne]: null } });
+  if (kindSet.has('other')) {
+    or.push({
+      meetingId: null,
+      issueId: null,
+      category: { [Op.ne]: 'personal' },
+    });
+  }
+  if (!or.length) return [];
+
+  return CalendarEvent.findAll({
+    where: {
+      organizationId,
+      ownerId: memberIds,
+      date: { [Op.between]: [from, to] },
+      category: { [Op.ne]: 'personal' },
+      ...(projectId ? { projectId } : {}),
+      [Op.or]: or,
+    },
+    include: teamInclude,
+    order,
+  });
 }
 
 /** All-day events carry no times; timed events need a start and an end after it. */

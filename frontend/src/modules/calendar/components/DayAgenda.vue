@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { format, isToday, parseISO } from 'date-fns'
-import { CalendarCheck2, FolderKanban, ListTodo, MapPin, Plus } from 'lucide-vue-next'
+import { CalendarCheck2, FolderKanban, ListTodo, MapPin, Plus, UserRound } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,18 @@ import type { Issue } from '@/types/models'
 import { type Clock, categoryInfo, durationMinutes, formatHours, hasStarted, isPastDay, timeLabel } from '../calendar-categories'
 import type { CalendarEvent } from '../calendar.api'
 
-const props = defineProps<{ date: string; events: CalendarEvent[]; tasks: Issue[]; now: Clock }>()
+const props = withDefaults(
+  defineProps<{
+    date: string
+    events: CalendarEvent[]
+    tasks: Issue[]
+    now: Clock
+    /** Team mode: no create / tick, show owner. */
+    readOnly?: boolean
+    tasksLabel?: string
+  }>(),
+  { readOnly: false, tasksLabel: 'Your tasks due' },
+)
 const emit = defineEmits<{ open: [event: CalendarEvent]; toggle: [event: CalendarEvent]; create: []; openTask: [key: string] }>()
 
 const day = computed(() => parseISO(props.date))
@@ -20,9 +31,16 @@ const percent = computed(() => (active.value.length ? Math.round((done.value / a
 const scheduled = computed(() => active.value.reduce((total, event) => total + durationMinutes(event), 0))
 
 const isOver = computed(() => isPastDay(props.date, props.now))
-const canTick = (event: CalendarEvent) => event.status === 'done' || (event.status === 'planned' && hasStarted(event, props.now))
+const canTick = (event: CalendarEvent) =>
+  !props.readOnly && (event.status === 'done' || (event.status === 'planned' && hasStarted(event, props.now)))
 const tickLabel = (event: CalendarEvent) =>
-  event.status === 'done' ? `Mark ${event.title} as not done` : canTick(event) ? `Mark ${event.title} as done` : `${event.title} has not started yet`
+  props.readOnly
+    ? event.title
+    : event.status === 'done'
+      ? `Mark ${event.title} as not done`
+      : canTick(event)
+        ? `Mark ${event.title} as done`
+        : `${event.title} has not started yet`
 
 const isLink = (value: string) => /^https?:\/\//i.test(value)
 </script>
@@ -37,7 +55,7 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
           </p>
           <h2 class="truncate text-lg font-semibold tracking-tight">{{ format(day, 'EEEE, d MMMM') }}</h2>
         </div>
-        <Button v-if="!isOver" variant="soft" size="sm" @click="emit('create')"><Plus /> Add</Button>
+        <Button v-if="!isOver && !readOnly" variant="soft" size="sm" @click="emit('create')"><Plus /> Add</Button>
       </div>
       <p v-if="isOver" class="text-xs text-muted-foreground">This day is over. Tick off what you finished; new events go on today or later.</p>
       <div v-if="active.length" class="space-y-1.5">
@@ -54,9 +72,10 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
         <span class="flex size-11 items-center justify-center bg-primary/10 text-primary"><CalendarCheck2 class="size-5" /></span>
         <div class="space-y-1">
           <p class="text-sm font-medium">{{ isOver ? 'Nothing was planned' : 'Nothing planned' }}</p>
-          <p v-if="!isOver" class="text-xs text-muted-foreground">Block time for meetings, reviews and focus work.</p>
+          <p v-if="!isOver && !readOnly" class="text-xs text-muted-foreground">Block time for meetings, reviews and focus work.</p>
+          <p v-else-if="readOnly" class="text-xs text-muted-foreground">Team calendar is view-only.</p>
         </div>
-        <Button v-if="!isOver" variant="outline" size="sm" @click="emit('create')"><Plus /> Plan this day</Button>
+        <Button v-if="!isOver && !readOnly" variant="outline" size="sm" @click="emit('create')"><Plus /> Plan this day</Button>
       </div>
 
       <div
@@ -70,6 +89,7 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
         @keydown.enter="emit('open', event)"
       >
         <Checkbox
+          v-if="!readOnly"
           class="mt-0.5"
           :model-value="event.status === 'done'"
           :disabled="!canTick(event)"
@@ -86,6 +106,10 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
             <span class="inline-flex items-center gap-1">
               <component :is="categoryInfo(event.category).icon" class="size-3" :style="{ color: categoryInfo(event.category).color }" />
               {{ categoryInfo(event.category).label }}
+            </span>
+            <span v-if="event.owner" class="inline-flex items-center gap-1">
+              <UserRound class="size-3" />
+              {{ event.owner.name }}
             </span>
             <Badge v-if="event.status === 'cancelled'" variant="destructive" class="px-1.5 py-0 text-[10px]">Cancelled</Badge>
           </p>
@@ -104,7 +128,7 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
 
       <div v-if="tasks.length" class="px-4 py-3">
         <p class="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <ListTodo class="size-3.5" /> Your tasks due
+          <ListTodo class="size-3.5" /> {{ tasksLabel }}
         </p>
         <ul class="space-y-1">
           <li v-for="task in tasks" :key="task.id">

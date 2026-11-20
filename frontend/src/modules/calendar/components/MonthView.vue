@@ -94,11 +94,12 @@ const isToday = (day: Date) => toDateInput(day) === props.now.date
             class="flex w-full items-center gap-1 border-l-2 px-1.5 py-0.5 text-left text-[11px] leading-tight transition-colors hover:brightness-95"
             :class="[event.status !== 'planned' && 'text-muted-foreground line-through', event.status === 'cancelled' && 'opacity-60']"
             :style="eventTint(event.category)"
-            :title="`${event.allDay ? 'All day' : event.startTime} · ${event.title} · ${categoryInfo(event.category).label}`"
+            :title="`${event.allDay ? 'All day' : event.startTime} · ${event.title}${event.owner ? ` · ${event.owner.name}` : ''} · ${categoryInfo(event.category).label}`"
             @click.stop="emit('open', event)"
           >
             <component :is="categoryInfo(event.category).icon" class="size-3 shrink-0" :style="{ color: categoryInfo(event.category).color }" />
             <span v-if="!event.allDay" class="shrink-0 font-medium tabular-nums">{{ event.startTime }}</span>
+            <span v-if="event.owner" class="shrink-0 text-[10px] font-medium text-muted-foreground">{{ event.owner.name.split(' ')[0] }}</span>
             <span class="truncate">{{ event.title }}</span>
           </button>
           <button

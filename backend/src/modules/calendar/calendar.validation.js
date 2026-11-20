@@ -38,6 +38,29 @@ export const listEventsQuery = z
   .object({ from: dateOnly, to: dateOnly })
   .refine((query) => query.from <= query.to, { message: 'The start date must be before the end date', path: ['from'] });
 
+export const listTeamEventsQuery = z
+  .object({
+    teamId: uuid,
+    from: dateOnly,
+    to: dateOnly,
+    projectId: uuid.optional(),
+    /** Comma-separated: meeting,due,other (default all three). */
+    kinds: z
+      .string()
+      .trim()
+      .optional()
+      .transform((value) => {
+        if (!value) return ['meeting', 'due', 'other'];
+        const allowed = new Set(['meeting', 'due', 'other']);
+        const parts = value
+          .split(',')
+          .map((part) => part.trim().toLowerCase())
+          .filter((part) => allowed.has(part));
+        return parts.length ? [...new Set(parts)] : ['meeting', 'due', 'other'];
+      }),
+  })
+  .refine((query) => query.from <= query.to, { message: 'The start date must be before the end date', path: ['from'] });
+
 export const createEventSchema = withScheduleRules(
   z.object({
     ...eventFields,

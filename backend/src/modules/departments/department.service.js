@@ -20,6 +20,18 @@ async function visibilityFor(organizationId, viewer) {
 
 const canSeeTeam = (visibility, team) => !visibility || visibility.teamIds.has(team.id) || visibility.headedDepartmentIds.has(team.departmentId);
 
+/** Throws when the viewer may not open this team (404 to avoid leaking ids). */
+export async function assertTeamVisible(organizationId, teamId, viewer) {
+  const team = await findTeam(organizationId, teamId);
+  if (!canSeeTeam(await visibilityFor(organizationId, viewer), team)) throw ApiError.notFound('Team not found');
+  return team;
+}
+
+/** User ids on the team (including the lead when they are a member). */
+export async function listTeamMemberUserIds(teamId) {
+  return teamMemberIds(teamId);
+}
+
 /** The organization's structure: departments with their head and teams (lead and members), limited to what the viewer may see. */
 export async function listDepartments(organizationId, viewer) {
   const [departments, visibility] = await Promise.all([

@@ -154,6 +154,13 @@ async function remove() {
               </div>
             </div>
             <div class="flex shrink-0 items-center gap-2 self-end sm:self-start">
+              <Button
+                v-if="auth.hasFeature('calendar')"
+                variant="outline"
+                as-child
+              >
+                <RouterLink :to="{ name: 'calendar', query: { scope: 'team', team: team.id } }">Team calendar</RouterLink>
+              </Button>
               <MeetButton v-if="meetPreset" :preset="meetPreset" size="default" />
               <DropdownMenu v-if="isAdmin">
                 <DropdownMenuTrigger as-child>

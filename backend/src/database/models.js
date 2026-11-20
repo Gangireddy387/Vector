@@ -269,6 +269,7 @@ StandupUpdate.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 // Personal calendar: private to its owner; deleting a linked project keeps its events (the link just stops resolving)
 Organization.hasMany(CalendarEvent, { as: 'calendarEvents', foreignKey: 'organizationId', ...cascade });
 User.hasMany(CalendarEvent, { as: 'calendarEvents', foreignKey: 'ownerId', ...cascade });
+CalendarEvent.belongsTo(User, { as: 'owner', foreignKey: 'ownerId' });
 CalendarEvent.belongsTo(Project, { as: 'project', foreignKey: 'projectId', constraints: false });
 CalendarEvent.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId', constraints: false });
 Issue.hasMany(CalendarEvent, { as: 'calendarEvents', foreignKey: 'issueId', constraints: false });

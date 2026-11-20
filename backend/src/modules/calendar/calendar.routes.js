@@ -2,14 +2,31 @@ import { Router } from 'express';
 import { validate } from '../../shared/middleware/validate.js';
 import { requireFeature } from '../plans/plan.service.js';
 import * as service from './calendar.service.js';
-import { createEventSchema, deleteEventQuery, eventIdParams, listEventsQuery, updateEventSchema } from './calendar.validation.js';
+import {
+  createEventSchema,
+  deleteEventQuery,
+  eventIdParams,
+  listEventsQuery,
+  listTeamEventsQuery,
+  updateEventSchema,
+} from './calendar.validation.js';
 
-/** Everyone in the organization plans their days here; each person only ever sees their own events. */
+/** Personal events are private; team calendar is a read-only aggregate of teammates’ work events. */
 const router = Router();
 const calendarFeature = requireFeature('calendar');
 
+const structureViewer = (req) => ({
+  userId: req.user.id,
+  isAdmin: req.organizationRole === 'admin' || (req.organizationPermissions ?? []).includes('workspace.structure'),
+});
+
 router.get('/calendar/events', calendarFeature, validate({ query: listEventsQuery }), async (req, res) =>
   res.json({ events: await service.listEvents(req.organization.id, req.user.id, req.filters) }),
+);
+router.get('/calendar/team/events', calendarFeature, validate({ query: listTeamEventsQuery }), async (req, res) =>
+  res.json({
+    events: await service.listTeamEvents(req.organization.id, structureViewer(req), req.filters),
+  }),
 );
 router.post('/calendar/events', calendarFeature, validate({ body: createEventSchema }), async (req, res) =>
   res.status(201).json({ events: await service.createEvents(req.organization.id, req.user, req.body) }),
