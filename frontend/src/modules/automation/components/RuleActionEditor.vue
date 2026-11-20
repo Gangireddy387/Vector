@@ -36,17 +36,56 @@ interface ActionParams {
   titles?: string[]
   daysFromNow?: number | null
   storyPoints?: number | null
+  fieldId?: string
+  value?: string | number | boolean | string[] | null
+  url?: string
+  secret?: string
 }
 const params = computed(() => action.value.params as ActionParams)
 const setParam = (key: string, value: unknown) => (action.value = { ...action.value, params: { ...action.value.params, [key]: value } })
 const setType = (type: AutomationActionType) => (action.value = { type, params: defaultParams(type) })
 
+const canUseCustomFields = computed(() => auth.hasFeature('customFields') && (props.project.customFields?.length ?? 0) > 0)
 const actionOptions = computed<SelectFieldOption[]>(() =>
-  ACTION_OPTIONS.filter((option) => option.value !== 'send_email' || canSendEmail.value).map((option) => ({
+  ACTION_OPTIONS.filter((option) => {
+    if (option.value === 'send_email') return canSendEmail.value
+    if (option.value === 'set_custom_field') return canUseCustomFields.value
+    return true
+  }).map((option) => ({
     value: option.value,
     label: option.label,
   })),
 )
+const customFieldOptions = computed<SelectFieldOption[]>(() =>
+  (props.project.customFields ?? []).map((field) => ({ value: field.id, label: field.name })),
+)
+const selectedCustomField = computed(() => props.project.customFields?.find((field) => field.id === params.value.fieldId) ?? null)
+const customFieldValueOptions = computed<SelectFieldOption[]>(() => {
+  if (!selectedCustomField.value) return []
+  if (selectedCustomField.value.type === 'checkbox') {
+    return [
+      { value: 'true', label: 'Yes' },
+      { value: 'false', label: 'No' },
+    ]
+  }
+  return (selectedCustomField.value.options ?? []).map((option) => ({ value: option, label: option }))
+})
+const customFieldSingleValue = computed({
+  get: () => {
+    const value = params.value.value
+    if (value == null) return ''
+    if (Array.isArray(value)) return value[0] ?? ''
+    if (typeof value === 'boolean') return value ? 'true' : 'false'
+    return String(value)
+  },
+  set: (value: string) => {
+    const type = selectedCustomField.value?.type
+    if (type === 'checkbox') setParam('value', value === 'true')
+    else if (type === 'number') setParam('value', value === '' ? null : Number(value))
+    else if (type === 'multi_select') setParam('value', value ? [value] : [])
+    else setParam('value', value || null)
+  },
+})
 const strategyOptions: SelectFieldOption[] = ASSIGN_STRATEGY_OPTIONS.map((option) => ({ value: option.value, label: option.label }))
 const memberOptions = computed(() => props.project.members.map((member) => ({ value: member.id, label: member.name })))
 const recipients = computed<string[]>(() => params.value.recipients ?? [])
@@ -192,6 +231,42 @@ const subtaskText = computed({
         aria-label="Story points"
         @update:model-value="(value) => setParam('storyPoints', Number(value || 0))"
       />
+
+      <div v-else-if="action.type === 'set_custom_field'" class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <SelectField
+          :model-value="params.fieldId || null"
+          :options="customFieldOptions"
+          placeholder="Choose field…"
+          size="sm"
+          class="w-full sm:w-56"
+          aria-label="Custom field"
+          @update:model-value="(value) => { setParam('fieldId', value); setParam('value', null) }"
+        />
+        <SelectField
+          v-if="customFieldValueOptions.length"
+          :model-value="customFieldSingleValue || null"
+          :options="customFieldValueOptions"
+          placeholder="Value…"
+          size="sm"
+          class="w-full sm:w-48"
+          aria-label="Custom field value"
+          @update:model-value="(value) => (customFieldSingleValue = value ?? '')"
+        />
+        <NumberField
+          v-else-if="selectedCustomField?.type === 'number'"
+          v-model="customFieldSingleValue"
+          size="sm"
+          class="w-full sm:w-32"
+          aria-label="Custom field value"
+        />
+        <Input
+          v-else-if="selectedCustomField"
+          v-model="customFieldSingleValue"
+          class="h-8 w-full sm:max-w-56"
+          :placeholder="selectedCustomField.type === 'date' ? 'YYYY-MM-DD' : 'Value'"
+          aria-label="Custom field value"
+        />
+      </div>
 
       <div v-else-if="action.type === 'create_subtasks'" class="space-y-1">
         <Textarea v-model="subtaskText" rows="3" placeholder="One sub-task per line" />

@@ -639,13 +639,16 @@ export type ConditionField =
   | 'labelId'
   | 'title'
   | 'storyPoints'
+  | 'customField'
 
 export type ConditionOperator = 'equals' | 'not_equals' | 'in' | 'not_in' | 'contains' | 'is_empty' | 'is_not_empty' | 'gt' | 'lt'
 
 export interface AutomationCondition {
   field: ConditionField
   operator: ConditionOperator
-  value?: string | number | string[] | null
+  value?: string | number | boolean | string[] | null
+  /** Required when `field` is `customField`. */
+  customFieldId?: string | null
 }
 
 export type AutomationActionType =
@@ -660,6 +663,7 @@ export type AutomationActionType =
   | 'send_webhook'
   | 'set_due_date'
   | 'set_story_points'
+  | 'set_custom_field'
   | 'move_to_active_sprint'
   | 'create_subtasks'
 

@@ -2,13 +2,34 @@
 import { Search, X } from 'lucide-vue-next'
 import { computed } from 'vue'
 import FilterDropdown, { type FilterOption } from '@/components/common/FilterDropdown.vue'
+import { SelectField, type SelectFieldOption } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ISSUE_TYPE_META, ISSUE_TYPES, PRIORITIES, PRIORITY_META, STATUS_CATEGORY_META } from '@/constants/issue'
-import type { Label, Sprint, StatusCategory, UserSummary } from '@/types/models'
+import { useAuthStore } from '@/modules/auth/auth.store'
+import {
+  CUSTOM_FIELD_KIND,
+  OPERATOR_LABELS,
+  OPERATORS_BY_KIND,
+  VALUELESS_OPERATORS,
+  type ValueKind,
+} from '@/modules/automation/automation.constants'
+import type { ConditionOperator, CustomField, Label, Sprint, StatusCategory, UserSummary } from '@/types/models'
 import type { IssueFilters } from '../api/issues.api'
 
-export type FilterKey = 'q' | 'assigneeId' | 'statusCategory' | 'type' | 'priority' | 'labelId' | 'sprintId' | 'parentId' | 'overdue'
+export type FilterKey =
+  | 'q'
+  | 'assigneeId'
+  | 'statusCategory'
+  | 'type'
+  | 'priority'
+  | 'labelId'
+  | 'sprintId'
+  | 'parentId'
+  | 'overdue'
+  | 'customFieldId'
+  | 'customFieldOp'
+  | 'customFieldValue'
 
 const props = withDefaults(
   defineProps<{
@@ -16,14 +37,24 @@ const props = withDefaults(
     labels?: Label[]
     sprints?: Sprint[]
     epics?: Array<{ id: string; key: string; title: string }>
+    customFields?: CustomField[]
     showSprint?: boolean
     showEpic?: boolean
     stacked?: boolean
   }>(),
-  { labels: () => [], sprints: () => [], epics: () => [], showSprint: false, showEpic: false, stacked: false },
+  {
+    labels: () => [],
+    sprints: () => [],
+    epics: () => [],
+    customFields: () => [],
+    showSprint: false,
+    showEpic: false,
+    stacked: false,
+  },
 )
 const filters = defineModel<Pick<IssueFilters, FilterKey>>({ required: true })
 
+const auth = useAuthStore()
 const set = <K extends FilterKey>(key: K, value: IssueFilters[K]) => (filters.value = { ...filters.value, [key]: value || undefined })
 
 const assigneeOptions = computed<FilterOption[]>(() => [
@@ -51,6 +82,66 @@ const epicOptions = computed<FilterOption[]>(() => [
   { value: 'none', label: 'No epic' },
   ...props.epics.map((epic) => ({ value: epic.id, label: `${epic.key} · ${epic.title}` })),
 ])
+
+const showCustomFields = computed(() => auth.hasFeature('customFields') && props.customFields.length > 0)
+const selectedCustomField = computed(() => props.customFields.find((field) => field.id === filters.value.customFieldId) ?? null)
+const customFieldKind = computed<ValueKind>(() => CUSTOM_FIELD_KIND[selectedCustomField.value?.type ?? 'text'] ?? 'text')
+const customFieldOptions = computed<SelectFieldOption[]>(() =>
+  props.customFields.map((field) => ({ value: field.id, label: field.name })),
+)
+const customFieldOpOptions = computed<SelectFieldOption[]>(() =>
+  OPERATORS_BY_KIND[customFieldKind.value].map((operator) => ({
+    value: operator,
+    label: OPERATOR_LABELS[operator],
+  })),
+)
+const customFieldNeedsValue = computed(
+  () => Boolean(filters.value.customFieldId) && !VALUELESS_OPERATORS.includes((filters.value.customFieldOp as ConditionOperator) || 'equals'),
+)
+const customFieldValueOptions = computed<SelectFieldOption[]>(() => {
+  if (!selectedCustomField.value) return []
+  if (selectedCustomField.value.type === 'checkbox') {
+    return [
+      { value: 'true', label: 'Yes' },
+      { value: 'false', label: 'No' },
+    ]
+  }
+  if (selectedCustomField.value.type === 'select' || selectedCustomField.value.type === 'multi_select') {
+    return (selectedCustomField.value.options ?? []).map((option) => ({ value: option, label: option }))
+  }
+  return []
+})
+
+function setCustomField(fieldId: string | null | undefined) {
+  if (!fieldId) {
+    filters.value = {
+      ...filters.value,
+      customFieldId: undefined,
+      customFieldOp: undefined,
+      customFieldValue: undefined,
+    }
+    return
+  }
+  const field = props.customFields.find((entry) => entry.id === fieldId)
+  const kind = CUSTOM_FIELD_KIND[field?.type ?? 'text'] ?? 'text'
+  const nextOp = OPERATORS_BY_KIND[kind][0] ?? 'equals'
+  filters.value = {
+    ...filters.value,
+    customFieldId: fieldId,
+    customFieldOp: nextOp,
+    customFieldValue: undefined,
+  }
+}
+
+function setCustomFieldOp(op: string | null | undefined) {
+  if (!op) return
+  const needsValue = !VALUELESS_OPERATORS.includes(op as ConditionOperator)
+  filters.value = {
+    ...filters.value,
+    customFieldOp: op,
+    customFieldValue: needsValue ? filters.value.customFieldValue : undefined,
+  }
+}
 
 const hasFilters = computed(() => Object.values(filters.value).some(Boolean))
 </script>
@@ -87,6 +178,44 @@ const hasFilters = computed(() => Object.values(filters.value).some(Boolean))
         :options="epicOptions"
         @update:model-value="(value) => set('parentId', value)"
       />
+      <template v-if="showCustomFields">
+        <SelectField
+          :model-value="filters.customFieldId ?? null"
+          :options="customFieldOptions"
+          placeholder="Custom field…"
+          size="sm"
+          class="w-40"
+          aria-label="Custom field"
+          @update:model-value="(value) => setCustomField(value)"
+        />
+        <SelectField
+          v-if="filters.customFieldId"
+          :model-value="filters.customFieldOp ?? 'equals'"
+          :options="customFieldOpOptions"
+          size="sm"
+          class="w-36"
+          aria-label="Custom field operator"
+          @update:model-value="(value) => setCustomFieldOp(value)"
+        />
+        <SelectField
+          v-if="customFieldNeedsValue && customFieldValueOptions.length"
+          :model-value="filters.customFieldValue ?? null"
+          :options="customFieldValueOptions"
+          placeholder="Value…"
+          size="sm"
+          class="w-36"
+          aria-label="Custom field value"
+          @update:model-value="(value) => set('customFieldValue', value ?? undefined)"
+        />
+        <Input
+          v-else-if="customFieldNeedsValue"
+          :model-value="filters.customFieldValue ?? ''"
+          class="h-8 w-36"
+          :placeholder="customFieldKind === 'date' ? 'YYYY-MM-DD' : 'Value'"
+          aria-label="Custom field value"
+          @update:model-value="(value: string) => set('customFieldValue', value)"
+        />
+      </template>
       <Button
         variant="outline"
         size="sm"

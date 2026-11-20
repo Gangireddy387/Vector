@@ -25,7 +25,19 @@ export const TRIGGER_OPTIONS: Array<{ value: AutomationTrigger; label: string; s
   { value: 'issue.due_soon', label: 'Due date approaching', sentence: 'When the due date is near' },
 ]
 
-export type ValueKind = 'status' | 'category' | 'type' | 'priority' | 'member' | 'label' | 'text' | 'number'
+export type ValueKind =
+  | 'status'
+  | 'category'
+  | 'type'
+  | 'priority'
+  | 'member'
+  | 'label'
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'select'
+  | 'multi_select'
+  | 'checkbox'
 
 export const CONDITION_FIELD_OPTIONS: Array<{ value: ConditionField; label: string; kind: ValueKind }> = [
   { value: 'type', label: 'Type', kind: 'type' },
@@ -38,6 +50,16 @@ export const CONDITION_FIELD_OPTIONS: Array<{ value: ConditionField; label: stri
   { value: 'title', label: 'Title', kind: 'text' },
   { value: 'storyPoints', label: 'Story points', kind: 'number' },
 ]
+
+export const CUSTOM_FIELD_KIND: Record<string, ValueKind> = {
+  text: 'text',
+  url: 'text',
+  number: 'number',
+  date: 'date',
+  select: 'select',
+  multi_select: 'multi_select',
+  checkbox: 'checkbox',
+}
 
 export const OPERATOR_LABELS: Record<ConditionOperator, string> = {
   equals: 'is',
@@ -60,6 +82,10 @@ export const OPERATORS_BY_KIND: Record<ValueKind, ConditionOperator[]> = {
   label: ['equals', 'not_equals', 'is_empty', 'is_not_empty'],
   text: ['contains', 'equals', 'is_empty', 'is_not_empty'],
   number: ['equals', 'gt', 'lt', 'is_empty', 'is_not_empty'],
+  date: ['equals', 'gt', 'lt', 'is_empty', 'is_not_empty'],
+  select: ['equals', 'not_equals', 'in', 'not_in', 'is_empty', 'is_not_empty'],
+  multi_select: ['equals', 'in', 'not_in', 'is_empty', 'is_not_empty'],
+  checkbox: ['equals', 'is_empty', 'is_not_empty'],
 }
 
 export const VALUELESS_OPERATORS: ConditionOperator[] = ['is_empty', 'is_not_empty']
@@ -77,6 +103,7 @@ export const ACTION_OPTIONS: Array<{ value: AutomationActionType; label: string 
   { value: 'send_webhook', label: 'Send webhook' },
   { value: 'set_due_date', label: 'Set due date' },
   { value: 'set_story_points', label: 'Set story points' },
+  { value: 'set_custom_field', label: 'Set custom field' },
   { value: 'move_to_active_sprint', label: 'Move to active sprint' },
   { value: 'create_subtasks', label: 'Create sub-tasks' },
 ]
@@ -120,6 +147,8 @@ export function defaultParams(type: AutomationActionType): Record<string, unknow
       return { daysFromNow: 3 }
     case 'set_story_points':
       return { storyPoints: 3 }
+    case 'set_custom_field':
+      return { fieldId: '', value: null }
     case 'create_subtasks':
       return { titles: [] }
     default:
@@ -133,10 +162,15 @@ export function defaultParams(type: AutomationActionType): Record<string, unknow
 
 function describeValue(condition: AutomationCondition, project: ProjectDetail) {
   const field = CONDITION_FIELD_OPTIONS.find((option) => option.value === condition.field)
+  const custom = condition.customFieldId
+    ? project.customFields?.find((entry) => entry.id === condition.customFieldId)
+    : null
+  const kind = condition.field === 'customField' ? CUSTOM_FIELD_KIND[custom?.type ?? 'text'] : field?.kind
   const values = Array.isArray(condition.value) ? condition.value : [condition.value]
   const name = (value: unknown) => {
     const id = String(value)
-    switch (field?.kind) {
+    if (kind === 'checkbox') return value === true || id === 'true' ? 'Yes' : 'No'
+    switch (kind) {
       case 'status':
         return project.statuses.find((status) => status.id === id)?.name ?? 'a status'
       case 'category':
@@ -157,7 +191,13 @@ function describeValue(condition: AutomationCondition, project: ProjectDetail) {
 }
 
 export function describeCondition(condition: AutomationCondition, project: ProjectDetail) {
-  const field = CONDITION_FIELD_OPTIONS.find((option) => option.value === condition.field)?.label.toLowerCase() ?? condition.field
+  const custom = condition.customFieldId
+    ? project.customFields?.find((entry) => entry.id === condition.customFieldId)
+    : null
+  const field =
+    condition.field === 'customField'
+      ? (custom?.name ?? 'custom field').toLowerCase()
+      : (CONDITION_FIELD_OPTIONS.find((option) => option.value === condition.field)?.label.toLowerCase() ?? condition.field)
   const operator = OPERATOR_LABELS[condition.operator]
   return VALUELESS_OPERATORS.includes(condition.operator) ? `${field} ${operator}` : `${field} ${operator} ${describeValue(condition, project)}`
 }
@@ -190,6 +230,10 @@ export function describeAction(action: AutomationAction, project: ProjectDetail)
       return `set due date to ${params.daysFromNow} day(s) from now`
     case 'set_story_points':
       return `set story points to ${params.storyPoints}`
+    case 'set_custom_field': {
+      const field = project.customFields?.find((entry) => entry.id === params.fieldId)
+      return `set ${field?.name ?? 'custom field'} to ${params.value == null ? 'empty' : String(params.value)}`
+    }
     case 'move_to_active_sprint':
       return 'move it into the active sprint'
     case 'create_subtasks':

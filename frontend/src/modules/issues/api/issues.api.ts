@@ -12,6 +12,10 @@ export interface IssueFilters {
   labelId?: string
   sprintId?: string
   parentId?: string
+  /** One custom-field constraint (AND with other filters). */
+  customFieldId?: string
+  customFieldOp?: string
+  customFieldValue?: string
   q?: string
   dueFrom?: string
   dueTo?: string

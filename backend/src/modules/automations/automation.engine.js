@@ -6,6 +6,7 @@ import { notificationEmail } from '../../shared/services/email-templates.js';
 import { addDays, interpolate, toDateOnly } from '../../shared/utils/query.js';
 import { logActivity } from '../activity/activity.service.js';
 import { createComment } from '../comments/comment.service.js';
+import { loadIssueCustomFieldValues } from '../custom-fields/custom-field.service.js';
 import { pickAssignee } from '../issues/issue-assignment.js';
 import { issueEventInclude } from '../issues/issue.queries.js';
 import { createIssue, updateIssue } from '../issues/issue.service.js';
@@ -44,7 +45,12 @@ export function assertSafeWebhookUrl(url) {
 // Conditions
 // ---------------------------------------------------------------------------
 
-function readField(field, issue, changes) {
+function readField(field, issue, changes, customFieldId = null) {
+  if (field === 'customField') {
+    const rows = issue.customFieldValues ?? [];
+    const row = rows.find((entry) => entry.fieldId === customFieldId);
+    return row?.value ?? null;
+  }
   switch (field) {
     case 'statusCategory':
       return issue.status?.category ?? null;
@@ -58,18 +64,24 @@ function readField(field, issue, changes) {
 }
 
 const asArray = (value) => (Array.isArray(value) ? value.map(String) : value == null ? [] : [String(value)]);
-const isEmpty = (value) => value == null || value === '' || (Array.isArray(value) && value.length === 0);
+export const isEmptyValue = (value) =>
+  value == null || value === '' || (Array.isArray(value) && value.length === 0);
 
-export function conditionMatches({ field, operator, value }, issue, changes = {}) {
-  const actual = readField(field, issue, changes);
+const looksLikeDate = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value);
+
+export function conditionMatches({ field, operator, value, customFieldId = null }, issue, changes = {}) {
+  const actual = readField(field, issue, changes, customFieldId);
   const actualList = asArray(actual);
   const expectedList = asArray(value);
 
   switch (operator) {
     case 'equals':
+      if (typeof actual === 'boolean' || typeof value === 'boolean') {
+        return Boolean(actual) === Boolean(value);
+      }
       return Array.isArray(actual) ? actualList.includes(String(value)) : String(actual) === String(value);
     case 'not_equals':
-      return !conditionMatches({ field, operator: 'equals', value }, issue, changes);
+      return !conditionMatches({ field, operator: 'equals', value, customFieldId }, issue, changes);
     case 'in':
       return actualList.some((item) => expectedList.includes(item));
     case 'not_in':
@@ -77,12 +89,14 @@ export function conditionMatches({ field, operator, value }, issue, changes = {}
     case 'contains':
       return String(actual ?? '').toLowerCase().includes(String(value ?? '').toLowerCase());
     case 'is_empty':
-      return isEmpty(actual);
+      return isEmptyValue(actual);
     case 'is_not_empty':
-      return !isEmpty(actual);
+      return !isEmptyValue(actual);
     case 'gt':
+      if (looksLikeDate(actual) && looksLikeDate(value)) return String(actual) > String(value);
       return Number(actual) > Number(value);
     case 'lt':
+      if (looksLikeDate(actual) && looksLikeDate(value)) return String(actual) < String(value);
       return Number(actual) < Number(value);
     default:
       return false;
@@ -116,6 +130,8 @@ const ACTION_HANDLERS = {
   set_status: ({ issue, params, context }) => updateIssue(issue.id, { statusId: params.statusId }, null, context),
   set_priority: ({ issue, params, context }) => updateIssue(issue.id, { priority: params.priority }, null, context),
   set_story_points: ({ issue, params, context }) => updateIssue(issue.id, { storyPoints: params.storyPoints }, null, context),
+  set_custom_field: ({ issue, params, context }) =>
+    updateIssue(issue.id, { customFields: { [params.fieldId]: params.value ?? null } }, null, context),
   set_due_date: ({ issue, params, context }) =>
     updateIssue(issue.id, { dueDate: toDateOnly(addDays(new Date(), params.daysFromNow)) }, null, context),
 
@@ -219,7 +235,14 @@ const ACTION_HANDLERS = {
 // Runner
 // ---------------------------------------------------------------------------
 
-const loadIssueState = async (issueId) => (await Issue.findByPk(issueId, { include: issueEventInclude() }))?.toJSON();
+async function loadIssueState(issueId) {
+  const issue = await Issue.findByPk(issueId, { include: issueEventInclude() });
+  if (!issue) return null;
+  const json = issue.toJSON();
+  const values = await loadIssueCustomFieldValues([issueId]);
+  json.customFieldValues = values.get(issueId) ?? [];
+  return json;
+}
 
 /**
  * Runs every enabled rule of the issue's project that listens to `trigger`.

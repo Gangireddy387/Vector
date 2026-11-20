@@ -84,6 +84,12 @@ export const listIssuesQuery = z.object({
   labelId: z.string().optional(),
   fixVersionId: z.string().optional(),
   affectedVersionId: z.string().optional(),
+  /** One custom-field constraint (AND with other filters). */
+  customFieldId: z.string().uuid().optional(),
+  customFieldOp: z
+    .enum(['equals', 'not_equals', 'contains', 'is_empty', 'is_not_empty', 'gt', 'lt', 'in', 'not_in'])
+    .optional(),
+  customFieldValue: z.string().max(2000).optional(),
   sprintId: z.string().optional(),
   parentId: z.string().optional(),
   q: z.string().trim().max(200).optional(),

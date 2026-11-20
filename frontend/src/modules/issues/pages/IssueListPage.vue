@@ -36,7 +36,20 @@ import { sanitizeCriteria } from '../lib/saved-filter-criteria'
 
 type LayoutMode = 'list' | 'grid'
 
-const FILTER_KEYS: FilterKey[] = ['q', 'assigneeId', 'statusCategory', 'type', 'priority', 'labelId', 'sprintId', 'parentId', 'overdue']
+const FILTER_KEYS: FilterKey[] = [
+  'q',
+  'assigneeId',
+  'statusCategory',
+  'type',
+  'priority',
+  'labelId',
+  'sprintId',
+  'parentId',
+  'overdue',
+  'customFieldId',
+  'customFieldOp',
+  'customFieldValue',
+]
 const SORT_OPTIONS: SelectFieldOption[] = [
   { value: 'updatedAt', label: 'Recently updated', icon: History },
   { value: 'createdAt', label: 'Newest first', icon: Sparkles },
@@ -271,6 +284,7 @@ useHotkeys({
         :labels="project?.labels"
         :sprints="sprints"
         :epics="epics"
+        :custom-fields="project?.customFields"
         :show-sprint="project?.type === 'scrum'"
         :show-epic="Boolean(projectId)"
       />
@@ -447,6 +461,7 @@ useHotkeys({
             :labels="project?.labels"
             :sprints="sprints"
             :epics="epics"
+            :custom-fields="project?.customFields"
             :show-sprint="project?.type === 'scrum'"
             :show-epic="Boolean(projectId)"
             stacked

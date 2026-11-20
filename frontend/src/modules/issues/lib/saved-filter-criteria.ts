@@ -34,6 +34,7 @@ export function summarizeCriteria(criteria: SavedCriteria): string[] {
   if (criteria.parentId === 'none') chips.push('No epic')
   else if (criteria.parentId) chips.push('Epic')
   if (criteria.overdue === 'true' || criteria.overdue === true) chips.push('Overdue')
+  if (criteria.customFieldId) chips.push('Custom field')
   if (criteria.sort === 'dueDate') chips.push('Sort: due date')
   else if (criteria.sort === 'priority') chips.push('Sort: priority')
   else if (criteria.sort === 'updatedAt') chips.push('Sort: updated')
@@ -70,6 +71,9 @@ export function sanitizeCriteria(criteria: SavedCriteria): Record<string, string
     'labelId',
     'sprintId',
     'parentId',
+    'customFieldId',
+    'customFieldOp',
+    'customFieldValue',
     'dueFrom',
     'dueTo',
     'overdue',

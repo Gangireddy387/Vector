@@ -47,6 +47,49 @@ describe('conditionMatches', () => {
       true,
     );
   });
+
+  it('matches custom field values by type', () => {
+    const withCf = {
+      ...issue,
+      customFieldValues: [
+        { fieldId: 'cf-text', value: 'Critical path' },
+        { fieldId: 'cf-num', value: 42 },
+        { fieldId: 'cf-date', value: '2026-11-20' },
+        { fieldId: 'cf-select', value: 'High' },
+        { fieldId: 'cf-multi', value: ['a', 'b'] },
+        { fieldId: 'cf-check', value: true },
+      ],
+    };
+
+    assert.equal(
+      conditionMatches({ field: 'customField', customFieldId: 'cf-text', operator: 'contains', value: 'critical' }, withCf),
+      true,
+    );
+    assert.equal(
+      conditionMatches({ field: 'customField', customFieldId: 'cf-num', operator: 'gt', value: 40 }, withCf),
+      true,
+    );
+    assert.equal(
+      conditionMatches({ field: 'customField', customFieldId: 'cf-date', operator: 'lt', value: '2026-12-01' }, withCf),
+      true,
+    );
+    assert.equal(
+      conditionMatches({ field: 'customField', customFieldId: 'cf-select', operator: 'equals', value: 'High' }, withCf),
+      true,
+    );
+    assert.equal(
+      conditionMatches({ field: 'customField', customFieldId: 'cf-multi', operator: 'equals', value: 'a' }, withCf),
+      true,
+    );
+    assert.equal(
+      conditionMatches({ field: 'customField', customFieldId: 'cf-check', operator: 'equals', value: true }, withCf),
+      true,
+    );
+    assert.equal(
+      conditionMatches({ field: 'customField', customFieldId: 'cf-missing', operator: 'is_empty', value: null }, withCf),
+      true,
+    );
+  });
 });
 
 describe('assertSafeWebhookUrl', () => {

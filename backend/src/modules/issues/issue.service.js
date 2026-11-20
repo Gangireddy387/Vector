@@ -5,6 +5,7 @@ import {
   Issue,
   IssueExternalLink,
   IssueAffectedVersion,
+  IssueCustomFieldValue,
   IssueFixVersion,
   IssueLabel,
   IssueLink,
@@ -19,6 +20,7 @@ import {
   Version,
   WorkLog,
 } from '../../database/models.js';
+import { conditionMatches, isEmptyValue } from '../automations/automation.engine.js';
 import { parseExternalIssueUrl, serializeExternalLink } from './issue-external-link.parse.js';
 import {
   assertCustomFieldValues,
@@ -260,6 +262,54 @@ async function buildListWhere(userId, filters) {
       raw: true,
     });
     const ids = [...new Set(tagged.map((row) => row.issueId))];
+    where.id = where.id ? ids.filter((id) => where.id.includes(id)) : ids;
+  }
+
+  if (filters.customFieldId) {
+    const op = filters.customFieldOp || 'equals';
+    let expected = filters.customFieldValue ?? null;
+    if (expected != null && expected !== '' && ['true', 'false'].includes(String(expected).toLowerCase()) && op === 'equals') {
+      expected = String(expected).toLowerCase() === 'true';
+    } else if (expected != null && expected !== '' && !Number.isNaN(Number(expected)) && ['gt', 'lt', 'equals'].includes(op)) {
+      const asNumber = Number(expected);
+      if (String(expected).trim() !== '' && Number.isFinite(asNumber) && !/^\d{4}-\d{2}-\d{2}/.test(String(expected))) {
+        expected = asNumber;
+      }
+    } else if (typeof expected === 'string' && expected.includes(',') && ['in', 'not_in'].includes(op)) {
+      expected = expected.split(',').map((part) => part.trim()).filter(Boolean);
+    }
+
+    const rows = await IssueCustomFieldValue.findAll({
+      where: { fieldId: filters.customFieldId },
+      attributes: ['issueId', 'value'],
+      raw: true,
+    });
+
+    let ids;
+    if (op === 'is_empty') {
+      const filled = new Set(rows.filter((row) => !isEmptyValue(row.value)).map((row) => row.issueId));
+      const candidates = await Issue.findAll({
+        where: { projectId: projectIds },
+        attributes: ['id'],
+        raw: true,
+      });
+      ids = candidates.map((row) => row.id).filter((id) => !filled.has(id));
+    } else if (op === 'is_not_empty') {
+      ids = [...new Set(rows.filter((row) => !isEmptyValue(row.value)).map((row) => row.issueId))];
+    } else {
+      ids = [
+        ...new Set(
+          rows
+            .filter((row) =>
+              conditionMatches(
+                { field: 'customField', operator: op, value: expected, customFieldId: filters.customFieldId },
+                { customFieldValues: [{ fieldId: filters.customFieldId, value: row.value }] },
+              ),
+            )
+            .map((row) => row.issueId),
+        ),
+      ];
+    }
     where.id = where.id ? ids.filter((id) => where.id.includes(id)) : ids;
   }
 

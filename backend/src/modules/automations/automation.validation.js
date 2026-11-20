@@ -14,11 +14,18 @@ const recipients = {
   userIds: z.array(uuid).default([]),
 };
 
-const conditionSchema = z.object({
-  field: z.enum(CONDITION_FIELDS),
-  operator: z.enum(CONDITION_OPERATORS),
-  value: z.union([z.string(), z.number(), z.array(z.string()), z.null()]).optional(),
-});
+const conditionSchema = z
+  .object({
+    field: z.enum(CONDITION_FIELDS),
+    operator: z.enum(CONDITION_OPERATORS),
+    value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.null()]).optional(),
+    customFieldId: uuid.optional().nullable(),
+  })
+  .superRefine((condition, ctx) => {
+    if (condition.field === 'customField' && !condition.customFieldId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Choose a custom field', path: ['customFieldId'] });
+    }
+  });
 
 const actionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('set_status'), params: z.object({ statusId: uuid }) }),
@@ -39,6 +46,13 @@ const actionSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('set_due_date'), params: z.object({ daysFromNow: z.number().int().min(0).max(365) }) }),
   z.object({ type: z.literal('set_story_points'), params: z.object({ storyPoints: z.number().int().min(0).max(100) }) }),
+  z.object({
+    type: z.literal('set_custom_field'),
+    params: z.object({
+      fieldId: uuid,
+      value: z.union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.null()]),
+    }),
+  }),
   z.object({ type: z.literal('move_to_active_sprint'), params: z.object({}).default({}) }),
   z.object({
     type: z.literal('create_subtasks'),
