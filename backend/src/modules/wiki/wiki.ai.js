@@ -1,6 +1,7 @@
 import { Organization, Project, Department, Team } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { currentOrganizationId } from '../../shared/context/request-context.js';
+import { buildGroundingBlock } from '../ai/ai.grounding.js';
 import { completeJsonDetailed, isAiEnabled } from '../ai/openai.client.js';
 import { listMembers } from '../organizations/organization.service.js';
 import { entitlementsFor, withPlan } from '../plans/plan.service.js';
@@ -22,11 +23,11 @@ async function orgContext(actor) {
   if (!organizationId) throw ApiError.badRequest('Choose an organization first');
   const organization = await Organization.findByPk(organizationId, {
     include: withPlan(),
-    attributes: ['id', 'name', 'slug', 'brandColor', 'status', 'planId', 'featureOverrides'],
+    attributes: ['id', 'name', 'slug', 'brandColor', 'status', 'planId', 'featureOverrides', 'aiGrounding'],
   });
   if (!organization) throw ApiError.notFound('Organization not found');
 
-  const [members, projects, departments, pages] = await Promise.all([
+  const [members, projects, departments, pages, grounding] = await Promise.all([
     listMembers(organizationId).catch(() => []),
     Project.findAll({
       where: { organizationId, archivedAt: null },
@@ -41,6 +42,7 @@ async function orgContext(actor) {
       limit: 20,
     }).catch(() => []),
     wikiService.listPages({}).catch(() => []),
+    buildGroundingBlock({ userId: actor?.id, queryText: '', includeRetrieval: false }),
   ]);
   const teams = departments.flatMap((department) => department.teams ?? []);
 
@@ -67,7 +69,10 @@ async function orgContext(actor) {
         .slice(0, 15)
         .map((page) => page.title)
         .join('; ') || 'none'}`,
-    ].join('\n'),
+      grounding || null,
+    ]
+      .filter(Boolean)
+      .join('\n'),
     people,
     projects,
   };

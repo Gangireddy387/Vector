@@ -131,6 +131,11 @@ export interface OrganizationCapacity {
   minutesPerWeek: number
 }
 
+/** House style / product facts injected into AI (writing assist, chat, wiki). */
+export interface OrganizationAiGrounding {
+  instructions: string
+}
+
 export interface WorkspaceSettings {
   name: string
   /** The organization's address (example.com/:slug); absent for the signed-out default branding. */
@@ -149,6 +154,8 @@ export interface WorkspaceSettings {
   invitePolicy?: OrganizationInvitePolicy
   /** Weekly capacity used by Reports → Capacity. */
   capacity?: OrganizationCapacity
+  /** Org AI instructions (plan feature `aiAssistant`). */
+  aiGrounding?: OrganizationAiGrounding
   status?: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements
@@ -190,6 +197,7 @@ export interface OrganizationSummary {
   retention?: OrganizationRetention
   invitePolicy?: OrganizationInvitePolicy
   capacity?: OrganizationCapacity
+  aiGrounding?: OrganizationAiGrounding
   status: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements
@@ -389,6 +397,8 @@ export interface ProjectSettings {
    * Non-empty = only listed actors (admin / scrum_master / team_lead / member / viewer).
    */
   fieldPermissions?: Partial<Record<IssueFieldAclKey, TransitionActor[]>>
+  /** Optional AI instructions for this project (adds to org grounding). */
+  aiInstructions?: string
   /** The ready-made sample project (offered to new organizations); it can be deleted in one click. */
   isSample?: boolean
 }

@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import MemberSelect from '@/modules/issues/components/pickers/MemberSelect.vue'
 import IntakeFormCard from '@/modules/intake/components/IntakeFormCard.vue'
 import ShareLinkCard from '@/modules/shares/components/ShareLinkCard.vue'
@@ -20,18 +21,27 @@ import { useProjectsStore } from '../../projects.store'
 const props = defineProps<{ project: ProjectDetail }>()
 
 const projects = useProjectsStore()
+const auth = useAuthStore()
 const router = useRouter()
 const confirm = useConfirm()
+const showAi = computed(() => auth.hasFeature('aiAssistant'))
 const form = reactive({ name: '', description: '', color: '', leadId: null as string | null })
 const isSaving = ref(false)
 const isSavingAccess = ref(false)
+const isSavingAi = ref(false)
 const commentOnly = computed(() => Boolean(props.project.settings?.commentOnly))
+const aiInstructions = ref(props.project.settings?.aiInstructions ?? '')
 
 watch(
   () => props.project,
-  (project) => Object.assign(form, { name: project.name, description: project.description ?? '', color: project.color, leadId: project.leadId }),
+  (project) => {
+    Object.assign(form, { name: project.name, description: project.description ?? '', color: project.color, leadId: project.leadId })
+    aiInstructions.value = project.settings?.aiInstructions ?? ''
+  },
   { immediate: true },
 )
+
+const isAiDirty = computed(() => (aiInstructions.value ?? '').trim() !== (props.project.settings?.aiInstructions ?? '').trim())
 
 async function save() {
   isSaving.value = true
@@ -59,6 +69,20 @@ async function setCommentOnly(enabled: boolean) {
     toast.error(getErrorMessage(error))
   } finally {
     isSavingAccess.value = false
+  }
+}
+
+async function saveAiInstructions() {
+  isSavingAi.value = true
+  try {
+    await projects.updateProject(props.project.id, {
+      settings: { ...props.project.settings, aiInstructions: aiInstructions.value.trim().slice(0, 2000) },
+    })
+    toast.success('Project AI instructions saved')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isSavingAi.value = false
   }
 }
 
@@ -126,6 +150,28 @@ async function remove() {
             @update:model-value="(value) => setCommentOnly(Boolean(value))"
           />
         </label>
+      </CardContent>
+    </Card>
+
+    <Card v-if="showAi">
+      <CardHeader>
+        <CardTitle>AI instructions</CardTitle>
+        <CardDescription>
+          Extra grounding for this project on top of organization AI instructions. Used when drafting or answering in this project.
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-3">
+        <FormField label="Instructions" for="project-ai-instructions" optional>
+          <Textarea
+            id="project-ai-instructions"
+            v-model="aiInstructions"
+            rows="4"
+            maxlength="2000"
+            placeholder="Example: Prefer the WEB project key. Bugs go to triage. Do not invent release dates."
+            :disabled="isSavingAi"
+          />
+        </FormField>
+        <Button type="button" :loading="isSavingAi" :disabled="!isAiDirty" @click="saveAiInstructions">Save AI instructions</Button>
       </CardContent>
     </Card>
 

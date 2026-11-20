@@ -3,6 +3,7 @@ import { ChatMessage, ChatMessageIssue, Issue, IssueLink, Project, StandupUpdate
 import { resolveIssueRefs } from '../../shared/utils/issue-refs.js';
 import { toDateOnly } from '../../shared/utils/query.js';
 import { localDateTime } from '../../shared/utils/timezone.js';
+import { buildGroundingBlock } from '../ai/ai.grounding.js';
 import { completeJson, isAiEnabled } from '../ai/openai.client.js';
 import { projectHasFeature } from '../plans/plan.service.js';
 import { draftStandup, getStandupDay } from '../standups/standup.service.js';
@@ -150,13 +151,14 @@ async function questionReply(project, user, text) {
   const refs = await resolveIssueRefs(user.id, text);
   if (isAiEnabled() && (await projectHasFeature(project.id, 'aiAssistant'))) {
     const doneIds = (await Status.findAll({ where: { projectId: project.id, category: 'done' }, attributes: ['id'], raw: true })).map((status) => status.id);
-    const [open, recent, standups] = await Promise.all([
+    const [open, recent, standups, grounding] = await Promise.all([
       Issue.findAll({ where: { projectId: project.id, statusId: { [Op.notIn]: doneIds } }, include: [{ model: User, as: 'assignee', attributes: ['name'] }, { model: Status, as: 'status', attributes: ['name'] }], limit: 60, order: [['updatedAt', 'DESC']] }),
       ChatMessage.findAll({ where: { projectId: project.id, kind: 'user' }, include: [{ model: User, as: 'author', attributes: ['name'] }], order: [['createdAt', 'DESC']], limit: 25 }),
       StandupUpdate.findAll({ where: { projectId: project.id, date: todayFor(user) }, include: [{ model: User, as: 'user', attributes: ['name'] }] }),
+      buildGroundingBlock({ userId: user.id, projectId: project.id, queryText: text, includeRetrieval: true }),
     ]);
     const ai = await completeJson({
-      system: `You are ${ASSISTANT_NAME}, a helpful project assistant inside the team chat of the "${project.name}" project. Answer briefly and concretely using only the context given. Mention task keys when relevant. Respond with JSON only.`,
+      system: `You are ${ASSISTANT_NAME}, a helpful project assistant inside the team chat of the "${project.name}" project. Answer briefly and concretely using only the context given. Mention task keys when relevant. Respond with JSON only.${grounding ? `\n\n${grounding}` : ''}`,
       user: `Question from ${user.name}: ${text}
 Open tasks:\n${open.map((issue) => `${issue.key} | ${issue.title} | ${issue.status?.name} | ${issue.assignee?.name ?? 'unassigned'} | due ${issue.dueDate ?? '-'} | ${issue.priority}`).join('\n') || 'none'}
 Today's standups:\n${standups.map((row) => `${row.user?.name}: today ${row.today ?? '-'}; blockers ${row.blockers ?? 'none'}`).join('\n') || 'none yet'}

@@ -73,8 +73,13 @@ export const aiApi = {
   summarize: (issueId: string) => http.post<IssueSummary>(`/ai/issues/${issueId}/summary`).then((r) => r.data),
   breakdown: (issueId: string) =>
     http.post<{ source: AiSource; subtasks: string[] }>(`/ai/issues/${issueId}/breakdown`).then((r) => r.data),
-  writingAssist: (payload: { text: string; selection?: string; mode: WritingMode; surface?: WritingSurface }) =>
-    http.post<WritingAssistResult>('/ai/writing/assist', payload).then((r) => r.data),
-  writingSuggest: (payload: { text: string; count?: number; surface?: WritingSurface }) =>
+  writingAssist: (payload: {
+    text: string
+    selection?: string
+    mode: WritingMode
+    surface?: WritingSurface
+    projectId?: string | null
+  }) => http.post<WritingAssistResult>('/ai/writing/assist', payload).then((r) => r.data),
+  writingSuggest: (payload: { text: string; count?: number; surface?: WritingSurface; projectId?: string | null }) =>
     http.post<WritingSuggestResult>('/ai/writing/suggest', payload).then((r) => r.data),
 }

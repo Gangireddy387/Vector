@@ -21,6 +21,7 @@ import {
   suggestSubtasks,
   summarizeText,
 } from './ai.heuristics.js';
+import { buildGroundingBlock } from './ai.grounding.js';
 import { completeJsonDetailed, isAiEnabled } from './openai.client.js';
 
 const isSameLocalDay = (iso) => {
@@ -47,9 +48,10 @@ export async function draftIssue(userId, { projectId, title, description }) {
   await assertProjectRole(projectId, userId);
   const labels = await Label.findAll({ where: { projectId }, attributes: ['id', 'name'], raw: true });
   const text = `${title} ${description ?? ''}`;
+  const grounding = await buildGroundingBlock({ userId, projectId, queryText: text });
 
   const result = await completeJsonDetailed({
-    system: SYSTEM_PROMPT,
+    system: grounding ? `${SYSTEM_PROMPT}\n\n${grounding}` : SYSTEM_PROMPT,
     user: `Draft a well-structured issue.
 Title: ${title}
 Notes: ${clip(description ?? 'none', 4000)}
@@ -281,7 +283,7 @@ function heuristicWriting(mode, target) {
  * Rewrite or continue writing. Modes: complete | polish | grammar | clearer | shorten | expand.
  * When `selection` is set, only that slice is rewritten and merged back into `text`.
  */
-export async function assistWriting(_userId, { text, selection, mode, surface = 'general' }) {
+export async function assistWriting(userId, { text, selection, mode, surface = 'general', projectId = null }) {
   const full = String(text ?? '');
   const target = selection?.trim() ? selection : full;
   if (!target.trim() && mode !== 'expand') {
@@ -298,8 +300,15 @@ export async function assistWriting(_userId, { text, selection, mode, surface = 
     expand: 'Expand with helpful detail (context, steps, or acceptance criteria) without inventing product facts.',
   };
 
+  const grounding = await buildGroundingBlock({
+    userId,
+    projectId,
+    queryText: full || target,
+    includeRetrieval: mode === 'expand' || mode === 'complete' || surface === 'wiki',
+  });
+
   const result = await completeJsonDetailed({
-    system: WRITING_SYSTEM,
+    system: grounding ? `${WRITING_SYSTEM}\n\n${grounding}` : WRITING_SYSTEM,
     temperature: mode === 'complete' ? 0.55 : 0.25,
     maxTokens: mode === 'expand' || mode === 'complete' ? 900 : 1200,
     user: `${SURFACE_HINT[surface] ?? SURFACE_HINT.general}
@@ -343,10 +352,16 @@ Return JSON: ${
 }
 
 /** Several alternate next-phrase suggestions for ghost-text / picker UX. */
-export async function suggestNextWords(_userId, { text, count = 3, surface = 'general' }) {
+export async function suggestNextWords(userId, { text, count = 3, surface = 'general', projectId = null }) {
   const full = String(text ?? '');
+  const grounding = await buildGroundingBlock({
+    userId,
+    projectId,
+    queryText: full,
+    includeRetrieval: false,
+  });
   const result = await completeJsonDetailed({
-    system: WRITING_SYSTEM,
+    system: grounding ? `${WRITING_SYSTEM}\n\n${grounding}` : WRITING_SYSTEM,
     temperature: 0.7,
     maxTokens: 500,
     user: `${SURFACE_HINT[surface] ?? SURFACE_HINT.general}

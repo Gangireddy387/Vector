@@ -20,10 +20,13 @@ export const writingAssistSchema = z.object({
   mode: z.enum(WRITING_MODES),
   /** Where the text lives — tunes tone (wiki vs issue vs comment). */
   surface: z.enum(['wiki', 'issue', 'comment', 'general']).optional().default('general'),
+  /** Scopes project AI instructions + issue retrieval. */
+  projectId: z.string().uuid().optional().nullable(),
 });
 
 export const writingSuggestSchema = z.object({
   text: z.string().max(12_000),
   count: z.number().int().min(1).max(5).optional().default(3),
   surface: z.enum(['wiki', 'issue', 'comment', 'general']).optional().default('general'),
+  projectId: z.string().uuid().optional().nullable(),
 });

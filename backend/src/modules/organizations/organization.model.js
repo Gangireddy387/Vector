@@ -67,6 +67,11 @@ Organization.init(
     invitePolicy: { type: DataTypes.JSON, allowNull: true },
     /** Capacity planning defaults: `{ minutesPerWeek }` (default 40h). */
     capacity: { type: DataTypes.JSON, allowNull: true },
+    /**
+     * AI org grounding (plan feature `aiAssistant`):
+     * `{ instructions: string }` — house style / product facts injected into writing assist, chat, wiki AI.
+     */
+    aiGrounding: { type: DataTypes.JSON, allowNull: true },
     /** Stripe customer / subscription ids when the organization pays for Pro via Checkout. */
     stripeCustomerId: { type: DataTypes.STRING(80), allowNull: true },
     stripeSubscriptionId: { type: DataTypes.STRING(80), allowNull: true },

@@ -47,6 +47,7 @@ export const updateProjectSchema = z.object({
       standupDigestHour: z.number().int().min(0).max(23).optional(),
       commentOnly: z.boolean().optional(),
       fieldPermissions: fieldPermissionsSchema,
+      aiInstructions: z.string().max(2000).optional(),
     })
     .optional(),
 });

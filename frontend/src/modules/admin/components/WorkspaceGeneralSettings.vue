@@ -8,13 +8,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { useTheme } from '@/composables/useTheme'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import OrganizationFields from '@/modules/auth/components/OrganizationFields.vue'
 import { organizationUrl } from '@/modules/auth/organization-slug'
 import { useWorkspaceStore } from '@/stores/workspace.store'
-import type { ColorMode, OrganizationInvitePolicy, OrganizationRetention, WorkspaceSettings } from '@/types/models'
+import type {
+  ColorMode,
+  OrganizationAiGrounding,
+  OrganizationInvitePolicy,
+  OrganizationRetention,
+  WorkspaceSettings,
+} from '@/types/models'
 import { workspaceApi } from '../admin.api'
 import OrganizationLogoField from './OrganizationLogoField.vue'
 import OrganizationThemeField from './OrganizationThemeField.vue'
@@ -51,11 +58,15 @@ const inviteForm = ref({
   restrictDomains: Boolean(workspace.settings.invitePolicy?.restrictDomains),
   domainsText: (workspace.settings.invitePolicy?.allowedDomains ?? []).join(', '),
 })
+const aiForm = ref<OrganizationAiGrounding>({
+  instructions: workspace.settings.aiGrounding?.instructions ?? '',
+})
 const slugAvailable = ref(true)
 const fieldErrors = ref<Record<string, string>>({})
 const isSaving = ref(false)
 const isSavingRetention = ref(false)
 const isSavingInvite = ref(false)
+const isSavingAi = ref(false)
 
 watch(
   () => [workspace.settings.name, workspace.settings.slug] as const,
@@ -81,6 +92,14 @@ watch(
   { deep: true },
 )
 
+watch(
+  () => workspace.settings.aiGrounding,
+  (value) => {
+    aiForm.value = { instructions: value?.instructions ?? '' }
+  },
+  { deep: true },
+)
+
 const parsedInviteDomains = computed(() =>
   [
     ...new Set(
@@ -97,6 +116,11 @@ const isRetentionDirty = computed(() => {
   const current = { ...RETENTION_DEFAULTS, ...(workspace.settings.retention ?? {}) }
   return RETENTION_FIELDS.some(({ key }) => Number(retentionForm.value[key] || 0) !== Number(current[key] || 0))
 })
+const isAiDirty = computed(
+  () => (aiForm.value.instructions ?? '').trim() !== (workspace.settings.aiGrounding?.instructions ?? '').trim(),
+)
+const showAiGrounding = computed(() => auth.hasFeature('aiAssistant'))
+
 const isInviteDirty = computed(() => {
   const current = { ...INVITE_DEFAULTS, ...(workspace.settings.invitePolicy ?? {}) }
   return (
@@ -118,6 +142,22 @@ async function saveRetention() {
     toast.error(getErrorMessage(error))
   } finally {
     isSavingRetention.value = false
+  }
+}
+
+async function saveAiGrounding() {
+  isSavingAi.value = true
+  try {
+    const aiGrounding = { instructions: aiForm.value.instructions.trim().slice(0, 4000) }
+    await workspace.update({ aiGrounding })
+    aiForm.value = { ...aiGrounding }
+    toast.success('AI instructions saved', {
+      description: 'Writing assist, chat answers and wiki AI will use these when OpenAI is enabled.',
+    })
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isSavingAi.value = false
   }
 }
 
@@ -384,6 +424,35 @@ async function deleteOrganization() {
               <span class="block text-xs text-muted-foreground">{{ mode.description }}</span>
             </span>
           </button>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card v-if="showAiGrounding">
+      <CardHeader>
+        <CardTitle>AI grounding</CardTitle>
+        <CardDescription>
+          Tell Vector’s AI how {{ workspace.settings.name }} writes and what product facts it should prefer. Used by writing assist,
+          chat answers and wiki generation. It also pulls a few matching wiki pages and tasks when helpful — no vector database required.
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-4">
+        <FormField label="Instructions" for="ai-instructions" optional>
+          <Textarea
+            id="ai-instructions"
+            v-model="aiForm.instructions"
+            rows="6"
+            maxlength="4000"
+            placeholder="Example: Prefer short sentences. Our product is Vector. Never invent customer names. Use British spelling."
+            :disabled="isSavingAi"
+          />
+          <p class="mt-1 text-[11px] text-muted-foreground">{{ aiForm.instructions.length }}/4000 · Leave blank to use default AI behaviour.</p>
+        </FormField>
+        <div class="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="brand" class="max-sm:w-full" :loading="isSavingAi" :disabled="!isAiDirty" @click="saveAiGrounding">
+            Save AI instructions
+          </Button>
+          <span v-if="isAiDirty" class="text-xs font-medium text-primary">Unsaved changes</span>
         </div>
       </CardContent>
     </Card>

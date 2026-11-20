@@ -27,6 +27,8 @@ export const DEFAULT_PROJECT_SETTINGS = Object.freeze({
    * Status stays under workflow transition rules.
    */
   fieldPermissions: {},
+  /** Optional AI instructions for this project (overrides / adds to org grounding). */
+  aiInstructions: '',
 });
 
 export class Project extends Model {}

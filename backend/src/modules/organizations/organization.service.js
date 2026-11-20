@@ -40,6 +40,7 @@ import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
 import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
 import { normalizeRetention, publicRetention } from './data-retention.service.js';
+import { normalizeAiGrounding, publicAiGrounding } from '../ai/ai.grounding.js';
 import { normalizeCapacity, publicCapacity } from './capacity.service.js';
 import { assertInviteEmailAllowed, normalizeInvitePolicy, publicInvitePolicy } from './invite-policy.service.js';
 import {
@@ -82,6 +83,7 @@ export const toPublicOrganization = (organization) => ({
   retention: publicRetention(organization),
   invitePolicy: publicInvitePolicy(organization),
   capacity: publicCapacity(organization),
+  aiGrounding: publicAiGrounding(organization),
   status: organization.status ?? 'approved',
   rejectionReason: organization.status === 'rejected' ? (organization.rejectionReason ?? null) : null,
   // Only when the plan was loaded; otherwise clients keep the entitlements they already have.
@@ -235,6 +237,9 @@ export async function updateOrganization(organization, actor, changes) {
   if (changes.capacity !== undefined) {
     updates.capacity = normalizeCapacity({ ...(organization.capacity ?? {}), ...changes.capacity });
   }
+  if (changes.aiGrounding !== undefined) {
+    updates.aiGrounding = normalizeAiGrounding({ ...(organization.aiGrounding ?? {}), ...changes.aiGrounding });
+  }
   const before = {
     name: organization.name,
     slug: organization.slug,
@@ -246,10 +251,11 @@ export async function updateOrganization(organization, actor, changes) {
     retention: publicRetention(organization),
     invitePolicy: publicInvitePolicy(organization),
     capacity: publicCapacity(organization),
+    aiGrounding: publicAiGrounding(organization),
   };
   await organization.update(updates);
   const changed = Object.keys(changes).filter((key) =>
-    ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa', 'sso', 'channelNotifications', 'retention', 'invitePolicy', 'capacity'].includes(key),
+    ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa', 'sso', 'channelNotifications', 'retention', 'invitePolicy', 'capacity', 'aiGrounding'].includes(key),
   );
   if (changed.length) {
     await logWorkspaceAction({
@@ -272,6 +278,7 @@ export async function updateOrganization(organization, actor, changes) {
           retention: publicRetention(organization),
           invitePolicy: publicInvitePolicy(organization),
           capacity: publicCapacity(organization),
+          aiGrounding: publicAiGrounding(organization),
         },
       },
     });

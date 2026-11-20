@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Check, Sparkles, X } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,12 +21,19 @@ const props = withDefaults(
     modelValue: string
     selection?: string
     surface?: WritingSurface
+    /** Scopes project AI instructions + issue retrieval. */
+    projectId?: string | null
     /** Fetch ghost next-phrase suggestions after the user pauses typing. */
     autoSuggest?: boolean
     compact?: boolean
   }>(),
   // Auto-suggest while typing is off by default — it interrupted people. Use Continue when you want ideas.
-  { selection: '', surface: 'general', autoSuggest: false, compact: false },
+  { selection: '', surface: 'general', projectId: null, autoSuggest: false, compact: false },
+)
+
+const route = useRoute()
+const resolvedProjectId = computed(
+  () => props.projectId || (typeof route.params.projectId === 'string' ? route.params.projectId : null),
 )
 
 const emit = defineEmits<{
@@ -81,6 +89,7 @@ async function run(mode: WritingMode) {
       selection: props.selection?.trim() || undefined,
       mode,
       surface: props.surface,
+      projectId: resolvedProjectId.value,
     })
     sourceHint.value = aiSourceHint(result.source)
     if (mode === 'complete' && result.continuation) {
@@ -103,7 +112,12 @@ async function run(mode: WritingMode) {
 async function loadAlternatives() {
   if (locked.value || !props.modelValue.trim()) return
   try {
-    const result = await aiApi.writingSuggest({ text: props.modelValue, count: 3, surface: props.surface })
+    const result = await aiApi.writingSuggest({
+      text: props.modelValue,
+      count: 3,
+      surface: props.surface,
+      projectId: resolvedProjectId.value,
+    })
     alternatives.value = result.suggestions.filter((item) => item !== ghost.value).slice(0, 3)
     if (!sourceHint.value) sourceHint.value = aiSourceHint(result.source)
   } catch {
@@ -130,7 +144,12 @@ async function autoSuggest() {
   if (!/[\s.!?:,;\n)]$/.test(text)) return
   const seq = ++suggestSeq
   try {
-    const result = await aiApi.writingSuggest({ text, count: 3, surface: props.surface })
+    const result = await aiApi.writingSuggest({
+      text,
+      count: 3,
+      surface: props.surface,
+      projectId: resolvedProjectId.value,
+    })
     if (seq !== suggestSeq) return
     if (!result.suggestions.length) return
     ghost.value = result.suggestions[0] ?? null

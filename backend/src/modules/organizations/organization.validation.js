@@ -67,6 +67,11 @@ const capacitySchema = z.object({
   minutesPerWeek: z.coerce.number().int().min(60).max(10080).optional(),
 });
 
+const aiGroundingSchema = z.object({
+  /** House style / product facts for AI (writing assist, chat, wiki). */
+  instructions: z.string().max(4000).optional(),
+});
+
 export const updateOrganizationSchema = z
   .object({
     name: organizationName,
@@ -79,6 +84,7 @@ export const updateOrganizationSchema = z
     retention: retentionSchema,
     invitePolicy: invitePolicySchema,
     capacity: capacitySchema,
+    aiGrounding: aiGroundingSchema,
   })
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one setting');
