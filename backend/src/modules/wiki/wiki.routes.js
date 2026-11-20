@@ -11,6 +11,7 @@ const feature = requireFeature('wiki');
 const aiLimiter = rateLimit({ windowMs: 60 * 1000, limit: 12, standardHeaders: true, legacyHeaders: false });
 
 const pageParams = z.object({ pageId: z.string().uuid() });
+const revisionParams = z.object({ pageId: z.string().uuid(), revisionId: z.string().uuid() });
 const listQuery = z.object({
   q: z.string().trim().max(120).optional(),
 });
@@ -19,18 +20,24 @@ const createSchema = z
     title: z.string().trim().min(1).max(150).optional(),
     body: z.string().max(50_000).optional(),
     templateId: z.string().trim().max(40).optional(),
+    parentId: z.union([z.string().uuid(), z.null()]).optional(),
+    kind: z.enum(['page', 'folder']).optional(),
   })
-  .refine((body) => Boolean(body.title?.trim() || body.templateId), { message: 'Give the page a title or pick a template' });
+  .refine((body) => Boolean(body.title?.trim() || body.templateId), {
+    message: 'Give the page a title or pick a template',
+  });
 const updateSchema = z
   .object({
     title: z.string().trim().min(1).max(150).optional(),
     body: z.string().max(50_000).optional(),
+    parentId: z.union([z.string().uuid(), z.null()]).optional(),
   })
   .refine((body) => Object.keys(body).length > 0, { message: 'No changes' });
 const generateSchema = z.object({
   kind: z.enum(['handbook', 'runbook', 'meeting-notes', 'faq', 'project-brief', 'how-to', 'custom']).default('custom'),
   brief: z.string().trim().max(2000).optional().default(''),
   title: z.string().trim().max(150).optional(),
+  parentId: z.union([z.string().uuid(), z.null()]).optional(),
 });
 const fillSchema = z.object({
   brief: z.string().trim().max(1500).optional().default(''),
@@ -61,6 +68,19 @@ router.get('/wiki/pages/:pageId', feature, validate({ params: pageParams }), asy
 router.patch('/wiki/pages/:pageId', feature, validate({ params: pageParams, body: updateSchema }), async (req, res) => {
   res.json({ page: await service.updatePage(req.params.pageId, req.user, req.body) });
 });
+
+router.get('/wiki/pages/:pageId/history', feature, validate({ params: pageParams }), async (req, res) => {
+  res.json({ revisions: await service.listHistory(req.params.pageId) });
+});
+
+router.post(
+  '/wiki/pages/:pageId/history/:revisionId/restore',
+  feature,
+  validate({ params: revisionParams }),
+  async (req, res) => {
+    res.json({ page: await service.restoreRevision(req.params.pageId, req.params.revisionId, req.user) });
+  },
+);
 
 /** Finish placeholders / polish a draft into a readable page. */
 router.post('/wiki/pages/:pageId/ai/fill', feature, aiLimiter, validate({ params: pageParams, body: fillSchema }), async (req, res) => {

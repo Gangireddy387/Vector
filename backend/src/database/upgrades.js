@@ -106,6 +106,9 @@ const ADDED_COLUMNS = [
     column: 'guest_comments_enabled',
     definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
+  { table: 'wiki_pages', column: 'parent_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'wiki_pages', column: 'kind', definition: { type: DataTypes.STRING(10), allowNull: false, defaultValue: 'page' } },
+  { table: 'wiki_pages', column: 'position', definition: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

@@ -66,7 +66,7 @@ import {
 } from '../modules/meetings/meeting.model.js';
 import { PushSubscription } from '../modules/push/push-subscription.model.js';
 import { Goal, KeyResult, KeyResultCheckIn, KeyResultLink } from '../modules/goals/goal.model.js';
-import { WikiPage } from '../modules/wiki/wiki.model.js';
+import { WikiPage, WikiPageRevision } from '../modules/wiki/wiki.model.js';
 import { ShowcasePortrait } from '../modules/marketing/showcase.model.js';
 import { ShareLink } from '../modules/shares/share.model.js';
 import { IntakeForm } from '../modules/intake/intake.model.js';
@@ -328,6 +328,11 @@ Organization.hasMany(WikiPage, { as: 'wikiPages', foreignKey: 'organizationId', 
 WikiPage.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
 WikiPage.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
 WikiPage.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
+WikiPage.belongsTo(WikiPage, { as: 'parent', foreignKey: 'parentId', constraints: false });
+WikiPage.hasMany(WikiPage, { as: 'children', foreignKey: 'parentId', constraints: false });
+WikiPage.hasMany(WikiPageRevision, { as: 'revisions', foreignKey: 'pageId', ...cascade });
+WikiPageRevision.belongsTo(WikiPage, { as: 'page', foreignKey: 'pageId' });
+WikiPageRevision.belongsTo(User, { as: 'editor', foreignKey: 'editorId', onDelete: 'SET NULL' });
 
 // Devices that receive this person's push notifications
 User.hasMany(PushSubscription, { as: 'pushSubscriptions', foreignKey: 'userId', ...cascade });
@@ -426,6 +431,7 @@ export {
   PushSubscription,
   Goal,
   WikiPage,
+  WikiPageRevision,
   ShowcasePortrait,
   ShareLink,
   IntakeForm,

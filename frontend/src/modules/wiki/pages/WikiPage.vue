@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, BookOpen, FileText, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, BookOpen, FileText, Folder, History, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-vue-next'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -10,13 +10,17 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
+import { usePromptText } from '@/composables/usePromptText'
 import { getErrorMessage } from '@/lib/http'
 import WritingAssistBar from '@/modules/ai/components/WritingAssistBar.vue'
 import { aiSourceHint } from '@/modules/issues/api/ai.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import WikiEditorToolbar from '../components/WikiEditorToolbar.vue'
 import WikiFillGuide from '../components/WikiFillGuide.vue'
+import WikiHistoryDialog from '../components/WikiHistoryDialog.vue'
 import WikiNewPageDialog from '../components/WikiNewPageDialog.vue'
+import WikiTreeList from '../components/WikiTreeList.vue'
+import { buildWikiTree, wikiFolders } from '../wiki-tree'
 import {
   type WikiAiKind,
   type WikiLinkedPage,
@@ -29,6 +33,7 @@ import {
 const props = defineProps<{ pageId?: string }>()
 const auth = useAuthStore()
 const confirm = useConfirm()
+const promptText = usePromptText()
 const route = useRoute()
 const router = useRouter()
 const { isWide } = useDevice()
@@ -36,6 +41,8 @@ const { isWide } = useDevice()
 const pages = ref<WikiPage[] | null>(null)
 const templates = ref<WikiTemplate[]>([])
 const selectedId = ref<string | null>(null)
+const activeFolderId = ref<string | null>(null)
+const expandedFolders = ref<Set<string>>(new Set())
 const title = ref('')
 const body = ref('')
 const referencedIssues = ref<WikiReferencedIssue[]>([])
@@ -47,6 +54,7 @@ const filling = ref(false)
 const dirty = ref(false)
 const editing = ref(false)
 const showNew = ref(false)
+const showHistory = ref(false)
 const preferTemplateId = ref<string | null>(null)
 const query = ref('')
 const saveLabel = ref('')
@@ -62,14 +70,38 @@ const showEditor = computed(() => isWide.value || Boolean(selectedId.value))
 const isEmptyOrg = computed(() => pages.value !== null && !pages.value.length && !query.value.trim())
 const looksUnfinished = computed(() => /_[^_\n]{2,80}_|> \*\*Tip:\*\*/.test(body.value))
 const issueKeys = computed(() => referencedIssues.value.map((issue) => issue.key))
+const searching = computed(() => Boolean(query.value.trim()))
+const tree = computed(() => buildWikiTree(pages.value ?? []))
+const folderChoices = computed(() => wikiFolders(pages.value ?? []))
 const wikiLinkTargets = computed(() => {
   const byId = new Map<string, WikiLinkedPage>()
   for (const page of [...linkedPages.value, ...backlinks.value]) byId.set(page.id, page)
   for (const page of pages.value ?? []) {
+    if (page.kind === 'folder') continue
     if (!byId.has(page.id)) byId.set(page.id, { id: page.id, title: page.title, excerpt: page.excerpt })
   }
   return [...byId.values()]
 })
+
+function isExpanded(folderId: string) {
+  return expandedFolders.value.has(folderId)
+}
+
+function toggleFolder(folderId: string) {
+  const next = new Set(expandedFolders.value)
+  if (next.has(folderId)) next.delete(folderId)
+  else next.add(folderId)
+  expandedFolders.value = next
+}
+
+function selectFolder(folderId: string | null) {
+  activeFolderId.value = folderId
+  if (folderId) {
+    const next = new Set(expandedFolders.value)
+    next.add(folderId)
+    expandedFolders.value = next
+  }
+}
 
 function applyPage(page: WikiPage) {
   title.value = page.title
@@ -175,11 +207,17 @@ async function ensureSavedOrConfirm() {
 onBeforeRouteLeave(async () => ensureSavedOrConfirm())
 
 async function openPage(page: WikiPage, { force = false } = {}) {
+  if (page.kind === 'folder') {
+    activeFolderId.value = page.id
+    toggleFolder(page.id)
+    return
+  }
   if (!force && selectedId.value && selectedId.value !== page.id) {
     const ok = await ensureSavedOrConfirm()
     if (!ok) return
   }
   selectedId.value = page.id
+  if (page.parentId) selectFolder(page.parentId)
   editing.value = false
   dirty.value = false
   saveLabel.value = ''
@@ -218,13 +256,14 @@ async function createFromDialog(
   creating.value = true
   try {
     let page: WikiPage
+    const parentId = activeFolderId.value
     if (payload.mode === 'ai') {
-      const result = await wikiApi.generate({ kind: payload.kind, brief: payload.brief, title: payload.title })
+      const result = await wikiApi.generate({ kind: payload.kind, brief: payload.brief, title: payload.title, parentId })
       page = result.page
       const hint = aiSourceHint(result.source)
       toast.success('Page written', { description: hint ?? 'Review the draft — edit anything that needs a human check.' })
     } else {
-      page = await wikiApi.create({ templateId: payload.templateId, title: payload.title })
+      page = await wikiApi.create({ templateId: payload.templateId, title: payload.title, parentId })
       toast.message('Template ready', { description: canAi.value ? 'Use “Finish with AI” to write the placeholders.' : 'Replace italic prompts with your content.' })
     }
     showNew.value = false
@@ -234,6 +273,68 @@ async function createFromDialog(
     toast.error(getErrorMessage(error))
   } finally {
     creating.value = false
+  }
+}
+
+async function createFolder() {
+  const name = await promptText({
+    title: 'New folder',
+    description: activeFolderId.value
+      ? 'Creates a folder inside the selected folder.'
+      : 'Creates a folder at the root of the wiki.',
+    label: 'Folder name',
+    placeholder: 'e.g. Engineering',
+    confirmLabel: 'Create folder',
+    maxLength: 150,
+  })
+  if (!name?.trim()) return
+  creating.value = true
+  try {
+    const folder = await wikiApi.create({
+      title: name.trim(),
+      kind: 'folder',
+      parentId: activeFolderId.value,
+    })
+    pages.value = [folder, ...(pages.value ?? []).filter((item) => item.id !== folder.id)]
+    selectFolder(folder.id)
+    toast.success('Folder created')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    creating.value = false
+  }
+}
+
+async function moveSelected(parentId: string | null) {
+  if (!selected.value || selected.value.kind === 'folder') return
+  saving.value = true
+  try {
+    const updated = await wikiApi.update(selected.value.id, { parentId })
+    pages.value = [updated, ...(pages.value ?? []).filter((item) => item.id !== updated.id)]
+    activeFolderId.value = parentId
+    if (parentId) {
+      const next = new Set(expandedFolders.value)
+      next.add(parentId)
+      expandedFolders.value = next
+    }
+    toast.success(parentId ? 'Moved into folder' : 'Moved to root')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    saving.value = false
+  }
+}
+
+async function onHistoryRestored() {
+  if (!selectedId.value) return
+  try {
+    const full = await wikiApi.get(selectedId.value)
+    applyPage(full)
+    pages.value = [full, ...(pages.value ?? []).filter((item) => item.id !== full.id)]
+    dirty.value = false
+    editing.value = false
+  } catch (error) {
+    toast.error(getErrorMessage(error))
   }
 }
 
@@ -293,9 +394,12 @@ async function save({ silent = false } = {}) {
 }
 
 async function removePage(page: WikiPage) {
+  const isFolder = page.kind === 'folder'
   const ok = await confirm({
-    title: 'Delete this page?',
-    description: `“${page.title}” will be removed for everyone in the organization.`,
+    title: isFolder ? 'Delete this folder?' : 'Delete this page?',
+    description: isFolder
+      ? `“${page.title}” must be empty. It will be removed for everyone in the organization.`
+      : `“${page.title}” will be removed for everyone in the organization.`,
     confirmLabel: 'Delete',
     destructive: true,
   })
@@ -303,6 +407,7 @@ async function removePage(page: WikiPage) {
   try {
     await wikiApi.remove(page.id)
     pages.value = (pages.value ?? []).filter((item) => item.id !== page.id)
+    if (activeFolderId.value === page.id) activeFolderId.value = null
     if (selectedId.value === page.id) closeEditor()
   } catch (error) {
     toast.error(getErrorMessage(error))
@@ -337,8 +442,19 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
         <BookOpen class="size-4 text-primary" />
         <div class="min-w-0 flex-1">
           <p class="text-[13px] font-semibold">Wiki</p>
-          <p class="truncate text-[11px] text-muted-foreground">{{ canAi ? 'AI writes · you review' : 'Shared org knowledge' }}</p>
+          <p class="truncate text-[11px] text-muted-foreground">
+            {{
+              activeFolderId
+                ? `In ${pages?.find((p) => p.id === activeFolderId)?.title ?? 'folder'}`
+                : canAi
+                  ? 'AI writes · folders · history'
+                  : 'Folders · versions · shared knowledge'
+            }}
+          </p>
         </div>
+        <Button size="icon-sm" variant="ghost" title="New folder" :disabled="creating" @click="createFolder">
+          <Folder class="size-3.5" />
+        </Button>
         <Button size="sm" variant="secondary" @click="openNewDialog">
           <Sparkles v-if="canAi" class="size-3.5" />
           <Plus v-else class="size-3.5" />
@@ -370,21 +486,33 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
           </Button>
         </div>
         <p v-else-if="!pages.length" class="px-4 py-10 text-center text-xs text-muted-foreground">No pages match that search.</p>
-        <button
-          v-for="page in pages"
-          :key="page.id"
-          type="button"
-          class="flex w-full items-start gap-2 border-b border-border/50 px-3 py-2.5 text-left transition-colors"
-          :class="selectedId === page.id ? 'bg-accent' : 'hover:bg-accent/50'"
-          @click="openPage(page)"
-        >
-          <FileText class="mt-0.5 size-4 shrink-0 text-primary" />
-          <span class="min-w-0 flex-1">
-            <span class="block truncate text-[13px] font-medium">{{ page.title }}</span>
-            <span v-if="page.excerpt" class="mt-0.5 line-clamp-2 block text-[11px] text-muted-foreground">{{ page.excerpt }}</span>
-            <span class="mt-0.5 block text-[11px] text-muted-foreground">{{ format(parseISO(page.updatedAt), 'd MMM, HH:mm') }}</span>
-          </span>
-        </button>
+        <template v-else-if="searching">
+          <button
+            v-for="page in pages.filter((item) => item.kind !== 'folder')"
+            :key="page.id"
+            type="button"
+            class="flex w-full items-start gap-2 border-b border-border/50 px-3 py-2.5 text-left transition-colors"
+            :class="selectedId === page.id ? 'bg-accent' : 'hover:bg-accent/50'"
+            @click="openPage(page)"
+          >
+            <FileText class="mt-0.5 size-4 shrink-0 text-primary" />
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-[13px] font-medium">{{ page.title }}</span>
+              <span v-if="page.excerpt" class="mt-0.5 line-clamp-2 block text-[11px] text-muted-foreground">{{ page.excerpt }}</span>
+            </span>
+          </button>
+        </template>
+        <WikiTreeList
+          v-else
+          :nodes="tree"
+          :selected-id="selectedId"
+          :active-folder-id="activeFolderId"
+          :expanded="expandedFolders"
+          :depth="0"
+          @open="openPage"
+          @toggle="toggleFolder"
+          @select-folder="selectFolder"
+        />
       </div>
     </aside>
 
@@ -448,6 +576,22 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
             </template>
           </div>
           <div class="flex shrink-0 items-center gap-1">
+            <select
+              v-if="folderChoices.length"
+              class="hidden h-8 max-w-[9rem] rounded-md border border-input bg-background px-1.5 text-[11px] sm:block"
+              :value="selected.parentId ?? ''"
+              aria-label="Move to folder"
+              @change="moveSelected(($event.target as HTMLSelectElement).value || null)"
+            >
+              <option value="">Root</option>
+              <option
+                v-for="folder in folderChoices.filter((item) => item.id !== selected.id)"
+                :key="folder.id"
+                :value="folder.id"
+              >
+                {{ folder.title }}
+              </option>
+            </select>
             <Button
               v-if="canAi && (looksUnfinished || !body.trim())"
               size="sm"
@@ -457,6 +601,9 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
             >
               <Sparkles class="size-3.5" />
               <span class="hidden sm:inline">Finish with AI</span>
+            </Button>
+            <Button size="icon-sm" variant="ghost" title="Version history" @click="showHistory = true">
+              <History />
             </Button>
             <Button v-if="!editing" size="sm" variant="outline" @click="startEditing"><Pencil class="size-3.5" /> Edit</Button>
             <template v-else>
@@ -589,6 +736,12 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
       :creating="creating"
       :prefer-template-id="preferTemplateId"
       @create="createFromDialog"
+    />
+    <WikiHistoryDialog
+      v-model:open="showHistory"
+      :page-id="selectedId"
+      :page-title="selected?.title"
+      @restored="onHistoryRestored"
     />
   </div>
 </template>

@@ -179,10 +179,11 @@ function heuristicFill(body, ctx) {
 /**
  * Create a finished wiki page from a short brief — AI writes, people edit.
  */
-export async function generateWikiPage(actor, { kind = 'custom', brief = '', title } = {}) {
+export async function generateWikiPage(actor, { kind = 'custom', brief = '', title, parentId } = {}) {
   const normalizedKind = KINDS.has(kind) ? kind : 'custom';
   const ctx = await orgContext(actor);
   const template = resolveWikiTemplate(normalizedKind === 'custom' ? 'blank' : normalizedKind);
+  const folder = parentId === undefined ? {} : { parentId };
 
   if (ctx.aiEnabled && isAiEnabled()) {
     const result = await completeJsonDetailed({
@@ -214,13 +215,14 @@ Body rules:
       const page = await wikiService.createPage(actor, {
         title: result.data.title.trim().slice(0, 150),
         body: result.data.body.slice(0, MAX_BODY),
+        ...folder,
       });
       return { page, source: sourceOf(result) };
     }
   }
 
   const drafted = heuristicGenerate({ kind: normalizedKind, brief, title, ctx });
-  const page = await wikiService.createPage(actor, drafted);
+  const page = await wikiService.createPage(actor, { ...drafted, ...folder });
   return { page, source: ctx.aiEnabled && isAiEnabled() ? 'degraded' : 'heuristic' };
 }
 
@@ -229,6 +231,7 @@ Body rules:
  */
 export async function fillWikiPage(actor, pageId, { brief = '' } = {}) {
   const existing = await wikiService.getPage(pageId);
+  if (existing.kind === 'folder') throw ApiError.badRequest('Folders do not have page content');
   const ctx = await orgContext(actor);
 
   if (ctx.aiEnabled && isAiEnabled()) {

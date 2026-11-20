@@ -2,6 +2,8 @@ import { http } from '@/lib/http'
 import type { AiSource } from '@/modules/issues/api/ai.api'
 import type { UserSummary } from '@/types/models'
 
+export type WikiKind = 'page' | 'folder'
+
 export interface WikiReferencedIssue {
   id: string
   key: string
@@ -20,6 +22,9 @@ export interface WikiPage {
   title: string
   body?: string
   excerpt?: string
+  parentId?: string | null
+  kind?: WikiKind
+  position?: number
   referencedIssues?: WikiReferencedIssue[]
   linkedPages?: WikiLinkedPage[]
   backlinks?: WikiLinkedPage[]
@@ -29,6 +34,14 @@ export interface WikiPage {
   updatedBy: UserSummary | null
   createdAt: string
   updatedAt: string
+}
+
+export interface WikiPageRevision {
+  id: string
+  title: string
+  body: string
+  createdAt: string
+  editor: UserSummary | null
 }
 
 export interface WikiTemplate {
@@ -47,13 +60,17 @@ export const wikiApi = {
     http.get<{ pages: WikiPage[] }>('/wiki/pages', { params: q?.trim() ? { q: q.trim() } : undefined }).then((r) => r.data.pages),
   templates: () => http.get<{ templates: WikiTemplate[] }>('/wiki/templates').then((r) => r.data.templates),
   get: (pageId: string) => http.get<{ page: WikiPage }>(`/wiki/pages/${pageId}`).then((r) => r.data.page),
-  create: (payload: { title?: string; body?: string; templateId?: string }) =>
+  create: (payload: { title?: string; body?: string; templateId?: string; parentId?: string | null; kind?: WikiKind }) =>
     http.post<{ page: WikiPage }>('/wiki/pages', payload).then((r) => r.data.page),
-  generate: (payload: { kind: WikiAiKind; brief?: string; title?: string }) =>
+  generate: (payload: { kind: WikiAiKind; brief?: string; title?: string; parentId?: string | null }) =>
     http.post<{ page: WikiPage; source: AiSource }>('/wiki/ai/generate', payload).then((r) => r.data),
   fill: (pageId: string, payload?: { brief?: string }) =>
     http.post<{ page: WikiPage; source: AiSource }>(`/wiki/pages/${pageId}/ai/fill`, payload ?? {}).then((r) => r.data),
-  update: (pageId: string, payload: { title?: string; body?: string }) =>
+  update: (pageId: string, payload: { title?: string; body?: string; parentId?: string | null }) =>
     http.patch<{ page: WikiPage }>(`/wiki/pages/${pageId}`, payload).then((r) => r.data.page),
+  history: (pageId: string) =>
+    http.get<{ revisions: WikiPageRevision[] }>(`/wiki/pages/${pageId}/history`).then((r) => r.data.revisions),
+  restore: (pageId: string, revisionId: string) =>
+    http.post<{ page: WikiPage }>(`/wiki/pages/${pageId}/history/${revisionId}/restore`).then((r) => r.data.page),
   remove: (pageId: string) => http.delete(`/wiki/pages/${pageId}`),
 }
