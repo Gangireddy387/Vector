@@ -24,11 +24,12 @@ import { allowedStatusesFor, transitionRuleFor } from '@/lib/workflow-transition
 import { rankBetween } from '@/lib/utils'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type CreateIssueInput, issuesApi } from '@/modules/issues/api/issues.api'
+import SavedFiltersMenu from '@/modules/issues/components/SavedFiltersMenu.vue'
 import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import CompleteSprintDialog from '@/modules/sprints/components/CompleteSprintDialog.vue'
 import SprintProgress from '@/modules/sprints/components/SprintProgress.vue'
-import type { Issue, IssuePriority, IssueReference, IssueType, Status, UserSummary } from '@/types/models'
+import type { Issue, IssuePriority, IssueReference, IssueType, SavedFilter, Status, UserSummary } from '@/types/models'
 import BoardCell from '../components/BoardCell.vue'
 import BoardColumnHeader from '../components/BoardColumnHeader.vue'
 import BoardDisplayMenu from '../components/BoardDisplayMenu.vue'
@@ -36,6 +37,14 @@ import BoardFilters, { type BoardFilterState } from '../components/BoardFilters.
 import MobileBoard from '../components/MobileBoard.vue'
 import { useBoardData } from '../composables/useBoardData'
 import { useBoardView } from '../composables/useBoardView'
+import {
+  boardCriteriaEqual,
+  boardStateToCriteria,
+  criteriaToBoardDisplay,
+  criteriaToBoardFilters,
+  sanitizeBoardCriteria,
+  summarizeBoardCriteria,
+} from '../lib/board-view-criteria'
 
 const route = useRoute()
 const router = useRouter()
@@ -106,8 +115,45 @@ watch(selectedSprintId, (sprintId) => {
   void router.replace({ query })
 })
 const filters = ref<BoardFilterState>({ search: '', assigneeIds: [] })
+const boardViewCriteria = computed(() =>
+  boardStateToCriteria(filters.value, { groupBy: view.value.groupBy, density: view.value.density }),
+)
+const appliedDefaultView = ref(false)
 const isCompleteOpen = ref(false)
 const isFilterSheetOpen = ref(false)
+
+function applyBoardView(criteria: Record<string, string>) {
+  const sanitized = sanitizeBoardCriteria(criteria)
+  filters.value = criteriaToBoardFilters(sanitized)
+  const display = criteriaToBoardDisplay(sanitized)
+  if (display.groupBy || display.density) {
+    updateView({
+      ...(display.groupBy ? { groupBy: display.groupBy } : {}),
+      ...(display.density ? { density: display.density } : {}),
+    })
+  }
+  if (typeof route.query.view === 'string') {
+    const query = { ...route.query }
+    delete query.view
+    void router.replace({ query })
+  }
+}
+
+function onBoardViewsLoaded(views: SavedFilter[]) {
+  if (appliedDefaultView.value) return
+  appliedDefaultView.value = true
+  if (Object.keys(boardViewCriteria.value).length > 0) return
+  const preferred =
+    (typeof route.query.view === 'string' ? views.find((view) => view.id === route.query.view) : undefined) ??
+    views.find((view) => view.isDefault && view.projectId === projectId.value) ??
+    views.find((view) => view.isDefault && !view.projectId)
+  if (preferred) applyBoardView(sanitizeBoardCriteria(preferred.criteria))
+}
+
+watch(projectId, () => {
+  appliedDefaultView.value = false
+  filters.value = { search: '', assigneeIds: [] }
+})
 const statuses = computed(() => project.value?.statuses ?? [])
 const mobileFilterCount = computed(() => {
   const value = filters.value
@@ -427,6 +473,18 @@ function moveOnMobile(issue: Issue, status: Status) {
             <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" />
           </div>
           <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 lg:gap-3">
+            <SavedFiltersMenu
+              :project-id="projectId"
+              surface="board"
+              :criteria="boardViewCriteria"
+              :sanitize="sanitizeBoardCriteria"
+              :summarize="summarizeBoardCriteria"
+              :equal="boardCriteriaEqual"
+              save-label="Save board view…"
+              empty-label="No board views yet"
+              @apply="applyBoardView"
+              @loaded="onBoardViewsLoaded"
+            />
             <template v-if="isScrum && boardSprints.length">
               <SelectField
                 class="w-48 sm:w-56"
@@ -661,6 +719,19 @@ function moveOnMobile(issue: Issue, status: Status) {
             <SheetContent side="bottom" class="gap-0">
               <SheetHeader><SheetTitle>Board filters</SheetTitle></SheetHeader>
               <div class="space-y-4 overflow-y-auto px-4 pb-4">
+                <SavedFiltersMenu
+                  :project-id="projectId"
+                  surface="board"
+                  :criteria="boardViewCriteria"
+                  :sanitize="sanitizeBoardCriteria"
+                  :summarize="summarizeBoardCriteria"
+                  :equal="boardCriteriaEqual"
+                  stacked
+                  save-label="Save board view…"
+                  empty-label="No board views yet"
+                  @apply="(criteria) => { applyBoardView(criteria); isFilterSheetOpen = false }"
+                  @loaded="onBoardViewsLoaded"
+                />
                 <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" stacked hide-search />
                 <Button class="w-full" @click="isFilterSheetOpen = false">
                   Show {{ filteredIssues.length }} tasks

@@ -72,6 +72,7 @@ const ADDED_COLUMNS = [
   /** Real open for retention metrics (workday nudges); mark-all-read must not set this. */
   { table: 'notifications', column: 'clicked_at', definition: { type: DataTypes.DATE, allowNull: true } },
   { table: 'saved_filters', column: 'is_default', definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false } },
+  { table: 'saved_filters', column: 'surface', definition: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'issues' } },
   { table: 'chat_messages', column: 'parent_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'automation_rules', column: 'recent_runs', definition: { type: DataTypes.JSON, allowNull: false, defaultValue: [] } },
   { table: 'organizations', column: 'require_mfa', definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false } },

@@ -16,20 +16,33 @@ import {
 import { Input } from '@/components/ui/input'
 import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
-import type { SavedFilter } from '@/types/models'
+import type { SavedFilter, SavedFilterSurface } from '@/types/models'
 import { savedFiltersApi } from '../api/saved-filters.api'
-import { criteriaEqual, sanitizeCriteria, summarizeCriteria } from '../lib/saved-filter-criteria'
+import { criteriaEqual, sanitizeCriteria, summarizeCriteria, type SavedCriteria } from '../lib/saved-filter-criteria'
+
+type CriteriaMap = Record<string, string | undefined>
 
 const props = withDefaults(
   defineProps<{
     projectId?: string
-    criteria: Record<string, string | undefined>
+    criteria: CriteriaMap
+    surface?: SavedFilterSurface
     /** Compact trigger for the mobile filter sheet. */
     stacked?: boolean
+    sanitize?: (criteria: CriteriaMap | SavedCriteria) => Record<string, string>
+    summarize?: (criteria: SavedCriteria) => string[]
+    equal?: (a: SavedCriteria, b: SavedCriteria) => boolean
+    saveLabel?: string
+    emptyLabel?: string
   }>(),
-  { stacked: false },
+  {
+    surface: 'issues',
+    stacked: false,
+    saveLabel: 'Save current filters…',
+    emptyLabel: 'No saved views yet',
+  },
 )
-const emit = defineEmits<{ apply: [criteria: Record<string, string>] }>()
+const emit = defineEmits<{ apply: [criteria: Record<string, string>]; loaded: [filters: SavedFilter[]] }>()
 
 const confirm = useConfirm()
 const filters = ref<SavedFilter[]>([])
@@ -39,19 +52,24 @@ const name = ref('')
 const makeDefault = ref(false)
 const renaming = ref<SavedFilter | null>(null)
 
+const sanitize = (value: CriteriaMap | SavedCriteria) => (props.sanitize ?? sanitizeCriteria)(value)
+const summarize = (value: SavedCriteria) => (props.summarize ?? summarizeCriteria)(value)
+const equal = (a: SavedCriteria, b: SavedCriteria) => (props.equal ?? criteriaEqual)(a, b)
+
 const activeId = computed(() => {
-  const current = sanitizeCriteria(props.criteria)
-  return filters.value.find((filter) => criteriaEqual(filter.criteria, current))?.id
+  const current = sanitize(props.criteria)
+  return filters.value.find((filter) => equal(filter.criteria, current))?.id
 })
 
-const canSave = computed(() => Object.keys(sanitizeCriteria(props.criteria)).length > 0)
+const canSave = computed(() => Object.keys(sanitize(props.criteria)).length > 0)
 
 const load = async () => {
-  filters.value = await savedFiltersApi.list(props.projectId)
+  filters.value = await savedFiltersApi.list(props.projectId, props.surface)
+  emit('loaded', filters.value)
 }
 
 onMounted(load)
-watch(() => props.projectId, load)
+watch(() => [props.projectId, props.surface] as const, load)
 
 async function save() {
   if (!name.value.trim() || !canSave.value) return
@@ -59,7 +77,8 @@ async function save() {
     await savedFiltersApi.create({
       name: name.value.trim(),
       projectId: props.projectId ?? null,
-      criteria: sanitizeCriteria(props.criteria),
+      surface: props.surface,
+      criteria: sanitize(props.criteria),
       isDefault: makeDefault.value,
     })
     toast.success('View saved')
@@ -119,7 +138,7 @@ async function remove(filter: SavedFilter) {
 }
 
 function apply(filter: SavedFilter) {
-  emit('apply', sanitizeCriteria(filter.criteria))
+  emit('apply', sanitize(filter.criteria))
 }
 
 defineExpose({ load, filters })
@@ -148,8 +167,8 @@ defineExpose({ load, filters })
             <Star v-if="filter.isDefault" class="size-3.5 shrink-0 fill-amber-400 text-amber-500" aria-label="Default view" />
             <span class="truncate font-medium">{{ filter.name }}</span>
           </span>
-          <span v-if="summarizeCriteria(filter.criteria).length" class="mt-0.5 block truncate text-[11px] text-muted-foreground">
-            {{ summarizeCriteria(filter.criteria).join(' · ') }}
+          <span v-if="summarize(filter.criteria).length" class="mt-0.5 block truncate text-[11px] text-muted-foreground">
+            {{ summarize(filter.criteria).join(' · ') }}
           </span>
         </span>
         <span class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
@@ -164,9 +183,9 @@ defineExpose({ load, filters })
           </button>
         </span>
       </DropdownMenuItem>
-      <p v-if="!filters.length" class="px-2 py-1.5 text-xs text-muted-foreground">No saved views yet</p>
+      <p v-if="!filters.length" class="px-2 py-1.5 text-xs text-muted-foreground">{{ emptyLabel }}</p>
       <DropdownMenuSeparator />
-      <DropdownMenuItem :disabled="!canSave" @select="openSave">Save current filters…</DropdownMenuItem>
+      <DropdownMenuItem :disabled="!canSave" @select="openSave">{{ saveLabel }}</DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>
 
@@ -174,9 +193,9 @@ defineExpose({ load, filters })
     <DialogContent class="sm:max-w-sm">
       <DialogHeader><DialogTitle>Save view</DialogTitle></DialogHeader>
       <form class="space-y-4" @submit.prevent="save">
-        <Input v-model="name" placeholder="e.g. My open bugs" autofocus aria-label="View name" />
-        <p v-if="summarizeCriteria(criteria).length" class="text-xs text-muted-foreground">
-          {{ summarizeCriteria(criteria).join(' · ') }}
+        <Input v-model="name" :placeholder="surface === 'board' ? 'e.g. My bugs by assignee' : 'e.g. My open bugs'" autofocus aria-label="View name" />
+        <p v-if="summarize(criteria).length" class="text-xs text-muted-foreground">
+          {{ summarize(criteria).join(' · ') }}
         </p>
         <label class="flex items-center gap-2 text-sm">
           <Checkbox :model-value="makeDefault" @update:model-value="(value) => (makeDefault = value === true)" />

@@ -749,12 +749,16 @@ export interface RecurringTask {
   enabled: boolean
 }
 
+export type SavedFilterSurface = 'issues' | 'board'
+
 export interface SavedFilter {
   id: string
   name: string
   projectId: string | null
+  /** Tasks list vs Kanban board views (defaults scoped per surface). */
+  surface?: SavedFilterSurface
   criteria: Record<string, string | number | boolean | null>
-  /** Applied automatically when Tasks opens with no URL filters (per person, per project/global). */
+  /** Applied automatically when Tasks/Board opens with no view selected (per person, per project/global). */
   isDefault?: boolean
 }
 
