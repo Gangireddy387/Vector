@@ -28,6 +28,8 @@ export const PLAN_FEATURES = [
   { key: 'webhooks', label: 'Outbound webhooks' },
   /** Guest links so people outside the organization can view a board or issue (read-only). */
   { key: 'publicShare', label: 'Public share links' },
+  /** Public request forms that create tasks without requiring a Vector account. */
+  { key: 'intakeForms', label: 'Request forms' },
   /** Force Google/Microsoft/OIDC sign-in and optional Azure AD tenant lock (Enterprise). */
   { key: 'sso', label: 'Enterprise SSO' },
   /** SCIM 2.0 user provisioning for IdPs (Enterprise). */
@@ -66,7 +68,7 @@ export const DEFAULT_PLANS = [
     priceLabel: '₹999 / month',
     maxMembers: 25,
     maxProjects: 20,
-    features: features('aiAssistant', 'automations', 'recurringTasks', 'templates', 'customFields', 'customRoles', 'reports', 'roadmap', 'goals', 'portfolio', 'wiki', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar', 'attachments', 'timeTracking', 'customSounds', 'channelNotifications', 'vcsLinks', 'webhooks', 'publicShare', ...EMAIL_FEATURE_KEYS),
+    features: features('aiAssistant', 'automations', 'recurringTasks', 'templates', 'customFields', 'customRoles', 'reports', 'roadmap', 'goals', 'portfolio', 'wiki', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar', 'attachments', 'timeTracking', 'customSounds', 'channelNotifications', 'vcsLinks', 'webhooks', 'publicShare', 'intakeForms', ...EMAIL_FEATURE_KEYS),
     isDefault: false,
     position: 1,
   },

@@ -27,6 +27,7 @@ import {
   Workflow,
   GitBranch,
   Share2,
+  ClipboardPenLine,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
 
@@ -55,6 +56,7 @@ export type PlanFeatureKey =
   | 'vcsLinks'
   | 'webhooks'
   | 'publicShare'
+  | 'intakeForms'
   | 'sso'
   | 'scim'
   | 'emailInvitations'
@@ -183,6 +185,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     label: 'Public share links',
     description: 'Share a read-only board or issue with people outside your organization via a link',
     icon: Share2,
+    group: 'app',
+  },
+  {
+    key: 'intakeForms',
+    label: 'Request forms',
+    description: 'Public forms that let clients and partners submit work without a Vector account',
+    icon: ClipboardPenLine,
     group: 'app',
   },
   {

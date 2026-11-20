@@ -25,6 +25,8 @@ import { publicRecordingRoutes } from './modules/meetings/meeting.recordings.js'
 import { publicMeetingFileRoutes } from './modules/meetings/meeting.files.js';
 import { publicShareRoutes } from './modules/shares/share.public.js';
 import shareRoutes from './modules/shares/share.routes.js';
+import { publicIntakeRoutes } from './modules/intake/intake.public.js';
+import intakeRoutes from './modules/intake/intake.routes.js';
 import { livekitWebhookRoutes } from './modules/meetings/meeting.phone.js';
 import { calendarSyncRoutes, publicCalendarSyncRoutes } from './modules/calendar-sync/calendar-sync.routes.js';
 import meetingRoutes from './modules/meetings/meeting.routes.js';
@@ -66,6 +68,7 @@ export function createApiRouter() {
   router.use(publicOrganizationRoutes);
   router.use(publicMeetingRoutes);
   router.use(publicShareRoutes);
+  router.use(publicIntakeRoutes);
   router.use(publicRecordingRoutes);
   router.use(publicMeetingFileRoutes);
   router.use(publicConversationFileRoutes);
@@ -120,6 +123,7 @@ export function createApiRouter() {
     conversationFileRoutes,
     meetingRoutes,
     shareRoutes,
+    intakeRoutes,
     goalRoutes,
     wikiRoutes,
     aiRoutes,

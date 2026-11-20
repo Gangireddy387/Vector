@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
 import MemberSelect from '@/modules/issues/components/pickers/MemberSelect.vue'
+import IntakeFormCard from '@/modules/intake/components/IntakeFormCard.vue'
 import ShareLinkCard from '@/modules/shares/components/ShareLinkCard.vue'
 import type { ProjectDetail } from '@/types/models'
 import { useProjectsStore } from '../../projects.store'
@@ -129,6 +130,8 @@ async function remove() {
     </Card>
 
     <ShareLinkCard kind="board" :target-id="project.id" />
+
+    <IntakeFormCard :project-id="project.id" />
 
     <Card class="border-destructive/40">
       <CardHeader>

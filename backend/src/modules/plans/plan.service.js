@@ -265,6 +265,16 @@ async function unlockPublicShare() {
   }
 }
 
+/** Plans that already include public share (or automations) also get request forms. */
+async function unlockIntakeForms() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.intakeForms || !(features.publicShare || features.automations)) continue;
+    await plan.update({ features: { ...features, intakeForms: true } });
+    console.info(`[plans] ${plan.name} plan now includes request forms`);
+  }
+}
+
 export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
@@ -281,6 +291,7 @@ export async function ensureDefaultPlans() {
     await unlockWebhooks();
     await unlockWiki();
     await unlockPublicShare();
+    await unlockIntakeForms();
     return;
   }
   const plans = await Plan.bulkCreate(DEFAULT_PLANS);

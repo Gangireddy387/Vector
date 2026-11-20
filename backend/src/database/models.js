@@ -69,6 +69,7 @@ import { Goal, KeyResult, KeyResultLink } from '../modules/goals/goal.model.js';
 import { WikiPage } from '../modules/wiki/wiki.model.js';
 import { ShowcasePortrait } from '../modules/marketing/showcase.model.js';
 import { ShareLink } from '../modules/shares/share.model.js';
+import { IntakeForm } from '../modules/intake/intake.model.js';
 
 const cascade = { onDelete: 'CASCADE' };
 
@@ -110,6 +111,13 @@ ShareLink.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 Issue.hasMany(ShareLink, { as: 'shareLinks', foreignKey: 'issueId', ...cascade });
 ShareLink.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
 ShareLink.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+
+// Public intake / request forms
+Organization.hasMany(IntakeForm, { as: 'intakeForms', foreignKey: 'organizationId', ...cascade });
+IntakeForm.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+Project.hasMany(IntakeForm, { as: 'intakeForms', foreignKey: 'projectId', ...cascade });
+IntakeForm.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+IntakeForm.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
 
 // Users & projects
 User.hasMany(ProjectMember, { as: 'memberships', foreignKey: 'userId', ...cascade });
@@ -409,6 +417,7 @@ export {
   WikiPage,
   ShowcasePortrait,
   ShareLink,
+  IntakeForm,
   KeyResult,
   KeyResultLink,
 };
