@@ -11,6 +11,8 @@ Comment.init(
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     issueId: { type: DataTypes.UUID, allowNull: false },
     authorId: { type: DataTypes.UUID, allowNull: true },
+    /** Display name when the author is a public-share guest (authorId null). */
+    guestAuthorName: { type: DataTypes.STRING(80), allowNull: true },
     /** Reply to a top-level comment (one level only). */
     parentId: { type: DataTypes.UUID, allowNull: true },
     body: { type: DataTypes.TEXT, allowNull: false },

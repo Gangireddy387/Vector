@@ -529,6 +529,8 @@ export interface Comment {
   issueId: string
   authorId: string | null
   author: UserSummary | null
+  /** Set when a public-share guest left the comment (authorId null). */
+  guestAuthorName?: string | null
   /** Null for top-level comments; replies nest one level only. */
   parentId?: string | null
   body: string

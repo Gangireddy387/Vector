@@ -38,7 +38,8 @@ export function assetUrl(path?: string | null) {
 
 http.interceptors.request.use((request) => {
   const token = getStoredToken()
-  if (token) request.headers.Authorization = `Bearer ${token}`
+  // Callers may set Authorization explicitly (e.g. passworded public share access).
+  if (token && !request.headers.Authorization) request.headers.Authorization = `Bearer ${token}`
   const organizationId = isSuperAdminTab() ? null : localStorage.getItem(ORGANIZATION_STORAGE_KEY)
   if (organizationId) request.headers['X-Organization-Id'] = organizationId
   return request
@@ -52,11 +53,16 @@ export const setUnauthorizedHandler = (handler: UnauthorizedHandler) => {
   onUnauthorized = handler
 }
 
+/** Public guest endpoints — a 401 there is a bad password / unlock failure, not a signed-out session. */
+const isPublicGuestRoute = (url?: string) =>
+  Boolean(url && (/^\/share-links\//.test(url) || /^\/intake-forms\//.test(url)))
+
 http.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    const isAuthRoute = error.config?.url?.startsWith('/auth/')
-    if (error.response?.status === 401 && !isAuthRoute) onUnauthorized?.()
+    const url = error.config?.url ?? ''
+    const isAuthRoute = url.startsWith('/auth/')
+    if (error.response?.status === 401 && !isAuthRoute && !isPublicGuestRoute(url)) onUnauthorized?.()
     return Promise.reject(error)
   },
 )

@@ -159,7 +159,11 @@ function canManage(comment: Comment) {
           </span>
           <div class="min-w-0 flex-1 space-y-1">
             <p class="flex flex-wrap items-baseline gap-x-2 text-sm">
-              <span class="font-medium">{{ comment.author?.name ?? 'Automation' }}</span>
+              <span class="font-medium">{{ comment.author?.name ?? comment.guestAuthorName ?? 'Automation' }}</span>
+              <span
+                v-if="!comment.authorId && comment.guestAuthorName"
+                class="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+              >Guest</span>
               <span class="text-xs text-muted-foreground">{{ timeAgo(comment.createdAt) }}</span>
               <span v-if="comment.editedAt" class="text-xs text-muted-foreground">(edited)</span>
             </p>
@@ -271,7 +275,11 @@ function canManage(comment: Comment) {
             </span>
             <div class="min-w-0 flex-1 space-y-1">
               <p class="flex flex-wrap items-baseline gap-x-2 text-sm">
-                <span class="font-medium">{{ reply.author?.name ?? 'Automation' }}</span>
+                <span class="font-medium">{{ reply.author?.name ?? reply.guestAuthorName ?? 'Automation' }}</span>
+                <span
+                  v-if="!reply.authorId && reply.guestAuthorName"
+                  class="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+                >Guest</span>
                 <span class="text-xs text-muted-foreground">{{ timeAgo(reply.createdAt) }}</span>
                 <span v-if="reply.editedAt" class="text-xs text-muted-foreground">(edited)</span>
               </p>

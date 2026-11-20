@@ -81,6 +81,7 @@ export async function createComment(issue, author, body, context = {}) {
   const comment = await Comment.create({
     issueId: issue.id,
     authorId: author?.id ?? null,
+    guestAuthorName: author ? null : (context.guestAuthorName ?? null),
     parentId: parent?.id ?? null,
     body,
   });

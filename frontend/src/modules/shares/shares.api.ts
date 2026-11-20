@@ -5,6 +5,15 @@ export interface ShareLinkState {
   enabled: boolean
   token: string | null
   createdAt?: string
+  hasPassword?: boolean
+  expiresAt?: string | null
+  guestCommentsEnabled?: boolean
+}
+
+export interface ShareLinkOptions {
+  password?: string
+  expiresAt?: string | null
+  guestCommentsEnabled?: boolean
 }
 
 export interface PublicShareUser {
@@ -38,7 +47,20 @@ export interface PublicShareIssueCard {
   attachmentCount: number
 }
 
+export interface PublicShareComment {
+  id: string
+  body: string
+  createdAt: string
+  authorName: string
+  isGuest: boolean
+}
+
 export interface PublicSharePayload {
+  locked?: boolean
+  requiresPassword?: boolean
+  accessToken?: string | null
+  guestCommentsEnabled?: boolean
+  comments?: PublicShareComment[]
   organization: { id: string; name: string; logoUrl: string | null }
   project: { id: string; key: string; name: string; color: string; type: 'scrum' | 'kanban' }
   scope: 'board' | 'issue'
@@ -54,12 +76,50 @@ export interface PublicSharePayload {
 
 export const shareLinkUrl = (token: string) => `${window.location.origin}/share/${token}`
 
+const accessKey = (token: string) => `vector.shareAccess.${token}`
+
+export function readShareAccessToken(token: string) {
+  try {
+    return sessionStorage.getItem(accessKey(token))
+  } catch {
+    return null
+  }
+}
+
+export function writeShareAccessToken(token: string, accessToken: string | null) {
+  try {
+    if (accessToken) sessionStorage.setItem(accessKey(token), accessToken)
+    else sessionStorage.removeItem(accessKey(token))
+  } catch {
+    // Private mode / blocked storage — unlock still works for this page load via caller state.
+  }
+}
+
+function shareAuthHeaders(token: string) {
+  const access = readShareAccessToken(token)
+  return access ? { Authorization: `Bearer ${access}` } : undefined
+}
+
 export const sharesApi = {
   getBoardShare: (projectId: string) => http.get<{ share: ShareLinkState }>(`/projects/${projectId}/share-link`).then((r) => r.data.share),
-  setBoardShare: (projectId: string, enabled: boolean, reset = false) =>
-    http.post<{ share: ShareLinkState }>(`/projects/${projectId}/share-link`, { enabled, reset }).then((r) => r.data.share),
+  setBoardShare: (projectId: string, enabled: boolean, reset = false, options: ShareLinkOptions = {}) =>
+    http
+      .post<{ share: ShareLinkState }>(`/projects/${projectId}/share-link`, { enabled, reset, ...options })
+      .then((r) => r.data.share),
   getIssueShare: (issueId: string) => http.get<{ share: ShareLinkState }>(`/issues/${issueId}/share-link`).then((r) => r.data.share),
-  setIssueShare: (issueId: string, enabled: boolean, reset = false) =>
-    http.post<{ share: ShareLinkState }>(`/issues/${issueId}/share-link`, { enabled, reset }).then((r) => r.data.share),
-  publicShare: (token: string) => http.get<PublicSharePayload>(`/share-links/${token}`).then((r) => r.data),
+  setIssueShare: (issueId: string, enabled: boolean, reset = false, options: ShareLinkOptions = {}) =>
+    http
+      .post<{ share: ShareLinkState }>(`/issues/${issueId}/share-link`, { enabled, reset, ...options })
+      .then((r) => r.data.share),
+  publicShare: (token: string) =>
+    http.get<PublicSharePayload>(`/share-links/${token}`, { headers: shareAuthHeaders(token) }).then((r) => r.data),
+  unlockShare: (token: string, password: string) =>
+    http.post<PublicSharePayload>(`/share-links/${token}/unlock`, { password }).then((r) => {
+      if (r.data.accessToken) writeShareAccessToken(token, r.data.accessToken)
+      return r.data
+    }),
+  submitGuestComment: (token: string, input: { name: string; body: string; company?: string }) =>
+    http
+      .post<PublicShareComment>(`/share-links/${token}/comments`, input, { headers: shareAuthHeaders(token) })
+      .then((r) => r.data),
 }

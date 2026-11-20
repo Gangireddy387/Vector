@@ -20,6 +20,12 @@ ShareLink.init(
     scope: { type: DataTypes.ENUM(...SHARE_SCOPES), allowNull: false },
     createdById: { type: DataTypes.UUID, allowNull: true },
     revokedAt: { type: DataTypes.DATE, allowNull: true },
+    /** bcrypt hash; never returned on the API. Null = open link. */
+    passwordHash: { type: DataTypes.STRING, allowNull: true },
+    /** After this time the link is treated as revoked. */
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    /** Issue shares only — outsiders may leave a named comment. */
+    guestCommentsEnabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
   },
   {
     sequelize,

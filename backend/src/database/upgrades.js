@@ -98,6 +98,14 @@ const ADDED_COLUMNS = [
   { table: 'organizations', column: 'invite_policy', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'organizations', column: 'capacity', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'comments', column: 'parent_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'comments', column: 'guest_author_name', definition: { type: DataTypes.STRING(80), allowNull: true } },
+  { table: 'share_links', column: 'password_hash', definition: { type: DataTypes.STRING, allowNull: true } },
+  { table: 'share_links', column: 'expires_at', definition: { type: DataTypes.DATE, allowNull: true } },
+  {
+    table: 'share_links',
+    column: 'guest_comments_enabled',
+    definition: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+  },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

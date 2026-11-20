@@ -17,6 +17,8 @@ export const TOKEN_TYPES = Object.freeze({
   loginOAuth: 'login_oauth',
   /** Short-lived: password was accepted; a TOTP or recovery code is still required. */
   mfa: 'mfa',
+  /** Unlocks a password-protected public share link (24h). */
+  shareAccess: 'share_access',
 });
 
 export const signAccessToken = (user) =>
@@ -45,6 +47,12 @@ export const isRevoked = (payload, user) => (payload.ver ?? 0) !== (user.tokenVe
 /** A pass for someone outside the organization to join one meeting's call; it opens nothing else. */
 export const signGuestToken = ({ meetingId, guestId, name }) =>
   jwt.sign({ typ: TOKEN_TYPES.guest, mid: meetingId, gid: guestId, name }, config.jwt.secret, { expiresIn: '12h' });
+
+/** After the share password is accepted — only unlocks that one share link. */
+export const signShareAccessToken = (shareId) =>
+  jwt.sign({ typ: TOKEN_TYPES.shareAccess, sid: shareId }, config.jwt.secret, { expiresIn: '24h' });
+
+export const isShareAccessToken = (payload) => payload?.typ === TOKEN_TYPES.shareAccess;
 
 /** A short-lived link to one call recording (video players cannot send a sign-in header). */
 export const signRecordingToken = (recordingId) => jwt.sign({ typ: TOKEN_TYPES.recording, rid: recordingId }, config.jwt.secret, { expiresIn: '6h' });

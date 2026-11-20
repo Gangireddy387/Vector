@@ -183,7 +183,7 @@ export const PLAN_FEATURES: PlanFeature[] = [
   {
     key: 'publicShare',
     label: 'Public share links',
-    description: 'Share a read-only board or issue with people outside your organization via a link',
+    description: 'Share a board or issue via link — optional password, expiry, and guest comments on issues',
     icon: Share2,
     group: 'app',
   },
