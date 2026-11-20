@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDevice } from '@/composables/useDevice'
 import { useProjectRealtime } from '@/composables/useProjectRealtime'
 import { getErrorMessage, isNotFoundError } from '@/lib/http'
+import { canEditIssueField } from '@/lib/issue-field-acl'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import { sprintsApi } from '@/modules/sprints/sprints.api'
@@ -84,6 +85,13 @@ const transitionActor = computed(() => ({
   teamLeadId: project.value?.team?.leadId ?? null,
 }))
 const canEdit = computed(() => projects.canEdit(issue.value?.projectId))
+const canEditTitle = computed(() => canEditIssueField(project.value, 'title', transitionActor.value, canEdit.value))
+const canEditDescription = computed(() =>
+  canEditIssueField(project.value, 'description', transitionActor.value, canEdit.value),
+)
+const canEditAssignee = computed(() =>
+  canEditIssueField(project.value, 'assigneeId', transitionActor.value, canEdit.value),
+)
 /** Anyone with project access can discuss; editing work still needs member+. */
 const canComment = computed(() => Boolean(issue.value && project.value?.myRole))
 const canUseAi = computed(() => auth.hasFeature('aiAssistant'))
@@ -255,7 +263,7 @@ function startCodeLinking() {
       <div class="overflow-y-auto" :class="isWide ? 'px-6 py-5 xl:px-8 xl:py-6' : 'p-4 pb-8 sm:p-5'">
         <div class="mx-auto max-w-3xl space-y-6">
         <div class="space-y-3">
-          <IssueTitleEditor :title="issue.title" :editable="canEdit" :done="isDone" @save="(title) => update({ title })" />
+          <IssueTitleEditor :title="issue.title" :editable="canEditTitle" :done="isDone" @save="(title) => update({ title })" />
 
           <!-- Task-focused quick actions (primary when there is no side rail) -->
           <div class="flex flex-wrap items-center gap-2">
@@ -275,7 +283,7 @@ function startCodeLinking() {
               {{ isDone ? 'Reopen' : 'Mark done' }}
             </Button>
             <Button
-              v-if="canEdit && auth.user && issue.assigneeId !== auth.user.id"
+              v-if="canEditAssignee && auth.user && issue.assigneeId !== auth.user.id"
               variant="outline"
               size="sm"
               @click="update({ assigneeId: auth.user.id })"
@@ -309,7 +317,11 @@ function startCodeLinking() {
           </div>
         </details>
 
-        <IssueDescriptionEditor :description="issue.description" :editable="canEdit" @save="(description) => update({ description })" />
+        <IssueDescriptionEditor
+          :description="issue.description"
+          :editable="canEditDescription"
+          @save="(description) => update({ description })"
+        />
         <IssueSubtasks :issue="issue" :project="project" :editable="canEdit" @changed="reloadQuietly" />
         <IssueLinks ref="linksRef" :issue="issue" :editable="canEdit" @changed="reloadQuietly" />
         <IssueExternalLinks

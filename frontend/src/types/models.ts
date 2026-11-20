@@ -325,6 +325,25 @@ export interface IssueCustomFieldValue {
   value: CustomFieldValue
 }
 
+/** Who may perform a restricted transition or field edit (membership roles + lead actors). */
+export type TransitionActor = 'admin' | 'scrum_master' | 'team_lead' | 'member' | 'viewer'
+
+/** Issue fields that can be restricted in project settings (status stays under workflow). */
+export type IssueFieldAclKey =
+  | 'title'
+  | 'description'
+  | 'assigneeId'
+  | 'priority'
+  | 'type'
+  | 'parentId'
+  | 'sprintId'
+  | 'labelIds'
+  | 'storyPoints'
+  | 'estimateMinutes'
+  | 'startDate'
+  | 'dueDate'
+  | 'customFields'
+
 export interface ProjectSettings {
   autoAssign: AutoAssignStrategy
   defaultAssigneeId: string | null
@@ -341,6 +360,11 @@ export interface ProjectSettings {
    * the Member role cannot be assigned while this is on.
    */
   commentOnly?: boolean
+  /**
+   * Per-field edit ACL. Missing key or empty actors = any editor.
+   * Non-empty = only listed actors (admin / scrum_master / team_lead / member / viewer).
+   */
+  fieldPermissions?: Partial<Record<IssueFieldAclKey, TransitionActor[]>>
   /** The ready-made sample project (offered to new organizations); it can be deleted in one click. */
   isSample?: boolean
 }
@@ -379,9 +403,6 @@ export interface Project extends ProjectReference {
   activeSprint?: { id: string; name: string; endDate: string | null } | null
 }
 
-/** Who may perform a restricted transition (membership roles + lead actors). */
-export type TransitionActor = 'admin' | 'scrum_master' | 'team_lead' | 'member' | 'viewer'
-
 export interface WorkflowTransitionRule {
   id: string
   projectId: string
@@ -399,6 +420,8 @@ export interface ProjectDetail extends Project {
   customFields: CustomField[]
   workflowTransitions: WorkflowTransitionRule[]
   members: ProjectMember[]
+  /** Per-field edit map for the current user (from project settings fieldPermissions). */
+  editableIssueFields?: Partial<Record<IssueFieldAclKey, boolean>>
 }
 
 export interface IssueReference {

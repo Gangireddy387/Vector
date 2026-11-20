@@ -25,6 +25,7 @@ import {
 } from '../custom-fields/custom-field.service.js';
 import { createComment } from '../comments/comment.service.js';
 import { projectHasFeature } from '../plans/plan.service.js';
+import { assertIssueFieldChanges, loadFieldAclContext } from '../projects/issue-field-acl.js';
 import { assertStatusTransition } from '../workflow-transitions/workflow-transition.service.js';
 import { likeOperator, writeTransaction } from '../../database/connection.js';
 import { ApiError } from '../../shared/errors/api-error.js';
@@ -487,6 +488,22 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
   const newStatus = await assertRelations(issue.projectId, relationChanges, issue.id);
   if (diff.statusId) {
     await assertStatusTransition(issue, changes.statusId, changes, context, actor);
+  }
+
+  const aclKeys = [
+    ...Object.keys(diff).filter((field) => field !== 'statusId' && field !== 'position' && field !== 'labels'),
+    ...(changes.labelIds ? ['labelIds'] : []),
+    ...(changes.customFields && Object.keys(changes.customFields).length ? ['customFields'] : []),
+  ];
+  if (aclKeys.length) {
+    const { project: aclProject, role: aclRole } = await loadFieldAclContext(issue.projectId, actor?.id ?? null);
+    await assertIssueFieldChanges({
+      project: aclProject,
+      role: aclRole,
+      actor,
+      changedKeys: aclKeys,
+      context,
+    });
   }
 
   const updates = Object.fromEntries(Object.entries(diff).map(([field, value]) => [field, value.to ?? null]));

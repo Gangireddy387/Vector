@@ -21,6 +21,12 @@ export const DEFAULT_PROJECT_SETTINGS = Object.freeze({
    * the Member role cannot be assigned while this is on (Admin and Viewer only).
    */
   commentOnly: false,
+  /**
+   * Per-field edit ACL. Missing key or empty actors = any project editor (member+).
+   * Non-empty = only listed actors (same as workflow: admin, scrum_master, team_lead, member, viewer).
+   * Status stays under workflow transition rules.
+   */
+  fieldPermissions: {},
 });
 
 export class Project extends Model {}

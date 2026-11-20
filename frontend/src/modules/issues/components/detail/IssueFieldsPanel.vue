@@ -11,11 +11,12 @@ import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { formatDateTime } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
+import { canEditIssueField } from '@/lib/issue-field-acl'
 import { askTransitionComment } from '@/lib/transition-comment'
 import { canPerformTransition, transitionRuleFor } from '@/lib/workflow-transitions'
 import { formatMinutes, parseDuration } from '@/lib/utils'
 import { useAuthStore } from '@/modules/auth/auth.store'
-import type { CustomField, CustomFieldValue, IssueDetail, ProjectDetail, Sprint } from '@/types/models'
+import type { CustomField, CustomFieldValue, IssueDetail, IssueFieldAclKey, ProjectDetail, Sprint } from '@/types/models'
 import { type UpdateIssueInput, issuesApi } from '../../api/issues.api'
 import IssueTypeSelect from '../pickers/IssueTypeSelect.vue'
 import LabelMultiSelect from '../pickers/LabelMultiSelect.vue'
@@ -33,7 +34,21 @@ const props = withDefaults(
 const emit = defineEmits<{ update: [changes: UpdateIssueInput]; refreshed: [issue: IssueDetail] }>()
 
 const auth = useAuthStore()
-const canEditCustomFields = computed(() => props.editable && auth.hasFeature('customFields'))
+
+const transitionActor = computed(() => ({
+  role: props.project.myRole,
+  userId: auth.user?.id ?? null,
+  projectLeadId: props.project.leadId ?? null,
+  teamLeadId: props.project.team?.leadId ?? null,
+}))
+
+function fieldEditable(field: IssueFieldAclKey) {
+  return canEditIssueField(props.project, field, transitionActor.value, props.editable)
+}
+
+const canEditCustomFields = computed(
+  () => fieldEditable('customFields') && auth.hasFeature('customFields'),
+)
 const customFields = computed(() => props.project.customFields ?? [])
 const customValueMap = computed(() => {
   const map = new Map<string, CustomFieldValue>()
@@ -139,13 +154,6 @@ function setField<K extends keyof UpdateIssueInput>(field: K, value: UpdateIssue
   emit('update', { [field]: value } as UpdateIssueInput)
 }
 
-const transitionActor = computed(() => ({
-  role: props.project.myRole,
-  userId: auth.user?.id ?? null,
-  projectLeadId: props.project.leadId ?? null,
-  teamLeadId: props.project.team?.leadId ?? null,
-}))
-
 async function setStatus(statusId: string) {
   if (statusId === props.issue.statusId) return
   const rule = transitionRuleFor(props.project.workflowTransitions, props.issue.statusId)
@@ -191,7 +199,7 @@ async function setStatus(statusId: string) {
           :model-value="issue.assigneeId"
           :members="assignableMembers"
           size="sm"
-          :disabled="!editable"
+          :disabled="!fieldEditable('assigneeId')"
           @update:model-value="(value) => setField('assigneeId', value)"
         />
       </IssueFieldRow>
@@ -199,7 +207,13 @@ async function setStatus(statusId: string) {
         <span class="flex items-center gap-2"><UserAvatar :user="issue.reporter" size="xs" /> {{ issue.reporter?.name ?? 'Automation' }}</span>
       </IssueFieldRow>
       <IssueFieldRow label="Priority" for="field-priority">
-        <PrioritySelect id="field-priority" :model-value="issue.priority" size="sm" :disabled="!editable" @update:model-value="(value) => setField('priority', value)" />
+        <PrioritySelect
+          id="field-priority"
+          :model-value="issue.priority"
+          size="sm"
+          :disabled="!fieldEditable('priority')"
+          @update:model-value="(value) => setField('priority', value)"
+        />
       </IssueFieldRow>
       <IssueFieldRow label="Type" for="field-type">
         <IssueTypeSelect
@@ -207,7 +221,7 @@ async function setStatus(statusId: string) {
           :model-value="issue.type"
           :allow-subtask="Boolean(issue.parentId)"
           size="sm"
-          :disabled="!editable"
+          :disabled="!fieldEditable('type')"
           @update:model-value="(value) => setField('type', value)"
         />
       </IssueFieldRow>
@@ -217,19 +231,26 @@ async function setStatus(statusId: string) {
           :model-value="issue.parentId"
           :project-id="project.id"
           size="sm"
-          :disabled="!editable"
+          :disabled="!fieldEditable('parentId')"
           @update:model-value="(value) => setField('parentId', value)"
         />
       </IssueFieldRow>
       <IssueFieldRow v-if="project.type === 'scrum' && issue.type !== 'epic'" label="Sprint" for="field-sprint">
-        <SprintSelect id="field-sprint" :model-value="issue.sprintId" :sprints="sprints" size="sm" :disabled="!editable" @update:model-value="(value) => setField('sprintId', value)" />
+        <SprintSelect
+          id="field-sprint"
+          :model-value="issue.sprintId"
+          :sprints="sprints"
+          size="sm"
+          :disabled="!fieldEditable('sprintId')"
+          @update:model-value="(value) => setField('sprintId', value)"
+        />
       </IssueFieldRow>
       <IssueFieldRow label="Labels">
         <LabelMultiSelect
           :model-value="issue.labels.map((label) => label.id)"
           :labels="project.labels"
           :project-id="project.id"
-          :disabled="!editable"
+          :disabled="!fieldEditable('labelIds')"
           @update:model-value="(value) => setField('labelIds', value)"
         />
       </IssueFieldRow>
@@ -317,7 +338,16 @@ async function setStatus(statusId: string) {
 
     <div class="py-2">
       <IssueFieldRow label="Story points" for="field-points">
-        <NumberField id="field-points" v-model="storyPoints" :min="0" :max="100" size="sm" placeholder="–" :disabled="!editable" @commit="commitStoryPoints" />
+        <NumberField
+          id="field-points"
+          v-model="storyPoints"
+          :min="0"
+          :max="100"
+          size="sm"
+          placeholder="–"
+          :disabled="!fieldEditable('storyPoints')"
+          @commit="commitStoryPoints"
+        />
       </IssueFieldRow>
       <IssueFieldRow label="Estimate" for="field-estimate">
         <Input
@@ -325,7 +355,7 @@ async function setStatus(statusId: string) {
           v-model="estimate"
           placeholder="e.g. 2h 30m"
           class="h-8"
-          :disabled="!editable"
+          :disabled="!fieldEditable('estimateMinutes')"
           @focus="isEditingEstimate = true"
           @input="isEditingEstimate = true"
           @blur="commitEstimate"
@@ -338,7 +368,7 @@ async function setStatus(statusId: string) {
           :model-value="issue.startDate ?? ''"
           size="sm"
           placeholder="None"
-          :disabled="!editable"
+          :disabled="!fieldEditable('startDate')"
           @update:model-value="(value) => emit('update', { startDate: value || null })"
         />
       </IssueFieldRow>
@@ -348,7 +378,7 @@ async function setStatus(statusId: string) {
           :model-value="issue.dueDate ?? ''"
           size="sm"
           placeholder="None"
-          :disabled="!editable"
+          :disabled="!fieldEditable('dueDate')"
           @update:model-value="(value) => emit('update', { dueDate: value || null })"
         />
       </IssueFieldRow>

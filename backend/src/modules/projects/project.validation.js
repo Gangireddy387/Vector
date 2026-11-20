@@ -1,8 +1,17 @@
 import { z } from 'zod';
+import { PROJECT_TRANSITION_ACTORS } from '../workflow-transitions/workflow-transition.service.js';
+import { ISSUE_FIELD_ACL_KEYS } from './issue-field-acl.js';
 import { AUTO_ASSIGN_STRATEGIES, PROJECT_TYPES } from './project.model.js';
 import { PROJECT_ROLES } from './project-member.model.js';
 
 const color = z.string().regex(/^#[0-9a-f]{6}$/i, 'Use a hex color such as #4f46e5');
+
+const fieldActor = z.enum(/** @type {[string, ...string[]]} */ (PROJECT_TRANSITION_ACTORS));
+/** Partial map — unknown keys dropped later by `cleanFieldPermissions`. */
+const fieldPermissionsSchema = z
+  .object(Object.fromEntries(ISSUE_FIELD_ACL_KEYS.map((key) => [key, z.array(fieldActor).max(5).optional()])))
+  .partial()
+  .optional();
 
 export const createProjectSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -37,6 +46,7 @@ export const updateProjectSchema = z.object({
       standupReminderHour: z.number().int().min(0).max(23).optional(),
       standupDigestHour: z.number().int().min(0).max(23).optional(),
       commentOnly: z.boolean().optional(),
+      fieldPermissions: fieldPermissionsSchema,
     })
     .optional(),
 });

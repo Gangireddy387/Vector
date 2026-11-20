@@ -32,9 +32,14 @@ import { getHeadedProjectIds, isOrganizationAdminRequest, sprintManagerRule } fr
 import { DEFAULT_STATUSES } from '../statuses/status.model.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
+import { cleanFieldPermissions, editableIssueFieldsFor } from './issue-field-acl.js';
 import { DEFAULT_PROJECT_SETTINGS } from './project.model.js';
 
-const withDefaultSettings = (project) => ({ ...DEFAULT_PROJECT_SETTINGS, ...(project.settings ?? {}) });
+const withDefaultSettings = (project) => {
+  const merged = { ...DEFAULT_PROJECT_SETTINGS, ...(project.settings ?? {}) };
+  merged.fieldPermissions = cleanFieldPermissions(merged.fieldPermissions);
+  return merged;
+};
 
 /** Issue counts per project and status, counted by the database (one row per status, not one per issue). */
 async function summarizeIssues(projectIds) {
@@ -211,11 +216,20 @@ export async function getProject(projectId, userId) {
   const team = json.teamId ? (await owningTeams([json.teamId])).get(json.teamId) : null;
   const headRole = !isOrganizationAdmin && !myMembership && (await getHeadedProjectIds(userId)).includes(json.id) ? 'member' : null;
   const myRole = isOrganizationAdmin ? 'admin' : (myMembership?.role ?? headRole);
+  const settings = withDefaultSettings(json);
   return {
     ...json,
-    settings: withDefaultSettings(json),
+    settings,
     myRole,
     canManageSprints: sprintManagerRule({ role: myRole, userId, projectLeadId: json.leadId, teamLeadId: team?.leadId }),
+    /** Per-field edit map for the current user (status stays under workflow rules). */
+    editableIssueFields: editableIssueFieldsFor({
+      fieldPermissions: settings.fieldPermissions,
+      role: myRole,
+      userId,
+      projectLeadId: json.leadId,
+      teamLeadId: team?.leadId ?? null,
+    }),
     isMember: Boolean(myMembership),
     team: team ? { id: team.id, name: team.name, leadId: team.leadId ?? null } : null,
     members: json.memberships.map((membership) => ({ ...membership.user, role: membership.role, memberId: membership.id })),
@@ -228,7 +242,13 @@ export async function updateProject(projectId, user, changes) {
   const { settings, archived, ...rest } = changes;
   const updates = { ...rest };
 
-  if (settings) updates.settings = { ...withDefaultSettings(project), ...settings };
+  if (settings) {
+    const next = { ...withDefaultSettings(project), ...settings };
+    if (settings.fieldPermissions !== undefined) {
+      next.fieldPermissions = cleanFieldPermissions(settings.fieldPermissions);
+    }
+    updates.settings = next;
+  }
   if (archived !== undefined) updates.archivedAt = archived ? new Date() : null;
   if (rest.leadId) await assertIsMember(projectId, rest.leadId);
   if (settings?.defaultAssigneeId) await assertIsMember(projectId, settings.defaultAssigneeId);
