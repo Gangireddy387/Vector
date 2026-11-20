@@ -73,4 +73,27 @@ export const wikiApi = {
   restore: (pageId: string, revisionId: string) =>
     http.post<{ page: WikiPage }>(`/wiki/pages/${pageId}/history/${revisionId}/restore`).then((r) => r.data.page),
   remove: (pageId: string) => http.delete(`/wiki/pages/${pageId}`),
+  files: (pageId: string) => http.get<{ files: WikiFile[] }>(`/wiki/pages/${pageId}/files`).then((r) => r.data.files),
+  uploadFile: (pageId: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return http.post<{ file: WikiFile }>(`/wiki/pages/${pageId}/files`, form).then((r) => r.data.file)
+  },
+  fileLink: (pageId: string, fileId: string) =>
+    http
+      .get<{ url: string; absoluteUrl: string | null; thumbUrl: string | null; officeEmbedUrl: string | null }>(
+        `/wiki/pages/${pageId}/files/${fileId}/link`,
+      )
+      .then((r) => r.data),
+  removeFile: (pageId: string, fileId: string) => http.delete(`/wiki/pages/${pageId}/files/${fileId}`),
+}
+
+export interface WikiFile {
+  id: string
+  pageId: string
+  fileName: string
+  mimeType: string
+  size: number
+  hasThumb?: boolean
+  createdAt: string
 }

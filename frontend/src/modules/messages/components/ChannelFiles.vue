@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { format, parseISO } from 'date-fns'
-import { Copy, Download, FileArchive, FileImage, FileSpreadsheet, FileText, FolderOpen, MessageSquareText, Search } from 'lucide-vue-next'
+import { Copy, Download, Eye, FileArchive, FileImage, FileSpreadsheet, FileText, FolderOpen, MessageSquareText, Search } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import FilePreviewLightbox from '@/components/common/FilePreviewLightbox.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { isPreviewable } from '@/lib/file-preview'
 import { assetUrl, getErrorMessage } from '@/lib/http'
 import { useSocketEvents } from '@/lib/socket-events'
 import { formatBytes } from '@/lib/utils'
@@ -18,6 +20,10 @@ const emit = defineEmits<{ openPost: [postId: string] }>()
 
 const files = ref<SharedFile[] | null>(null)
 const search = ref('')
+const previewOpen = ref(false)
+const previewLoading = ref(false)
+const previewUrl = ref<string | null>(null)
+const previewFile = ref<SharedFile | null>(null)
 
 async function load() {
   try {
@@ -46,11 +52,30 @@ function iconOf(file: SharedFile) {
   return FileText
 }
 
+async function resolveUrl(file: SharedFile) {
+  return assetUrl(await messagesApi.fileLink(props.conversationId, file.id))!
+}
+
 async function open(file: SharedFile) {
+  if (isPreviewable(file.mimeType)) {
+    previewFile.value = file
+    previewOpen.value = true
+    previewLoading.value = true
+    previewUrl.value = null
+    try {
+      previewUrl.value = await resolveUrl(file)
+    } catch (error) {
+      previewOpen.value = false
+      toast.error(getErrorMessage(error))
+    } finally {
+      previewLoading.value = false
+    }
+    return
+  }
   const tab = window.open('', '_blank')
   if (tab) tab.opener = null
   try {
-    const url = assetUrl(await messagesApi.fileLink(props.conversationId, file.id))!
+    const url = await resolveUrl(file)
     if (tab) tab.location.href = url
     else window.location.assign(url)
   } catch (error) {
@@ -59,9 +84,28 @@ async function open(file: SharedFile) {
   }
 }
 
+async function downloadCurrent() {
+  if (!previewFile.value) return
+  try {
+    const url = previewUrl.value ?? (await resolveUrl(previewFile.value))
+    const tab = window.open(url, '_blank', 'noopener')
+    if (!tab) window.location.assign(url)
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  }
+}
+
+function onPreviewOpen(value: boolean) {
+  previewOpen.value = value
+  if (!value) {
+    previewUrl.value = null
+    previewFile.value = null
+  }
+}
+
 async function copyLink(file: SharedFile) {
   try {
-    const url = assetUrl(await messagesApi.fileLink(props.conversationId, file.id))!
+    const url = await resolveUrl(file)
     await navigator.clipboard.writeText(url.startsWith('http') ? url : `${window.location.origin}${url}`)
     toast.success('Link copied')
   } catch (error) {
@@ -102,7 +146,7 @@ async function copyLink(file: SharedFile) {
         <tbody>
           <tr v-for="file in shown" :key="file.id" class="group border-b border-border/60 hover:bg-accent/40">
             <td class="px-4 py-2 sm:pl-[5%]">
-              <button type="button" class="flex min-w-0 items-center gap-2.5 text-left" :title="`Open ${file.fileName}`" @click="open(file)">
+              <button type="button" class="flex min-w-0 items-center gap-2.5 text-left" :title="isPreviewable(file.mimeType) ? `Preview ${file.fileName}` : `Open ${file.fileName}`" @click="open(file)">
                 <component :is="iconOf(file)" class="size-5 shrink-0 text-primary" />
                 <span class="truncate font-medium group-hover:underline">{{ file.fileName }}</span>
               </button>
@@ -116,6 +160,16 @@ async function copyLink(file: SharedFile) {
               <span class="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                 <Button variant="ghost" size="icon-sm" :aria-label="`Show the post with ${file.fileName}`" title="Show in the conversation" @click="emit('openPost', file.postId)"><MessageSquareText /></Button>
                 <Button variant="ghost" size="icon-sm" :aria-label="`Copy link to ${file.fileName}`" title="Copy link" @click="copyLink(file)"><Copy /></Button>
+                <Button
+                  v-if="isPreviewable(file.mimeType)"
+                  variant="ghost"
+                  size="icon-sm"
+                  :aria-label="`Preview ${file.fileName}`"
+                  title="Preview"
+                  @click="open(file)"
+                >
+                  <Eye />
+                </Button>
                 <Button variant="ghost" size="icon-sm" :aria-label="`Open ${file.fileName}`" title="Open" @click="open(file)"><Download /></Button>
               </span>
             </td>
@@ -123,5 +177,15 @@ async function copyLink(file: SharedFile) {
         </tbody>
       </table>
     </div>
+
+    <FilePreviewLightbox
+      :open="previewOpen"
+      :file-name="previewFile?.fileName ?? ''"
+      :mime-type="previewFile?.mimeType ?? ''"
+      :url="previewUrl"
+      :loading="previewLoading"
+      @update:open="onPreviewOpen"
+      @download="downloadCurrent"
+    />
   </div>
 </template>

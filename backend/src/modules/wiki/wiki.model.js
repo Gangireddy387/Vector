@@ -50,3 +50,31 @@ WikiPageRevision.init(
     indexes: [{ fields: ['page_id', 'created_at'] }],
   },
 );
+
+/** File attached to a wiki page; markdown uses stable `wiki-file:<uuid>` refs. */
+export class WikiFile extends Model {
+  toJSON() {
+    const { storageKey: _storageKey, thumbStorageKey: _thumbStorageKey, ...values } = this.get();
+    return { ...values, hasThumb: Boolean(_thumbStorageKey) };
+  }
+}
+
+WikiFile.init(
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    pageId: { type: DataTypes.UUID, allowNull: false },
+    organizationId: { type: DataTypes.UUID, allowNull: false },
+    uploaderId: { type: DataTypes.UUID, allowNull: true },
+    fileName: { type: DataTypes.STRING(255), allowNull: false },
+    mimeType: { type: DataTypes.STRING(120), allowNull: false },
+    size: { type: DataTypes.INTEGER, allowNull: false },
+    storageKey: { type: DataTypes.STRING(255), allowNull: false },
+    thumbStorageKey: { type: DataTypes.STRING(255), allowNull: true },
+  },
+  {
+    sequelize,
+    modelName: 'WikiFile',
+    tableName: 'wiki_files',
+    indexes: [{ fields: ['page_id'] }, { fields: ['organization_id'] }],
+  },
+);

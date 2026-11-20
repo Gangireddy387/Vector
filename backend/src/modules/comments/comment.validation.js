@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { COMMENT_REACTION_EMOJIS } from './comment.model.js';
 
+/** Body may be empty when the comment is only file attachments (uploaded right after create). */
 export const commentBodySchema = z.object({
-  body: z.string().trim().min(1, 'Write something first').max(20000),
+  body: z.string().max(20000).default(''),
   parentId: z.string().uuid().nullable().optional(),
 });
 

@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
 import { usePromptText } from '@/composables/usePromptText'
-import { getErrorMessage } from '@/lib/http'
+import { assetUrl, getErrorMessage } from '@/lib/http'
 import WritingAssistBar from '@/modules/ai/components/WritingAssistBar.vue'
 import { aiSourceHint } from '@/modules/issues/api/ai.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -60,8 +60,41 @@ const query = ref('')
 const saveLabel = ref('')
 const assistRef = ref<InstanceType<typeof WritingAssistBar> | null>(null)
 const bodyEl = ref<HTMLTextAreaElement | null>(null)
+/** Body with `wiki-file:<uuid>` rewritten to short-lived signed URLs for RichText. */
+const resolvedBody = ref('')
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null
+let resolveTimer: ReturnType<typeof setTimeout> | null = null
+
+async function resolveWikiFileRefs(source: string, pageId: string | null) {
+  if (!pageId || !source.includes('wiki-file:')) {
+    resolvedBody.value = source
+    return
+  }
+  const ids = [...source.matchAll(/wiki-file:([0-9a-f-]{36})/gi)].map((match) => match[1]!)
+  const unique = [...new Set(ids)]
+  const map = new Map<string, string>()
+  await Promise.all(
+    unique.map(async (id) => {
+      try {
+        const link = await wikiApi.fileLink(pageId, id)
+        map.set(id, assetUrl(link.url)!)
+      } catch {
+        /* leave unresolved */
+      }
+    }),
+  )
+  resolvedBody.value = source.replace(/wiki-file:([0-9a-f-]{36})/gi, (match, id: string) => map.get(id) ?? match)
+}
+
+watch(
+  () => [body.value, selectedId.value] as const,
+  ([source, pageId]) => {
+    if (resolveTimer) clearTimeout(resolveTimer)
+    resolveTimer = setTimeout(() => void resolveWikiFileRefs(source, pageId), 200)
+  },
+  { immediate: true },
+)
 
 const canAi = computed(() => auth.hasFeature('aiAssistant'))
 const selected = computed(() => pages.value?.find((page) => page.id === selectedId.value) ?? null)
@@ -150,6 +183,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (searchTimer) clearTimeout(searchTimer)
   if (autosaveTimer) clearTimeout(autosaveTimer)
+  if (resolveTimer) clearTimeout(resolveTimer)
 })
 
 watch(
@@ -673,7 +707,7 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
             </div>
             <RichText
               v-if="body.trim()"
-              :source="body"
+              :source="resolvedBody"
               :issue-keys="issueKeys"
               :wiki-pages="wikiLinkTargets"
               class="wiki-doc text-[15px]"
@@ -692,7 +726,7 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
         <template v-else>
           <div class="space-y-2 border-b border-border bg-background px-3 py-2 sm:px-4">
             <div class="flex flex-wrap items-center gap-2">
-              <WikiEditorToolbar :textarea="bodyEl" @change="markDirty" />
+              <WikiEditorToolbar :textarea="bodyEl" :page-id="selectedId" @change="markDirty" />
               <Button v-if="canAi" size="xs" variant="secondary" class="ml-auto" :loading="filling" @click="finishWithAi">
                 <Sparkles class="size-3.5" /> Finish with AI
               </Button>
@@ -717,7 +751,7 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
                 <p class="mb-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Preview</p>
                 <RichText
                   v-if="body.trim()"
-                  :source="body"
+                  :source="resolvedBody"
                   :issue-keys="issueKeys"
                   :wiki-pages="wikiLinkTargets"
                   class="text-[14px]"

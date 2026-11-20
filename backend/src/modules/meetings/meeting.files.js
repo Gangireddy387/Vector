@@ -7,17 +7,13 @@ import { ApiError } from '../../shared/errors/api-error.js';
 import { isUuid } from '../../shared/utils/ids.js';
 import { deleteStoredFile, resolveStoragePath, storage, toStorageKey } from '../attachments/attachment.storage.js';
 import { originalFileName } from '../attachments/attachment.service.js';
+import { isInlineMime, safeResponseMime } from '../../shared/utils/preview-mime.js';
 import { signFileToken, TOKEN_TYPES, verifyAccessToken } from '../auth/token.js';
 
 /**
  * Files shared in a call's chat. People from the organization upload them (guests can open them); everyone in the
- * call gets them through short-lived links, because images are shown inline and the browser loads those by address.
+ * call gets them through short-lived links, because images / PDF / media are shown inline.
  */
-
-/** Shown inside the chat; everything else downloads. */
-const INLINE_TYPES = /^image\/(png|jpeg|gif|webp)$/i;
-/** Types a browser could run as a page or script; always handed over as plain downloads. */
-const ACTIVE_TYPES = /^(text\/html|application\/xhtml\+xml|image\/svg\+xml|text\/xml|application\/xml|text\/javascript|application\/javascript)/i;
 
 const upload = multer({ storage, limits: { fileSize: config.uploads.maxFileSizeMb * 1024 * 1024, files: 1 } });
 
@@ -92,8 +88,8 @@ publicMeetingFileRoutes.get('/meeting-files/:fileId', async (req, res) => {
   if (payload.typ !== TOKEN_TYPES.file || payload.fid !== req.params.fileId) throw ApiError.unauthorized('This link is not valid');
   const file = await MeetingFile.findByPk(req.params.fileId);
   if (!file) throw ApiError.notFound('File not found');
-  const inline = INLINE_TYPES.test(file.mimeType);
-  res.type(ACTIVE_TYPES.test(file.mimeType) ? 'application/octet-stream' : file.mimeType);
+  const inline = isInlineMime(file.mimeType);
+  res.type(safeResponseMime(file.mimeType));
   res.set('Cache-Control', 'private, max-age=3600');
   if (!inline) res.attachment(file.fileName);
   res.sendFile(resolveStoragePath(file.storageKey));

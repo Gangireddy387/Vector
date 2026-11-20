@@ -68,7 +68,7 @@ import {
 } from '../modules/meetings/meeting.model.js';
 import { PushSubscription } from '../modules/push/push-subscription.model.js';
 import { Goal, KeyResult, KeyResultCheckIn, KeyResultLink } from '../modules/goals/goal.model.js';
-import { WikiPage, WikiPageRevision } from '../modules/wiki/wiki.model.js';
+import { WikiFile, WikiPage, WikiPageRevision } from '../modules/wiki/wiki.model.js';
 import { ShowcasePortrait } from '../modules/marketing/showcase.model.js';
 import { ShareLink } from '../modules/shares/share.model.js';
 import { IntakeForm, IntakeSubmission } from '../modules/intake/intake.model.js';
@@ -209,6 +209,8 @@ CommentReaction.belongsTo(User, { as: 'user', foreignKey: 'userId', ...cascade }
 Issue.hasMany(Attachment, { as: 'attachments', foreignKey: 'issueId', ...cascade });
 Attachment.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
 Attachment.belongsTo(User, { as: 'uploader', foreignKey: 'uploaderId', onDelete: 'SET NULL' });
+Comment.hasMany(Attachment, { as: 'attachments', foreignKey: 'commentId', constraints: false });
+Attachment.belongsTo(Comment, { as: 'comment', foreignKey: 'commentId', constraints: false });
 
 Issue.hasMany(WorkLog, { as: 'workLogs', foreignKey: 'issueId', ...cascade });
 WorkLog.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
@@ -364,6 +366,11 @@ WikiPage.hasMany(WikiPage, { as: 'children', foreignKey: 'parentId', constraints
 WikiPage.hasMany(WikiPageRevision, { as: 'revisions', foreignKey: 'pageId', ...cascade });
 WikiPageRevision.belongsTo(WikiPage, { as: 'page', foreignKey: 'pageId' });
 WikiPageRevision.belongsTo(User, { as: 'editor', foreignKey: 'editorId', onDelete: 'SET NULL' });
+WikiPage.hasMany(WikiFile, { as: 'files', foreignKey: 'pageId', ...cascade });
+WikiFile.belongsTo(WikiPage, { as: 'page', foreignKey: 'pageId' });
+WikiFile.belongsTo(User, { as: 'uploader', foreignKey: 'uploaderId', onDelete: 'SET NULL' });
+Organization.hasMany(WikiFile, { as: 'wikiFiles', foreignKey: 'organizationId', ...cascade });
+WikiFile.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
 
 // Devices that receive this person's push notifications
 User.hasMany(PushSubscription, { as: 'pushSubscriptions', foreignKey: 'userId', ...cascade });
@@ -467,6 +474,7 @@ export {
   Goal,
   WikiPage,
   WikiPageRevision,
+  WikiFile,
   ShowcasePortrait,
   ShareLink,
   IntakeForm,

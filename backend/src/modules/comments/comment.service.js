@@ -2,6 +2,7 @@ import { Comment, CommentReaction, IssueWatcher, ProjectMember, User } from '../
 import { ApiError } from '../../shared/errors/api-error.js';
 import { DomainEvents, eventBus } from '../../shared/events/event-bus.js';
 import { logActivity } from '../activity/activity.service.js';
+import { attachmentsForComments, deleteAttachmentsForComments } from '../attachments/attachment.service.js';
 import { assertProjectRole } from '../projects/project-access.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { COMMENT_REACTION_EMOJIS } from './comment.model.js';
@@ -34,20 +35,25 @@ async function reactionsFor(commentIds) {
   return map;
 }
 
-function decorateComment(row, reactionMap) {
+function decorateComment(row, reactionMap, attachmentMap = new Map()) {
   const json = row.toJSON ? row.toJSON() : { ...row };
-  return { ...json, reactions: reactionMap.get(json.id) ?? [] };
+  return {
+    ...json,
+    reactions: reactionMap.get(json.id) ?? [],
+    attachments: (attachmentMap.get(json.id) ?? []).map((file) => (file.toJSON ? file.toJSON() : file)),
+  };
 }
 
-/** Roots with nested replies (ASC), each with reaction chips. */
+/** Roots with nested replies (ASC), each with reaction chips and file attachments. */
 export async function listComments(issueId) {
   const rows = await Comment.findAll({
     where: { issueId },
     include: authorInclude,
     order: [['createdAt', 'ASC']],
   });
-  const reactionMap = await reactionsFor(rows.map((row) => row.id));
-  const decorated = rows.map((row) => decorateComment(row, reactionMap));
+  const ids = rows.map((row) => row.id);
+  const [reactionMap, attachmentMap] = await Promise.all([reactionsFor(ids), attachmentsForComments(ids)]);
+  const decorated = rows.map((row) => decorateComment(row, reactionMap, attachmentMap));
   const roots = [];
   const repliesByParent = new Map();
   for (const comment of decorated) {
@@ -118,7 +124,7 @@ export async function createComment(issue, author, body, context = {}) {
   });
 
   const loaded = await Comment.findByPk(comment.id, { include: authorInclude });
-  return { ...decorateComment(loaded, new Map()), replies: parent ? undefined : [] };
+  return { ...decorateComment(loaded, new Map(), new Map()), replies: parent ? undefined : [], attachments: [] };
 }
 
 async function loadOwnedComment(commentId, userId, { allowProjectAdmin = false } = {}) {
@@ -146,6 +152,7 @@ export async function deleteComment(commentId, userId) {
     await Comment.findAll({ where: { parentId: comment.id }, attributes: ['id'], raw: true })
   ).map((row) => row.id);
   const allIds = [comment.id, ...replyIds];
+  await deleteAttachmentsForComments(allIds);
   await CommentReaction.destroy({ where: { commentId: allIds } });
   if (replyIds.length) await Comment.destroy({ where: { id: replyIds } });
   await comment.destroy();

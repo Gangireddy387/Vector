@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { Bot, MessageSquare, MessageSquareReply, SmilePlus } from 'lucide-vue-next'
+import { Bot, Eye, FileText, MessageSquare, MessageSquareReply, SmilePlus } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import FilePreviewLightbox from '@/components/common/FilePreviewLightbox.vue'
 import MarkdownContent from '@/components/common/MarkdownContent.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useConfirm } from '@/composables/useConfirm'
+import { isPreviewable } from '@/lib/file-preview'
 import { timeAgo } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
+import { formatBytes } from '@/lib/utils'
 import { useAuthStore } from '@/modules/auth/auth.store'
-import type { Comment, CommentReaction, UserSummary } from '@/types/models'
-import { COMMENT_REACTIONS, commentsApi } from '../../api/collaboration.api'
+import type { Attachment, Comment, CommentReaction, UserSummary } from '@/types/models'
+import { COMMENT_REACTIONS, attachmentsApi, commentsApi } from '../../api/collaboration.api'
 import CommentComposer from './CommentComposer.vue'
 
 const props = withDefaults(
@@ -27,6 +30,12 @@ const editingId = ref<string | null>(null)
 const replyToId = ref<string | null>(null)
 const composer = ref<InstanceType<typeof CommentComposer> | null>(null)
 const replyComposer = ref<InstanceType<typeof CommentComposer> | null>(null)
+const previewOpen = ref(false)
+const previewLoading = ref(false)
+const previewUrl = ref<string | null>(null)
+const previewOfficeEmbed = ref<string | null>(null)
+const previewAttachment = ref<Attachment | null>(null)
+let ownedPreviewUrl: string | null = null
 
 const roots = computed(() => [...comments.value].reverse())
 const memberName = (userId: string) => props.members.find((member) => member.id === userId)?.name ?? 'Someone'
@@ -46,10 +55,20 @@ function applyReactions(commentId: string, reactions: CommentReaction[]) {
   })
 }
 
-async function create(body: string) {
+async function attachFiles(commentId: string, files: File[]) {
+  if (!files.length) return [] as Attachment[]
+  return attachmentsApi.uploadForComment(commentId, files)
+}
+
+async function create(body: string, files: File[] = []) {
+  if (!body.trim() && !files.length) return
   try {
-    const created = await commentsApi.create(props.issueId, body)
-    comments.value = [...comments.value, { ...created, replies: created.replies ?? [] }]
+    const created = await commentsApi.create(props.issueId, body.trim() || '')
+    const uploaded = await attachFiles(created.id, files)
+    comments.value = [
+      ...comments.value,
+      { ...created, replies: created.replies ?? [], attachments: uploaded },
+    ]
     composer.value?.reset()
     emit('changed')
   } catch (error) {
@@ -58,11 +77,15 @@ async function create(body: string) {
   }
 }
 
-async function createReply(parentId: string, body: string) {
+async function createReply(parentId: string, body: string, files: File[] = []) {
+  if (!body.trim() && !files.length) return
   try {
-    const created = await commentsApi.create(props.issueId, body, { parentId })
+    const created = await commentsApi.create(props.issueId, body.trim() || '', { parentId })
+    const uploaded = await attachFiles(created.id, files)
     comments.value = comments.value.map((root) =>
-      root.id === parentId ? { ...root, replies: [...(root.replies ?? []), created] } : root,
+      root.id === parentId
+        ? { ...root, replies: [...(root.replies ?? []), { ...created, attachments: uploaded }] }
+        : root,
     )
     replyToId.value = null
     replyComposer.value?.reset()
@@ -77,16 +100,62 @@ async function update(comment: Comment, body: string) {
   try {
     const updated = await commentsApi.update(comment.id, body)
     comments.value = comments.value.map((root) => {
-      if (root.id === comment.id) return { ...root, ...updated, replies: root.replies }
+      if (root.id === comment.id) return { ...root, ...updated, replies: root.replies, attachments: root.attachments }
       if (!root.replies?.length) return root
       return {
         ...root,
-        replies: root.replies.map((reply) => (reply.id === comment.id ? { ...reply, ...updated } : reply)),
+        replies: root.replies.map((reply) =>
+          reply.id === comment.id ? { ...reply, ...updated, attachments: reply.attachments } : reply,
+        ),
       }
     })
     editingId.value = null
   } catch (error) {
     toast.error(getErrorMessage(error))
+  }
+}
+
+function revokePreview() {
+  if (ownedPreviewUrl) {
+    URL.revokeObjectURL(ownedPreviewUrl)
+    ownedPreviewUrl = null
+  }
+  previewUrl.value = null
+  previewOfficeEmbed.value = null
+}
+
+async function openAttachment(attachment: Attachment) {
+  previewAttachment.value = attachment
+  previewOpen.value = true
+  previewLoading.value = true
+  revokePreview()
+  try {
+    const link = await attachmentsApi.link(attachment.id)
+    previewOfficeEmbed.value = link.officeEmbedUrl
+    if (!isPreviewable(attachment.mimeType, { office: Boolean(link.officeEmbedUrl) })) {
+      previewOpen.value = false
+      await attachmentsApi.download(attachment)
+      return
+    }
+    if (link.officeEmbedUrl) {
+      previewUrl.value = link.absoluteUrl
+    } else {
+      ownedPreviewUrl = await attachmentsApi.blobUrl(attachment)
+      previewUrl.value = ownedPreviewUrl
+    }
+  } catch (error) {
+    previewOpen.value = false
+    toast.error(getErrorMessage(error))
+  } finally {
+    previewLoading.value = false
+  }
+}
+
+function onPreviewOpen(value: boolean) {
+  previewOpen.value = value
+  if (!value) {
+    revokePreview()
+    previewAttachment.value = null
   }
 }
 
@@ -172,12 +241,28 @@ function canManage(comment: Comment) {
               :members="members"
               :initial-value="comment.body"
               submit-label="Save"
+              :allow-files="false"
               autofocus
               @submit="(body) => update(comment, body)"
               @cancel="editingId = null"
             />
             <template v-else>
-              <MarkdownContent :source="comment.body" />
+              <MarkdownContent v-if="comment.body?.trim()" :source="comment.body" />
+              <ul v-if="comment.attachments?.length" class="mt-2 flex flex-wrap gap-2">
+                <li v-for="file in comment.attachments" :key="file.id">
+                  <button
+                    type="button"
+                    class="inline-flex max-w-xs items-center gap-2 border bg-muted/40 px-2.5 py-1.5 text-left text-xs hover:bg-muted"
+                    :title="file.fileName"
+                    @click="openAttachment(file)"
+                  >
+                    <FileText class="size-3.5 shrink-0 text-primary" />
+                    <span class="min-w-0 truncate font-medium">{{ file.fileName }}</span>
+                    <span class="shrink-0 text-muted-foreground">{{ formatBytes(file.size) }}</span>
+                    <Eye class="size-3.5 shrink-0 text-muted-foreground" />
+                  </button>
+                </li>
+              </ul>
               <div v-if="comment.reactions?.length" class="mt-1.5 flex flex-wrap gap-1">
                 <button
                   v-for="reaction in comment.reactions"
@@ -288,12 +373,28 @@ function canManage(comment: Comment) {
                 :members="members"
                 :initial-value="reply.body"
                 submit-label="Save"
+                :allow-files="false"
                 autofocus
                 @submit="(body) => update(reply, body)"
                 @cancel="editingId = null"
               />
               <template v-else>
-                <MarkdownContent :source="reply.body" />
+                <MarkdownContent v-if="reply.body?.trim()" :source="reply.body" />
+                <ul v-if="reply.attachments?.length" class="mt-2 flex flex-wrap gap-2">
+                  <li v-for="file in reply.attachments" :key="file.id">
+                    <button
+                      type="button"
+                      class="inline-flex max-w-xs items-center gap-2 border bg-muted/40 px-2.5 py-1.5 text-left text-xs hover:bg-muted"
+                      :title="file.fileName"
+                      @click="openAttachment(file)"
+                    >
+                      <FileText class="size-3.5 shrink-0 text-primary" />
+                      <span class="min-w-0 truncate font-medium">{{ file.fileName }}</span>
+                      <span class="shrink-0 text-muted-foreground">{{ formatBytes(file.size) }}</span>
+                      <Eye class="size-3.5 shrink-0 text-muted-foreground" />
+                    </button>
+                  </li>
+                </ul>
                 <div v-if="reply.reactions?.length" class="mt-1.5 flex flex-wrap gap-1">
                   <button
                     v-for="reaction in reply.reactions"
@@ -384,7 +485,7 @@ function canManage(comment: Comment) {
                 submit-label="Reply"
                 cancellable
                 autofocus
-                @submit="(body) => createReply(comment.id, body)"
+                @submit="(body, files) => createReply(comment.id, body, files)"
                 @cancel="replyToId = null"
               />
             </div>
@@ -392,5 +493,16 @@ function canManage(comment: Comment) {
         </div>
       </li>
     </ol>
+
+    <FilePreviewLightbox
+      :open="previewOpen"
+      :file-name="previewAttachment?.fileName ?? ''"
+      :mime-type="previewAttachment?.mimeType ?? ''"
+      :url="previewUrl"
+      :office-embed-url="previewOfficeEmbed"
+      :loading="previewLoading"
+      @update:open="onPreviewOpen"
+      @download="previewAttachment && attachmentsApi.download(previewAttachment)"
+    />
   </div>
 </template>

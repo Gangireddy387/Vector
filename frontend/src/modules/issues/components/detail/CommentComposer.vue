@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { Paperclip, X } from 'lucide-vue-next'
 import { computed, nextTick, ref } from 'vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { formatBytes } from '@/lib/utils'
 import WritingAssistBar from '@/modules/ai/components/WritingAssistBar.vue'
 import type { UserSummary } from '@/types/models'
 
@@ -15,6 +17,8 @@ const props = withDefaults(
     autofocus?: boolean
     /** Show Cancel even when not editing an existing comment (e.g. reply composer). */
     cancellable?: boolean
+    /** Allow attaching files (issue comments / replies). */
+    allowFiles?: boolean
   }>(),
   {
     initialValue: '',
@@ -22,9 +26,10 @@ const props = withDefaults(
     placeholder: 'Add a comment… type @ to mention someone',
     autofocus: false,
     cancellable: false,
+    allowFiles: true,
   },
 )
-const emit = defineEmits<{ submit: [body: string]; cancel: [] }>()
+const emit = defineEmits<{ submit: [body: string, files: File[]]; cancel: [] }>()
 
 const MENTION_TOKEN = /@\[([^\]]+)\]\(([0-9a-f-]{36})\)/gi
 
@@ -42,7 +47,19 @@ const highlighted = ref(0)
 const isSubmitting = ref(false)
 const textareaRef = ref<InstanceType<typeof Textarea> | null>(null)
 const assistRef = ref<InstanceType<typeof WritingAssistBar> | null>(null)
+const pendingFiles = ref<File[]>([])
+const fileInput = ref<HTMLInputElement | null>(null)
 const element = () => textareaRef.value?.$el as HTMLTextAreaElement | undefined
+
+function onPickFiles(event: Event) {
+  const input = event.target as HTMLInputElement
+  pendingFiles.value = [...pendingFiles.value, ...(input.files ?? [])].slice(0, 10)
+  input.value = ''
+}
+
+function removeFile(index: number) {
+  pendingFiles.value = pendingFiles.value.filter((_, i) => i !== index)
+}
 
 const suggestions = computed(() => {
   if (query.value === null) return []
@@ -104,14 +121,15 @@ function serialize() {
 }
 
 function submit() {
-  if (!text.value.trim()) return
+  if (!text.value.trim() && !pendingFiles.value.length) return
   isSubmitting.value = true
-  emit('submit', serialize())
+  emit('submit', serialize(), [...pendingFiles.value])
 }
 
 function reset() {
   text.value = ''
   mentions.value = []
+  pendingFiles.value = []
   isSubmitting.value = false
 }
 
@@ -146,9 +164,28 @@ defineExpose({ reset, done: () => (isSubmitting.value = false) })
         </button>
       </li>
     </ul>
+    <ul v-if="pendingFiles.length" class="flex flex-wrap gap-1.5">
+      <li
+        v-for="(file, index) in pendingFiles"
+        :key="`${file.name}-${index}`"
+        class="inline-flex max-w-full items-center gap-1.5 border bg-muted/40 px-2 py-1 text-xs"
+      >
+        <span class="truncate" :title="file.name">{{ file.name }}</span>
+        <span class="shrink-0 text-muted-foreground">{{ formatBytes(file.size) }}</span>
+        <button type="button" class="text-muted-foreground hover:text-destructive" :aria-label="`Remove ${file.name}`" @click="removeFile(index)">
+          <X class="size-3.5" />
+        </button>
+      </li>
+    </ul>
     <div class="flex items-center gap-2">
-      <Button size="sm" :disabled="!text.trim()" :loading="isSubmitting" @click="submit">{{ submitLabel }}</Button>
+      <Button size="sm" :disabled="!text.trim() && !pendingFiles.length" :loading="isSubmitting" @click="submit">{{ submitLabel }}</Button>
       <Button v-if="initialValue || cancellable" size="sm" variant="ghost" @click="emit('cancel')">Cancel</Button>
+      <template v-if="allowFiles">
+        <Button type="button" size="icon-sm" variant="ghost" title="Attach files" aria-label="Attach files" @click="fileInput?.click()">
+          <Paperclip />
+        </Button>
+        <input ref="fileInput" type="file" multiple class="hidden" @change="onPickFiles" />
+      </template>
       <span class="ml-auto hidden text-xs text-muted-foreground sm:inline">Ctrl + Enter to send</span>
     </div>
   </div>

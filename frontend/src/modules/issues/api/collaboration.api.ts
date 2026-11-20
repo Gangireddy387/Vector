@@ -19,6 +19,13 @@ export const commentsApi = {
     http.post<{ commentId: string; reactions: CommentReaction[] }>(`/comments/${commentId}/reactions`, { emoji }).then((r) => r.data),
 }
 
+export type AttachmentLink = {
+  url: string
+  absoluteUrl: string | null
+  thumbUrl: string | null
+  officeEmbedUrl: string | null
+}
+
 export const attachmentsApi = {
   list: (issueId: string) =>
     http.get<{ attachments: Attachment[] }>(`/issues/${issueId}/attachments`).then((r) => r.data.attachments),
@@ -31,10 +38,26 @@ export const attachmentsApi = {
       })
       .then((r) => r.data.attachments)
   },
+  uploadForComment: (commentId: string, files: File[]) => {
+    const form = new FormData()
+    files.forEach((file) => form.append('files', file))
+    return http
+      .post<{ attachments: Attachment[] }>(`/comments/${commentId}/attachments`, form)
+      .then((r) => r.data.attachments)
+  },
+  link: (attachmentId: string) =>
+    http.get<AttachmentLink>(`/attachments/${attachmentId}/link`).then((r) => r.data),
+  /** Authenticated blob URL for in-app preview (caller should revoke when done). */
+  async blobUrl(attachment: Attachment, inline = true) {
+    const response = await http.get<Blob>(`/attachments/${attachment.id}/download`, {
+      responseType: 'blob',
+      params: inline ? { inline: 1 } : undefined,
+    })
+    return URL.createObjectURL(response.data)
+  },
   /** Downloads through the authenticated API and hands the file to the browser. */
   async download(attachment: Attachment) {
-    const response = await http.get<Blob>(`/attachments/${attachment.id}/download`, { responseType: 'blob' })
-    const url = URL.createObjectURL(response.data)
+    const url = await attachmentsApi.blobUrl(attachment, false)
     const anchor = document.createElement('a')
     anchor.href = url
     anchor.download = attachment.fileName

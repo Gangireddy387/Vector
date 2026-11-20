@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { authenticate, requireOrganization } from './shared/middleware/authenticate.js';
 import activityRoutes from './modules/activity/activity.routes.js';
 import aiRoutes from './modules/ai/ai.routes.js';
-import attachmentRoutes from './modules/attachments/attachment.routes.js';
+import attachmentRoutes, { publicAttachmentFileRoutes } from './modules/attachments/attachment.routes.js';
 import authRoutes from './modules/auth/auth.routes.js';
 import { publicAuthOAuthRoutes } from './modules/auth/auth-oauth.routes.js';
 import { billingRoutes } from './modules/billing/billing.routes.js';
@@ -58,6 +58,7 @@ import portfolioRoutes from './modules/portfolio/portfolio.routes.js';
 import roadmapRoutes from './modules/roadmap/roadmap.routes.js';
 import versionRoutes from './modules/versions/version.routes.js';
 import wikiRoutes from './modules/wiki/wiki.routes.js';
+import { publicWikiFileRoutes, wikiFileRoutes } from './modules/wiki/wiki.files.js';
 
 export function createApiRouter() {
   const router = Router();
@@ -77,6 +78,8 @@ export function createApiRouter() {
   router.use(publicMeetingFileRoutes);
   router.use(publicConversationFileRoutes);
   router.use(publicChatFileRoutes);
+  router.use(publicAttachmentFileRoutes);
+  router.use(publicWikiFileRoutes);
   router.use(publicCalendarSyncRoutes);
   router.use(livekitWebhookRoutes);
   router.use(publicScimRoutes);
@@ -134,6 +137,7 @@ export function createApiRouter() {
     roadmapRoutes,
     versionRoutes,
     wikiRoutes,
+    wikiFileRoutes,
     aiRoutes,
   ].forEach((moduleRouter) => router.use(moduleRouter));
 

@@ -574,14 +574,17 @@ export interface Comment {
   createdAt: string
   reactions?: CommentReaction[]
   replies?: Comment[]
+  attachments?: Attachment[]
 }
 
 export interface Attachment {
   id: string
   issueId: string
+  commentId?: string | null
   fileName: string
   mimeType: string
   size: number
+  hasThumb?: boolean
   uploader: UserSummary | null
   createdAt: string
 }

@@ -111,6 +111,8 @@ const ADDED_COLUMNS = [
   { table: 'wiki_pages', column: 'parent_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'wiki_pages', column: 'kind', definition: { type: DataTypes.STRING(10), allowNull: false, defaultValue: 'page' } },
   { table: 'wiki_pages', column: 'position', definition: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 } },
+  { table: 'attachments', column: 'comment_id', definition: { type: DataTypes.UUID, allowNull: true } },
+  { table: 'attachments', column: 'thumb_storage_key', definition: { type: DataTypes.STRING(255), allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */
