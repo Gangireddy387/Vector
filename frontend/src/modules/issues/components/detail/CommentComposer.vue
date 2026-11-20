@@ -3,6 +3,7 @@ import { computed, nextTick, ref } from 'vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import WritingAssistBar from '@/modules/ai/components/WritingAssistBar.vue'
 import type { UserSummary } from '@/types/models'
 
 const props = withDefaults(
@@ -26,6 +27,7 @@ const query = ref<string | null>(null)
 const highlighted = ref(0)
 const isSubmitting = ref(false)
 const textareaRef = ref<InstanceType<typeof Textarea> | null>(null)
+const assistRef = ref<InstanceType<typeof WritingAssistBar> | null>(null)
 const element = () => textareaRef.value?.$el as HTMLTextAreaElement | undefined
 
 const suggestions = computed(() => {
@@ -74,6 +76,7 @@ function onKeydown(event: KeyboardEvent) {
       return
     }
   }
+  if (assistRef.value?.onKeydown(event)) return
   if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
     event.preventDefault()
     submit()
@@ -103,6 +106,7 @@ defineExpose({ reset, done: () => (isSubmitting.value = false) })
 
 <template>
   <div class="relative space-y-2">
+    <WritingAssistBar ref="assistRef" v-model="text" surface="comment" compact :auto-suggest="false" />
     <Textarea
       ref="textareaRef"
       v-model="text"

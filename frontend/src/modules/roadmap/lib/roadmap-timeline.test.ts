@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { Issue } from '@/types/models'
-import { barForIssue, buildRoadmapRows } from './roadmap-timeline'
+import {
+  barForIssue,
+  buildRoadmapRows,
+  dayDeltaFromPixels,
+  placementDates,
+  resizeIssueDates,
+  shiftIssueDates,
+} from './roadmap-timeline'
+import { parseISO, startOfDay } from 'date-fns'
 
 function issue(partial: Partial<Issue> & Pick<Issue, 'id' | 'key' | 'title' | 'type'>): Issue {
   return {
@@ -70,5 +78,50 @@ describe('roadmap timeline', () => {
     })
     expect(buildRoadmapRows([open, done], { hideDone: true })).toHaveLength(1)
     expect(buildRoadmapRows([open, done], { hideDone: false })).toHaveLength(2)
+  })
+
+  it('shifts only the dates that exist', () => {
+    expect(shiftIssueDates({ startDate: null, dueDate: '2026-11-20' }, 3)).toEqual({ dueDate: '2026-11-23' })
+    expect(shiftIssueDates({ startDate: '2026-11-01', dueDate: '2026-11-10' }, -2)).toEqual({
+      startDate: '2026-10-30',
+      dueDate: '2026-11-08',
+    })
+    expect(shiftIssueDates({ startDate: null, dueDate: null }, 1)).toBeNull()
+    expect(shiftIssueDates({ startDate: '2026-11-01', dueDate: '2026-11-10' }, 0)).toBeNull()
+  })
+
+  it('maps pixel drag to whole days', () => {
+    expect(dayDeltaFromPixels(40, 28)).toBe(1)
+    expect(dayDeltaFromPixels(-20, 28)).toBe(-1)
+    expect(dayDeltaFromPixels(10, 28)).toBe(0)
+  })
+
+  it('resizes end and start independently', () => {
+    expect(resizeIssueDates({ startDate: '2026-11-01', dueDate: '2026-11-10' }, 'end', 3)).toEqual({
+      startDate: '2026-11-01',
+      dueDate: '2026-11-13',
+    })
+    expect(resizeIssueDates({ startDate: '2026-11-01', dueDate: '2026-11-10' }, 'start', 2)).toEqual({
+      startDate: '2026-11-03',
+      dueDate: '2026-11-10',
+    })
+  })
+
+  it('grows a point bar into a range and clamps invert', () => {
+    expect(resizeIssueDates({ startDate: null, dueDate: '2026-11-20' }, 'end', 4)).toEqual({
+      startDate: '2026-11-20',
+      dueDate: '2026-11-24',
+    })
+    expect(resizeIssueDates({ startDate: '2026-11-01', dueDate: '2026-11-05' }, 'start', 10)).toEqual({
+      startDate: '2026-11-05',
+      dueDate: '2026-11-05',
+    })
+    expect(resizeIssueDates({ startDate: '2026-11-01', dueDate: '2026-11-05' }, 'end', 0)).toBeNull()
+  })
+
+  it('places a span from a day index', () => {
+    const start = startOfDay(parseISO('2026-11-01'))
+    expect(placementDates(start, 0, 7)).toEqual({ startDate: '2026-11-01', dueDate: '2026-11-07' })
+    expect(placementDates(start, 3, 1)).toEqual({ startDate: '2026-11-04', dueDate: '2026-11-04' })
   })
 })

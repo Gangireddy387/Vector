@@ -161,6 +161,17 @@ const items = computed<SearchItem[]>(() => {
         go({ name: 'project-chat', params: { projectId: message.projectId }, query: { message: message.id } })()
       },
     })),
+    ...(found?.wiki ?? []).map((page) => ({
+      id: `wiki-${page.id}`,
+      group: 'Wiki',
+      label: page.title,
+      hint: page.excerpt || (page.matchedOn === 'title' ? 'Title match' : 'In page'),
+      icon: BookOpen,
+      run: () => {
+        rememberSearch(query.value)
+        go({ name: 'wiki-page', params: { pageId: page.id } })()
+      },
+    })),
     ...matchingActions,
   ]
 })
@@ -256,7 +267,7 @@ function clearQuery() {
         v-model="query"
         type="text"
         class="h-full min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
-        placeholder="Search tasks, projects, people, messages…"
+        placeholder="Search tasks, projects, people, wiki…"
         role="combobox"
         aria-label="Search"
         aria-controls="global-search-results"

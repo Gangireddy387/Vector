@@ -9,13 +9,12 @@ import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
 import { useSocketEvents } from '@/lib/socket-events'
 import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
-import { issuesApi } from '@/modules/issues/api/issues.api'
 import { useProjectsStore } from '@/modules/projects/projects.store'
-import { sprintsApi } from '@/modules/sprints/sprints.api'
 import type { Issue, Sprint } from '@/types/models'
 import { toast } from 'vue-sonner'
 import RoadmapTimeline from '../components/RoadmapTimeline.vue'
 import { buildRoadmapRows, type RoadmapScale } from '../lib/roadmap-timeline'
+import { roadmapApi } from '../roadmap.api'
 
 const route = useRoute()
 const projects = useProjectsStore()
@@ -37,6 +36,7 @@ const showFilters = ref(false)
 
 const project = computed(() => projects.details[projectId.value])
 const isScrum = computed(() => project.value?.type === 'scrum')
+const canEdit = computed(() => projects.canEdit(projectId.value))
 
 const rows = computed(() =>
   buildRoadmapRows(issues.value, { hideDone: hideDone.value, datedOnly: datedOnly.value }),
@@ -71,16 +71,13 @@ async function load() {
   loading.value = true
   loadError.value = null
   try {
-    const detail = await projects.fetchProject(id)
-    const [listed, sprintList] = await Promise.all([
-      issuesApi.list({ projectId: id, limit: 1000, sort: 'position', order: 'asc' }),
-      detail.type === 'scrum' ? sprintsApi.list(id) : Promise.resolve([] as Sprint[]),
-    ])
+    await projects.fetchProject(id)
+    const roadmap = await roadmapApi.get(id)
     if (projectId.value !== id) return
-    issues.value = listed.issues
-    sprints.value = sprintList.filter((sprint) => sprint.state !== 'completed' || Boolean(sprint.startDate && sprint.endDate))
+    issues.value = roadmap.issues
+    sprints.value = roadmap.sprints
     const next = new Set(expanded.value)
-    for (const issue of listed.issues) {
+    for (const issue of roadmap.issues) {
       if (issue.type === 'epic') next.add(issue.id)
     }
     expanded.value = next
@@ -122,6 +119,24 @@ function expandAll() {
 function collapseAll() {
   expanded.value = new Set()
 }
+
+async function onReschedule(issue: Issue, changes: { startDate?: string; dueDate?: string }) {
+  if (!canEdit.value) return
+  const previous = { startDate: issue.startDate, dueDate: issue.dueDate }
+  Object.assign(issue, changes)
+  try {
+    const updated = await roadmapApi.reschedule(projectId.value, issue.id, changes)
+    Object.assign(issue, {
+      startDate: updated.startDate,
+      dueDate: updated.dueDate,
+      updatedAt: updated.updatedAt,
+    })
+    toast.success(`${issue.key} updated on the roadmap`)
+  } catch (error) {
+    Object.assign(issue, previous)
+    toast.error(getErrorMessage(error))
+  }
+}
 </script>
 
 <template>
@@ -131,7 +146,7 @@ function collapseAll() {
         <div class="min-w-0 space-y-0.5 sm:space-y-1">
           <h1 class="text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">Roadmap</h1>
           <p class="hidden max-w-2xl text-sm text-muted-foreground sm:block">
-            Timeline of epics and tasks by start and due dates.
+            Timeline of epics and tasks — drag to move, resize edges for duration, or paint dates on empty rows.
           </p>
           <p class="text-xs text-muted-foreground sm:hidden">
             {{ stats.total }} items · {{ stats.dated }} dated
@@ -243,8 +258,10 @@ function collapseAll() {
       :compact="isPhone"
       :day-width="dayWidth"
       :label-width="labelWidth"
+      :can-edit="canEdit"
       @toggle="toggleExpand"
       @open="openIssue"
+      @reschedule="onReschedule"
     />
   </div>
 </template>

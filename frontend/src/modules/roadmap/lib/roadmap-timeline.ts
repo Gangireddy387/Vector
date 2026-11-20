@@ -194,3 +194,72 @@ export function sprintBands(sprints: Sprint[], rangeStart: Date, totalDays: numb
     .filter(Boolean) as Array<{ sprint: Sprint; left: number; width: number }>
 }
 
+/** Pixel drag distance → whole calendar days for timeline reschedule. */
+export function dayDeltaFromPixels(deltaX: number, dayWidth: number) {
+  if (!dayWidth) return 0
+  return Math.round(deltaX / dayWidth)
+}
+
+/**
+ * Shift an issue's own dates by `dayDelta` days, preserving which fields were set.
+ * Returns null when there is nothing to change (derived bars should not call this).
+ */
+export function shiftIssueDates(
+  issue: Pick<Issue, 'startDate' | 'dueDate'>,
+  dayDelta: number,
+): { startDate?: string; dueDate?: string } | null {
+  if (!dayDelta) return null
+  const next: { startDate?: string; dueDate?: string } = {}
+  const start = parseDate(issue.startDate)
+  const due = parseDate(issue.dueDate)
+  if (start) next.startDate = format(addDays(start, dayDelta), 'yyyy-MM-dd')
+  if (due) next.dueDate = format(addDays(due, dayDelta), 'yyyy-MM-dd')
+  if (!next.startDate && !next.dueDate) return null
+  return next
+}
+
+export type ResizeEdge = 'start' | 'end'
+
+/**
+ * Resize one edge of a bar. Point bars (one date) become ranges; inverted edges clamp.
+ * Always returns both dates so the timeline stores a real span.
+ */
+export function resizeIssueDates(
+  issue: Pick<Issue, 'startDate' | 'dueDate'>,
+  edge: ResizeEdge,
+  dayDelta: number,
+): { startDate: string; dueDate: string } | null {
+  if (!dayDelta) return null
+  const start = parseDate(issue.startDate)
+  const due = parseDate(issue.dueDate)
+  const startDay = start ?? due
+  const dueDay = due ?? start
+  if (!startDay || !dueDay) return null
+
+  let nextStart = startDay
+  let nextDue = dueDay
+  if (edge === 'start') {
+    nextStart = addDays(startDay, dayDelta)
+    if (nextStart > nextDue) nextStart = nextDue
+  } else {
+    nextDue = addDays(dueDay, dayDelta)
+    if (nextDue < nextStart) nextDue = nextStart
+  }
+
+  const startDate = format(nextStart, 'yyyy-MM-dd')
+  const dueDate = format(nextDue, 'yyyy-MM-dd')
+  if (startDate === format(startDay, 'yyyy-MM-dd') && dueDate === format(dueDay, 'yyyy-MM-dd')) return null
+  return { startDate, dueDate }
+}
+
+/** Place a new date span on the timeline from a day index within the visible range. */
+export function placementDates(rangeStart: Date, dayIndex: number, durationDays = 7): { startDate: string; dueDate: string } {
+  const start = addDays(startOfDay(rangeStart), Math.max(0, Math.floor(dayIndex)))
+  const span = Math.max(1, Math.floor(durationDays))
+  const end = addDays(start, span - 1)
+  return {
+    startDate: format(start, 'yyyy-MM-dd'),
+    dueDate: format(end, 'yyyy-MM-dd'),
+  }
+}
+

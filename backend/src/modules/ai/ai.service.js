@@ -13,6 +13,11 @@ import {
   guessPriority,
   guessStoryPoints,
   guessType,
+  heuristicClearer,
+  heuristicCompletions,
+  heuristicExpand,
+  heuristicPolish,
+  heuristicShorten,
   suggestSubtasks,
   summarizeText,
 } from './ai.heuristics.js';
@@ -240,4 +245,126 @@ Return JSON: {"headline": string (one sentence), "focus": string[] (up to 4 conc
   }
 
   return { needsMe, standupDrafts, meetingPrep, generatedAt: new Date().toISOString() };
+}
+
+const WRITING_SYSTEM =
+  'You are a precise writing assistant inside a work app (issues, wiki, comments). Preserve meaning, markdown, and @mentions. Never invent facts. Always respond with valid JSON only.';
+
+const SURFACE_HINT = {
+  wiki: 'Tone: clear knowledge-base documentation.',
+  issue: 'Tone: crisp task description for an engineering team.',
+  comment: 'Tone: short collaborative comment.',
+  general: 'Tone: professional and clear.',
+};
+
+function mergeSelection(full, selection, rewritten) {
+  if (!selection) return rewritten;
+  const index = full.indexOf(selection);
+  if (index < 0) return rewritten;
+  return `${full.slice(0, index)}${rewritten}${full.slice(index + selection.length)}`;
+}
+
+function heuristicWriting(mode, target) {
+  if (mode === 'complete') {
+    const [first] = heuristicCompletions(target, 1);
+    return { text: `${target}${first}`, continuation: first };
+  }
+  if (mode === 'grammar') return { text: heuristicPolish(target, { grammarOnly: true }) };
+  if (mode === 'polish') return { text: heuristicPolish(target) };
+  if (mode === 'clearer') return { text: heuristicClearer(target) };
+  if (mode === 'shorten') return { text: heuristicShorten(target) };
+  if (mode === 'expand') return { text: heuristicExpand(target) };
+  return { text: target };
+}
+
+/**
+ * Rewrite or continue writing. Modes: complete | polish | grammar | clearer | shorten | expand.
+ * When `selection` is set, only that slice is rewritten and merged back into `text`.
+ */
+export async function assistWriting(_userId, { text, selection, mode, surface = 'general' }) {
+  const full = String(text ?? '');
+  const target = selection?.trim() ? selection : full;
+  if (!target.trim() && mode !== 'expand') {
+    return { source: 'heuristic', mode, text: full, continuation: null };
+  }
+
+  const modeInstructions = {
+    complete:
+      'Continue the draft with the next 1-3 natural sentences (or a short markdown bullet if the draft ends mid-list). Return only the NEW text to append, not the original.',
+    polish: 'Polish wording for clarity and professionalism while keeping the same meaning and structure.',
+    grammar: 'Fix spelling, grammar, punctuation, and capitalization only. Do not rewrite style.',
+    clearer: 'Make the writing clearer and more direct. Cut filler. Keep markdown structure.',
+    shorten: 'Tighten the writing: fewer words, same meaning. Keep essential markdown headings/lists.',
+    expand: 'Expand with helpful detail (context, steps, or acceptance criteria) without inventing product facts.',
+  };
+
+  const result = await completeJsonDetailed({
+    system: WRITING_SYSTEM,
+    temperature: mode === 'complete' ? 0.55 : 0.25,
+    maxTokens: mode === 'expand' || mode === 'complete' ? 900 : 1200,
+    user: `${SURFACE_HINT[surface] ?? SURFACE_HINT.general}
+Mode: ${mode}
+Instruction: ${modeInstructions[mode]}
+Draft:
+"""
+${clip(target, 10_000)}
+"""
+Return JSON: ${
+      mode === 'complete'
+        ? '{"continuation": string}'
+        : '{"text": string}'
+    }`,
+  });
+
+  if (mode === 'complete') {
+    const continuation = typeof result.data?.continuation === 'string' ? result.data.continuation : null;
+    if (continuation?.trim()) {
+      const prefix = full && !/[\s\n]$/.test(full) ? ' ' : '';
+      const piece = continuation.replace(/^\s+/, prefix ? continuation.trimStart() : continuation);
+      const normalized = prefix && !piece.startsWith(' ') && !piece.startsWith('\n') ? `${prefix}${piece}` : piece;
+      return { source: sourceOf(result), mode, text: `${full}${normalized}`, continuation: normalized };
+    }
+    const fallback = heuristicWriting('complete', full);
+    return { source: sourceOf(result) === 'openai' ? 'degraded' : sourceOf(result), mode, ...fallback };
+  }
+
+  const rewritten = typeof result.data?.text === 'string' ? result.data.text : null;
+  if (rewritten != null) {
+    return { source: sourceOf(result), mode, text: mergeSelection(full, selection, rewritten), continuation: null };
+  }
+
+  const fallback = heuristicWriting(mode, target);
+  return {
+    source: sourceOf(result) === 'openai' ? 'degraded' : 'heuristic',
+    mode,
+    text: mergeSelection(full, selection, fallback.text),
+    continuation: null,
+  };
+}
+
+/** Several alternate next-phrase suggestions for ghost-text / picker UX. */
+export async function suggestNextWords(_userId, { text, count = 3, surface = 'general' }) {
+  const full = String(text ?? '');
+  const result = await completeJsonDetailed({
+    system: WRITING_SYSTEM,
+    temperature: 0.7,
+    maxTokens: 500,
+    user: `${SURFACE_HINT[surface] ?? SURFACE_HINT.general}
+Suggest ${count} different ways to continue this draft (next few words or one short sentence each). Each suggestion must be ready to append.
+Draft:
+"""
+${clip(full, 8_000)}
+"""
+Return JSON: {"suggestions": string[]}`,
+  });
+  const fromAi = Array.isArray(result.data?.suggestions)
+    ? result.data.suggestions.map(String).map((item) => item.trim()).filter(Boolean).slice(0, count)
+    : [];
+  const suggestions = fromAi.length
+    ? fromAi.map((item) => (full && !/[\s\n]$/.test(full) && !/^\s/.test(item) ? ` ${item}` : item))
+    : heuristicCompletions(full, count);
+  return {
+    source: fromAi.length ? sourceOf(result) : sourceOf(result) === 'openai' ? 'degraded' : 'heuristic',
+    suggestions,
+  };
 }

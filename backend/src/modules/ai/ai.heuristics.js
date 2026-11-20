@@ -189,3 +189,92 @@ export function summarizeMeetingMaterial({ title, transcript = [], chat = [], up
     source: 'heuristic',
   };
 }
+
+const COMMON_FIXES = [
+  [/\bi\b/g, 'I'],
+  [/\bdont\b/gi, "don't"],
+  [/\bcant\b/gi, "can't"],
+  [/\bwont\b/gi, "won't"],
+  [/\bisnt\b/gi, "isn't"],
+  [/\barent\b/gi, "aren't"],
+  [/\bwasnt\b/gi, "wasn't"],
+  [/\bwerent\b/gi, "weren't"],
+  [/\bhavent\b/gi, "haven't"],
+  [/\bhasnt\b/gi, "hasn't"],
+  [/\bdidnt\b/gi, "didn't"],
+  [/\bcouldnt\b/gi, "couldn't"],
+  [/\bshouldnt\b/gi, "shouldn't"],
+  [/\bwouldnt\b/gi, "wouldn't"],
+  [/\bim\b/gi, "I'm"],
+  [/\byoure\b/gi, "you're"],
+  [/\btheyre\b/gi, "they're"],
+  [/\btheres\b/gi, "there's"],
+  [/\bteh\b/gi, 'the'],
+  [/\badn\b/gi, 'and'],
+  [/\brecieve\b/gi, 'receive'],
+  [/\bseperate\b/gi, 'separate'],
+  [/\boccurence\b/gi, 'occurrence'],
+  [/\bdefinately\b/gi, 'definitely'],
+];
+
+/** Light offline grammar/polish: spacing, capitalization, common contractions. */
+export function heuristicPolish(text, { grammarOnly = false } = {}) {
+  let value = String(text ?? '').replace(/\r\n/g, '\n');
+  value = value.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ');
+  value = value.replace(/\s+([,.;:!?])/g, '$1').replace(/([([{])\s+/g, '$1').replace(/\s+([)\]}])/g, '$1');
+  for (const [pattern, replacement] of COMMON_FIXES) value = value.replace(pattern, replacement);
+  value = value.replace(/(^|[.!?]\s+)([a-z])/g, (_, lead, letter) => `${lead}${letter.toUpperCase()}`);
+  if (!grammarOnly) {
+    // Soft clarity: break run-on "and and" / trim trailing spaces per line
+    value = value
+      .split('\n')
+      .map((line) => line.replace(/\band and\b/gi, 'and').trimEnd())
+      .join('\n')
+      .trim();
+  }
+  return value;
+}
+
+export function heuristicShorten(text) {
+  const sentences = plainSentences(text);
+  if (sentences.length <= 2) return heuristicPolish(text);
+  return heuristicPolish(sentences.slice(0, Math.max(2, Math.ceil(sentences.length * 0.6))).join(' '));
+}
+
+export function heuristicExpand(text) {
+  const cleaned = heuristicPolish(text);
+  if (!cleaned) return 'Please add a short draft so I can expand it.';
+  return `${cleaned}\n\n## Details\n- Context: why this matters\n- Steps or acceptance criteria\n- Open questions`;
+}
+
+export function heuristicClearer(text) {
+  const cleaned = heuristicPolish(text);
+  const sentences = plainSentences(cleaned);
+  if (!sentences.length) return cleaned;
+  return sentences
+    .map((sentence) => sentence.replace(/\b(very|really|basically|actually|just)\s+/gi, '').trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
+/** Offline next-phrase suggestions from the last fragment. */
+export function heuristicCompletions(text, count = 3) {
+  const trimmed = String(text ?? '').trim();
+  const last = trimmed.split(/\s+/).slice(-6).join(' ').toLowerCase();
+  const bank = [
+    'and the next step is to confirm owners and dates.',
+    'so we can ship a first version this week.',
+    'with clear acceptance criteria and a quick smoke test.',
+    'Please review and share any blockers.',
+    'Happy to adjust based on feedback.',
+    'Let me know if you need more detail.',
+  ];
+  const contextOnes = [];
+  if (/\bbug|error|fail/.test(last)) contextOnes.push('I can reproduce it consistently and am investigating the root cause.');
+  if (/\bmeeting|agenda/.test(last)) contextOnes.push('Agenda: updates, decisions, and owners for follow-ups.');
+  if (/\bwiki|handbook|runbook/.test(last)) contextOnes.push('## Overview\nPurpose, owners, and when to use this page.\n\n## Steps\n1. ');
+  if (/\bthanks|thank you/.test(last)) contextOnes.push('Appreciate the quick turnaround.');
+  const picks = [...contextOnes, ...bank].slice(0, count);
+  while (picks.length < count) picks.push(bank[picks.length % bank.length]);
+  return picks.map((suggestion) => (trimmed && !/[\s\n]$/.test(text) ? ` ${suggestion}` : suggestion));
+}

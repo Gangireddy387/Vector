@@ -1,19 +1,34 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { renderRichText } from '@/lib/markdown'
+import { renderRichText, type WikiLinkTarget } from '@/lib/markdown'
 
-/** Markdown with @mention chips and clickable task keys; task links open in-app. */
-const props = withDefaults(defineProps<{ source?: string | null; issueKeys?: Iterable<string>; compact?: boolean }>(), { issueKeys: () => [], compact: false })
+/** Markdown with @mention chips, clickable task keys, and optional wiki [[Title]] links. */
+const props = withDefaults(
+  defineProps<{
+    source?: string | null
+    issueKeys?: Iterable<string>
+    wikiPages?: Iterable<WikiLinkTarget>
+    compact?: boolean
+  }>(),
+  { issueKeys: () => [], wikiPages: () => [], compact: false },
+)
 
 const router = useRouter()
-const html = computed(() => renderRichText(props.source, props.issueKeys))
+const html = computed(() => renderRichText(props.source, props.issueKeys, props.wikiPages))
 
 function onClick(event: MouseEvent) {
-  const link = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[data-issue-key]')
-  if (!link || event.ctrlKey || event.metaKey || event.shiftKey) return
+  if (event.ctrlKey || event.metaKey || event.shiftKey) return
+  const target = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[data-issue-key], a[data-wiki-id]')
+  if (!target) return
   event.preventDefault()
-  void router.push({ name: 'issue', params: { issueKey: link.dataset.issueKey } })
+  if (target.dataset.wikiId) {
+    void router.push({ name: 'wiki-page', params: { pageId: target.dataset.wikiId } })
+    return
+  }
+  if (target.dataset.issueKey) {
+    void router.push({ name: 'issue', params: { issueKey: target.dataset.issueKey } })
+  }
 }
 </script>
 

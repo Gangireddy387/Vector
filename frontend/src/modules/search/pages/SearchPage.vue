@@ -36,6 +36,7 @@ const scopes = computed<Array<{ value: SearchScope; label: string }>>(() => [
     ? [{ value: 'messages' as const, label: 'Messages' }]
     : [])),
   ...(auth.hasFeature('chat') ? [{ value: 'chat' as const, label: 'Work chat' }] : []),
+  ...(auth.hasFeature('wiki') ? [{ value: 'wiki' as const, label: 'Wiki' }] : []),
 ])
 
 const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
@@ -58,7 +59,8 @@ const totalHits = computed(() => {
     results.value.projects.length +
     results.value.people.length +
     (results.value.messages?.length ?? 0) +
-    (results.value.chat?.length ?? 0)
+    (results.value.chat?.length ?? 0) +
+    (results.value.wiki?.length ?? 0)
   )
 })
 const canLoadMore = computed(() => {
@@ -68,6 +70,7 @@ const canLoadMore = computed(() => {
   if (scope.value === 'people') return results.value.hasMore.people
   if (scope.value === 'messages') return Boolean(results.value.hasMore.messages)
   if (scope.value === 'chat') return Boolean(results.value.hasMore.chat)
+  if (scope.value === 'wiki') return Boolean(results.value.hasMore.wiki)
   // On “All”, only tasks paginate; other panes stay as a short preview.
   return results.value.hasMore.issues
 })
@@ -131,7 +134,9 @@ async function loadMore() {
             ? (results.value.messages?.length ?? 0)
             : scope.value === 'chat'
               ? (results.value.chat?.length ?? 0)
-              : results.value.issues.length
+              : scope.value === 'wiki'
+                ? (results.value.wiki?.length ?? 0)
+                : results.value.issues.length
     const found = await searchApi.search(term, PAGE_SIZE, scope.value === 'all' ? 'issues' : scope.value, offset)
     if (!latest.isCurrent(ticket) || !results.value) return
     if (scope.value === 'projects') {
@@ -158,6 +163,12 @@ async function loadMore() {
         chat: [...(results.value.chat ?? []), ...(found.chat ?? [])],
         hasMore: { ...results.value.hasMore!, chat: Boolean(found.hasMore?.chat) },
       }
+    } else if (scope.value === 'wiki') {
+      results.value = {
+        ...results.value,
+        wiki: [...(results.value.wiki ?? []), ...(found.wiki ?? [])],
+        hasMore: { ...results.value.hasMore!, wiki: Boolean(found.hasMore?.wiki) },
+      }
     } else {
       results.value = {
         ...results.value,
@@ -168,6 +179,7 @@ async function loadMore() {
           people: results.value.hasMore?.people ?? false,
           messages: results.value.hasMore?.messages ?? false,
           chat: results.value.hasMore?.chat ?? false,
+          wiki: results.value.hasMore?.wiki ?? false,
         },
       }
     }
@@ -202,7 +214,7 @@ const rowClass =
     <PageHeader
       v-if="isDesktop"
       title="Search"
-      description="Find tasks by key, title, description, comments or labels — plus projects, people, messages and work chat. Use operators like assignee:me or is:open."
+      description="Find tasks, projects, people, messages, work chat and wiki pages. Use operators like assignee:me or is:open."
     />
 
     <div class="relative">
@@ -420,6 +432,30 @@ const rowClass =
                 <span class="block truncate text-xs text-muted-foreground">
                   <template v-if="message.author">{{ message.author.name }} · </template>{{ message.snippet }}
                 </span>
+              </span>
+            </RouterLink>
+          </li>
+        </ul>
+      </section>
+
+      <section v-if="results.wiki?.length" class="space-y-2">
+        <div class="flex items-center justify-between gap-2 px-1">
+          <h2 class="text-xs font-medium text-muted-foreground">Wiki</h2>
+          <button
+            v-if="scope === 'all' && (results.wiki?.length ?? 0) >= 5"
+            type="button"
+            class="text-xs font-medium text-primary hover:underline"
+            @click="scope = 'wiki'"
+          >
+            See all wiki
+          </button>
+        </div>
+        <ul class="min-w-0 divide-y divide-border/60 overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+          <li v-for="page in results.wiki" :key="page.id">
+            <RouterLink :to="{ name: 'wiki-page', params: { pageId: page.id } }" :class="rowClass">
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-medium">{{ page.title }}</span>
+                <span v-if="page.excerpt" class="block truncate text-xs text-muted-foreground">{{ page.excerpt }}</span>
               </span>
             </RouterLink>
           </li>

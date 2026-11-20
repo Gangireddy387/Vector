@@ -1,8 +1,8 @@
 import { http } from '@/lib/http'
 import type { IssuePriority, IssueType, ProjectReference, ProjectType, StatusSummary, UserSummary } from '@/types/models'
 
-export type SearchScope = 'all' | 'issues' | 'projects' | 'people' | 'messages' | 'chat'
-export type SearchMatchField = 'key' | 'title' | 'description' | 'comment' | 'label'
+export type SearchScope = 'all' | 'issues' | 'projects' | 'people' | 'messages' | 'chat' | 'wiki'
+export type SearchMatchField = 'key' | 'title' | 'description' | 'comment' | 'label' | 'body'
 
 export interface SearchMessageHit {
   id: string
@@ -24,6 +24,14 @@ export interface SearchChatHit {
   createdAt: string
 }
 
+export interface SearchWikiHit {
+  id: string
+  title: string
+  excerpt: string
+  matchedOn?: 'title' | 'body'
+  updatedAt: string
+}
+
 export interface SearchResults {
   issues: Array<{
     id: string
@@ -40,12 +48,14 @@ export interface SearchResults {
   people: UserSummary[]
   messages?: SearchMessageHit[]
   chat?: SearchChatHit[]
+  wiki?: SearchWikiHit[]
   hasMore?: {
     issues: boolean
     projects: boolean
     people: boolean
     messages?: boolean
     chat?: boolean
+    wiki?: boolean
   }
 }
 

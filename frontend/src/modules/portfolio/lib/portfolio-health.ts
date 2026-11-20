@@ -13,19 +13,34 @@ export const PORTFOLIO_HEALTH_META: Record<
   empty: { label: 'No work', class: 'bg-muted text-muted-foreground', bar: 'bg-muted-foreground/40' },
 }
 
-export function completionOf(project: Project) {
-  const summary = project.issueSummary
+export function completionOf(
+  project: Pick<Project, 'issueSummary'> | { issues?: { total: number; done: number } },
+) {
+  const summary = 'issues' in project && project.issues ? project.issues : 'issueSummary' in project ? project.issueSummary : null
   if (!summary?.total) return 0
   return Math.round((summary.done / summary.total) * 100)
 }
 
-export function healthOf(project: Project): PortfolioHealth {
-  const summary = project.issueSummary
+export function healthOf(
+  project:
+    | Project
+    | {
+        issues: { total: number; open: number; done: number; overdue?: number }
+        activeSprint?: { endDate?: string | null } | null
+      },
+): PortfolioHealth {
+  const summary =
+    'issues' in project && project.issues
+      ? project.issues
+      : 'issueSummary' in project
+        ? project.issueSummary
+        : null
   if (!summary?.total) return 'empty'
   if (summary.open === 0) return 'done'
   if ((summary.overdue ?? 0) > 0) return 'overdue'
-  const completion = completionOf(project)
-  const sprintEnd = project.activeSprint?.endDate
+  const completion = completionOf(project as Project)
+  const sprintEnd =
+    'activeSprint' in project ? project.activeSprint?.endDate : (project as Project).activeSprint?.endDate
   if (sprintEnd) {
     const days = Math.ceil((new Date(`${sprintEnd}T00:00:00`).getTime() - Date.now()) / 86_400_000)
     if (days <= 3 && completion < 70) return 'at_risk'

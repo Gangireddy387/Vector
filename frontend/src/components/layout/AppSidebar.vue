@@ -107,6 +107,7 @@ const workspaceLinks = computed(() => [
     show: true,
     locked: !auth.hasFeature('goals'),
     to: auth.hasFeature('goals') ? ({ name: 'goals' } as const) : ({ name: 'feature-locked', query: { feature: 'goals' } } as const),
+    matchNames: ['goals', 'goal'],
   },
   {
     name: 'portfolio',
@@ -127,6 +128,7 @@ const workspaceLinks = computed(() => [
     to: auth.hasFeature('wiki')
       ? ({ name: 'wiki' } as const)
       : ({ name: 'feature-locked', query: { feature: 'wiki' } } as const),
+    matchNames: ['wiki', 'wiki-page'],
   },
   {
     name: 'departments',
@@ -224,6 +226,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
             :icon="link.icon"
             :shortcut="link.shortcut"
             :exact="link.exact"
+            :match-names="link.matchNames"
             :collapsed="isCollapsed"
             :locked="link.locked"
           />

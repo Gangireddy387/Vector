@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Lock } from 'lucide-vue-next'
-import type { Component } from 'vue'
-import type { RouteLocationRaw } from 'vue-router'
+import { computed, type Component } from 'vue'
+import { useRoute, type RouteLocationRaw } from 'vue-router'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     to: RouteLocationRaw
     label: string
@@ -19,9 +19,21 @@ withDefaults(
     shortcut?: string
     /** Plan-gated teaser: muted look, still navigates to the unlock page. */
     locked?: boolean
+    /**
+     * Also highlight when the current route name is one of these.
+     * Needed for sibling detail routes (wiki → wiki-page, goals → goal) that Vue Router
+     * does not treat as children of the list route.
+     */
+    matchNames?: string[]
   }>(),
-  { collapsed: false, exact: false, nested: false, locked: false },
+  { collapsed: false, exact: false, nested: false, locked: false, matchNames: () => [] },
 )
+
+const route = useRoute()
+const nameMatched = computed(() => {
+  const current = typeof route.name === 'string' ? route.name : null
+  return Boolean(current && props.matchNames.includes(current))
+})
 </script>
 
 <template>
@@ -30,11 +42,11 @@ withDefaults(
       <TooltipTrigger as-child>
         <a
           :href="href"
-          :aria-current="(exact ? isExactActive : isActive) ? 'page' : undefined"
+          :aria-current="(exact ? isExactActive : isActive || nameMatched) ? 'page' : undefined"
           :class="
             cn(
               'group relative flex h-8 items-center gap-2.5 rounded-lg px-2 text-[13px] text-sidebar-foreground/75 transition-[background-color,color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-sidebar-accent/70 hover:text-sidebar-foreground active:scale-[0.98]',
-              (exact ? isExactActive : isActive) &&
+              (exact ? isExactActive : isActive || nameMatched) &&
                 !locked &&
                 'bg-sidebar-accent font-medium text-sidebar-foreground shadow-[inset_3px_0_0_0_var(--primary)]',
               nested && 'h-7 pl-7 text-[12.5px]',
@@ -49,7 +61,7 @@ withDefaults(
             :is="icon"
             v-else-if="icon"
             class="size-4 shrink-0 transition-[color,transform] duration-200"
-            :class="(exact ? isExactActive : isActive) && !locked ? 'scale-110 text-primary' : 'text-muted-foreground group-hover:text-sidebar-foreground'"
+            :class="(exact ? isExactActive : isActive || nameMatched) && !locked ? 'scale-110 text-primary' : 'text-muted-foreground group-hover:text-sidebar-foreground'"
           />
           <span v-if="!collapsed" class="min-w-0 flex-1 truncate">{{ label }}</span>
           <span

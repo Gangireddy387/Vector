@@ -7,6 +7,7 @@ import authRoutes from './modules/auth/auth.routes.js';
 import { publicAuthOAuthRoutes } from './modules/auth/auth-oauth.routes.js';
 import { billingRoutes } from './modules/billing/billing.routes.js';
 import { publicScimRoutes, scimAdminRoutes } from './modules/scim/scim.routes.js';
+import { githubAdminRoutes } from './modules/integrations/github/github.routes.js';
 import { webhookAdminRoutes } from './modules/webhooks/webhook.routes.js';
 import automationRoutes from './modules/automations/automation.routes.js';
 import calendarRoutes from './modules/calendar/calendar.routes.js';
@@ -53,6 +54,8 @@ import { organizationAdminRoutes, organizationRoutes, publicOrganizationRoutes }
 import superAdminRoutes from './modules/super-admin/super-admin.routes.js';
 import supportCallRoutes from './modules/support/support-call.routes.js';
 import goalRoutes from './modules/goals/goal.routes.js';
+import portfolioRoutes from './modules/portfolio/portfolio.routes.js';
+import roadmapRoutes from './modules/roadmap/roadmap.routes.js';
 import wikiRoutes from './modules/wiki/wiki.routes.js';
 
 export function createApiRouter() {
@@ -87,6 +90,7 @@ export function createApiRouter() {
   router.use(organizationAdminRoutes);
   router.use(scimAdminRoutes);
   router.use(webhookAdminRoutes);
+  router.use(githubAdminRoutes);
   router.use(superAdminRoutes);
   router.use(showcaseAdminRoutes);
   router.use(legalAdminRoutes);
@@ -125,6 +129,8 @@ export function createApiRouter() {
     shareRoutes,
     intakeRoutes,
     goalRoutes,
+    portfolioRoutes,
+    roadmapRoutes,
     wikiRoutes,
     aiRoutes,
   ].forEach((moduleRouter) => router.use(moduleRouter));

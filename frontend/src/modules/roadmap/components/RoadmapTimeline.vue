@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronRight } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
 import { formatDate } from '@/lib/format'
@@ -8,15 +8,22 @@ import { cn } from '@/lib/utils'
 import type { Issue, Sprint } from '@/types/models'
 import {
   computeRange,
+  dayDeltaFromPixels,
   dayOffset,
   flattenRows,
+  placementDates,
   rangeDays,
+  resizeIssueDates,
+  shiftIssueDates,
   sprintBands,
   ticksForScale,
   todayLineLeft,
+  type ResizeEdge,
   type RoadmapRow,
   type RoadmapScale,
 } from '../lib/roadmap-timeline'
+
+type DragMode = 'move' | 'resize-start' | 'resize-end' | 'paint'
 
 const props = withDefaults(
   defineProps<{
@@ -27,13 +34,15 @@ const props = withDefaults(
     dayWidth?: number
     labelWidth?: number
     compact?: boolean
+    canEdit?: boolean
   }>(),
-  { sprints: () => [], scale: 'week', dayWidth: 28, labelWidth: 280, compact: false },
+  { sprints: () => [], scale: 'week', dayWidth: 28, labelWidth: 280, compact: false, canEdit: false },
 )
 
 const emit = defineEmits<{
   toggle: [issueId: string]
   open: [issue: Issue]
+  reschedule: [issue: Issue, changes: { startDate?: string; dueDate?: string }]
 }>()
 
 const rowHeight = computed(() => (props.compact ? 36 : 40))
@@ -45,12 +54,55 @@ const ticks = computed(() => ticksForScale(range.value.start, range.value.end, p
 const bands = computed(() => sprintBands(props.sprints, range.value.start, totalDays.value, props.dayWidth))
 const todayLeft = computed(() => todayLineLeft(range.value.start, totalDays.value, props.dayWidth))
 
-function barStyle(row: RoadmapRow) {
+const drag = ref<{
+  issueId: string
+  mode: DragMode
+  startX: number
+  deltaX: number
+  moved: boolean
+  pointerId: number
+  paintOriginDay?: number
+} | null>(null)
+
+function barGeometry(row: RoadmapRow) {
   if (!row.bar) return null
   const start = dayOffset(range.value.start, row.bar.start)
   const end = dayOffset(range.value.start, row.bar.end) + 1
-  const left = Math.max(0, start) * props.dayWidth
-  const width = Math.max(row.bar.point ? Math.max(props.dayWidth, 12) : (end - start) * props.dayWidth, 10)
+  let left = Math.max(0, start) * props.dayWidth
+  let width = Math.max(row.bar.point ? Math.max(props.dayWidth, 12) : (end - start) * props.dayWidth, 10)
+
+  const state = drag.value
+  if (state?.issueId === row.issue.id && state.moved) {
+    const dayDelta = dayDeltaFromPixels(state.deltaX, props.dayWidth)
+    const px = dayDelta * props.dayWidth
+    if (state.mode === 'move') {
+      left += px
+    } else if (state.mode === 'resize-end') {
+      width = Math.max(props.dayWidth, width + px)
+    } else if (state.mode === 'resize-start') {
+      const nextWidth = Math.max(props.dayWidth, width - px)
+      left += width - nextWidth
+      width = nextWidth
+    }
+  }
+
+  return { left, width }
+}
+
+function barStyle(row: RoadmapRow) {
+  const geometry = barGeometry(row)
+  if (!geometry) return null
+  return { left: `${geometry.left}px`, width: `${geometry.width}px` }
+}
+
+function paintGhostStyle() {
+  const state = drag.value
+  if (!state || state.mode !== 'paint' || state.paintOriginDay == null) return null
+  const dayDelta = dayDeltaFromPixels(state.deltaX, props.dayWidth)
+  const startDay = Math.min(state.paintOriginDay, state.paintOriginDay + dayDelta)
+  const endDay = Math.max(state.paintOriginDay, state.paintOriginDay + dayDelta)
+  const left = startDay * props.dayWidth
+  const width = Math.max((endDay - startDay + 1) * props.dayWidth, props.dayWidth)
   return { left: `${left}px`, width: `${width}px` }
 }
 
@@ -63,6 +115,96 @@ function dateHint(row: RoadmapRow) {
   if (row.bar.point) return formatDate(row.bar.start, 'd MMM')
   return `${formatDate(row.bar.start, 'd MMM')} – ${formatDate(row.bar.end, 'd MMM')}`
 }
+
+function canInteract(row: RoadmapRow) {
+  return props.canEdit && Boolean(row.bar && !row.bar.derived)
+}
+
+function canPaint(row: RoadmapRow) {
+  return props.canEdit && !row.bar
+}
+
+function beginDrag(event: PointerEvent, row: RoadmapRow, mode: DragMode, paintOriginDay?: number) {
+  if (event.button !== 0) return
+  const target = event.currentTarget as HTMLElement
+  target.setPointerCapture(event.pointerId)
+  drag.value = {
+    issueId: row.issue.id,
+    mode,
+    startX: event.clientX,
+    deltaX: 0,
+    moved: false,
+    pointerId: event.pointerId,
+    paintOriginDay,
+  }
+}
+
+function onBarPointerDown(event: PointerEvent, row: RoadmapRow) {
+  if (!canInteract(row)) return
+  beginDrag(event, row, 'move')
+}
+
+function onResizePointerDown(event: PointerEvent, row: RoadmapRow, edge: ResizeEdge) {
+  if (!canInteract(row)) return
+  event.stopPropagation()
+  beginDrag(event, row, edge === 'start' ? 'resize-start' : 'resize-end')
+}
+
+function onPaintPointerDown(event: PointerEvent, row: RoadmapRow) {
+  if (!canPaint(row) || event.button !== 0) return
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const dayIndex = Math.max(0, Math.min(totalDays.value - 1, Math.floor((event.clientX - rect.left) / props.dayWidth)))
+  beginDrag(event, row, 'paint', dayIndex)
+}
+
+function onPointerMove(event: PointerEvent, row: RoadmapRow) {
+  if (!drag.value || drag.value.issueId !== row.issue.id) return
+  const deltaX = event.clientX - drag.value.startX
+  drag.value = {
+    ...drag.value,
+    deltaX,
+    moved: drag.value.moved || Math.abs(deltaX) >= 4,
+  }
+}
+
+function finishInteraction(event: PointerEvent, row: RoadmapRow) {
+  const state = drag.value
+  if (!state || state.issueId !== row.issue.id) return
+  const target = event.currentTarget as HTMLElement
+  if (target.hasPointerCapture?.(state.pointerId)) {
+    target.releasePointerCapture(state.pointerId)
+  }
+  drag.value = null
+
+  if (state.mode === 'paint') {
+    if (state.paintOriginDay == null) return
+    const dayDelta = state.moved ? dayDeltaFromPixels(state.deltaX, props.dayWidth) : 0
+    const durationDays = Math.abs(dayDelta) + 1
+    const startDay = Math.min(state.paintOriginDay, state.paintOriginDay + dayDelta)
+    emit('reschedule', row.issue, placementDates(range.value.start, startDay, durationDays))
+    return
+  }
+
+  if (!state.moved) {
+    emit('open', row.issue)
+    return
+  }
+
+  const dayDelta = dayDeltaFromPixels(state.deltaX, props.dayWidth)
+  const changes =
+    state.mode === 'move'
+      ? shiftIssueDates(row.issue, dayDelta)
+      : resizeIssueDates(row.issue, state.mode === 'resize-start' ? 'start' : 'end', dayDelta)
+  if (changes) emit('reschedule', row.issue, changes)
+}
+
+function onBarLostCapture() {
+  drag.value = null
+}
+
+onBeforeUnmount(() => {
+  drag.value = null
+})
 </script>
 
 <template>
@@ -197,34 +339,81 @@ function dateHint(row: RoadmapRow) {
             <PriorityIcon :priority="row.issue.priority" class="hidden size-3.5 shrink-0 lg:block" />
           </div>
 
-          <div class="relative" :style="{ width: `${chartWidth}px`, minWidth: `${chartWidth}px` }">
+          <div
+            class="relative"
+            :class="canPaint(row) ? 'cursor-crosshair touch-none' : ''"
+            :style="{ width: `${chartWidth}px`, minWidth: `${chartWidth}px` }"
+            @pointerdown="canPaint(row) && onPaintPointerDown($event, row)"
+            @pointermove="drag?.mode === 'paint' && drag.issueId === row.issue.id && onPointerMove($event, row)"
+            @pointerup="drag?.mode === 'paint' && drag.issueId === row.issue.id && finishInteraction($event, row)"
+            @pointercancel="drag?.mode === 'paint' && drag.issueId === row.issue.id && finishInteraction($event, row)"
+            @lostpointercapture="onBarLostCapture"
+          >
             <div
               class="pointer-events-none absolute inset-0"
               :style="{
                 backgroundImage: `repeating-linear-gradient(90deg, transparent, transparent ${dayWidth - 1}px, hsl(var(--border) / 0.35) ${dayWidth - 1}px, hsl(var(--border) / 0.35) ${dayWidth}px)`,
               }"
             />
+            <div
+              v-if="drag?.issueId === row.issue.id && drag.mode === 'paint' && paintGhostStyle()"
+              class="pointer-events-none absolute top-1/2 z-[1] h-5 -translate-y-1/2 rounded-md bg-primary/40 ring-1 ring-primary/50"
+              :style="paintGhostStyle()!"
+            />
             <button
               v-if="barStyle(row)"
               type="button"
               :class="
                 cn(
-                  'absolute top-1/2 z-[1] flex -translate-y-1/2 items-center overflow-hidden px-1.5 text-left text-[10px] font-medium text-white shadow-sm transition hover:brightness-110 sm:px-2 sm:text-[11px]',
+                  'absolute top-1/2 z-[1] flex -translate-y-1/2 items-center overflow-hidden px-1.5 text-left text-[10px] font-medium text-white shadow-sm transition-[filter] hover:brightness-110 sm:px-2 sm:text-[11px]',
                   row.bar?.point ? 'rounded-full' : 'rounded-md',
                   row.bar?.derived && 'opacity-70 ring-1 ring-dashed ring-white/40',
+                  canInteract(row) && 'cursor-grab touch-none active:cursor-grabbing',
+                  drag?.issueId === row.issue.id && drag.moved && 'z-[2] cursor-grabbing shadow-md',
                 )
               "
               :style="{ ...barStyle(row)!, backgroundColor: barColor(row.issue) }"
-              :title="`${row.issue.key}: ${formatDate(row.issue.startDate)} → ${formatDate(row.issue.dueDate)}${row.bar?.derived ? ' (from children)' : ''}`"
-              @click="emit('open', row.issue)"
+              :title="
+                canInteract(row)
+                  ? `${row.issue.key}: drag to move · edges to resize · click to open`
+                  : `${row.issue.key}: ${formatDate(row.issue.startDate)} → ${formatDate(row.issue.dueDate)}${row.bar?.derived ? ' (from children)' : ''}`
+              "
+              @pointerdown.stop="canInteract(row) && onBarPointerDown($event, row)"
+              @pointermove="canInteract(row) && drag?.mode !== 'paint' && onPointerMove($event, row)"
+              @pointerup="canInteract(row) && drag?.mode !== 'paint' && finishInteraction($event, row)"
+              @pointercancel="canInteract(row) && drag?.mode !== 'paint' && finishInteraction($event, row)"
+              @lostpointercapture="onBarLostCapture"
+              @click.prevent="!canInteract(row) && emit('open', row.issue)"
             >
-              <span class="truncate">{{ row.issue.key }}</span>
+              <span
+                v-if="canInteract(row)"
+                class="absolute inset-y-0 left-0 z-[1] w-2 cursor-ew-resize touch-none"
+                @pointerdown.stop="onResizePointerDown($event, row, 'start')"
+                @pointermove.stop="onPointerMove($event, row)"
+                @pointerup.stop="finishInteraction($event, row)"
+                @pointercancel.stop="finishInteraction($event, row)"
+              />
+              <span class="truncate px-1">{{ row.issue.key }}</span>
+              <span
+                v-if="canInteract(row)"
+                class="absolute inset-y-0 right-0 z-[1] w-2 cursor-ew-resize touch-none"
+                @pointerdown.stop="onResizePointerDown($event, row, 'end')"
+                @pointermove.stop="onPointerMove($event, row)"
+                @pointerup.stop="finishInteraction($event, row)"
+                @pointercancel.stop="finishInteraction($event, row)"
+              />
             </button>
             <span
-              v-else
+              v-else-if="!canPaint(row)"
               class="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60"
             >
               No dates
+            </span>
+            <span
+              v-else
+              class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/60"
+            >
+              Drag to set dates
             </span>
           </div>
         </div>
@@ -236,6 +425,8 @@ function dateHint(row: RoadmapRow) {
         <span class="inline-flex items-center gap-1.5"><span class="h-2 w-4 rounded-sm bg-primary" /> Dated bar</span>
         <span class="inline-flex items-center gap-1.5"><span class="size-2 rounded-full bg-primary" /> Single date</span>
         <span class="inline-flex items-center gap-1.5"><span class="h-2 w-4 rounded-sm bg-primary/50 ring-1 ring-dashed ring-primary/40" /> Derived</span>
+        <span v-if="canEdit">Drag to move · edges to resize · empty row to paint dates</span>
+        <span v-else>View only · open a work item to see details</span>
       </div>
     </div>
   </div>

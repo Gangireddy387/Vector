@@ -1,7 +1,12 @@
+import { Op } from 'sequelize';
+import { likeOperator } from '../../database/connection.js';
 import { WikiPage, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { currentOrganizationId } from '../../shared/context/request-context.js';
+import { resolveIssueRefs } from '../../shared/utils/issue-refs.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
+import { resolveWikiGraph } from './wiki-refs.js';
+import { getWikiTemplates, resolveWikiTemplate } from './wiki.templates.js';
 
 const MAX_TITLE = 150;
 const MAX_BODY = 50_000;
@@ -17,12 +22,21 @@ const pageIncludes = [
   { model: User, as: 'updatedBy', attributes: USER_SUMMARY_ATTRIBUTES },
 ];
 
-function pageView(page) {
+function excerptOf(body) {
+  return String(body ?? '')
+    .replace(/[#>*_`\[\]()!-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 160);
+}
+
+function pageView(page, { withBody = true } = {}) {
   const json = page.toJSON ? page.toJSON() : page;
   return {
     id: json.id,
     title: json.title,
-    body: json.body,
+    body: withBody ? json.body : undefined,
+    excerpt: excerptOf(json.body),
     createdById: json.createdById,
     updatedById: json.updatedById,
     createdBy: json.createdBy ?? null,
@@ -41,26 +55,62 @@ async function loadPage(pageId) {
   return page;
 }
 
-export async function listPages() {
+export async function listPages({ q } = {}) {
+  const where = { organizationId: orgId() };
+  const term = String(q ?? '').trim();
+  if (term) {
+    const like = `%${term.replace(/[%_]/g, '\\$&')}%`;
+    where[Op.or] = [{ title: { [likeOperator]: like } }, { body: { [likeOperator]: like } }];
+  }
   const pages = await WikiPage.findAll({
-    where: { organizationId: orgId() },
+    where,
     include: pageIncludes,
     order: [['updatedAt', 'DESC']],
+    limit: term ? 50 : 200,
   });
-  return pages.map(pageView);
+  return pages.map((page) => pageView(page, { withBody: false }));
 }
 
-export async function getPage(pageId) {
-  return pageView(await loadPage(pageId));
+export async function getPage(pageId, userId) {
+  const page = pageView(await loadPage(pageId));
+  const emptyLinks = { linkedPages: [], backlinks: [] };
+  if (!page.body) {
+    return { ...page, referencedIssues: [], ...emptyLinks };
+  }
+
+  const organizationId = orgId();
+  const [issues, graph] = await Promise.all([
+    userId ? resolveIssueRefs(userId, page.body) : Promise.resolve([]),
+    resolveWikiGraph(organizationId, { pageId: page.id, title: page.title, body: page.body }),
+  ]);
+
+  return {
+    ...page,
+    referencedIssues: issues.map((issue) => ({
+      id: issue.id,
+      key: issue.key,
+      title: issue.title,
+      projectId: issue.projectId,
+    })),
+    linkedPages: graph.linkedPages,
+    backlinks: graph.backlinks,
+  };
 }
 
-export async function createPage(actor, { title, body = '' }) {
-  const cleaned = String(title ?? '').trim();
+export async function listTemplates() {
+  return getWikiTemplates();
+}
+
+export async function createPage(actor, { title, body, templateId } = {}) {
+  const template = templateId ? resolveWikiTemplate(templateId) : null;
+  if (templateId && !template) throw ApiError.badRequest('Unknown wiki template');
+
+  const cleaned = String(title ?? template?.pageTitle ?? '').trim();
   if (!cleaned) throw ApiError.badRequest('Give the page a title');
   const created = await WikiPage.create({
     organizationId: orgId(),
     title: cleaned.slice(0, MAX_TITLE),
-    body: String(body ?? '').slice(0, MAX_BODY),
+    body: String(body !== undefined ? body : (template?.body ?? '')).slice(0, MAX_BODY),
     createdById: actor.id,
     updatedById: actor.id,
   });

@@ -3,6 +3,7 @@ import { nextTick, ref } from 'vue'
 import MarkdownContent from '@/components/common/MarkdownContent.vue'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import WritingAssistBar from '@/modules/ai/components/WritingAssistBar.vue'
 
 const props = withDefaults(defineProps<{ description: string | null; editable?: boolean }>(), { editable: true })
 const emit = defineEmits<{ save: [description: string | null] }>()
@@ -11,6 +12,7 @@ const isEditing = ref(false)
 const isPreview = ref(false)
 const draft = ref('')
 const editor = ref<InstanceType<typeof Textarea> | null>(null)
+const assistRef = ref<InstanceType<typeof WritingAssistBar> | null>(null)
 
 async function startEditing() {
   if (!props.editable) return
@@ -26,6 +28,15 @@ function save() {
   const value = draft.value.trim() || null
   if (value !== (props.description ?? null)) emit('save', value)
 }
+
+function onKeydown(event: KeyboardEvent) {
+  if (assistRef.value?.onKeydown(event)) return
+  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+    event.preventDefault()
+    save()
+  }
+  if (event.key === 'Escape') isEditing.value = false
+}
 </script>
 
 <template>
@@ -39,17 +50,17 @@ function save() {
       <div v-if="isPreview" class="min-h-32 border p-3">
         <MarkdownContent :source="draft" />
       </div>
-      <Textarea
-        v-else
-        ref="editor"
-        v-model="draft"
-        rows="8"
-        class="font-mono text-[13px]"
-        placeholder="Describe the work. Markdown is supported."
-        @keydown.ctrl.enter.prevent="save"
-        @keydown.meta.enter.prevent="save"
-        @keydown.esc="isEditing = false"
-      />
+      <template v-else>
+        <WritingAssistBar ref="assistRef" v-model="draft" surface="issue" />
+        <Textarea
+          ref="editor"
+          v-model="draft"
+          rows="8"
+          class="font-mono text-[13px]"
+          placeholder="Describe the work. Markdown is supported. Ctrl+Space to continue writing."
+          @keydown="onKeydown"
+        />
+      </template>
       <div class="flex items-center gap-2">
         <Button size="sm" @click="save">Save</Button>
         <Button size="sm" variant="ghost" @click="isEditing = false">Cancel</Button>

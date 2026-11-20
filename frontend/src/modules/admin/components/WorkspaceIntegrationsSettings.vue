@@ -8,6 +8,7 @@ import { useAuthStore } from '@/modules/auth/auth.store'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import { workspaceApi } from '../admin.api'
 import WorkspaceChannelNotificationsSettings from './WorkspaceChannelNotificationsSettings.vue'
+import WorkspaceGithubSettings from './WorkspaceGithubSettings.vue'
 import WorkspaceScimSettings from './WorkspaceScimSettings.vue'
 import WorkspaceSsoSettings from './WorkspaceSsoSettings.vue'
 import WorkspaceWebhooksSettings from './WorkspaceWebhooksSettings.vue'
@@ -23,6 +24,7 @@ const router = useRouter()
 
 const webhookCount = ref(0)
 const scimTokenCount = ref(0)
+const githubEnabled = ref(false)
 const statusLoaded = ref(false)
 
 const setup = computed<SetupKey | null>(() => {
@@ -72,12 +74,12 @@ const catalog = computed(() => {
     },
     {
       key: 'vcs' as const,
-      title: 'GitHub & GitLab links',
-      description: 'Paste issue and pull request URLs onto tasks. No workspace setup needed.',
+      title: 'GitHub & GitLab',
+      description: 'Link PR/issue URLs on tasks and sync GitHub activity into Vector comments.',
       icon: GitBranch,
       available: auth.hasFeature('vcsLinks'),
-      configured: false,
-      cta: 'How it works',
+      configured: githubEnabled.value,
+      cta: 'Configure',
     },
   ]
 })
@@ -86,14 +88,15 @@ const activeMeta = computed(() => catalog.value.find((item) => item.key === setu
 
 function statusLabel(item: (typeof catalog.value)[number]) {
   if (!item.available) return 'Not on plan'
-  if (item.key === 'vcs') return 'Available on tasks'
   if (item.configured) return 'Configured'
+  if (item.key === 'vcs') return 'Links available'
   return 'Available'
 }
 
 function statusClass(item: (typeof catalog.value)[number]) {
   if (!item.available) return 'text-muted-foreground'
-  if (item.key === 'vcs' || item.configured) return 'text-emerald-600 dark:text-emerald-400'
+  if (item.configured) return 'text-emerald-600 dark:text-emerald-400'
+  if (item.key === 'vcs') return 'text-emerald-600 dark:text-emerald-400'
   return 'text-amber-700 dark:text-amber-400'
 }
 
@@ -118,6 +121,15 @@ async function loadStatus() {
       )
     } else {
       scimTokenCount.value = 0
+    }
+    if (auth.hasFeature('vcsLinks')) {
+      jobs.push(
+        workspaceApi.githubIntegration().then((data) => {
+          githubEnabled.value = Boolean(data.enabled)
+        }),
+      )
+    } else {
+      githubEnabled.value = false
     }
     await Promise.all(jobs)
   } catch {
@@ -160,25 +172,7 @@ function backToHub() {
       <WorkspaceWebhooksSettings v-else-if="setup === 'webhooks'" />
       <WorkspaceScimSettings v-else-if="setup === 'scim'" />
       <WorkspaceSsoSettings v-else-if="setup === 'sso'" />
-
-      <Card v-else-if="setup === 'vcs'">
-        <CardHeader>
-          <CardTitle>GitHub & GitLab links</CardTitle>
-          <CardDescription>
-            Link code to work by pasting a GitHub or GitLab URL on any task (Pro+).
-          </CardDescription>
-        </CardHeader>
-        <CardContent class="space-y-3 text-sm text-muted-foreground">
-          <p v-if="auth.hasFeature('vcsLinks')">
-            Open a task → <span class="font-medium text-foreground">Code</span> → paste a URL like
-            <code class="text-xs">https://github.com/org/repo/issues/12</code>.
-          </p>
-          <p v-else>
-            Not included on the current plan. Ask the portal administrator to enable
-            <span class="font-medium text-foreground">GitHub & GitLab links</span>, or upgrade to Pro.
-          </p>
-        </CardContent>
-      </Card>
+      <WorkspaceGithubSettings v-else-if="setup === 'vcs'" />
     </template>
 
     <template v-else>

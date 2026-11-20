@@ -51,6 +51,11 @@ Organization.init(
      */
     channelNotifications: { type: DataTypes.JSON, allowNull: true },
     /**
+     * GitHub inbound webhook sync (plan feature `vcsLinks`):
+     * `{ enabled, secretEncrypted, secretPrefix, lastDeliveryAt?, lastEvent?, lastError? }`
+     */
+    githubWebhook: { type: DataTypes.JSON, allowNull: true },
+    /**
      * Data retention (days; `0` = keep forever):
      * `{ auditLogDays, activityDays, notificationDays, transcriptDays, recordingDays }`
      */

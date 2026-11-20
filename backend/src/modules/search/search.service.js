@@ -11,13 +11,16 @@ import {
   Issue,
   IssueLabel,
   Label,
+  Organization,
   Project,
   Status,
   Team,
   User,
+  WikiPage,
 } from '../../database/models.js';
 import { currentOrganizationId } from '../../shared/context/request-context.js';
 import { ISSUE_PRIORITIES, ISSUE_TYPES } from '../issues/issue.model.js';
+import { entitlementsFor, withPlan } from '../plans/plan.service.js';
 import { getMemberProjectIds } from '../projects/project-access.js';
 import { searchUsers } from '../users/user.service.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
@@ -384,6 +387,46 @@ async function searchProjectChat(projectIds, q, limit, offset = 0) {
   }));
 }
 
+async function searchWikiPages(q, limit, offset = 0) {
+  const text = sanitizeTerm(q);
+  const organizationId = currentOrganizationId();
+  if (!text || !organizationId) return [];
+
+  const organization = await Organization.findByPk(organizationId, { include: withPlan() });
+  if (!organization || !entitlementsFor(organization).features.wiki) return [];
+
+  const term = `%${text}%`;
+  const needle = text.toLowerCase();
+  const rows = await WikiPage.findAll({
+    where: {
+      organizationId,
+      [Op.or]: [{ title: { [likeOperator]: term } }, { body: { [likeOperator]: term } }],
+    },
+    attributes: ['id', 'title', 'body', 'updatedAt'],
+    order: [['updatedAt', 'DESC']],
+    limit: Math.min(80, Math.max(limit * 3, offset + limit)),
+  });
+
+  return rows
+    .map((page) => {
+      const title = String(page.title || '');
+      const body = String(page.body || '');
+      const titleHit = title.toLowerCase().includes(needle);
+      const score = titleHit ? (title.toLowerCase() === needle ? 100 : 80) : 50;
+      return {
+        id: page.id,
+        title,
+        excerpt: previewText(body, 160),
+        matchedOn: titleHit ? 'title' : 'body',
+        updatedAt: page.updatedAt,
+        _score: score,
+      };
+    })
+    .sort((a, b) => b._score - a._score || new Date(b.updatedAt) - new Date(a.updatedAt))
+    .slice(offset, offset + limit)
+    .map(({ _score, ...rest }) => rest);
+}
+
 export async function globalSearch(userId, { q, limit, offset = 0, scope = 'all' }) {
   const { operators, text } = parseSearchOperators(q);
   const hasOperators = Object.values(operators).some(Boolean);
@@ -393,15 +436,17 @@ export async function globalSearch(userId, { q, limit, offset = 0, scope = 'all'
   const wantPeople = scope === 'all' || scope === 'people';
   const wantMessages = scope === 'all' || scope === 'messages';
   const wantChat = scope === 'all' || scope === 'chat';
+  const wantWiki = scope === 'all' || scope === 'wiki';
   const freeText = text || (!hasOperators ? sanitizeTerm(q) : '');
   const term = freeText ? `%${sanitizeTerm(freeText)}%` : null;
   const projectLimit = scope === 'projects' ? limit : 5;
   const peopleLimit = scope === 'people' ? limit : 5;
   const messageLimit = scope === 'messages' ? limit : 5;
   const chatLimit = scope === 'chat' ? limit : 5;
+  const wikiLimit = scope === 'wiki' ? limit : 5;
 
   // Issue operators only apply to the issues pane; projects/people/messages still use free text.
-  const [issues, projectRows, peopleRows, messageRows, chatRows] = await Promise.all([
+  const [issues, projectRows, peopleRows, messageRows, chatRows, wikiRows] = await Promise.all([
     wantIssues && (freeText || hasOperators)
       ? searchIssues(userId, projectIds, freeText, operators, limit, offset)
       : Promise.resolve([]),
@@ -435,6 +480,7 @@ export async function globalSearch(userId, { q, limit, offset = 0, scope = 'all'
     wantChat && freeText
       ? searchProjectChat(projectIds, freeText, chatLimit, scope === 'chat' ? offset : 0)
       : Promise.resolve([]),
+    wantWiki && freeText ? searchWikiPages(freeText, wikiLimit, scope === 'wiki' ? offset : 0) : Promise.resolve([]),
   ]);
 
   return {
@@ -443,12 +489,14 @@ export async function globalSearch(userId, { q, limit, offset = 0, scope = 'all'
     people: peopleRows,
     messages: messageRows,
     chat: chatRows,
+    wiki: wikiRows,
     hasMore: {
       issues: wantIssues && issues.length === limit,
       projects: wantProjects && scope === 'projects' && projectRows.length === limit,
       people: wantPeople && scope === 'people' && peopleRows.length === limit,
       messages: wantMessages && (scope === 'messages' || scope === 'all') && messageRows.length === messageLimit,
       chat: wantChat && (scope === 'chat' || scope === 'all') && chatRows.length === chatLimit,
+      wiki: wantWiki && (scope === 'wiki' || scope === 'all') && wikiRows.length === wikiLimit,
     },
   };
 }

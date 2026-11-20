@@ -770,45 +770,61 @@
   @apply font-semibold text-foreground;
 }
 
-/* Rendered markdown (descriptions, comments). */
+/* Rendered markdown (descriptions, comments, wiki). */
 .markdown-body {
-  @apply text-sm leading-relaxed break-words;
+  @apply text-sm leading-relaxed break-words text-foreground;
 }
 .markdown-body > * + * {
   @apply mt-3;
 }
 .markdown-body h1 {
-  @apply text-lg font-semibold;
+  @apply mb-2 text-xl font-semibold tracking-tight;
 }
 .markdown-body h2 {
-  @apply text-base font-semibold;
+  @apply mt-6 mb-2 border-b border-border/60 pb-1.5 text-base font-semibold tracking-tight first:mt-0;
 }
 .markdown-body h3 {
-  @apply text-sm font-semibold;
+  @apply mt-4 mb-1.5 text-sm font-semibold;
+}
+.markdown-body p {
+  @apply leading-6 text-foreground/90;
 }
 .markdown-body ul {
-  @apply list-disc pl-5;
+  @apply list-disc space-y-1.5 pl-5 marker:text-muted-foreground;
 }
 .markdown-body ol {
-  @apply list-decimal pl-5;
+  @apply list-decimal space-y-1.5 pl-5 marker:text-muted-foreground;
+}
+.markdown-body li {
+  @apply leading-6 pl-0.5;
 }
 .markdown-body li + li {
-  @apply mt-1;
+  @apply mt-0;
+}
+.markdown-body li > ul,
+.markdown-body li > ol {
+  @apply mt-1.5;
+}
+.markdown-body strong {
+  @apply font-semibold text-foreground;
 }
 .markdown-body a {
   @apply text-primary underline underline-offset-2;
 }
 .markdown-body code {
-  @apply bg-muted px-1.5 py-0.5 font-mono text-[0.8em];
+  @apply rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[0.8em];
 }
 .markdown-body pre {
-  @apply overflow-x-auto bg-muted p-3;
+  @apply overflow-x-auto rounded-md border border-border/60 bg-muted p-3;
 }
 .markdown-body pre code {
   @apply bg-transparent p-0;
 }
 .markdown-body blockquote {
   @apply border-l-2 border-primary/40 pl-3 text-muted-foreground;
+}
+.markdown-body hr {
+  @apply my-6 border-border;
 }
 .markdown-body input[type='checkbox'] {
   @apply mr-1.5 align-middle accent-primary;
@@ -819,11 +835,56 @@
 .markdown-body a.issue-ref {
   @apply inline-flex items-center border border-primary/25 bg-primary/8 px-1 font-mono text-[0.85em] font-semibold text-primary no-underline transition-colors hover:bg-primary/15;
 }
+.markdown-body a.wiki-ref {
+  @apply inline-flex items-center border border-border bg-muted/50 px-1 text-[0.9em] font-medium text-foreground no-underline transition-colors hover:bg-muted;
+}
+.markdown-body .table-wrap {
+  @apply my-3 w-full overflow-x-auto rounded-md border border-border/70;
+}
+.markdown-body table {
+  @apply w-full min-w-[20rem] border-collapse text-left text-[13px];
+}
+.markdown-body thead {
+  @apply bg-muted/70;
+}
+.markdown-body th {
+  @apply border-b border-border px-3 py-2 align-top font-semibold text-foreground whitespace-nowrap;
+}
+.markdown-body td {
+  @apply border-b border-border/70 px-3 py-2 align-top text-foreground/90;
+}
+.markdown-body tbody tr:last-child td {
+  @apply border-b-0;
+}
+.markdown-body tbody tr:nth-child(even) {
+  @apply bg-muted/25;
+}
 .markdown-body.compact > * + * {
   @apply mt-1.5;
 }
+.markdown-body.compact h2 {
+  @apply mt-3 border-b-0 pb-0;
+}
 .markdown-body.compact li + li {
   @apply mt-0.5;
+}
+.markdown-body.compact .table-wrap {
+  @apply my-2;
+}
+.markdown-body.compact th,
+.markdown-body.compact td {
+  @apply px-2 py-1.5;
+}
+
+/* Wiki read view: slightly roomier document rhythm */
+.markdown-body.wiki-doc {
+  @apply text-[15px] leading-7;
+}
+.markdown-body.wiki-doc h2 {
+  @apply mt-8 text-[1.05rem];
+}
+.markdown-body.wiki-doc .table-wrap {
+  @apply my-4 shadow-sm;
 }
 
 /* Reports → Download PDF (window.print). Hides app chrome; keeps the dashboard. */

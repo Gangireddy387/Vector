@@ -1,40 +1,32 @@
 <script setup lang="ts">
-import { AlertTriangle, CheckCircle2, CircleDashed, FolderKanban, LayoutGrid, RefreshCw, Search } from 'lucide-vue-next'
+import { AlertTriangle, FolderKanban, LayoutGrid, RefreshCw, Search } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
-import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
-import { formatDate } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
-import { useProjectsStore } from '@/modules/projects/projects.store'
-import type { Project } from '@/types/models'
 import { toast } from 'vue-sonner'
-import {
-  completionOf,
-  healthOf,
-  PORTFOLIO_HEALTH_META,
-  type PortfolioHealth,
-} from '../lib/portfolio-health'
+import PortfolioProjectCard from '../components/PortfolioProjectCard.vue'
+import { type PortfolioHealth } from '../lib/portfolio-health'
+import { portfolioApi, type PortfolioRollup } from '../portfolio.api'
 
-const projects = useProjectsStore()
 const { isPhone } = useDevice()
 
 const loading = ref(false)
 const loadError = ref<string | null>(null)
+const rollup = ref<PortfolioRollup | null>(null)
 const search = ref('')
 const typeFilter = ref<'all' | 'scrum' | 'kanban'>('all')
 const healthFilter = ref<PortfolioHealth | 'all'>('all')
+const includeArchived = ref(false)
 
 async function load() {
   loading.value = true
   loadError.value = null
   try {
-    await projects.fetchProjects(true, false)
+    rollup.value = await portfolioApi.rollup({ includeArchived: includeArchived.value })
   } catch (error) {
     loadError.value = getErrorMessage(error)
     toast.error(loadError.value)
@@ -45,45 +37,33 @@ async function load() {
 
 onMounted(() => void load())
 
+const projects = computed(() => rollup.value?.projects ?? [])
+
 const rows = computed(() => {
   const term = search.value.trim().toLowerCase()
-  return projects.activeProjects
+  return projects.value
     .filter((project) => {
       if (typeFilter.value !== 'all' && project.type !== typeFilter.value) return false
-      const health = healthOf(project)
-      if (healthFilter.value !== 'all' && health !== healthFilter.value) return false
+      if (healthFilter.value !== 'all' && project.health !== healthFilter.value) return false
       if (!term) return true
       return `${project.name} ${project.key} ${project.lead?.name ?? ''}`.toLowerCase().includes(term)
     })
     .slice()
     .sort((a, b) => {
       const rank: Record<PortfolioHealth, number> = { overdue: 0, at_risk: 1, on_track: 2, empty: 3, done: 4 }
-      const diff = rank[healthOf(a)] - rank[healthOf(b)]
+      const diff = rank[a.health] - rank[b.health]
       if (diff !== 0) return diff
       return a.name.localeCompare(b.name)
     })
 })
 
 const totals = computed(() => {
-  const list = projects.activeProjects
-  return {
-    projects: list.length,
-    open: list.reduce((sum, project) => sum + (project.issueSummary?.open ?? 0), 0),
-    done: list.reduce((sum, project) => sum + (project.issueSummary?.done ?? 0), 0),
-    overdue: list.reduce((sum, project) => sum + (project.issueSummary?.overdue ?? 0), 0),
-    atRisk: list.filter((project) => {
-      const health = healthOf(project)
-      return health === 'overdue' || health === 'at_risk'
-    }).length,
+  if (!rollup.value) {
+    return { projects: 0, open: 0, done: 0, overdue: 0, atRisk: 0, todo: 0, inProgress: 0 }
   }
+  return rollup.value.totals
 })
 
-function summaryLine(project: Project) {
-  const summary = project.issueSummary
-  if (!summary?.total) return 'No tasks yet'
-  const overdue = summary.overdue ?? 0
-  return `${summary.open} open · ${summary.done} done${overdue ? ` · ${overdue} overdue` : ''}`
-}
 </script>
 
 <template>
@@ -93,7 +73,7 @@ function summaryLine(project: Project) {
         <div class="min-w-0 space-y-0.5 sm:space-y-1">
           <h1 class="text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">Portfolio</h1>
           <p class="hidden text-sm text-muted-foreground sm:block">
-            Health and progress across every project you can access.
+            Health, status mix, and sprint progress across every project you can access.
           </p>
           <p class="text-xs text-muted-foreground sm:hidden">
             {{ totals.projects }} projects · {{ totals.overdue }} overdue · {{ totals.atRisk }} need attention
@@ -141,10 +121,19 @@ function summaryLine(project: Project) {
             {{ option.label }}
           </Button>
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          :class="includeArchived && 'bg-muted'"
+          :aria-pressed="includeArchived"
+          @click="includeArchived = !includeArchived; load()"
+        >
+          {{ includeArchived ? 'Hide archived' : 'Show archived' }}
+        </Button>
       </div>
     </header>
 
-    <section class="hidden shrink-0 gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4">
+    <section class="hidden shrink-0 gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
       <article class="rounded-xl border bg-card p-3 shadow-soft lg:p-4">
         <p class="text-sm font-medium">Projects</p>
         <p class="mt-1 text-2xl font-semibold tabular-nums">{{ totals.projects }}</p>
@@ -152,6 +141,11 @@ function summaryLine(project: Project) {
       <article class="rounded-xl border bg-card p-3 shadow-soft lg:p-4">
         <p class="text-sm font-medium">Open work</p>
         <p class="mt-1 text-2xl font-semibold tabular-nums">{{ totals.open }}</p>
+        <p class="mt-0.5 text-[11px] text-muted-foreground">{{ totals.todo }} todo · {{ totals.inProgress }} in progress</p>
+      </article>
+      <article class="rounded-xl border bg-card p-3 shadow-soft lg:p-4">
+        <p class="text-sm font-medium">Done</p>
+        <p class="mt-1 text-2xl font-semibold tabular-nums">{{ totals.done }}</p>
       </article>
       <article class="rounded-xl border bg-card p-3 shadow-soft lg:p-4">
         <p class="flex items-center gap-1.5 text-sm font-medium"><AlertTriangle class="size-3.5 text-destructive" /> Overdue</p>
@@ -163,12 +157,12 @@ function summaryLine(project: Project) {
       </article>
     </section>
 
-    <div v-if="loading && !projects.projects.length" class="grid min-h-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      <Skeleton v-for="index in 6" :key="index" class="h-40 rounded-xl" />
+    <div v-if="loading && !projects.length" class="grid min-h-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <Skeleton v-for="index in 6" :key="index" class="h-44 rounded-xl" />
     </div>
 
     <EmptyState
-      v-else-if="loadError && !projects.projects.length"
+      v-else-if="loadError && !projects.length"
       :icon="LayoutGrid"
       title="Portfolio did not load"
       :description="loadError"
@@ -186,86 +180,16 @@ function summaryLine(project: Project) {
     />
 
     <div v-else class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      <!-- Phone: compact cards -->
       <div v-if="isPhone" class="space-y-2 pb-2">
-        <RouterLink
+        <PortfolioProjectCard
           v-for="project in rows"
           :key="project.id"
-          :to="{ name: 'project-board', params: { projectId: project.id } }"
-          class="block rounded-xl border bg-card p-3 shadow-soft"
-        >
-          <div class="flex items-start gap-2">
-            <span class="mt-1 size-2.5 shrink-0 rounded-full" :style="{ backgroundColor: project.color }" />
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
-                <p class="truncate text-sm font-semibold">{{ project.name }}</p>
-                <span
-                  class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium"
-                  :class="PORTFOLIO_HEALTH_META[healthOf(project)].class"
-                >
-                  {{ PORTFOLIO_HEALTH_META[healthOf(project)].label }}
-                </span>
-              </div>
-              <p class="mt-0.5 text-[11px] text-muted-foreground">{{ project.key }} · {{ project.type }} · {{ summaryLine(project) }}</p>
-              <Progress :model-value="completionOf(project)" class="mt-2 h-1.5" />
-            </div>
-            <UserAvatar v-if="project.lead" :user="project.lead" size="xs" class="shrink-0" />
-          </div>
-        </RouterLink>
+          :project="project"
+          compact
+        />
       </div>
-
-      <!-- Tablet / desktop: richer grid -->
       <div v-else class="grid gap-3 pb-2 sm:grid-cols-2 xl:grid-cols-3">
-        <RouterLink
-          v-for="project in rows"
-          :key="project.id"
-          :to="{ name: 'project-board', params: { projectId: project.id } }"
-          class="flex flex-col rounded-xl border bg-card p-4 shadow-soft transition hover:border-primary/30 hover:bg-muted/20"
-        >
-          <div class="flex items-start gap-3">
-            <span class="mt-1 size-3 shrink-0 rounded-full" :style="{ backgroundColor: project.color }" />
-            <div class="min-w-0 flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <h2 class="truncate font-semibold">{{ project.name }}</h2>
-                <span class="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {{ project.type }}
-                </span>
-                <span
-                  class="rounded-md px-1.5 py-0.5 text-[10px] font-medium"
-                  :class="PORTFOLIO_HEALTH_META[healthOf(project)].class"
-                >
-                  {{ PORTFOLIO_HEALTH_META[healthOf(project)].label }}
-                </span>
-              </div>
-              <p class="mt-1 text-xs text-muted-foreground">{{ project.key }} · {{ summaryLine(project) }}</p>
-            </div>
-            <UserAvatar v-if="project.lead" :user="project.lead" class="shrink-0" />
-          </div>
-
-          <div class="mt-4 space-y-1.5">
-            <div class="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Progress</span>
-              <span class="tabular-nums font-medium text-foreground">{{ completionOf(project) }}%</span>
-            </div>
-            <Progress :model-value="completionOf(project)" class="h-2" />
-          </div>
-
-          <div class="mt-4 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-            <span class="inline-flex items-center gap-1"><CircleDashed class="size-3" /> {{ project.issueSummary?.open ?? 0 }} open</span>
-            <span class="inline-flex items-center gap-1"><CheckCircle2 class="size-3" /> {{ project.issueSummary?.done ?? 0 }} done</span>
-            <span
-              v-if="project.issueSummary?.overdue"
-              class="inline-flex items-center gap-1 text-destructive"
-            >
-              <AlertTriangle class="size-3" /> {{ project.issueSummary.overdue }} overdue
-            </span>
-            <span v-if="project.activeSprint" class="ml-auto">
-              Sprint {{ project.activeSprint.name }}
-              <template v-if="project.activeSprint.endDate"> · ends {{ formatDate(project.activeSprint.endDate) }}</template>
-            </span>
-            <span v-else class="ml-auto">{{ project.memberCount ?? 0 }} members</span>
-          </div>
-        </RouterLink>
+        <PortfolioProjectCard v-for="project in rows" :key="project.id" :project="project" />
       </div>
     </div>
   </div>

@@ -30,6 +30,18 @@ export interface WebhookEndpointRow {
   updatedAt: string
 }
 
+export interface GithubIntegrationSettings {
+  available: boolean
+  enabled: boolean
+  webhookUrl: string
+  secretPrefix: string | null
+  lastDeliveryAt: string | null
+  lastEvent: string | null
+  lastError: string | null
+  /** Present only when enabling or regenerating. */
+  secret?: string
+}
+
 export interface UpgradeRequest {
   target: UpgradeTarget
   note: string | null
@@ -176,6 +188,11 @@ export const workspaceApi = {
   deleteWebhook: (endpointId: string) => http.delete(`/workspace/webhooks/${endpointId}`),
   testWebhook: (endpointId: string) =>
     http.post<WebhookEndpointRow & { ok: boolean; status: number }>(`/workspace/webhooks/${endpointId}/test`).then((r) => r.data),
+  githubIntegration: () => http.get<GithubIntegrationSettings>('/workspace/integrations/github').then((r) => r.data),
+  updateGithubIntegration: (payload: { enabled: boolean }) =>
+    http.put<GithubIntegrationSettings>('/workspace/integrations/github', payload).then((r) => r.data),
+  regenerateGithubSecret: () =>
+    http.post<GithubIntegrationSettings>('/workspace/integrations/github/regenerate-secret').then((r) => r.data),
   /** Full organization JSON backup (projects, issues, comments, attachment metadata). */
   exportBackup: async (slug?: string | null) => {
     const response = await http.get<Blob>('/workspace/backup', { responseType: 'blob' })

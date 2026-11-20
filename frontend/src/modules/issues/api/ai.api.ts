@@ -50,6 +50,21 @@ export function aiSourceHint(source: AiSource | undefined): string | undefined {
   return undefined
 }
 
+export type WritingMode = 'complete' | 'polish' | 'grammar' | 'clearer' | 'shorten' | 'expand'
+export type WritingSurface = 'wiki' | 'issue' | 'comment' | 'general'
+
+export interface WritingAssistResult {
+  source: AiSource
+  mode: WritingMode
+  text: string
+  continuation: string | null
+}
+
+export interface WritingSuggestResult {
+  source: AiSource
+  suggestions: string[]
+}
+
 export const aiApi = {
   status: () => http.get<{ enabled: boolean; provider: 'openai' | 'heuristic' }>('/ai/status').then((r) => r.data),
   dailyBriefing: () => http.get<DailyBriefing>('/ai/daily-briefing').then((r) => r.data),
@@ -58,4 +73,8 @@ export const aiApi = {
   summarize: (issueId: string) => http.post<IssueSummary>(`/ai/issues/${issueId}/summary`).then((r) => r.data),
   breakdown: (issueId: string) =>
     http.post<{ source: AiSource; subtasks: string[] }>(`/ai/issues/${issueId}/breakdown`).then((r) => r.data),
+  writingAssist: (payload: { text: string; selection?: string; mode: WritingMode; surface?: WritingSurface }) =>
+    http.post<WritingAssistResult>('/ai/writing/assist', payload).then((r) => r.data),
+  writingSuggest: (payload: { text: string; count?: number; surface?: WritingSurface }) =>
+    http.post<WritingSuggestResult>('/ai/writing/suggest', payload).then((r) => r.data),
 }

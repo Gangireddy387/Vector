@@ -89,7 +89,7 @@ export const PLAN_FEATURES: PlanFeature[] = [
   {
     key: 'aiAssistant',
     label: 'AI assistant',
-    description: 'Draft tasks, daily briefing, meeting summaries, and sub-task breakdowns (OpenAI when configured)',
+    description: 'Draft tasks, writing polish & grammar, next-word suggestions, briefings, and meeting summaries',
     icon: Sparkles,
     group: 'app',
   },
@@ -135,7 +135,7 @@ export const PLAN_FEATURES: PlanFeature[] = [
   {
     key: 'wiki',
     label: 'Shared docs & wiki',
-    description: 'Organization-wide markdown pages for handbooks, runbooks and shared notes',
+    description: 'AI-written org knowledge — generate pages from a sentence, then review and share',
     icon: BookOpen,
     group: 'app',
   },
@@ -169,7 +169,7 @@ export const PLAN_FEATURES: PlanFeature[] = [
   {
     key: 'vcsLinks',
     label: 'GitHub & GitLab links',
-    description: 'Paste GitHub or GitLab issue and pull request URLs onto Vector tasks',
+    description: 'Link GitHub/GitLab URLs on tasks and sync PR/issue activity into Vector via GitHub webhooks',
     icon: GitBranch,
     group: 'app',
   },

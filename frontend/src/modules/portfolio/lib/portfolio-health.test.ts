@@ -35,4 +35,14 @@ describe('portfolio health', () => {
   it('computes completion', () => {
     expect(completionOf(project({ id: '1', name: 'A', issueSummary: { total: 4, open: 1, done: 3 } }))).toBe(75)
   })
+
+  it('reads rollup issues shape', () => {
+    expect(
+      healthOf({
+        issues: { total: 10, open: 10, done: 0, overdue: 0 },
+        activeSprint: null,
+      }),
+    ).toBe('at_risk')
+    expect(completionOf({ issues: { total: 10, done: 4 } })).toBe(40)
+  })
 })
