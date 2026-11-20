@@ -150,14 +150,23 @@ export const workspaceApi = {
   /** Organization audit trail (invites, roles, settings, plan, sign-in / SSO / MFA). */
   auditLog: (params?: { limit?: number; before?: string; category?: 'auth' | 'admin' }) =>
     http.get<{ entries: WorkspaceAuditEntry[] }>('/workspace/audit-log', { params }).then((r) => r.data),
-  exportAuditLogCsv: async (category?: 'auth' | 'admin') => {
+  exportAuditLog: async (options?: { category?: 'auth' | 'admin'; format?: 'csv' | 'jsonl' }) => {
+    const format = options?.format ?? 'csv'
     const response = await http.get<Blob>('/workspace/audit-log/export', {
-      params: category ? { category } : undefined,
+      params: {
+        ...(options?.category ? { category: options.category } : {}),
+        format,
+      },
       responseType: 'blob',
     })
     const url = URL.createObjectURL(response.data)
-    Object.assign(document.createElement('a'), { href: url, download: 'vector-audit-log.csv' }).click()
+    const filename = format === 'jsonl' ? 'vector-audit-log.jsonl' : 'vector-audit-log.csv'
+    Object.assign(document.createElement('a'), { href: url, download: filename }).click()
     URL.revokeObjectURL(url)
+  },
+  /** @deprecated Prefer exportAuditLog({ format: 'csv' }) */
+  exportAuditLogCsv: async (category?: 'auth' | 'admin') => {
+    await workspaceApi.exportAuditLog({ category, format: 'csv' })
   },
   scimSettings: () => http.get<{ scim: { available: boolean; baseUrl: string | null } }>('/workspace/scim').then((r) => r.data.scim),
   scimTokens: () =>

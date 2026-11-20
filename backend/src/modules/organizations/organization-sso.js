@@ -49,6 +49,13 @@ function rawOidc(organization) {
   return sso.oidc && typeof sso.oidc === 'object' ? sso.oidc : {};
 }
 
+function normalizeClaimName(value, fallback) {
+  const raw = String(value ?? '').trim().slice(0, 80);
+  if (!raw) return fallback;
+  if (!/^[A-Za-z0-9_.:/-]+$/.test(raw)) return fallback;
+  return raw;
+}
+
 /** Public OIDC fields (never includes the client secret). */
 export function publicOidc(organization) {
   const oidc = rawOidc(organization);
@@ -58,6 +65,8 @@ export function publicOidc(organization) {
     issuer,
     clientId,
     scopes: oidc.scopes ? String(oidc.scopes).trim() || 'openid email profile' : 'openid email profile',
+    emailClaim: normalizeClaimName(oidc.emailClaim, 'email'),
+    nameClaim: normalizeClaimName(oidc.nameClaim, 'name'),
     clientSecretConfigured: Boolean(oidc.clientSecret),
   };
 }
@@ -136,6 +145,8 @@ export function cleanSsoInput(raw, organization) {
     const scopes = String(incoming.scopes ?? current.oidc?.scopes ?? 'openid email profile')
       .trim()
       .slice(0, 200) || 'openid email profile';
+    const emailClaim = normalizeClaimName(incoming.emailClaim ?? current.oidc?.emailClaim, 'email');
+    const nameClaim = normalizeClaimName(incoming.nameClaim ?? current.oidc?.nameClaim, 'name');
     if (enabled && (!issuer || !clientId)) {
       throw ApiError.badRequest('OIDC issuer and client ID are required', [
         { path: 'sso.oidc.issuer', message: 'Required for OpenID Connect' },
@@ -152,7 +163,7 @@ export function cleanSsoInput(raw, organization) {
         { path: 'sso.oidc.clientSecret', message: 'Required for OpenID Connect' },
       ]);
     }
-    oidc = { issuer, clientId: clientId || null, clientSecret, scopes };
+    oidc = { issuer, clientId: clientId || null, clientSecret, scopes, emailClaim, nameClaim };
     microsoftTenant = null;
   }
 

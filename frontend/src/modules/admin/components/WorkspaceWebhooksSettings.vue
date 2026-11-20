@@ -21,6 +21,7 @@ const EVENT_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'sprint.started', label: 'Sprint started' },
   { value: 'sprint.completed', label: 'Sprint completed' },
   { value: 'project.member_added', label: 'Project member added' },
+  { value: 'workspace.audit.created', label: 'Audit event (SIEM)' },
 ]
 
 const auth = useAuthStore()

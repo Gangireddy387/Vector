@@ -109,4 +109,49 @@ describe('organization-sso helpers', () => {
       /client secret/i,
     );
   });
+
+  it('cleanSsoInput persists custom OIDC email and name claims', () => {
+    const org = { plan: { features: { sso: true } }, sso: null };
+    const saved = cleanSsoInput(
+      {
+        enabled: true,
+        enforce: true,
+        provider: 'oidc',
+        allowedDomains: ['acme.com'],
+        oidc: {
+          issuer: 'https://idp.example.com',
+          clientId: 'vector-app',
+          clientSecret: 'super-secret',
+          scopes: 'openid profile',
+          emailClaim: 'upn',
+          nameClaim: 'displayName',
+        },
+      },
+      org,
+    );
+    assert.equal(saved.oidc.emailClaim, 'upn');
+    assert.equal(saved.oidc.nameClaim, 'displayName');
+    const published = publicOidc({ sso: saved });
+    assert.equal(published.emailClaim, 'upn');
+    assert.equal(published.nameClaim, 'displayName');
+
+    const bad = cleanSsoInput(
+      {
+        enabled: true,
+        enforce: true,
+        provider: 'oidc',
+        allowedDomains: ['acme.com'],
+        oidc: {
+          issuer: 'https://idp.example.com',
+          clientId: 'vector-app',
+          clientSecret: '',
+          emailClaim: 'email;drop',
+          nameClaim: '',
+        },
+      },
+      { plan: { features: { sso: true } }, sso: saved },
+    );
+    assert.equal(bad.oidc.emailClaim, 'email');
+    assert.equal(bad.oidc.nameClaim, 'name');
+  });
 });

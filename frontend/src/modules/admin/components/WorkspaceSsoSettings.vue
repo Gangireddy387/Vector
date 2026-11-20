@@ -45,6 +45,8 @@ const form = ref({
   oidcClientId: current.value.oidc?.clientId ?? '',
   oidcClientSecret: '',
   oidcScopes: current.value.oidc?.scopes ?? 'openid email profile',
+  oidcEmailClaim: current.value.oidc?.emailClaim ?? 'email',
+  oidcNameClaim: current.value.oidc?.nameClaim ?? 'name',
 })
 const fieldErrors = ref<Record<string, string>>({})
 const isSaving = ref(false)
@@ -62,6 +64,8 @@ watch(
       oidcClientId: next.oidc?.clientId ?? '',
       oidcClientSecret: '',
       oidcScopes: next.oidc?.scopes ?? 'openid email profile',
+      oidcEmailClaim: next.oidc?.emailClaim ?? 'email',
+      oidcNameClaim: next.oidc?.nameClaim ?? 'name',
     }
   },
   { deep: true },
@@ -91,6 +95,8 @@ const isDirty = computed(() => {
     (form.value.oidcIssuer.trim() !== (saved.oidc?.issuer || '') ||
       form.value.oidcClientId.trim() !== (saved.oidc?.clientId || '') ||
       form.value.oidcScopes.trim() !== (saved.oidc?.scopes || 'openid email profile') ||
+      form.value.oidcEmailClaim.trim() !== (saved.oidc?.emailClaim || 'email') ||
+      form.value.oidcNameClaim.trim() !== (saved.oidc?.nameClaim || 'name') ||
       Boolean(form.value.oidcClientSecret.trim()))
   return (
     form.value.enabled !== saved.enabled ||
@@ -120,6 +126,8 @@ async function save() {
                 issuer: form.value.oidcIssuer.trim() || null,
                 clientId: form.value.oidcClientId.trim() || null,
                 scopes: form.value.oidcScopes.trim() || 'openid email profile',
+                emailClaim: form.value.oidcEmailClaim.trim() || 'email',
+                nameClaim: form.value.oidcNameClaim.trim() || 'name',
                 ...(form.value.oidcClientSecret.trim()
                   ? { clientSecret: form.value.oidcClientSecret.trim() }
                   : { clientSecret: '' }),
@@ -264,6 +272,34 @@ async function save() {
             id="sso-oidc-scopes"
             v-model="form.oidcScopes"
             placeholder="openid email profile"
+            :disabled="isSaving || !form.enabled"
+            autocomplete="off"
+          />
+        </FormField>
+        <FormField
+          label="Email claim"
+          for="sso-oidc-email-claim"
+          hint="IdP claim mapped to the user’s email (e.g. email, preferred_username, upn)."
+          :error="fieldErrors['sso.oidc.emailClaim']"
+        >
+          <Input
+            id="sso-oidc-email-claim"
+            v-model="form.oidcEmailClaim"
+            placeholder="email"
+            :disabled="isSaving || !form.enabled"
+            autocomplete="off"
+          />
+        </FormField>
+        <FormField
+          label="Name claim"
+          for="sso-oidc-name-claim"
+          hint="IdP claim mapped to the display name (e.g. name, given_name)."
+          :error="fieldErrors['sso.oidc.nameClaim']"
+        >
+          <Input
+            id="sso-oidc-name-claim"
+            v-model="form.oidcNameClaim"
+            placeholder="name"
             :disabled="isSaving || !form.enabled"
             autocomplete="off"
           />

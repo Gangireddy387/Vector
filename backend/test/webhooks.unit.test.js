@@ -38,5 +38,6 @@ describe('webhook.constants', () => {
     assert.ok(WEBHOOK_EVENTS.includes('issue.created'));
     assert.ok(WEBHOOK_EVENTS.includes('sprint.completed'));
     assert.ok(WEBHOOK_EVENTS.includes('project.member_added'));
+    assert.ok(WEBHOOK_EVENTS.includes('workspace.audit.created'));
   });
 });

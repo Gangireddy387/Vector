@@ -128,11 +128,14 @@ async function load(reset = true) {
   }
 }
 
-async function exportCsv() {
+async function exportLog(format: 'csv' | 'jsonl') {
   isExporting.value = true
   try {
-    await workspaceApi.exportAuditLogCsv(category.value === 'all' ? undefined : category.value)
-    toast.success('Audit log downloaded')
+    await workspaceApi.exportAuditLog({
+      category: category.value === 'all' ? undefined : category.value,
+      format,
+    })
+    toast.success(format === 'jsonl' ? 'SIEM JSONL downloaded' : 'Audit log CSV downloaded')
   } catch (error) {
     toast.error(getErrorMessage(error))
   } finally {
@@ -150,12 +153,19 @@ onMounted(() => void load())
       <div class="space-y-1.5">
         <CardTitle>Audit log</CardTitle>
         <CardDescription>
-          Organization changes plus sign-in and security events (password, SSO, MFA, sessions and API tokens).
+          Organization changes plus sign-in and security events (password, SSO, MFA, sessions and API tokens). Export
+          CSV for spreadsheets or CloudEvents JSONL for SIEM tools. Subscribe to
+          <code class="text-xs">workspace.audit.created</code> webhooks for live streaming.
         </CardDescription>
       </div>
-      <Button variant="outline" size="sm" :loading="isExporting" :disabled="isLoading" @click="exportCsv">
-        <Download /> Export CSV
-      </Button>
+      <div class="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" :loading="isExporting" :disabled="isLoading" @click="exportLog('csv')">
+          <Download /> Export CSV
+        </Button>
+        <Button variant="outline" size="sm" :loading="isExporting" :disabled="isLoading" @click="exportLog('jsonl')">
+          <Download /> Export JSONL
+        </Button>
+      </div>
     </CardHeader>
     <CardContent class="space-y-3">
       <div class="flex flex-wrap gap-1.5" role="tablist" aria-label="Audit categories">

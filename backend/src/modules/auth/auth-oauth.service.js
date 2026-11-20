@@ -225,7 +225,24 @@ const providers = {
         throw new Error('OIDC id_token has expired');
       }
       const sub = claims.sub ? String(claims.sub) : null;
-      const email = (claims.email || claims.preferred_username || '').toLowerCase();
+      const emailClaim = oidc.emailClaim || 'email';
+      const nameClaim = oidc.nameClaim || 'name';
+      const claimString = (key) => {
+        if (!key || claims[key] == null) return '';
+        return String(claims[key]).trim();
+      };
+      const email = (
+        claimString(emailClaim) ||
+        claimString('email') ||
+        claimString('preferred_username') ||
+        ''
+      ).toLowerCase();
+      const name =
+        claimString(nameClaim) ||
+        claimString('name') ||
+        claimString('preferred_username') ||
+        email ||
+        'SSO user';
       const emailVerified =
         claims.email_verified === undefined || claims.email_verified === null
           ? Boolean(email)
@@ -233,7 +250,7 @@ const providers = {
       return {
         subject: sub ? `${expectedIss}|${sub}` : null,
         email,
-        name: claims.name || claims.preferred_username || email || 'SSO user',
+        name,
         emailVerified,
         organizationId: organization.id,
       };

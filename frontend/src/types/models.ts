@@ -79,6 +79,10 @@ export interface OrganizationOidcSettings {
   issuer?: string | null
   clientId?: string | null
   scopes?: string | null
+  /** IdP claim used for email (default `email`). */
+  emailClaim?: string | null
+  /** IdP claim used for display name (default `name`). */
+  nameClaim?: string | null
   clientSecretConfigured?: boolean
 }
 

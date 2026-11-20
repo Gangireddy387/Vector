@@ -16,7 +16,7 @@ import { logoUpload } from './organization.service.js';
 import * as roleController from './organization-role.controller.js';
 import { createOrganizationRoleSchema, updateOrganizationRoleSchema } from './organization-role.validation.js';
 import { createOrganizationSchema, deleteOrganizationSchema, inviteMemberSchema, slugQuery, updateMemberSchema, updateOrganizationSchema } from './organization.validation.js';
-import { exportAuditLogCsv, listAuditLog } from '../workspace/workspace-audit.service.js';
+import { exportAuditLogCsv, exportAuditLogJsonl, listAuditLog } from '../workspace/workspace-audit.service.js';
 import { backupUpload } from './workspace-backup-import.service.js';
 
 const lookupLimiter = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false });
@@ -95,6 +95,7 @@ organizationAdminRoutes.get(
     query: z.object({
       limit: z.coerce.number().int().min(1).max(100).default(50),
       before: z.string().trim().min(1).max(40).optional(),
+      since: z.string().trim().min(1).max(40).optional(),
       /** `auth` = sign-in & security; `admin` = org changes; omit = all. */
       category: z.enum(['auth', 'admin']).optional(),
     }),
@@ -104,9 +105,23 @@ organizationAdminRoutes.get(
 organizationAdminRoutes.get(
   '/workspace/audit-log/export',
   requireOrgPermission('workspace.audit'),
-  validate({ query: z.object({ category: z.enum(['auth', 'admin']).optional() }) }),
+  validate({
+    query: z.object({
+      category: z.enum(['auth', 'admin']).optional(),
+      format: z.enum(['csv', 'jsonl']).optional().default('csv'),
+      since: z.string().trim().min(1).max(40).optional(),
+      until: z.string().trim().min(1).max(40).optional(),
+    }),
+  }),
   async (req, res) => {
-    const csv = await exportAuditLogCsv(req.organization.id, { category: req.filters.category });
+    const { category, format, since, until } = req.filters;
+    if (format === 'jsonl') {
+      const jsonl = await exportAuditLogJsonl(req.organization.id, { category, since, until });
+      res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="vector-audit-log.jsonl"');
+      return res.send(jsonl);
+    }
+    const csv = await exportAuditLogCsv(req.organization.id, { category, since, until });
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="vector-audit-log.csv"');
     res.send(csv);

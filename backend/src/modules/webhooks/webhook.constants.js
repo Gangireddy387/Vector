@@ -8,6 +8,8 @@ export const WEBHOOK_EVENTS = Object.freeze([
   'sprint.started',
   'sprint.completed',
   'project.member_added',
+  /** Workspace audit / SIEM stream (Activity tab events). */
+  'workspace.audit.created',
 ]);
 
 export const WEBHOOK_EVENT_SET = new Set(WEBHOOK_EVENTS);
