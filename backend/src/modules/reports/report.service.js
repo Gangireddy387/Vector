@@ -1,7 +1,10 @@
+import { Op } from 'sequelize';
 import { Activity, Issue, Project, ProjectMember, Sprint, Status, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { addDays, startOfDay, toDateOnly, toList } from '../../shared/utils/query.js';
 import { ISSUE_PRIORITIES, ISSUE_TYPES } from '../issues/issue.model.js';
+import { issueEffortMinutes } from '../issues/issue-dependencies.js';
+import { publicCapacity } from '../organizations/capacity.service.js';
 import { getMemberProjectIds } from '../projects/project-access.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 
@@ -296,6 +299,88 @@ export async function getReportOverview(userId, filters) {
     byProject,
     workload,
     insights: buildInsights({ days: periodDays, totals, byProject, workload, isAllProjects }),
+  };
+}
+
+/**
+ * Open work vs weekly capacity for staffing decisions.
+ * Effort uses estimate minutes, else story points × 4h, else 1 day (same as critical path).
+ */
+export async function getCapacityReport(userId, organization, filters = {}) {
+  const horizonWeeks = filters.horizonWeeks ?? 2;
+  const orgCapacity = publicCapacity(organization);
+  const minutesPerWeek = filters.minutesPerWeek ?? orgCapacity.minutesPerWeek;
+  const capacityMinutes = minutesPerWeek * horizonWeeks;
+
+  const projects = await resolveReportProjects(userId, toList(filters.projectId));
+  const projectIds = projects.map((project) => project.id);
+
+  const [statuses, issues, members] = await Promise.all([
+    Status.findAll({ where: { projectId: projectIds }, attributes: ['id', 'category'] }),
+    projectIds.length
+      ? Issue.findAll({
+          where: { projectId: projectIds, type: { [Op.ne]: 'epic' } },
+          attributes: ['id', 'projectId', 'type', 'statusId', 'assigneeId', 'storyPoints', 'estimateMinutes', 'dueDate'],
+        })
+      : [],
+    ProjectMember.findAll({
+      where: { projectId: projectIds },
+      include: [{ model: User, as: 'user', attributes: USER_SUMMARY_ATTRIBUTES }],
+    }),
+  ]);
+
+  const categoryOf = new Map(statuses.map((status) => [status.id, status.category]));
+  const isDone = (issue) => categoryOf.get(issue.statusId) === 'done';
+  const today = toDateOnly(new Date());
+  const openIssues = issues.filter((issue) => !isDone(issue));
+
+  const people = new Map();
+  members.forEach((member) => {
+    if (member.user) people.set(member.userId, member.user);
+  });
+
+  const rows = [...people.values(), null]
+    .map((user) => {
+      const assigned = openIssues.filter((issue) => (user ? issue.assigneeId === user.id : !issue.assigneeId));
+      const loadMinutes = assigned.reduce((total, issue) => total + issueEffortMinutes(issue), 0);
+      const openPoints = assigned.reduce((total, issue) => total + (issue.storyPoints ?? 0), 0);
+      const overdue = countWhere(assigned, (issue) => issue.dueDate && issue.dueDate < today);
+      const utilization = capacityMinutes > 0 ? Math.round((loadMinutes / capacityMinutes) * 100) : 0;
+      const weeksOfWork = minutesPerWeek > 0 ? Math.round((loadMinutes / minutesPerWeek) * 10) / 10 : 0;
+      return {
+        user,
+        open: assigned.length,
+        openPoints,
+        loadMinutes,
+        overdue,
+        capacityMinutes: user ? capacityMinutes : null,
+        utilization: user ? utilization : null,
+        weeksOfWork: user ? weeksOfWork : null,
+        status: !user ? 'unassigned' : utilization > 110 ? 'over' : utilization >= 85 ? 'full' : utilization >= 40 ? 'healthy' : 'light',
+      };
+    })
+    .filter((row) => row.open || row.user)
+    .sort((a, b) => Number(!a.user) - Number(!b.user) || (b.utilization ?? 0) - (a.utilization ?? 0) || b.open - a.open);
+
+  const assignedRows = rows.filter((row) => row.user);
+  const overloaded = assignedRows.filter((row) => row.status === 'over').length;
+  const light = assignedRows.filter((row) => row.status === 'light').length;
+
+  return {
+    horizonWeeks,
+    minutesPerWeek,
+    capacityMinutes,
+    projects: projects.map((project) => project.toJSON()),
+    totals: {
+      people: assignedRows.length,
+      open: openIssues.length,
+      loadMinutes: openIssues.reduce((total, issue) => total + issueEffortMinutes(issue), 0),
+      openPoints: openIssues.reduce((total, issue) => total + (issue.storyPoints ?? 0), 0),
+      unassigned: openIssues.filter((issue) => !issue.assigneeId).length,
+      overloaded,
+      light,
+    },
+    people: rows,
   };
 }
 

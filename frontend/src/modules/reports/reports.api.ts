@@ -282,6 +282,43 @@ export interface MemberReview {
   bySprint: Array<{ sprint: ReviewIssue['sprint']; completed: number; points: number }>
 }
 
+export type CapacityStatus = 'over' | 'full' | 'healthy' | 'light' | 'unassigned'
+
+export interface CapacityFilters {
+  projectId?: string
+  horizonWeeks?: number
+  minutesPerWeek?: number
+}
+
+export interface CapacityPerson {
+  user: UserSummary | null
+  open: number
+  openPoints: number
+  loadMinutes: number
+  overdue: number
+  capacityMinutes: number | null
+  utilization: number | null
+  weeksOfWork: number | null
+  status: CapacityStatus
+}
+
+export interface CapacityReport {
+  horizonWeeks: number
+  minutesPerWeek: number
+  capacityMinutes: number
+  projects: ReportProject[]
+  totals: {
+    people: number
+    open: number
+    loadMinutes: number
+    openPoints: number
+    unassigned: number
+    overloaded: number
+    light: number
+  }
+  people: CapacityPerson[]
+}
+
 export const reportsApi = {
   progress: (projectId: string) => http.get<ProjectProgress>(`/projects/${projectId}/reports/progress`).then((r) => r.data),
   modules: (projectId: string) => http.get<ModulesReport>(`/projects/${projectId}/reports/modules`).then((r) => r.data),
@@ -290,6 +327,7 @@ export const reportsApi = {
   memberReview: (userId: string, filters: PerformanceFilters) =>
     http.get<MemberReview>(`/reports/performance/${userId}`, { params: filters }).then((r) => r.data),
   overview: (filters: ReportFilters) => http.get<ReportOverview>('/reports/overview', { params: filters }).then((r) => r.data),
+  capacity: (filters: CapacityFilters = {}) => http.get<CapacityReport>('/reports/capacity', { params: filters }).then((r) => r.data),
   summary: (projectId: string, days = 30) =>
     http.get<ProjectSummaryReport>(`/projects/${projectId}/reports/summary`, { params: { days } }).then((r) => r.data),
   burndown: (projectId: string, sprintId: string) =>

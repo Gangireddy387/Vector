@@ -122,6 +122,11 @@ export interface OrganizationInvitePolicy {
   allowedDomains: string[]
 }
 
+/** Default weekly capacity for planning (minutes). */
+export interface OrganizationCapacity {
+  minutesPerWeek: number
+}
+
 export interface WorkspaceSettings {
   name: string
   /** The organization's address (example.com/:slug); absent for the signed-out default branding. */
@@ -138,6 +143,8 @@ export interface WorkspaceSettings {
   retention?: OrganizationRetention
   /** Limit invitations to listed email domains. */
   invitePolicy?: OrganizationInvitePolicy
+  /** Weekly capacity used by Reports → Capacity. */
+  capacity?: OrganizationCapacity
   status?: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements
@@ -178,6 +185,7 @@ export interface OrganizationSummary {
   channelNotifications?: OrganizationChannelNotifications
   retention?: OrganizationRetention
   invitePolicy?: OrganizationInvitePolicy
+  capacity?: OrganizationCapacity
   status: OrganizationStatus
   rejectionReason?: string | null
   entitlements?: Entitlements

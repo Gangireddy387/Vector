@@ -19,3 +19,12 @@ export const overviewQuery = z
 export const performanceQuery = z
   .object({ projectId: z.string().trim().optional(), from: dateOnly.optional(), to: dateOnly.optional() })
   .refine((query) => !query.from || !query.to || query.from <= query.to, { message: 'The start date must be before the end date', path: ['from'] });
+
+/** Open work vs weekly capacity for staffing. */
+export const capacityQuery = z.object({
+  projectId: z.string().trim().optional(),
+  /** How many weeks of capacity to compare open load against (default 2). */
+  horizonWeeks: z.coerce.number().int().min(1).max(8).default(2),
+  /** Override org weekly capacity for this view (minutes). */
+  minutesPerWeek: z.coerce.number().int().min(60).max(10080).optional(),
+});

@@ -62,6 +62,11 @@ const invitePolicySchema = z.object({
   allowedDomains: z.array(z.string().trim().max(80)).max(25).optional(),
 });
 
+const capacitySchema = z.object({
+  /** Weekly capacity in minutes (60–10080). */
+  minutesPerWeek: z.coerce.number().int().min(60).max(10080).optional(),
+});
+
 export const updateOrganizationSchema = z
   .object({
     name: organizationName,
@@ -73,6 +78,7 @@ export const updateOrganizationSchema = z
     channelNotifications: channelNotificationsSchema,
     retention: retentionSchema,
     invitePolicy: invitePolicySchema,
+    capacity: capacitySchema,
   })
   .partial()
   .refine((value) => Object.keys(value).length > 0, 'Provide at least one setting');

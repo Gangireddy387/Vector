@@ -3,7 +3,7 @@ import { validate } from '../../shared/middleware/validate.js';
 import { requireFeature } from '../plans/plan.service.js';
 import { requireProjectRole } from '../projects/project-access.js';
 import * as controller from './report.controller.js';
-import { overviewQuery, performanceQuery, summaryQuery } from './report.validation.js';
+import { capacityQuery, overviewQuery, performanceQuery, summaryQuery } from './report.validation.js';
 
 const router = Router();
 const base = '/projects/:projectId/reports';
@@ -11,6 +11,7 @@ const base = '/projects/:projectId/reports';
 router.use(['/reports', base], requireFeature('reports'));
 
 router.get('/reports/overview', validate({ query: overviewQuery }), controller.overview);
+router.get('/reports/capacity', validate({ query: capacityQuery }), controller.capacity);
 router.get('/reports/performance', validate({ query: performanceQuery }), controller.performance);
 router.get('/reports/performance/:userId', validate({ query: performanceQuery }), controller.memberReview);
 router.get(`${base}/progress`, requireProjectRole(), controller.progress);

@@ -60,6 +60,8 @@ Organization.init(
      * `{ restrictDomains, allowedDomains: string[] }` — when restrictDomains is true, only listed domains.
      */
     invitePolicy: { type: DataTypes.JSON, allowNull: true },
+    /** Capacity planning defaults: `{ minutesPerWeek }` (default 40h). */
+    capacity: { type: DataTypes.JSON, allowNull: true },
     /** Stripe customer / subscription ids when the organization pays for Pro via Checkout. */
     stripeCustomerId: { type: DataTypes.STRING(80), allowNull: true },
     stripeSubscriptionId: { type: DataTypes.STRING(80), allowNull: true },

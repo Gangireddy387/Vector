@@ -34,6 +34,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
           channelNotifications: auth.organization.channelNotifications,
           retention: auth.organization.retention,
           invitePolicy: auth.organization.invitePolicy,
+          capacity: auth.organization.capacity,
           updatedAt: auth.organization.updatedAt,
         }
       : branding.value,

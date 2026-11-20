@@ -40,6 +40,7 @@ import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { pickAvatarColor } from '../users/user.service.js';
 import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
 import { normalizeRetention, publicRetention } from './data-retention.service.js';
+import { normalizeCapacity, publicCapacity } from './capacity.service.js';
 import { assertInviteEmailAllowed, normalizeInvitePolicy, publicInvitePolicy } from './invite-policy.service.js';
 import {
   channelNotifySettingsFor,
@@ -80,6 +81,7 @@ export const toPublicOrganization = (organization) => ({
   channelNotifications: channelNotifySettingsFor(organization),
   retention: publicRetention(organization),
   invitePolicy: publicInvitePolicy(organization),
+  capacity: publicCapacity(organization),
   status: organization.status ?? 'approved',
   rejectionReason: organization.status === 'rejected' ? (organization.rejectionReason ?? null) : null,
   // Only when the plan was loaded; otherwise clients keep the entitlements they already have.
@@ -230,6 +232,9 @@ export async function updateOrganization(organization, actor, changes) {
   if (changes.invitePolicy !== undefined) {
     updates.invitePolicy = normalizeInvitePolicy({ ...(organization.invitePolicy ?? {}), ...changes.invitePolicy });
   }
+  if (changes.capacity !== undefined) {
+    updates.capacity = normalizeCapacity({ ...(organization.capacity ?? {}), ...changes.capacity });
+  }
   const before = {
     name: organization.name,
     slug: organization.slug,
@@ -240,10 +245,11 @@ export async function updateOrganization(organization, actor, changes) {
     channelNotifications: publicChannelNotifications(organization),
     retention: publicRetention(organization),
     invitePolicy: publicInvitePolicy(organization),
+    capacity: publicCapacity(organization),
   };
   await organization.update(updates);
   const changed = Object.keys(changes).filter((key) =>
-    ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa', 'sso', 'channelNotifications', 'retention', 'invitePolicy'].includes(key),
+    ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa', 'sso', 'channelNotifications', 'retention', 'invitePolicy', 'capacity'].includes(key),
   );
   if (changed.length) {
     await logWorkspaceAction({
@@ -265,6 +271,7 @@ export async function updateOrganization(organization, actor, changes) {
           channelNotifications: publicChannelNotifications(organization),
           retention: publicRetention(organization),
           invitePolicy: publicInvitePolicy(organization),
+          capacity: publicCapacity(organization),
         },
       },
     });
