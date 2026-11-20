@@ -98,7 +98,7 @@ const SECTIONS: LegalSection[] = [
     <p>
       We do not use advertising or analytics cookies. The app stores a small amount of data in your browser’s local storage so it works properly: your sign-in
       token, your light or dark mode choice and interface preferences such as the last project you used and whether the sidebar is collapsed. When you install
-      the app, a service worker caches the application files so it loads quickly and can open offline. Signing out removes your sign-in token.
+      the app, a service worker caches the application files so it loads quickly and can open offline. A few recent Home and Inbox reads may also be kept briefly so those screens can reopen without a network; signing out clears them with your sign-in token.
     </p>
 
     <h2 id="retention">Data retention</h2>

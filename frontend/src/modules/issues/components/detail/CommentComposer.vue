@@ -7,8 +7,22 @@ import WritingAssistBar from '@/modules/ai/components/WritingAssistBar.vue'
 import type { UserSummary } from '@/types/models'
 
 const props = withDefaults(
-  defineProps<{ members: UserSummary[]; initialValue?: string; submitLabel?: string; placeholder?: string; autofocus?: boolean }>(),
-  { initialValue: '', submitLabel: 'Comment', placeholder: 'Add a comment… type @ to mention someone', autofocus: false },
+  defineProps<{
+    members: UserSummary[]
+    initialValue?: string
+    submitLabel?: string
+    placeholder?: string
+    autofocus?: boolean
+    /** Show Cancel even when not editing an existing comment (e.g. reply composer). */
+    cancellable?: boolean
+  }>(),
+  {
+    initialValue: '',
+    submitLabel: 'Comment',
+    placeholder: 'Add a comment… type @ to mention someone',
+    autofocus: false,
+    cancellable: false,
+  },
 )
 const emit = defineEmits<{ submit: [body: string]; cancel: [] }>()
 
@@ -134,7 +148,7 @@ defineExpose({ reset, done: () => (isSubmitting.value = false) })
     </ul>
     <div class="flex items-center gap-2">
       <Button size="sm" :disabled="!text.trim()" :loading="isSubmitting" @click="submit">{{ submitLabel }}</Button>
-      <Button v-if="initialValue" size="sm" variant="ghost" @click="emit('cancel')">Cancel</Button>
+      <Button v-if="initialValue || cancellable" size="sm" variant="ghost" @click="emit('cancel')">Cancel</Button>
       <span class="ml-auto hidden text-xs text-muted-foreground sm:inline">Ctrl + Enter to send</span>
     </div>
   </div>

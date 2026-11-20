@@ -38,7 +38,12 @@ const route = useRoute()
 const router = useRouter()
 const actions = useIssueActions()
 const openIssue = useOpenIssue()
-const { data, isLoading, error, reload } = useDashboardData()
+const { data, isLoading, error, isStale, reload } = useDashboardData()
+const offlineLoadHint = computed(() =>
+  !navigator.onLine
+    ? 'You appear to be offline. Connect and try again, or open Home once online so it can load for next time.'
+    : error.value,
+)
 const home = useHomeLayout()
 const show = (key: Parameters<typeof home.isHidden>[0]) => !home.isHidden(key)
 const isCreateProjectOpen = ref(false)
@@ -118,10 +123,18 @@ async function complete(issue: Issue) {
     <HomeTodayPanel v-if="data && show('today')" :data="data" @changed="reload" />
 
     <HomeLoadingShell v-if="isLoading && !data" variant="mobile" />
-    <EmptyState v-else-if="error && !data" :icon="RefreshCw" title="Your tasks did not load" :description="error">
+    <EmptyState v-else-if="error && !data" :icon="RefreshCw" title="Your tasks did not load" :description="offlineLoadHint ?? error">
       <Button variant="outline" @click="reload">Try again</Button>
     </EmptyState>
     <template v-else-if="data">
+      <p
+        v-if="isStale || !navigator.onLine"
+        class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100"
+        role="status"
+      >
+        Showing last loaded Home{{ !navigator.onLine ? ' while offline' : '' }}.
+        <button type="button" class="ml-1 font-medium underline" @click="reload">Refresh</button>
+      </p>
       <WeeklyPulseCard v-if="show('pulse')" :data="data" />
       <DailyBriefingCard v-if="show('briefing')" />
 

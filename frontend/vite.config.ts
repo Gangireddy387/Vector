@@ -55,7 +55,29 @@ export default defineConfig(({ command, mode }) => ({
             handler: 'CacheFirst',
             options: { cacheName: 'vector-blur', expiration: { maxEntries: 6, maxAgeSeconds: 60 * 60 * 24 * 60 } },
           },
-          // API answers are never cached: they hold private work, and a slow network must not show stale data as current.
+          /**
+           * Short-lived NetworkFirst for critical GETs only (Home, Inbox, project list).
+           * Mutations and other APIs stay uncached. Cleared on sign-out (`vector-critical-get`).
+           */
+          {
+            urlPattern: ({ request, url }) => {
+              if (request.method !== 'GET') return false
+              const path = url.pathname.replace(/\/$/, '') || '/'
+              return (
+                path === '/api/dashboard' ||
+                path === '/api/projects' ||
+                path === '/api/notifications' ||
+                path === '/api/notifications/unread-count'
+              )
+            },
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'vector-critical-get',
+              networkTimeoutSeconds: 5,
+              expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
     }),

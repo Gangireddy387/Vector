@@ -62,7 +62,12 @@ const route = useRoute()
 const router = useRouter()
 const openIssue = useOpenIssue()
 const issueActions = useIssueActions()
-const { data, isLoading, error, reload } = useDashboardData()
+const { data, isLoading, error, isStale, reload } = useDashboardData()
+const offlineLoadHint = computed(() =>
+  !navigator.onLine
+    ? 'You appear to be offline. Connect and try again, or open Home once online so it can load for next time.'
+    : error.value,
+)
 const agenda = useTodayAgenda()
 const home = useHomeLayout()
 const show = (key: Parameters<typeof home.isHidden>[0]) => !home.isHidden(key)
@@ -184,11 +189,19 @@ const daysLeft = (endDate: string | null) => {
 
     <HomeLoadingShell v-if="isLoading && !data" />
 
-    <EmptyState v-else-if="error && !data" :icon="Inbox" title="Your dashboard did not load" :description="error">
+    <EmptyState v-else-if="error && !data" :icon="Inbox" title="Your dashboard did not load" :description="offlineLoadHint ?? error">
       <Button variant="outline" @click="reload">Try again</Button>
     </EmptyState>
 
     <template v-else-if="data">
+      <p
+        v-if="isStale || !navigator.onLine"
+        class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100"
+        role="status"
+      >
+        Showing last loaded Home{{ !navigator.onLine ? ' while offline' : '' }}.
+        <button type="button" class="ml-1 font-medium underline" @click="reload">Refresh</button>
+      </p>
       <div v-if="show('stats')" class="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5">
         <RouterLink
           v-for="stat in stats"

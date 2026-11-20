@@ -17,7 +17,7 @@ import { Issue } from '../modules/issues/issue.model.js';
 import { IssueExternalLink } from '../modules/issues/issue-external-link.model.js';
 import { IssueLabel, IssueLink, IssueWatcher } from '../modules/issues/issue-relations.model.js';
 import { Sprint } from '../modules/sprints/sprint.model.js';
-import { Comment } from '../modules/comments/comment.model.js';
+import { Comment, CommentReaction } from '../modules/comments/comment.model.js';
 import { Attachment } from '../modules/attachments/attachment.model.js';
 import { WorkLog } from '../modules/worklogs/worklog.model.js';
 import { Activity } from '../modules/activity/activity.model.js';
@@ -175,6 +175,11 @@ IssueExternalLink.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', 
 Issue.hasMany(Comment, { as: 'comments', foreignKey: 'issueId', ...cascade });
 Comment.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
 Comment.belongsTo(User, { as: 'author', foreignKey: 'authorId', onDelete: 'SET NULL' });
+Comment.belongsTo(Comment, { as: 'parent', foreignKey: 'parentId', constraints: false });
+Comment.hasMany(Comment, { as: 'replies', foreignKey: 'parentId', constraints: false });
+Comment.hasMany(CommentReaction, { as: 'reactionRows', foreignKey: 'commentId', ...cascade });
+CommentReaction.belongsTo(Comment, { as: 'comment', foreignKey: 'commentId' });
+CommentReaction.belongsTo(User, { as: 'user', foreignKey: 'userId', ...cascade });
 
 Issue.hasMany(Attachment, { as: 'attachments', foreignKey: 'issueId', ...cascade });
 Attachment.belongsTo(Issue, { as: 'issue', foreignKey: 'issueId' });
@@ -367,6 +372,7 @@ export {
   IssueWatcher,
   Sprint,
   Comment,
+  CommentReaction,
   Attachment,
   WorkLog,
   Activity,

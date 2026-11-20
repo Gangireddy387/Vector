@@ -519,14 +519,23 @@ export interface Sprint {
   stats?: SprintStats
 }
 
+export interface CommentReaction {
+  emoji: string
+  userIds: string[]
+}
+
 export interface Comment {
   id: string
   issueId: string
   authorId: string | null
   author: UserSummary | null
+  /** Null for top-level comments; replies nest one level only. */
+  parentId?: string | null
   body: string
   editedAt: string | null
   createdAt: string
+  reactions?: CommentReaction[]
+  replies?: Comment[]
 }
 
 export interface Attachment {

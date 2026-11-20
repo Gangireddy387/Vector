@@ -97,6 +97,7 @@ const ADDED_COLUMNS = [
   { table: 'organizations', column: 'retention', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'organizations', column: 'invite_policy', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'organizations', column: 'capacity', definition: { type: DataTypes.JSON, allowNull: true } },
+  { table: 'comments', column: 'parent_id', definition: { type: DataTypes.UUID, allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */

@@ -11,6 +11,7 @@ import {
   useTokenKey,
 } from '@/lib/http'
 import type { PlanFeatureKey } from '@/lib/plan-features'
+import { clearPwaApiCaches } from '@/lib/pwa-caches'
 import { connectRealtime, disconnectRealtime } from '@/lib/realtime'
 import type { OrgPermission, OrganizationSummary, User, WorkspaceSettings } from '@/types/models'
 import {
@@ -101,7 +102,7 @@ export const useAuthStore = defineStore('auth', () => {
     organizations.value = []
     localStorage.removeItem(currentTokenKey())
     disconnectRealtime()
-    if ('caches' in window) void caches.delete('vector-api')
+    void clearPwaApiCaches()
   }
 
   /**
@@ -111,7 +112,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout(redirect?: string) {
     const target = redirect ?? (isSuperAdminTab() ? '/super-admin' : undefined)
     clearSession()
-    if ('caches' in window) await caches.delete('vector-api').catch(() => false)
+    await clearPwaApiCaches()
     const query = target && target !== '/' ? `?redirect=${encodeURIComponent(target)}` : ''
     window.location.replace(`/login${query}`)
   }
@@ -190,13 +191,13 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function switchOrganization(organizationId: string, path = '/') {
     applyState(await organizationsApi.switchTo(organizationId))
-    if ('caches' in window) await caches.delete('vector-api').catch(() => false)
+    await clearPwaApiCaches()
     window.location.assign(path)
   }
 
   async function createOrganization(payload: { name: string; slug: string }) {
     applyState(await organizationsApi.create(payload))
-    if ('caches' in window) await caches.delete('vector-api').catch(() => false)
+    await clearPwaApiCaches()
     window.location.assign('/projects?welcome=1')
   }
 

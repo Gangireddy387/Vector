@@ -30,7 +30,8 @@ async function bootstrap() {
   await router.isReady()
   app.mount('#app')
 
-  // Earlier versions kept API answers in a cache; remove what they left behind.
+  // Older builds used a broad `vector-api` cache; remove leftovers. Do not clear `vector-critical-get`
+  // here — that short-lived NetworkFirst cache is what lets Home/Inbox reopen offline.
   if ('caches' in window) void caches.delete('vector-api').catch(() => false)
 
   const updateApp = registerSW({
@@ -44,16 +45,9 @@ async function bootstrap() {
     },
   })
 
-  let offlineToastShown = false
-  window.addEventListener('offline', () => {
-    if (offlineToastShown) return
-    offlineToastShown = true
-    toast.error('You are offline', { description: 'Changes may not save until you reconnect.', id: 'network-status' })
-  })
+  // Banner owns the offline status; only toast when coming back online.
   window.addEventListener('online', () => {
-    if (!offlineToastShown) return
-    offlineToastShown = false
-    toast.success('Back online', { id: 'network-status' })
+    toast.success('Back online', { id: 'network-status', description: 'Refreshing Home and Inbox…' })
   })
 }
 

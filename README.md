@@ -64,7 +64,7 @@ Everything works without keys: emails are printed to the backend console and the
 **Device-specific experience** (not a shrunken desktop)
 - **Desktop (≥1024px):** collapsible sidebar, inline top-bar search, dense dashboard (stats, grouped work, sprint progress, activity, project health), multi-column drag & drop board, issue side panel with all fields visible.
 - **Mobile:** bottom tab bar with a central create button, "My tasks" view (Today / Upcoming / Anytime / Done) with one-tap completion and undo, one-status-at-a-time board with "Move to" buttons, full-screen issue page with Status / Mark done / Assign to me first, bottom-sheet forms, safe-area aware.
-- **PWA:** installable, offline-cached app shell, home-screen shortcuts (My tasks, Create issue, Inbox); new versions are offered with a "Reload" prompt. API answers are never cached (private data, no stale screens).
+- **PWA:** installable, offline-cached app shell, home-screen shortcuts (Home, My tasks, Inbox); new versions are offered with a "Reload" prompt. Critical GETs (Home, Inbox, project list) use short-lived NetworkFirst caching so those screens can reopen offline after a prior visit; writes are still online-only. Sign-out clears those caches.
 - **Accessible:** skip link, keyboard shortcuts (including moving board cards with Alt + arrows), screen-reader labels and announcements, reduced motion when the system asks for it.
 
 **Communication**

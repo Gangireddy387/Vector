@@ -22,17 +22,20 @@ export const useNotificationsStore = defineStore('notifications', () => {
   const hasMore = computed(() => items.value.length < total.value)
 
   async function fetchNotifications() {
+    const hadItems = items.value.length > 0
     isLoading.value = true
-    loadError.value = null
+    if (!hadItems) loadError.value = null
     try {
       const result = await notificationsApi.list({ limit: PAGE_SIZE, offset: 0 })
       items.value = result.notifications
       total.value = result.total
       unreadCount.value = items.value.filter((item) => !item.readAt).length
+      loadError.value = null
       void refreshUnreadCount()
     } catch (problem) {
       loadError.value = getErrorMessage(problem)
-      throw problem
+      // Keep last-good items when offline / refresh fails; only throw on a cold empty inbox.
+      if (!hadItems) throw problem
     } finally {
       isLoading.value = false
     }

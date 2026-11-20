@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import DesktopShell from '@/components/layout/DesktopShell.vue'
@@ -9,6 +9,7 @@ import { useDevice } from '@/composables/useDevice'
 import { useHotkeys } from '@/composables/useHotkeys'
 import { useSoundPreferences } from '@/composables/useSoundPreferences'
 import { useTimezoneSync } from '@/composables/useTimezoneSync'
+import { onCriticalRetry } from '@/lib/pwa-caches'
 import { setSoundGate } from '@/lib/sounds'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import SetOwnPasswordDialog from '@/modules/auth/components/SetOwnPasswordDialog.vue'
@@ -52,6 +53,10 @@ function openNotification(notification: AppNotification) {
 setSoundGate(() => presence.chosen !== 'dnd')
 useSoundPreferences()
 
+const stopCriticalRetry = onCriticalRetry(() => {
+  void Promise.allSettled([projects.fetchProjects(), notifications.fetchNotifications().catch(() => undefined), messages.load()])
+})
+
 onMounted(async () => {
   // Live updates first, so a failed load below never leaves the session without them.
   presence.start()
@@ -63,6 +68,8 @@ onMounted(async () => {
     toast.error('Some of your workspace did not load', { description: 'Check your connection; it updates again once Vector is reachable.' })
   }
 })
+
+onUnmounted(stopCriticalRetry)
 
 // The super admin can revoke an organization while people are using it.
 watch(

@@ -1,12 +1,22 @@
 import { http } from '@/lib/http'
-import type { Attachment, Comment, WorkLog } from '@/types/models'
+import type { Attachment, Comment, CommentReaction, WorkLog } from '@/types/models'
+
+/** Same fixed set as project chat / DMs. */
+export const COMMENT_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🎉'] as const
 
 export const commentsApi = {
   list: (issueId: string) => http.get<{ comments: Comment[] }>(`/issues/${issueId}/comments`).then((r) => r.data.comments),
-  create: (issueId: string, body: string) =>
-    http.post<{ comment: Comment }>(`/issues/${issueId}/comments`, { body }).then((r) => r.data.comment),
+  create: (issueId: string, body: string, options?: { parentId?: string | null }) =>
+    http
+      .post<{ comment: Comment }>(`/issues/${issueId}/comments`, {
+        body,
+        ...(options?.parentId ? { parentId: options.parentId } : {}),
+      })
+      .then((r) => r.data.comment),
   update: (commentId: string, body: string) => http.patch<{ comment: Comment }>(`/comments/${commentId}`, { body }).then((r) => r.data.comment),
   remove: (commentId: string) => http.delete(`/comments/${commentId}`),
+  react: (commentId: string, emoji: string) =>
+    http.post<{ commentId: string; reactions: CommentReaction[] }>(`/comments/${commentId}/reactions`, { emoji }).then((r) => r.data),
 }
 
 export const attachmentsApi = {

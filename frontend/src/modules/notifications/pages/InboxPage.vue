@@ -305,11 +305,23 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
             v-else-if="notifications.loadError && !notifications.items.length"
             :icon="Inbox"
             title="Inbox did not load"
-            :description="notifications.loadError"
+            :description="
+              !navigator.onLine
+                ? 'You appear to be offline. Connect and try again, or open Inbox once online so it can load for next time.'
+                : notifications.loadError
+            "
             class="px-4 py-14"
           >
             <Button variant="outline" @click="retryLoad">Try again</Button>
           </EmptyState>
+          <p
+            v-else-if="notifications.loadError && notifications.items.length"
+            class="mx-3 mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100"
+            role="status"
+          >
+            Showing last loaded inbox. {{ notifications.loadError }}
+            <button type="button" class="ml-1 font-medium underline" @click="retryLoad">Retry</button>
+          </p>
           <EmptyState
             v-else-if="!entries.length"
             :icon="search ? Search : filter === 'unread' ? Inbox : BellOff"

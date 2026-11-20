@@ -584,6 +584,12 @@
   padding-top: max(env(safe-area-inset-top), 0px);
 }
 
+/** Minimum 44×44px hit area for primary mobile chrome (Apple HIG). */
+@utility touch-target {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
 /*
  * Space that clears the floating mobile tab bar:
  * bottom inset (0.5–0.75rem) + bar (3.5–4rem) + raised create button (1.5rem) + breathing room.
