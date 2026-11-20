@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, Columns3, Ellipsis, Plus, Trash2, Zap } from 'lucide-vue-next'
+import { BarChart3, Columns3, Ellipsis, LayoutList, Plus, Rows3, Trash2, Zap } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import type { SortableEvent } from 'vue-draggable-plus'
@@ -27,17 +27,23 @@ import BulkActionBar from '@/modules/issues/components/BulkActionBar.vue'
 import { useIssueSelection } from '@/modules/issues/composables/useIssueSelection'
 import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import { useProjectsStore } from '@/modules/projects/projects.store'
+import { reportsApi } from '@/modules/reports/reports.api'
 import CompleteSprintDialog from '@/modules/sprints/components/CompleteSprintDialog.vue'
 import SprintFormDialog from '@/modules/sprints/components/SprintFormDialog.vue'
 import StartSprintDialog from '@/modules/sprints/components/StartSprintDialog.vue'
 import { sprintsApi } from '@/modules/sprints/sprints.api'
+import { useWorkspaceStore } from '@/stores/workspace.store'
 import type { Issue, Sprint } from '@/types/models'
 import BacklogSection from '../components/BacklogSection.vue'
+import PlanningBoard from '../components/PlanningBoard.vue'
+import SprintCapacityStrip from '../components/SprintCapacityStrip.vue'
 
 const BACKLOG_KEY = 'backlog'
+type BacklogView = 'list' | 'planning'
 
 const route = useRoute()
 const projects = useProjectsStore()
+const workspace = useWorkspaceStore()
 const openIssue = useOpenIssue()
 const confirm = useConfirm()
 const { isDesktop, isWide } = useDevice()
@@ -55,6 +61,8 @@ const lists = ref<Record<string, Issue[]>>({})
 const isLoading = ref(true)
 const isDragging = ref(false)
 const showDone = ref(false)
+const viewMode = ref<BacklogView>('list')
+const averageVelocity = ref<number | null>(null)
 const epicFilter = ref<string | null>(null)
 const epicSelect = computed({
   get: () => epicFilter.value ?? '',
@@ -82,6 +90,12 @@ const completedSprints = computed(() =>
 const showCompletedSprints = ref(false)
 const completedLists = ref<Record<string, Issue[]>>({})
 const hasActiveSprint = computed(() => sprints.value.some((sprint) => sprint.state === 'active'))
+const capacitySprint = computed(
+  () => openSprints.value.find((sprint) => sprint.state === 'active') ?? openSprints.value[0] ?? null,
+)
+const memberCount = computed(() => Math.max(1, project.value?.members?.length ?? 1))
+const minutesPerWeek = computed(() => workspace.settings.capacity?.minutesPerWeek ?? 2400)
+const sprintLengthDays = computed(() => project.value?.settings.sprintLengthDays ?? 14)
 const moveTargets = computed(() => [
   ...openSprints.value.map((sprint) => ({ key: sprint.id, label: sprint.name })),
   { key: BACKLOG_KEY, label: 'Backlog' },
@@ -101,14 +115,16 @@ async function load() {
   try {
     const detail = await projects.fetchProject(id)
     if (detail.type !== 'scrum') return
-    const [sprintList, result] = await Promise.all([
+    const [sprintList, result, velocity] = await Promise.all([
       sprintsApi.list(id),
       issuesApi.list({ projectId: id, sort: 'position', order: 'asc', limit: BACKLOG_LIMIT }),
+      reportsApi.velocity(id).catch(() => null),
     ])
     if (!latest.isCurrent(ticket)) return
     sprints.value = sprintList
     epics.value = result.issues.filter((issue) => issue.type === 'epic')
     issues.value = result.issues.filter((issue) => issue.type !== 'epic' && issue.type !== 'subtask')
+    averageVelocity.value = velocity?.averageVelocity ?? null
     hiddenCount.value = Math.max(0, result.total - result.issues.length)
     loadError.value = null
   } catch (error) {
@@ -234,6 +250,24 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
           </template>
         </div>
         <div class="flex w-full flex-col gap-2 sm:ml-auto sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+          <div class="inline-flex rounded-lg border p-0.5" role="group" aria-label="Backlog view">
+            <Button
+              size="xs"
+              class="gap-1.5"
+              :variant="viewMode === 'list' ? 'secondary' : 'ghost'"
+              @click="viewMode = 'list'"
+            >
+              <LayoutList class="size-3.5" /> List
+            </Button>
+            <Button
+              size="xs"
+              class="gap-1.5"
+              :variant="viewMode === 'planning' ? 'secondary' : 'ghost'"
+              @click="viewMode = 'planning'"
+            >
+              <Rows3 class="size-3.5" /> Planning
+            </Button>
+          </div>
           <label class="flex items-center gap-2 text-sm text-muted-foreground"><Switch v-model="showDone" /> Show done</label>
           <Button v-if="canManageSprints" size="sm" variant="outline" class="max-sm:w-full" @click="openSprintForm()"><Plus /> Create sprint</Button>
         </div>
@@ -248,52 +282,86 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
         <RouterLink :to="{ name: 'project-issues', params: { projectId } }" class="font-medium underline">the task list</RouterLink>.
       </p>
 
-      <BacklogSection
-        v-for="sprint in openSprints"
-        :key="sprint.id"
-        v-model="lists[sprint.id]"
-        :section-key="sprint.id"
-        :title="sprint.name"
-        :sprint="sprint"
-        :project-id="projectId"
-        :move-targets="moveTargets"
-        :editable="canEdit"
-        :is-selected="selection.isSelected"
-        @open="openIssue"
-        @toggle-select="(issue) => selection.toggle(issue.id)"
-        @drag-start="isDragging = true"
-        @drag-end="onDragEnd"
-        @move-to="moveTo"
-      >
-        <template v-if="canManageSprints" #actions>
-          <Button v-if="sprint.state === 'planned' && !hasActiveSprint" size="xs" @click="startingSprint = sprint">Start sprint</Button>
-          <Button v-if="sprint.state === 'active'" size="xs" variant="outline" @click="completingSprint = sprint">Complete sprint</Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger as-child>
-              <Button variant="ghost" size="icon-sm" :aria-label="`${sprint.name} actions`"><Ellipsis /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem @select="openSprintForm(sprint)">Edit sprint</DropdownMenuItem>
-              <DropdownMenuItem v-if="sprint.state !== 'active' && isProjectAdmin" variant="destructive" @select="deleteSprint(sprint)">Delete sprint</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </template>
-      </BacklogSection>
-
-      <BacklogSection
-        v-model="lists[BACKLOG_KEY]"
-        :section-key="BACKLOG_KEY"
-        title="Backlog"
-        :project-id="projectId"
-        :move-targets="moveTargets"
-        :editable="canEdit"
-        :is-selected="selection.isSelected"
-        @open="openIssue"
-        @toggle-select="(issue) => selection.toggle(issue.id)"
-        @drag-start="isDragging = true"
-        @drag-end="onDragEnd"
-        @move-to="moveTo"
+      <SprintCapacityStrip
+        v-if="viewMode === 'planning' && capacitySprint"
+        :sprint="capacitySprint"
+        :issues="lists[capacitySprint.id] ?? []"
+        :member-count="memberCount"
+        :sprint-length-days="sprintLengthDays"
+        :minutes-per-week="minutesPerWeek"
+        :average-velocity="averageVelocity"
       />
+
+      <PlanningBoard
+        v-if="viewMode === 'planning'"
+        :project-id="projectId"
+        :open-sprints="openSprints"
+        v-model:lists="lists"
+        :move-targets="moveTargets"
+        :editable="canEdit"
+        :can-manage-sprints="canManageSprints"
+        :has-active-sprint="hasActiveSprint"
+        :is-project-admin="isProjectAdmin"
+        :is-selected="selection.isSelected"
+        @open="openIssue"
+        @toggle-select="(issue) => selection.toggle(issue.id)"
+        @drag-start="isDragging = true"
+        @drag-end="onDragEnd"
+        @move-to="moveTo"
+        @start-sprint="startingSprint = $event"
+        @complete-sprint="completingSprint = $event"
+        @edit-sprint="openSprintForm"
+        @delete-sprint="deleteSprint"
+      />
+
+      <template v-else>
+        <BacklogSection
+          v-for="sprint in openSprints"
+          :key="sprint.id"
+          v-model="lists[sprint.id]"
+          :section-key="sprint.id"
+          :title="sprint.name"
+          :sprint="sprint"
+          :project-id="projectId"
+          :move-targets="moveTargets"
+          :editable="canEdit"
+          :is-selected="selection.isSelected"
+          @open="openIssue"
+          @toggle-select="(issue) => selection.toggle(issue.id)"
+          @drag-start="isDragging = true"
+          @drag-end="onDragEnd"
+          @move-to="moveTo"
+        >
+          <template v-if="canManageSprints" #actions>
+            <Button v-if="sprint.state === 'planned' && !hasActiveSprint" size="xs" @click="startingSprint = sprint">Start sprint</Button>
+            <Button v-if="sprint.state === 'active'" size="xs" variant="outline" @click="completingSprint = sprint">Complete sprint</Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <Button variant="ghost" size="icon-sm" :aria-label="`${sprint.name} actions`"><Ellipsis /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem @select="openSprintForm(sprint)">Edit sprint</DropdownMenuItem>
+                <DropdownMenuItem v-if="sprint.state !== 'active' && isProjectAdmin" variant="destructive" @select="deleteSprint(sprint)">Delete sprint</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </template>
+        </BacklogSection>
+
+        <BacklogSection
+          v-model="lists[BACKLOG_KEY]"
+          :section-key="BACKLOG_KEY"
+          title="Backlog"
+          :project-id="projectId"
+          :move-targets="moveTargets"
+          :editable="canEdit"
+          :is-selected="selection.isSelected"
+          @open="openIssue"
+          @toggle-select="(issue) => selection.toggle(issue.id)"
+          @drag-start="isDragging = true"
+          @drag-end="onDragEnd"
+          @move-to="moveTo"
+        />
+      </template>
 
       <section v-if="completedSprints.length" class="space-y-3">
         <button

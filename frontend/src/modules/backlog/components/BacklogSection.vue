@@ -28,9 +28,11 @@ const props = withDefaults(
     editable?: boolean
     /** Start collapsed (useful for completed sprints). */
     startCollapsed?: boolean
+    /** Horizontal planning board column vs stacked list. */
+    variant?: 'stack' | 'column'
     isSelected: (id: string) => boolean
   }>(),
-  { sprint: null, editable: true, startCollapsed: false },
+  { sprint: null, editable: true, startCollapsed: false, variant: 'stack' },
 )
 const issues = defineModel<Issue[]>({ required: true })
 const emit = defineEmits<{
@@ -42,16 +44,21 @@ const emit = defineEmits<{
 }>()
 
 const { isWide } = useDevice()
-const isCollapsed = ref(props.startCollapsed)
+const isCollapsed = ref(props.variant === 'column' ? false : props.startCollapsed)
 
 const points = computed(() => issues.value.reduce((total, issue) => total + (issue.storyPoints ?? 0), 0))
 const STATE_BADGE = { active: 'success', planned: 'secondary', completed: 'outline' } as const
 </script>
 
 <template>
-  <section class="overflow-hidden border bg-card" :aria-label="title">
+  <section
+    class="overflow-hidden border bg-card"
+    :class="variant === 'column' ? 'flex h-full min-h-[24rem] flex-col rounded-xl' : 'rounded-xl'"
+    :aria-label="title"
+  >
     <header class="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-3 py-2.5">
       <button
+        v-if="variant === 'stack'"
         type="button"
         class="flex min-w-0 items-center gap-2 text-left"
         :aria-expanded="!isCollapsed"
@@ -60,8 +67,9 @@ const STATE_BADGE = { active: 'success', planned: 'secondary', completed: 'outli
         <ChevronRight class="size-4 shrink-0 transition-transform" :class="!isCollapsed && 'rotate-90'" />
         <h2 class="truncate text-sm font-semibold">{{ title }}</h2>
       </button>
+      <h2 v-else class="truncate text-sm font-semibold">{{ title }}</h2>
       <Badge v-if="sprint" :variant="STATE_BADGE[sprint.state]" class="capitalize">{{ sprint.state }}</Badge>
-      <span v-if="sprint?.startDate" class="text-xs text-muted-foreground">
+      <span v-if="sprint?.startDate && variant === 'stack'" class="text-xs text-muted-foreground">
         {{ formatDate(sprint.startDate, 'd MMM') }} – {{ formatDate(sprint.endDate, 'd MMM') }}
       </span>
       <span class="text-xs text-muted-foreground">{{ issues.length }} tasks<template v-if="points"> · {{ points }} pts</template></span>
@@ -71,7 +79,7 @@ const STATE_BADGE = { active: 'success', planned: 'secondary', completed: 'outli
       <p v-if="sprint?.goal" class="basis-full pl-6 text-xs text-muted-foreground">{{ sprint.goal }}</p>
     </header>
 
-    <div v-show="!isCollapsed">
+    <div v-show="!isCollapsed" :class="variant === 'column' ? 'flex min-h-0 flex-1 flex-col' : ''">
       <VueDraggable
         v-model="issues"
         group="backlog"
@@ -83,11 +91,14 @@ const STATE_BADGE = { active: 'success', planned: 'secondary', completed: 'outli
         :delay-on-touch-only="true"
         :data-section-key="sectionKey"
         class="min-h-10"
-        :class="!isWide && 'space-y-2 p-2'"
+        :class="[
+          (variant === 'column' || !isWide) && 'space-y-2 p-2',
+          variant === 'column' && 'min-h-0 flex-1 overflow-y-auto',
+        ]"
         @start="emit('dragStart')"
         @end="(event: SortableEvent) => emit('dragEnd', event)"
       >
-        <template v-if="isWide">
+        <template v-if="isWide && variant === 'stack'">
           <IssueRow
             v-for="issue in issues"
             :key="issue.id"
@@ -129,7 +140,7 @@ const STATE_BADGE = { active: 'success', planned: 'secondary', completed: 'outli
         <template v-if="!editable">No tasks remaining on this sprint.</template>
         <template v-else>Drag tasks here or add one below.</template>
       </p>
-      <div v-if="editable" class="border-t p-2">
+      <div v-if="editable" class="shrink-0 border-t p-2">
         <QuickAddInput :project-id="projectId" :defaults="{ sprintId: sprint?.id ?? null }" placeholder="Add to this list…" />
       </div>
     </div>
