@@ -121,36 +121,8 @@ function mapUser(brief, userIdMap, emailToUserId) {
   return null;
 }
 
-/**
- * Merge-import a Vector org backup into the current organization.
- * Creates new projects (new IDs/keys); matches people by email; skips attachment binaries and billing fields.
- */
-export async function importOrganizationBackup(organization, actor, buffer) {
-  const backup = parseOrganizationBackup(buffer);
-  const warnings = [];
+function collectBackupEmails(backup, emailToUserId) {
   const unknownEmails = new Set();
-  let attachmentsSkipped = 0;
-  let departmentsCreated = 0;
-  let teamsCreated = 0;
-  let projectsCreated = 0;
-  let issuesCreated = 0;
-  const remappedKeys = [];
-
-  if (backup.organization?.id && backup.organization.id !== organization.id) {
-    warnings.push(
-      `Backup was exported from a different organization id (${backup.organization.slug || backup.organization.id}); importing as a merge into ${organization.slug}.`,
-    );
-  }
-
-  const members = await OrganizationMember.findAll({
-    where: { organizationId: organization.id, status: 'active' },
-    include: [{ model: User, as: 'user', attributes: [...USER_SUMMARY_ATTRIBUTES, 'email'] }],
-  });
-  const emailToUserId = new Map();
-  for (const membership of members) {
-    if (membership.user?.email) emailToUserId.set(membership.user.email.toLowerCase(), membership.user.id);
-  }
-
   const userIdMap = new Map();
   const rememberUser = (brief) => {
     if (!brief?.email) return;
@@ -174,20 +146,191 @@ export async function importOrganizationBackup(organization, actor, buffer) {
     }
     for (const task of project.recurringTasks ?? []) rememberUser(task.assignee);
   }
+  return { unknownEmails, userIdMap };
+}
+
+/** Pure counts from a parsed backup (also used by unit tests). */
+export function countBackupStats(backup) {
+  let issues = 0;
+  let comments = 0;
+  let attachments = 0;
+  let automations = 0;
+  let recurringTasks = 0;
+  for (const project of backup.projects ?? []) {
+    const projectIssues = project.issues ?? [];
+    issues += projectIssues.length;
+    for (const issue of projectIssues) {
+      comments += (issue.comments ?? []).length;
+      attachments += (issue.attachments ?? []).length;
+    }
+    automations += (project.automationRules ?? []).length;
+    recurringTasks += (project.recurringTasks ?? []).length;
+  }
+  return {
+    projects: (backup.projects ?? []).length,
+    issues,
+    comments,
+    attachments,
+    automations,
+    recurringTasks,
+    departments: (backup.departments ?? []).length,
+    members: (backup.members ?? []).length,
+  };
+}
+
+async function assertImportFitsPlan(organization, projectCount) {
+  const { planName, limits } = entitlementsFor(organization);
+  if (limits.projects == null) return { planName, limits, usage: null };
+  const usage = await usageFor(organization.id);
+  if (usage.projects + projectCount > limits.projects) {
+    throw new ApiError(
+      403,
+      `Importing ${projectCount} project(s) would exceed the ${planName} plan limit of ${limits.projects}. Archive or delete projects first, or upgrade.`,
+      { code: 'plan_limit', limit: 'projects' },
+    );
+  }
+  return { planName, limits, usage };
+}
+
+async function estimateRemappedKeys(organizationId, backup) {
+  const taken = new Set(
+    (
+      await Project.findAll({
+        where: { organizationId },
+        attributes: ['key'],
+        raw: true,
+      })
+    ).map((row) => row.key),
+  );
+  const remappedKeys = [];
+  const reserved = new Set(taken);
+  for (const project of backup.projects ?? []) {
+    let base = sanitizeKey(project.key);
+    if (!reserved.has(base)) {
+      reserved.add(base);
+      continue;
+    }
+    let allocated = null;
+    for (let n = 2; n < 1000; n += 1) {
+      const suffix = String(n);
+      const candidate = `${base.slice(0, Math.max(1, 10 - suffix.length))}${suffix}`;
+      if (!reserved.has(candidate)) {
+        allocated = candidate;
+        break;
+      }
+    }
+    if (allocated) {
+      remappedKeys.push({ from: project.key, to: allocated });
+      reserved.add(allocated);
+    }
+  }
+  return remappedKeys;
+}
+
+/**
+ * Dry-run: parse the backup, check plan headroom, match people by email — no writes.
+ */
+export async function previewOrganizationBackup(organization, buffer) {
+  const backup = parseOrganizationBackup(buffer);
+  const warnings = [];
+  const stats = countBackupStats(backup);
+
+  if (backup.organization?.id && backup.organization.id !== organization.id) {
+    warnings.push(
+      `Backup was exported from a different organization (${backup.organization.slug || backup.organization.id}); importing merges into ${organization.slug}.`,
+    );
+  }
+  if (backup.organization?.name && backup.organization.name !== organization.name) {
+    warnings.push(`Backup label is “${backup.organization.name}”; data will merge into “${organization.name}”.`);
+  }
+
+  const members = await OrganizationMember.findAll({
+    where: { organizationId: organization.id, status: 'active' },
+    include: [{ model: User, as: 'user', attributes: [...USER_SUMMARY_ATTRIBUTES, 'email'] }],
+  });
+  const emailToUserId = new Map();
+  for (const membership of members) {
+    if (membership.user?.email) emailToUserId.set(membership.user.email.toLowerCase(), membership.user.id);
+  }
+  const { unknownEmails } = collectBackupEmails(backup, emailToUserId);
+  const remappedKeys = await estimateRemappedKeys(organization.id, backup);
+  const { planName, usage } = await assertImportFitsPlan(organization, stats.projects);
+
+  if (stats.attachments > 0) {
+    warnings.push(`${stats.attachments} attachment metadata row(s) will be skipped — binaries are not in the JSON.`);
+  }
+  if (unknownEmails.size) {
+    warnings.push(
+      `${unknownEmails.size} email(s) from the backup are not members here — assignees/comments for them will be left blank.`,
+    );
+  }
+  if (remappedKeys.length) {
+    warnings.push(
+      `${remappedKeys.length} project key(s) are already taken and will be remapped (e.g. ${remappedKeys
+        .slice(0, 3)
+        .map((row) => `${row.from}→${row.to}`)
+        .join(', ')}).`,
+    );
+  }
+
+  return {
+    dryRun: true,
+    source: {
+      organizationId: backup.organization?.id ?? null,
+      slug: backup.organization?.slug ?? null,
+      name: backup.organization?.name ?? null,
+      exportedAt: backup.exportedAt ?? backup.createdAt ?? null,
+    },
+    stats,
+    remappedKeys,
+    skipped: {
+      attachments: stats.attachments,
+      unknownEmails: [...unknownEmails].slice(0, 50),
+      billing: true,
+      users: true,
+    },
+    plan: {
+      name: planName,
+      projectsAfter: (usage?.projects ?? 0) + stats.projects,
+    },
+    warnings,
+  };
+}
+
+/**
+ * Merge-import a Vector org backup into the current organization.
+ * Creates new projects (new IDs/keys); matches people by email; skips attachment binaries and billing fields.
+ */
+export async function importOrganizationBackup(organization, actor, buffer) {
+  const backup = parseOrganizationBackup(buffer);
+  const warnings = [];
+  let attachmentsSkipped = 0;
+  let departmentsCreated = 0;
+  let teamsCreated = 0;
+  let projectsCreated = 0;
+  let issuesCreated = 0;
+  const remappedKeys = [];
+
+  if (backup.organization?.id && backup.organization.id !== organization.id) {
+    warnings.push(
+      `Backup was exported from a different organization id (${backup.organization.slug || backup.organization.id}); importing as a merge into ${organization.slug}.`,
+    );
+  }
+
+  const members = await OrganizationMember.findAll({
+    where: { organizationId: organization.id, status: 'active' },
+    include: [{ model: User, as: 'user', attributes: [...USER_SUMMARY_ATTRIBUTES, 'email'] }],
+  });
+  const emailToUserId = new Map();
+  for (const membership of members) {
+    if (membership.user?.email) emailToUserId.set(membership.user.email.toLowerCase(), membership.user.id);
+  }
+
+  const { unknownEmails, userIdMap } = collectBackupEmails(backup, emailToUserId);
 
   const idMap = new Map(); // old UUID → new UUID (statuses, labels, sprints, issues, teams, …)
 
-  const { planName, limits } = entitlementsFor(organization);
-  if (limits.projects != null) {
-    const usage = await usageFor(organization.id);
-    if (usage.projects + backup.projects.length > limits.projects) {
-      throw new ApiError(
-        403,
-        `Importing ${backup.projects.length} project(s) would exceed the ${planName} plan limit of ${limits.projects}. Archive or delete projects first, or upgrade.`,
-        { code: 'plan_limit', limit: 'projects' },
-      );
-    }
-  }
+  await assertImportFitsPlan(organization, backup.projects.length);
 
   await writeTransaction(async (transaction) => {
     // --- Departments & teams (by name) -----------------------------------------

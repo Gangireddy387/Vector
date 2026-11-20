@@ -3,7 +3,10 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { parseOrganizationBackup } from '../src/modules/organizations/workspace-backup-import.service.js';
+import {
+  countBackupStats,
+  parseOrganizationBackup,
+} from '../src/modules/organizations/workspace-backup-import.service.js';
 
 describe('parseOrganizationBackup', () => {
   it('accepts a minimal v1 backup', () => {
@@ -22,5 +25,36 @@ describe('parseOrganizationBackup', () => {
       /version 99/i,
     );
     assert.throws(() => parseOrganizationBackup(JSON.stringify({ format: 'vector-org-backup', version: 1 })), /projects/i);
+  });
+});
+
+describe('countBackupStats', () => {
+  it('tallies projects, issues, comments and attachment metadata', () => {
+    const stats = countBackupStats({
+      projects: [
+        {
+          key: 'A',
+          issues: [
+            { comments: [{}, {}], attachments: [{}] },
+            { comments: [], attachments: [{}, {}] },
+          ],
+          automationRules: [{}],
+          recurringTasks: [{}, {}],
+        },
+        { key: 'B', issues: [] },
+      ],
+      departments: [{}, {}],
+      members: [{}],
+    });
+    assert.deepEqual(stats, {
+      projects: 2,
+      issues: 2,
+      comments: 2,
+      attachments: 3,
+      automations: 1,
+      recurringTasks: 2,
+      departments: 2,
+      members: 1,
+    });
   });
 });

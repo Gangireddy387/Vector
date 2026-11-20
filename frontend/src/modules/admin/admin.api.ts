@@ -44,6 +44,31 @@ export interface GithubIntegrationSettings {
   secret?: string
 }
 
+/** Dry-run result from POST /workspace/backup/import/preview. */
+export interface BackupImportPreview {
+  dryRun: true
+  source: {
+    organizationId: string | null
+    slug: string | null
+    name: string | null
+    exportedAt: string | null
+  }
+  stats: {
+    projects: number
+    issues: number
+    comments: number
+    attachments: number
+    automations: number
+    recurringTasks: number
+    departments: number
+    members: number
+  }
+  remappedKeys: Array<{ from: string; to: string }>
+  skipped: { attachments: number; unknownEmails: string[]; billing: boolean; users: boolean }
+  plan: { name: string; projectsAfter: number }
+  warnings: string[]
+}
+
 export interface UpgradeRequest {
   target: UpgradeTarget
   note: string | null
@@ -211,6 +236,12 @@ export const workspaceApi = {
     const url = URL.createObjectURL(response.data)
     Object.assign(document.createElement('a'), { href: url, download: `vector-${safe}-backup.json` }).click()
     URL.revokeObjectURL(url)
+  },
+  /** Dry-run: validate a backup and return counts / warnings (no writes). */
+  previewBackupImport: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return http.post<BackupImportPreview>('/workspace/backup/import/preview', form).then((r) => r.data)
   },
   /** Merge-import a Vector org backup JSON (creates new projects; matches people by email). */
   importBackup: (file: File) => {

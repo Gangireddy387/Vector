@@ -4,7 +4,7 @@ import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
 import { getMemberProfile } from './member-profile.service.js';
 import { listActiveMemberships } from './organization-access.js';
 import * as organizationService from './organization.service.js';
-import { importOrganizationBackup } from './workspace-backup-import.service.js';
+import { importOrganizationBackup, previewOrganizationBackup } from './workspace-backup-import.service.js';
 import { buildOrganizationBackup } from './workspace-backup.service.js';
 
 const sessionFor = async (user, organizationId) => {
@@ -73,6 +73,13 @@ export const exportBackup = async (req, res) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="vector-${safeSlug}-backup.json"`);
   res.json(payload);
+};
+
+/** Dry-run: validate a backup and return counts / warnings without writing. */
+export const previewBackupImport = async (req, res) => {
+  if (!req.file?.buffer?.length) throw ApiError.badRequest('Upload a backup JSON file');
+  res.set('Cache-Control', 'no-store');
+  res.json(await previewOrganizationBackup(req.organization, req.file.buffer));
 };
 
 /** Merge-import a previously downloaded Vector org backup (creates new projects; matches people by email). */

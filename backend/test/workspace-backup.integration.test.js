@@ -95,6 +95,35 @@ describe('workspace backup', () => {
     assert.equal(response.status, 403);
   });
 
+  it('previews a backup without writing projects', async () => {
+    const exported = await asAlice('GET', '/workspace/backup');
+    assert.equal(exported.status, 200);
+
+    const before = await asAlice('GET', '/projects');
+    const beforeCount = (before.body.projects ?? before.body).length;
+
+    const form = new FormData();
+    form.append('file', new Blob([JSON.stringify(exported.body)], { type: 'application/json' }), 'backup.json');
+    const response = await fetch(`${server.api}/workspace/backup/import/preview`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${alice.token}`,
+        'X-Organization-Id': alice.organizationId,
+      },
+      body: form,
+    });
+    const body = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(body));
+    assert.equal(body.dryRun, true);
+    assert.ok(body.stats.projects >= 1);
+    assert.ok(body.stats.issues >= 1);
+    assert.ok(body.remappedKeys.some((row) => row.from === 'BKP'));
+    assert.ok(Array.isArray(body.warnings));
+
+    const after = await asAlice('GET', '/projects');
+    assert.equal((after.body.projects ?? after.body).length, beforeCount, 'preview must not create projects');
+  });
+
   it('merge-imports a backup into the same organization with remapped project keys', async () => {
     const exported = await asAlice('GET', '/workspace/backup');
     assert.equal(exported.status, 200);

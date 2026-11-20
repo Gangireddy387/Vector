@@ -22,7 +22,7 @@ import type {
   OrganizationRetention,
   WorkspaceSettings,
 } from '@/types/models'
-import { workspaceApi } from '../admin.api'
+import { type BackupImportPreview, workspaceApi } from '../admin.api'
 import OrganizationLogoField from './OrganizationLogoField.vue'
 import OrganizationThemeField from './OrganizationThemeField.vue'
 
@@ -191,8 +191,10 @@ async function saveInvitePolicy() {
 }
 const isExporting = ref(false)
 const isImporting = ref(false)
+const isPreviewing = ref(false)
 const isImportOpen = ref(false)
 const importFile = ref<File | null>(null)
+const importPreview = ref<BackupImportPreview | null>(null)
 const importInput = ref<HTMLInputElement | null>(null)
 
 async function exportBackup() {
@@ -209,11 +211,31 @@ async function exportBackup() {
   }
 }
 
-function pickImportFile(event: Event) {
+async function pickImportFile(event: Event) {
   const input = event.target as HTMLInputElement
-  importFile.value = input.files?.[0] ?? null
-  if (importFile.value) isImportOpen.value = true
+  const file = input.files?.[0] ?? null
   input.value = ''
+  if (!file) return
+  importFile.value = file
+  importPreview.value = null
+  isPreviewing.value = true
+  isImportOpen.value = true
+  try {
+    importPreview.value = await workspaceApi.previewBackupImport(file)
+  } catch (error) {
+    isImportOpen.value = false
+    importFile.value = null
+    toast.error(getErrorMessage(error))
+  } finally {
+    isPreviewing.value = false
+  }
+}
+
+function closeImport() {
+  if (isImporting.value) return
+  isImportOpen.value = false
+  importFile.value = null
+  importPreview.value = null
 }
 
 async function confirmImport() {
@@ -221,8 +243,7 @@ async function confirmImport() {
   isImporting.value = true
   try {
     const result = await workspaceApi.importBackup(importFile.value)
-    isImportOpen.value = false
-    importFile.value = null
+    closeImport()
     const keyNote = result.remappedKeys.length
       ? ` Keys remapped: ${result.remappedKeys.map((row) => `${row.from}→${row.to}`).join(', ')}.`
       : ''
@@ -553,19 +574,64 @@ async function deleteOrganization() {
       </CardContent>
     </Card>
 
-    <Dialog v-model:open="isImportOpen">
-      <DialogContent class="sm:max-w-md">
+    <Dialog :open="isImportOpen" @update:open="(open) => (open ? (isImportOpen = true) : closeImport())">
+      <DialogContent class="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Restore backup?</DialogTitle>
           <DialogDescription>
-            This creates new projects and tasks in {{ workspace.settings.name }}. It does not replace existing data, create users, or
+            Merge into {{ workspace.settings.name }} — creates new projects and tasks. Does not replace existing data, create users, or
             restore file binaries.
             <span v-if="importFile" class="mt-2 block font-mono text-xs text-foreground">{{ importFile.name }}</span>
           </DialogDescription>
         </DialogHeader>
+
+        <div v-if="isPreviewing" class="py-8 text-center text-sm text-muted-foreground">Checking backup…</div>
+        <div v-else-if="importPreview" class="space-y-3 text-sm">
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
+            <div>
+              <dt class="text-xs text-muted-foreground">Projects</dt>
+              <dd class="font-medium tabular-nums">{{ importPreview.stats.projects }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-muted-foreground">Tasks</dt>
+              <dd class="font-medium tabular-nums">{{ importPreview.stats.issues }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-muted-foreground">Comments</dt>
+              <dd class="font-medium tabular-nums">{{ importPreview.stats.comments }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-muted-foreground">Departments</dt>
+              <dd class="font-medium tabular-nums">{{ importPreview.stats.departments }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-muted-foreground">Automations</dt>
+              <dd class="font-medium tabular-nums">{{ importPreview.stats.automations }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-muted-foreground">Plan after</dt>
+              <dd class="font-medium tabular-nums">{{ importPreview.plan.projectsAfter }} projects ({{ importPreview.plan.name }})</dd>
+            </div>
+          </dl>
+          <p v-if="importPreview.source.name || importPreview.source.slug" class="text-xs text-muted-foreground">
+            Source:
+            <span class="text-foreground">{{ importPreview.source.name || importPreview.source.slug }}</span>
+            <template v-if="importPreview.source.exportedAt"> · exported {{ importPreview.source.exportedAt }}</template>
+          </p>
+          <ul v-if="importPreview.warnings.length" class="space-y-1 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+            <li v-for="(warning, index) in importPreview.warnings" :key="index">{{ warning }}</li>
+          </ul>
+          <p v-if="importPreview.skipped.unknownEmails.length" class="text-xs text-muted-foreground">
+            Unknown emails (first {{ importPreview.skipped.unknownEmails.length }}):
+            {{ importPreview.skipped.unknownEmails.join(', ') }}
+          </p>
+        </div>
+
         <DialogFooter class="gap-2 sm:gap-0">
-          <Button type="button" variant="outline" :disabled="isImporting" @click="isImportOpen = false">Cancel</Button>
-          <Button type="button" :loading="isImporting" @click="confirmImport">Restore</Button>
+          <Button type="button" variant="outline" :disabled="isImporting" @click="closeImport">Cancel</Button>
+          <Button type="button" :loading="isImporting" :disabled="isPreviewing || !importPreview" @click="confirmImport">
+            Restore
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

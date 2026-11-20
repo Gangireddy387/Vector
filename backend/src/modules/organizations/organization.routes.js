@@ -128,16 +128,24 @@ organizationAdminRoutes.get(
   },
 );
 organizationAdminRoutes.get('/workspace/backup', requireOrgPermission('workspace.audit'), backupLimiter, controller.exportBackup);
+const withBackupUpload = (req, res, next) => {
+  backupUpload(req, res, (error) => {
+    if (error) return next(error);
+    return next();
+  });
+};
+organizationAdminRoutes.post(
+  '/workspace/backup/import/preview',
+  requireOrgPermission('workspace.audit'),
+  backupLimiter,
+  withBackupUpload,
+  controller.previewBackupImport,
+);
 organizationAdminRoutes.post(
   '/workspace/backup/import',
   requireOrgPermission('workspace.audit'),
   backupLimiter,
-  (req, res, next) => {
-    backupUpload(req, res, (error) => {
-      if (error) return next(error);
-      return next();
-    });
-  },
+  withBackupUpload,
   controller.importBackup,
 );
 organizationAdminRoutes.post('/workspace/invitations', requireOrgPermission('workspace.people'), validate({ body: inviteMemberSchema }), controller.invite);
