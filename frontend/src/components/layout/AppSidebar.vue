@@ -14,7 +14,6 @@ import CreateProjectDialog from '@/modules/projects/components/CreateProjectDial
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import { useUiStore } from '@/stores/ui.store'
 import OrganizationSwitcher from './OrganizationSwitcher.vue'
-import { getProjectNavigation } from './projectNavigation'
 import SidebarLink from './SidebarLink.vue'
 import UserMenu from './UserMenu.vue'
 
@@ -47,10 +46,6 @@ const toggle = (section: string) => (folded.value = { ...folded.value, [section]
 const isCreateProjectOpen = ref(false)
 
 const activeProjectId = computed(() => (typeof route.params.projectId === 'string' ? route.params.projectId : null))
-const navigationFor = (projectId: string) => {
-  const project = projects.details[projectId] ?? projects.projects.find((item) => item.id === projectId)
-  return project ? getProjectNavigation(project, auth.hasFeature) : []
-}
 
 /** Long project lists show the first few (plus the open one) until "Show all". */
 const PROJECT_LIMIT = 6
@@ -233,28 +228,33 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
         </template>
       </template>
 
-      <!-- Projects: the heading opens the full list -->
+      <!-- Projects: same fold control as Rhythm; + still creates a project -->
       <div v-if="!isCollapsed" class="group/section mt-4 mb-0.5 flex h-6 items-center gap-0.5 pr-1">
-        <RouterLink
-          :to="{ name: 'projects' }"
-          class="flex h-6 items-center rounded-md px-2 text-[11.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-          title="All projects (G P)"
-        >
-          Projects
-        </RouterLink>
         <button
           type="button"
-          class="flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+          class="flex h-6 min-w-0 flex-1 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
           :aria-expanded="!folded.projects"
-          :aria-label="folded.projects ? 'Show projects' : 'Hide projects'"
           @click="toggle('projects')"
         >
-          <ChevronRight class="size-3 transition-transform" :class="!folded.projects && 'rotate-90'" />
+          Projects
+          <ChevronRight class="size-3 shrink-0 transition-transform" :class="!folded.projects && 'rotate-90'" />
         </button>
+        <Tooltip>
+          <TooltipTrigger as-child>
+            <RouterLink
+              :to="{ name: 'projects' }"
+              class="flex size-5 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent/70 hover:text-foreground"
+              aria-label="All projects"
+            >
+              <LayoutGrid class="size-3.5" />
+            </RouterLink>
+          </TooltipTrigger>
+          <TooltipContent side="right">All projects (G P)</TooltipContent>
+        </Tooltip>
         <Button
           variant="ghost"
           size="icon-sm"
-          class="ml-auto size-5 text-muted-foreground opacity-0 transition-opacity group-hover/section:opacity-100 focus-visible:opacity-100"
+          class="size-5 text-muted-foreground opacity-0 transition-opacity group-hover/section:opacity-100 focus-visible:opacity-100"
           aria-label="New project"
           title="New project"
           @click="isCreateProjectOpen = true"
@@ -265,24 +265,18 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
       <div v-else class="mx-2 my-3 border-t border-sidebar-border" />
 
       <template v-if="isCollapsed || !folded.projects">
-        <template v-for="project in visibleProjects" :key="project.id">
-          <SidebarLink :to="{ name: 'project-board', params: { projectId: project.id } }" :label="project.name" :color="project.color" :collapsed="isCollapsed" />
-          <template v-if="!isCollapsed && activeProjectId === project.id">
-            <SidebarLink
-              v-for="item in navigationFor(project.id)"
-              :key="`${item.label}-${item.name}`"
-              :to="item.to ?? { name: item.name, params: { projectId: project.id } }"
-              :label="item.label"
-              :icon="item.icon"
-              :locked="item.locked"
-              nested
-            />
-          </template>
-        </template>
+        <SidebarLink
+          v-for="project in visibleProjects"
+          :key="project.id"
+          :to="{ name: 'project-board', params: { projectId: project.id } }"
+          :label="project.name"
+          :color="project.color"
+          :collapsed="isCollapsed"
+        />
         <button
           v-if="!isCollapsed && (hiddenProjectCount > 0 || showAllProjects)"
           type="button"
-          class="flex h-7 items-center rounded-md px-2 pl-[1.85rem] text-[12.5px] text-muted-foreground transition-colors hover:bg-sidebar-accent/70 hover:text-foreground"
+          class="flex h-8 items-center rounded-lg px-2 text-[13px] text-muted-foreground transition-colors hover:bg-sidebar-accent/70 hover:text-foreground"
           @click="showAllProjects = !showAllProjects"
         >
           {{ showAllProjects ? 'Show less' : `Show all (${hiddenProjectCount} more)` }}
@@ -290,7 +284,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
         <button
           v-if="!isCollapsed && !projects.joinedProjects.length"
           type="button"
-          class="flex h-8 items-center gap-2.5 rounded-md border border-dashed border-border px-2 text-[13px] text-muted-foreground transition-colors hover:border-input hover:text-foreground"
+          class="flex h-8 items-center gap-2.5 rounded-lg border border-dashed border-border px-2 text-[13px] text-muted-foreground transition-colors hover:border-input hover:text-foreground"
           @click="isCreateProjectOpen = true"
         >
           <Plus class="size-4" /> Create your first project

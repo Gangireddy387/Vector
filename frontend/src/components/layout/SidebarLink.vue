@@ -14,7 +14,6 @@ const props = withDefaults(
     badge?: number
     collapsed?: boolean
     exact?: boolean
-    nested?: boolean
     /** Keyboard shortcut, e.g. "G I": shown on hover and in the collapsed tooltip. */
     shortcut?: string
     /** Plan-gated teaser: muted look, still navigates to the unlock page. */
@@ -26,7 +25,7 @@ const props = withDefaults(
      */
     matchNames?: string[]
   }>(),
-  { collapsed: false, exact: false, nested: false, locked: false, matchNames: () => [] },
+  { collapsed: false, exact: false, locked: false, matchNames: () => [] },
 )
 
 const route = useRoute()
@@ -49,7 +48,6 @@ const nameMatched = computed(() => {
               (exact ? isExactActive : isActive || nameMatched) &&
                 !locked &&
                 'bg-sidebar-accent font-medium text-sidebar-foreground shadow-[inset_3px_0_0_0_var(--primary)]',
-              nested && 'h-7 pl-7 text-[12.5px]',
               collapsed && 'justify-center px-0',
               locked && 'opacity-70',
             )
