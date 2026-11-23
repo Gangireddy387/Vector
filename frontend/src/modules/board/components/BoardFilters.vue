@@ -62,15 +62,15 @@ function clearFilters() {
 </script>
 
 <template>
-  <div :class="stacked ? 'space-y-4' : 'flex min-w-0 flex-wrap items-center gap-2'">
-    <div v-if="!hideSearch" class="relative" :class="stacked ? 'w-full' : 'w-56'">
+  <div :class="stacked ? 'space-y-4' : 'flex min-w-0 items-center gap-2 overflow-x-auto pb-0.5'">
+    <div v-if="!hideSearch" class="relative shrink-0" :class="stacked ? 'w-full' : 'w-56'">
       <Search class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
       <Input v-model="filters.search" placeholder="Search this board" class="h-8 pl-8" aria-label="Search this board" />
     </div>
 
-    <div>
+    <div class="shrink-0">
       <p v-if="stacked" class="mb-2 text-xs font-medium text-muted-foreground">Assignee</p>
-      <div class="flex flex-wrap items-center gap-2">
+      <div class="flex items-center gap-2">
         <div class="flex items-center -space-x-1.5" role="group" aria-label="Filter by assignee">
           <button
             v-for="member in shownMembers"
@@ -111,16 +111,16 @@ function clearFilters() {
       </div>
     </div>
 
-    <span v-if="!stacked" class="mx-0.5 hidden h-5 w-px bg-border lg:block" />
+    <span v-if="!stacked" class="mx-0.5 hidden h-5 w-px shrink-0 bg-border lg:block" />
 
-    <div>
+    <div class="shrink-0">
       <p v-if="stacked" class="mb-2 text-xs font-medium text-muted-foreground">Quick filters</p>
-      <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Quick filters">
+      <div class="flex items-center gap-1.5" role="group" aria-label="Quick filters">
         <button
           v-for="option in QUICK_FILTERS"
           :key="option.value"
           type="button"
-          class="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors"
+          class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium whitespace-nowrap transition-colors"
           :class="
             filters.quick?.includes(option.value)
               ? 'border-primary/50 bg-primary/10 text-primary'
@@ -134,13 +134,13 @@ function clearFilters() {
       </div>
     </div>
 
-    <div>
+    <div class="shrink-0">
       <p v-if="stacked" class="mb-2 text-xs font-medium text-muted-foreground">More</p>
-      <div class="flex flex-wrap items-center gap-1.5">
+      <div class="flex items-center gap-1.5">
         <FilterDropdown v-model="filters.types" label="Type" :options="typeOptions" />
         <FilterDropdown v-model="filters.priorities" label="Priority" :options="priorityOptions" />
         <FilterDropdown v-if="labelOptions.length" v-model="filters.labelIds" label="Label" :options="labelOptions" />
-        <Button v-if="hasFilters" variant="ghost" size="sm" @click="clearFilters"><X /> Clear</Button>
+        <Button v-if="hasFilters" variant="ghost" size="sm" class="shrink-0" @click="clearFilters"><X /> Clear</Button>
       </div>
     </div>
   </div>
