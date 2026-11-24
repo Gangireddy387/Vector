@@ -34,6 +34,8 @@ function startFakeOpenAi() {
         payload = { summary: 'Login is broken for some users.', keyPoints: ['High priority'], nextSteps: ['Ship a fix'] };
       } else if (user.includes('Break this')) {
         payload = { subtasks: ['Reproduce on staging', 'Patch auth', 'Add regression test'] };
+      } else if (user.includes('Suggest ONE concrete next action')) {
+        payload = { action: 'Reproduce the login failure', kind: 'progress' };
       } else if (user.includes('daily briefing')) {
         payload = { headline: 'Clear overdue work first.', focus: ['Finish first task'], watch: ['Overdue risk'] };
       } else if (system.includes('summarize work meetings')) {
@@ -126,6 +128,11 @@ describe('issue AI with OpenAI', () => {
     assert.equal(breakdown.status, 200, JSON.stringify(breakdown.body));
     assert.equal(breakdown.body.source, 'openai');
     assert.ok(breakdown.body.subtasks.length >= 2);
+
+    const next = await asAlice('POST', `/ai/issues/${issue.id}/next-action`);
+    assert.equal(next.status, 200, JSON.stringify(next.body));
+    assert.ok(next.body.action);
+    assert.ok(next.body.kind);
   });
 
   it('returns a daily briefing', async () => {

@@ -10,6 +10,7 @@ import OrganizationLogo from '@/components/common/OrganizationLogo.vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import AppLogo from '@/components/layout/AppLogo.vue'
+import BrandMark from '@/components/layout/BrandMark.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -123,11 +124,13 @@ function isOverdue(issue: PublicShareIssueCard) {
 </script>
 
 <template>
-  <div
-    class="min-h-dvh bg-[radial-gradient(1200px_600px_at_10%_-10%,oklch(0.92_0.04_250),transparent),radial-gradient(900px_500px_at_90%_0%,oklch(0.93_0.03_180),transparent)] bg-background text-foreground"
-  >
-    <header class="sticky top-0 z-20 border-b border-border/50 bg-background/75 shadow-[0_1px_0_oklch(0_0_0/0.03)] backdrop-blur-xl">
-      <div class="mx-auto flex w-full max-w-none items-center gap-3 px-3 py-3.5 sm:gap-4 sm:px-4 sm:py-4 lg:px-5">
+  <div class="public-share flex min-h-dvh flex-col bg-app text-foreground">
+    <header class="public-share-chrome sticky top-0 z-20 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+      <div
+        class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent"
+        aria-hidden="true"
+      />
+      <div class="mx-auto flex w-full max-w-[90rem] items-center gap-3 px-4 py-3.5 sm:gap-4 sm:px-6 sm:py-4">
         <div class="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
           <OrganizationLogo
             v-if="orgLogo"
@@ -135,49 +138,44 @@ function isOverdue(issue: PublicShareIssueCard) {
             :alt="data?.organization.name ?? 'Organization'"
             size="md"
             bare
-            class="h-10 max-w-44 shrink-0 sm:h-11 sm:max-w-52"
+            class="h-9 max-w-40 shrink-0 sm:h-10 sm:max-w-48"
           />
           <AppLogo v-else compact />
 
           <template v-if="data">
-            <span class="hidden h-8 w-px shrink-0 bg-border/80 sm:block" aria-hidden="true" />
+            <span class="hidden h-7 w-px shrink-0 bg-border/70 sm:block" aria-hidden="true" />
             <div class="min-w-0 flex-1">
-              <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span
                   class="inline-flex size-2.5 shrink-0 rounded-full ring-2 ring-background"
                   :style="{ backgroundColor: data.project.color }"
                   aria-hidden="true"
                 />
-                <h1 class="truncate text-sm font-semibold tracking-tight sm:text-[15px]">{{ data.project.name }}</h1>
-                <span class="hidden rounded-md bg-muted/80 px-1.5 py-0.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase sm:inline">
+                <p class="truncate text-sm font-semibold tracking-tight sm:text-[15px]">{{ data.project.name }}</p>
+                <span class="hidden rounded-md bg-muted/70 px-1.5 py-0.5 font-mono text-[10px] font-medium tracking-wide text-muted-foreground sm:inline">
                   {{ data.project.key }}
                 </span>
               </div>
-              <div class="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-                <span class="truncate text-xs text-muted-foreground">Shared by {{ data.organization.name }}</span>
-                <span
-                  v-if="data.scope === 'board' && data.sprint"
-                  class="inline-flex items-center rounded-full border border-border/70 bg-card px-2 py-0.5 text-[11px] font-medium text-foreground/80"
-                >
-                  {{ data.sprint.name }}
-                </span>
-                <span
-                  v-if="accessLabel"
-                  class="inline-flex items-center gap-1 rounded-full border border-sky-500/20 bg-sky-500/10 px-2 py-0.5 text-[11px] font-medium text-sky-700 dark:text-sky-300"
-                >
-                  <Eye class="size-3" />
-                  {{ accessLabel }}
-                </span>
-              </div>
+              <p class="mt-0.5 truncate text-xs text-muted-foreground">
+                {{ data.organization.name }}
+                <template v-if="data.scope === 'board' && data.sprint"> · {{ data.sprint.name }}</template>
+              </p>
             </div>
           </template>
         </div>
 
-        <div class="flex shrink-0 items-center gap-2">
+        <div class="public-share-actions flex shrink-0 items-center gap-2">
+          <span
+            v-if="accessLabel"
+            class="hidden items-center gap-1 rounded-md border border-border/70 bg-card/80 px-2 py-1 text-[11px] font-medium text-muted-foreground sm:inline-flex"
+          >
+            <Eye class="size-3" />
+            {{ accessLabel }}
+          </span>
           <ShareProductTour />
           <RouterLink
             to="/login"
-            class="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-soft transition-[transform,box-shadow] hover:-translate-y-px hover:shadow-elevated focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none"
+            class="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-primary px-3.5 text-xs font-semibold text-primary-foreground shadow-soft transition-[transform,box-shadow] hover:-translate-y-px hover:shadow-elevated focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none sm:px-4"
           >
             Sign in
           </RouterLink>
@@ -185,33 +183,54 @@ function isOverdue(issue: PublicShareIssueCard) {
       </div>
     </header>
 
-    <main class="mx-auto w-full max-w-none px-3 py-5 sm:px-4 sm:py-6 lg:px-5">
-      <div v-if="isLoading" class="space-y-4">
-        <Skeleton class="h-8 w-64" />
-        <div class="flex gap-3 overflow-hidden">
-          <Skeleton v-for="n in 4" :key="n" class="h-80 w-72 shrink-0 rounded-2xl" />
+    <main class="mx-auto w-full max-w-[90rem] flex-1 px-4 py-5 sm:px-6 sm:py-7">
+      <div v-if="isLoading" class="space-y-5">
+        <div class="space-y-2">
+          <Skeleton class="h-4 w-28" />
+          <Skeleton class="h-8 w-64" />
+          <Skeleton class="h-4 w-48" />
+        </div>
+        <Skeleton class="h-10 w-full max-w-xl rounded-xl" />
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Skeleton v-for="n in 4" :key="n" class="h-72 rounded-2xl" />
         </div>
       </div>
 
-      <div v-else-if="problem || linkExpired" class="mx-auto max-w-md space-y-3 py-16 text-center">
-        <p class="text-lg font-semibold">{{ linkExpired ? 'This share has expired' : 'Link unavailable' }}</p>
-        <p class="text-sm text-muted-foreground">
-          {{ linkExpired ? 'The link’s expiry time has passed. Ask the owner for a new share link.' : problem }}
-        </p>
-        <RouterLink to="/login" class="inline-block text-sm font-medium underline-offset-2 hover:underline">Go to Vector</RouterLink>
-      </div>
-
-      <div v-else-if="isLocked && data" class="mx-auto max-w-sm space-y-4 py-12">
-        <div class="space-y-2 text-center">
-          <span class="mx-auto flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <Lock class="size-5" />
-          </span>
-          <p class="text-lg font-semibold">Password required</p>
-          <p class="text-sm text-muted-foreground">
-            {{ data.organization.name }} protected this {{ data.scope === 'board' ? 'board' : 'task' }}. Enter the password to continue.
+      <div
+        v-else-if="problem || linkExpired"
+        class="mx-auto max-w-md space-y-4 py-20 text-center"
+      >
+        <div class="mx-auto flex size-12 items-center justify-center overflow-hidden rounded-xl bg-brand text-white shadow-glow">
+          <BrandMark class="size-7" />
+        </div>
+        <div class="space-y-2">
+          <p class="text-lg font-semibold tracking-tight">{{ linkExpired ? 'This share has expired' : 'Link unavailable' }}</p>
+          <p class="text-sm text-muted-foreground text-pretty">
+            {{ linkExpired ? 'The link’s expiry time has passed. Ask the owner for a new share link.' : problem }}
           </p>
         </div>
-        <form class="space-y-3" @submit.prevent="unlock">
+        <RouterLink
+          to="/"
+          class="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-card px-4 text-sm font-medium shadow-soft transition-colors hover:bg-muted/50"
+        >
+          Go to Vector
+        </RouterLink>
+      </div>
+
+      <div v-else-if="isLocked && data" class="mx-auto max-w-sm space-y-5 py-16">
+        <div class="space-y-3 text-center">
+          <span class="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+            <Lock class="size-5" />
+          </span>
+          <div class="space-y-1.5">
+            <p class="text-lg font-semibold tracking-tight">Password required</p>
+            <p class="text-sm text-muted-foreground text-pretty">
+              {{ data.organization.name }} protected this {{ data.scope === 'board' ? 'board' : 'task' }}.
+              Enter the password to continue.
+            </p>
+          </div>
+        </div>
+        <form class="space-y-3 rounded-2xl border border-border/70 bg-card/90 p-5 shadow-soft" @submit.prevent="unlock">
           <FormField label="Password" for="share-password">
             <Input id="share-password" v-model="unlockPassword" type="password" autocomplete="current-password" required class="h-10" />
           </FormField>
@@ -223,59 +242,65 @@ function isOverdue(issue: PublicShareIssueCard) {
       </div>
 
       <template v-else-if="data?.scope === 'board' && data.columns">
-        <div class="mb-3">
-          <h1 class="text-base font-semibold sm:text-lg">Board</h1>
-          <p class="text-sm text-muted-foreground">
-            {{ totalIssues }} {{ totalIssues === 1 ? 'task' : 'tasks' }} · click a card to open details
-          </p>
-        </div>
-
-        <div class="mb-4 lg:hidden">
-          <SharePromoChips
-            placement="strip"
-            :organization-name="data.organization.name"
-            :task-count="totalIssues"
-            :access-label="accessLabel"
-          />
-        </div>
-
-        <div class="grid grid-cols-1 gap-3 lg:grid-cols-[9.5rem_minmax(0,1fr)_9.5rem] lg:items-start lg:gap-3">
-          <SharePromoChips
-            placement="left"
-            :organization-name="data.organization.name"
-            :task-count="totalIssues"
-            :access-label="accessLabel"
-          />
-
+        <header class="relative mb-5 max-w-3xl space-y-1.5 sm:mb-6">
           <div
-            class="share-board-cols grid gap-3"
+            class="pointer-events-none absolute -inset-x-6 -top-8 h-28 opacity-90"
+            style="background: radial-gradient(70% 120% at 8% 0%, color-mix(in oklch, var(--primary) 14%, transparent), transparent 65%)"
+            aria-hidden="true"
+          />
+          <p class="relative text-[11px] font-medium text-muted-foreground sm:text-xs">
+            <span class="text-brand font-semibold">Shared board</span>
+            <span class="mx-1.5 text-border">·</span>
+            Live view
+          </p>
+          <h1 class="relative text-balance text-xl font-semibold tracking-tight sm:text-2xl">{{ data.project.name }}</h1>
+          <p class="relative text-sm text-muted-foreground">
+            {{ totalIssues }} {{ totalIssues === 1 ? 'task' : 'tasks' }} across {{ data.columns.length }}
+            {{ data.columns.length === 1 ? 'column' : 'columns' }}
+            <span class="hidden sm:inline"> · click a card for details</span>
+          </p>
+        </header>
+
+        <SharePromoChips
+          class="public-share-promo mb-4"
+          placement="strip"
+          :organization-name="data.organization.name"
+          :task-count="totalIssues"
+          :access-label="accessLabel"
+        />
+
+        <div
+          class="share-board-panel overflow-hidden rounded-2xl border border-border/70 bg-background/90 shadow-panel ring-1 ring-border/30 backdrop-blur-[2px]"
+        >
+          <div
+            class="share-board-cols grid gap-0 p-2 sm:gap-2 sm:p-3"
             :style="{ '--col-count': Math.max(data.columns.length, 1) }"
           >
             <section
               v-for="column in data.columns"
               :key="column.status.id"
-              class="flex min-w-0 flex-col rounded-2xl border border-border/60 bg-muted/35"
+              class="flex min-w-0 flex-col rounded-xl bg-muted/40"
             >
               <header class="flex items-center gap-2 px-3 pt-3 pb-2">
                 <span class="size-2.5 shrink-0 rounded-full" :style="{ backgroundColor: column.status.color }" />
                 <h2 class="min-w-0 flex-1 truncate text-sm font-semibold">{{ column.status.name }}</h2>
-                <span class="rounded-full bg-background/80 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums">
+                <span class="rounded-md bg-background/80 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground tabular-nums ring-1 ring-border/50">
                   {{ column.issues.length }}
                 </span>
               </header>
 
-              <div class="flex flex-1 flex-col gap-2 px-2 pb-2">
+              <div class="flex flex-1 flex-col gap-2 px-2 pb-2.5">
                 <button
                   v-for="issue in column.issues"
                   :key="issue.id"
                   type="button"
-                  class="group relative w-full rounded-lg border bg-card px-3 py-2.5 text-left shadow-[0_1px_2px_oklch(0_0_0/0.05)] transition-[box-shadow,border-color,transform] duration-150 hover:-translate-y-px hover:border-input hover:shadow-[0_6px_16px_-6px_oklch(0_0_0/0.18)] focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none"
-                  :class="isOverdue(issue) ? 'border-destructive/40' : 'border-border'"
+                  class="share-card group relative w-full overflow-hidden rounded-[10px] border bg-card px-3 py-2.5 text-left outline-none"
+                  :class="isOverdue(issue) ? 'border-destructive/45' : 'border-border/90'"
                   :aria-label="`Open ${issue.key} ${issue.title}`"
                   @click="openTicket(issue)"
                 >
                   <div class="mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <IssueTypeIcon :type="issue.type" />
+                    <IssueTypeIcon :type="issue.type" class="opacity-90" />
                     <span class="font-medium tracking-tight tabular-nums">{{ issue.key }}</span>
                     <span class="ml-auto flex items-center gap-1">
                       <CircleCheck v-if="issue.status?.category === 'done'" class="size-3.5 text-success" aria-label="Done" />
@@ -290,7 +315,7 @@ function isOverdue(issue: PublicShareIssueCard) {
                     <span v-if="issue.labels.length > 3" class="text-[11px] text-muted-foreground">+{{ issue.labels.length - 3 }}</span>
                   </div>
 
-                  <div class="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <div class="mt-2.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                     <DueDateBadge
                       v-if="issue.dueDate"
                       :due-date="issue.dueDate"
@@ -319,39 +344,64 @@ function isOverdue(issue: PublicShareIssueCard) {
                   </div>
                 </button>
 
-                <p v-if="!column.issues.length" class="px-2 py-8 text-center text-xs text-muted-foreground">No tasks</p>
+                <p v-if="!column.issues.length" class="px-2 py-10 text-center text-xs text-muted-foreground">No tasks</p>
               </div>
             </section>
           </div>
-
-          <SharePromoChips
-            placement="right"
-            :organization-name="data.organization.name"
-            :task-count="totalIssues"
-            :access-label="accessLabel"
-          />
         </div>
 
         <PublicShareIssueSheet v-model="sheetOpen" :token="token" :issue-id="openIssueId" />
       </template>
 
       <template v-else-if="data?.scope === 'issue' && data.issue">
-        <div class="mx-auto max-w-2xl rounded-2xl border border-border/70 bg-card/95 p-5 shadow-soft sm:p-7">
-          <PublicIssueDetail
-            :token="token"
-            :issue="data.issue"
-            :guest-comments-enabled="data.guestCommentsEnabled"
-            :comments="data.comments"
+        <div class="mx-auto max-w-2xl">
+          <header class="relative mb-5 space-y-1.5">
+            <div
+              class="pointer-events-none absolute -inset-x-6 -top-8 h-28 opacity-90"
+              style="background: radial-gradient(70% 120% at 10% 0%, color-mix(in oklch, var(--primary) 14%, transparent), transparent 65%)"
+              aria-hidden="true"
+            />
+            <p class="relative text-[11px] font-medium text-muted-foreground sm:text-xs">
+              <span class="text-brand font-semibold">Shared task</span>
+              <span class="mx-1.5 text-border">·</span>
+              {{ data.organization.name }}
+            </p>
+          </header>
+
+          <SharePromoChips
+            class="public-share-promo mb-4"
+            placement="strip"
+            :organization-name="data.organization.name"
+            :access-label="accessLabel"
           />
+
+          <div class="overflow-hidden rounded-2xl border border-border/70 bg-card/95 p-5 shadow-panel ring-1 ring-border/30 sm:p-7">
+            <PublicIssueDetail
+              :token="token"
+              :issue="data.issue"
+              :guest-comments-enabled="data.guestCommentsEnabled"
+              :comments="data.comments"
+            />
+          </div>
         </div>
       </template>
-
     </main>
+
+    <footer class="public-share-chrome border-t border-border/50 bg-background/70 px-4 py-4 backdrop-blur-md sm:px-6">
+      <div class="mx-auto flex w-full max-w-[90rem] flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
+        <RouterLink to="/" class="inline-flex items-center gap-2 font-medium text-foreground/80 transition-colors hover:text-foreground">
+          <span class="relative flex size-5 items-center justify-center overflow-hidden rounded-[5px] bg-brand text-white shadow-glow">
+            <BrandMark class="relative size-3.5" />
+          </span>
+          <span>Powered by <span class="text-brand">Vector</span></span>
+        </RouterLink>
+        <p class="text-muted-foreground/80">Work management for every team</p>
+      </div>
+    </footer>
   </div>
 </template>
 
 <style scoped>
-/* Fit columns to the available width — no sideways scroll when they can share the row. */
 .share-board-cols {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -365,10 +415,50 @@ function isOverdue(issue: PublicShareIssueCard) {
     grid-template-columns: repeat(var(--col-count, 4), minmax(0, 1fr));
   }
 }
-@media (min-width: 1024px) and (max-width: 1279px) {
-  /* With side chips, keep columns readable if there are many statuses. */
-  .share-board-cols {
-    grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+
+.share-card {
+  box-shadow:
+    0 1px 2px oklch(0 0 0 / 0.04),
+    0 0 0 1px color-mix(in oklch, var(--border) 55%, transparent);
+  transition:
+    transform var(--motion-base, 180ms) var(--ease-out-soft, ease),
+    box-shadow var(--motion-base, 180ms) var(--ease-out-soft, ease),
+    border-color var(--motion-fast, 120ms) ease;
+}
+.share-card:hover {
+  z-index: 1;
+  border-color: color-mix(in oklch, var(--primary) 28%, var(--border));
+  box-shadow: var(--shadow-elevated);
+  transform: translateY(-2px);
+}
+.share-card:focus-visible {
+  border-color: color-mix(in oklch, var(--ring) 55%, var(--border));
+  box-shadow:
+    var(--shadow-soft),
+    0 0 0 3px color-mix(in oklch, var(--ring) 28%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .share-card,
+  .share-card:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* Screenshot / print: drop promo chrome, keep the board crisp. */
+@media print {
+  .public-share {
+    background: white !important;
+  }
+  .public-share-chrome,
+  .public-share-promo,
+  .public-share-actions {
+    display: none !important;
+  }
+  .share-board-panel,
+  .share-card {
+    box-shadow: none !important;
+    break-inside: avoid;
   }
 }
 </style>

@@ -14,12 +14,12 @@ const fillHeight = computed(() => route.matched.some((record) => record.meta.fil
 </script>
 
 <template>
-  <!-- The sidebar sits on the canvas; the page lives on a raised panel beside it. -->
+  <!-- The sidebar sits on the branded canvas; the page lives on a raised panel beside it. -->
   <div class="flex h-dvh overflow-hidden bg-app">
     <AppSidebar v-show="!bare" @show-shortcuts="$emit('showShortcuts')" />
     <div
-      class="flex min-w-0 flex-1 flex-col overflow-hidden bg-background/90 backdrop-blur-[2px]"
-      :class="!bare && 'mt-1.5 mr-1.5 mb-0 min-h-0 rounded-tl-2xl rounded-tr-2xl shadow-panel sm:mt-2 sm:mr-2'"
+      class="flex min-w-0 flex-1 flex-col overflow-hidden bg-background/92 backdrop-blur-[3px]"
+      :class="!bare && 'mt-1.5 mr-1.5 mb-0 min-h-0 rounded-tl-2xl rounded-tr-2xl shadow-panel ring-1 ring-border/40 sm:mt-2 sm:mr-2'"
     >
       <DesktopTopbar v-show="!bare" />
       <main

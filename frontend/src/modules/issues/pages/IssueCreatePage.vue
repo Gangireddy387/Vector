@@ -52,7 +52,7 @@ function leave(created?: IssueDetail) {
 }
 
 function onCreated(issue: IssueDetail) {
-  ui.notifyIssuesChanged()
+  ui.notifyIssuesChanged(issue.id)
   toast.success(`${issue.key} created`, {
     description: issue.title,
     action: { label: 'Open', onClick: () => router.push({ name: 'issue', params: { issueKey: issue.key } }) },

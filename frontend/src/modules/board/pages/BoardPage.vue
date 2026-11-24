@@ -15,7 +15,6 @@ import { SelectField } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { Skeleton } from '@/components/ui/skeleton'
 import { formatDate } from '@/lib/format'
 import { ISSUE_TYPE_META, ISSUE_TYPES, PRIORITIES, PRIORITY_META } from '@/constants/issue'
 import { useConfirm } from '@/composables/useConfirm'
@@ -29,6 +28,7 @@ import { type CreateIssueInput, issuesApi } from '@/modules/issues/api/issues.ap
 import SavedFiltersMenu from '@/modules/issues/components/SavedFiltersMenu.vue'
 import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import { useProjectsStore } from '@/modules/projects/projects.store'
+import { useUiStore } from '@/stores/ui.store'
 import CompleteSprintDialog from '@/modules/sprints/components/CompleteSprintDialog.vue'
 import SprintProgress from '@/modules/sprints/components/SprintProgress.vue'
 import type { Issue, IssuePriority, IssueReference, IssueType, SavedFilter, Status, UserSummary } from '@/types/models'
@@ -36,6 +36,7 @@ import BoardCell from '../components/BoardCell.vue'
 import BoardColumnHeader from '../components/BoardColumnHeader.vue'
 import BoardDisplayMenu from '../components/BoardDisplayMenu.vue'
 import BoardFilters, { type BoardFilterState } from '../components/BoardFilters.vue'
+import BoardLoadingShell from '../components/BoardLoadingShell.vue'
 import MobileBoard from '../components/MobileBoard.vue'
 import { useBoardData } from '../composables/useBoardData'
 import { useBoardView } from '../composables/useBoardView'
@@ -52,6 +53,7 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const projects = useProjectsStore()
+const ui = useUiStore()
 const openIssue = useOpenIssue()
 const confirm = useConfirm()
 const { isPhone, isWide } = useDevice()
@@ -375,6 +377,7 @@ async function persistMove(issue: Issue, status: Status, position: number, lane:
     if (previous.statusId !== status.id || previous.position !== position) {
       await issuesApi.move(issue.id, { statusId: status.id, position, ...(transitionComment ? { transitionComment } : {}) })
     }
+    if (previous.statusId !== status.id) ui.highlightIssue(issue.id)
     if ('assigneeId' in changes) toast.success(`${issue.key} assigned to ${lane?.user?.name ?? 'nobody'}`)
     if (changes.priority) toast.success(`${issue.key} is now ${PRIORITY_META[changes.priority].label.toLowerCase()} priority`)
   } catch (error) {
@@ -448,19 +451,7 @@ function moveOnMobile(issue: Issue, status: Status) {
     :class="isPhone ? 'overflow-visible' : 'h-full min-h-0 overflow-x-clip'"
   >
     <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
-    <div
-      v-if="isLoading"
-      class="grid min-h-0 flex-1 auto-cols-[minmax(17rem,1fr)] grid-flow-col gap-3 overflow-x-auto p-3 sm:p-4"
-      aria-busy="true"
-      aria-label="Loading board"
-    >
-      <div v-for="index in 4" :key="index" class="flex min-w-[17rem] flex-col gap-2">
-        <Skeleton class="h-8 w-full rounded-lg" />
-        <Skeleton class="h-20 w-full rounded-xl" />
-        <Skeleton class="h-20 w-full rounded-xl" />
-        <Skeleton class="h-16 w-full rounded-xl" />
-      </div>
-    </div>
+    <BoardLoadingShell v-if="isLoading" class="min-h-0 flex-1" :variant="isWide ? 'desktop' : 'mobile'" />
 
     <EmptyState v-else-if="loadError" :icon="Columns3" title="The board did not load" :description="loadError" class="px-3 py-20">
       <Button variant="outline" @click="reload">Try again</Button>

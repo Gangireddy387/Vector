@@ -20,6 +20,14 @@ export interface IssueSummary {
   nextSteps: string[]
 }
 
+export type NextActionKind = 'progress' | 'assign' | 'schedule' | 'breakdown' | 'unblock' | 'review' | 'done'
+
+export interface IssueNextAction {
+  source: AiSource
+  action: string | null
+  kind: NextActionKind
+}
+
 export interface DailyBriefing {
   needsMe: {
     source: AiSource
@@ -73,6 +81,7 @@ export const aiApi = {
   summarize: (issueId: string) => http.post<IssueSummary>(`/ai/issues/${issueId}/summary`).then((r) => r.data),
   breakdown: (issueId: string) =>
     http.post<{ source: AiSource; subtasks: string[] }>(`/ai/issues/${issueId}/breakdown`).then((r) => r.data),
+  nextAction: (issueId: string) => http.post<IssueNextAction>(`/ai/issues/${issueId}/next-action`).then((r) => r.data),
   writingAssist: (payload: {
     text: string
     selection?: string

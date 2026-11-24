@@ -28,6 +28,10 @@ function goBack() {
 
 <template>
   <header class="glass sticky top-0 z-30 border-b border-border/60 pt-safe">
+    <div
+      class="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent"
+      aria-hidden="true"
+    />
     <div class="flex h-14 items-center gap-1.5 px-2 sm:gap-2">
       <Button v-if="showBack" variant="ghost" size="icon" class="touch-target" aria-label="Back" @click="goBack">
         <ChevronLeft class="size-5" />

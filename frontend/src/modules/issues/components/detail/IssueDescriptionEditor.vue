@@ -40,14 +40,14 @@ function onKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-  <section class="space-y-2">
-    <div class="flex items-center justify-between">
-      <h2 class="text-sm font-semibold">Description</h2>
+  <section class="issue-section space-y-2.5">
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="text-[13px] font-semibold tracking-tight">Description</h2>
       <Button v-if="isEditing" variant="ghost" size="xs" @click="isPreview = !isPreview">{{ isPreview ? 'Edit' : 'Preview' }}</Button>
     </div>
 
     <template v-if="isEditing">
-      <div v-if="isPreview" class="min-h-32 border p-3">
+      <div v-if="isPreview" class="min-h-32 rounded-xl border border-border/80 bg-card p-3.5 shadow-soft">
         <MarkdownContent :source="draft" />
       </div>
       <template v-else>
@@ -56,7 +56,7 @@ function onKeydown(event: KeyboardEvent) {
           ref="editor"
           v-model="draft"
           rows="8"
-          class="font-mono text-[13px]"
+          class="rounded-xl font-mono text-[13px]"
           placeholder="Describe the work. Markdown is supported. Ctrl+Space to continue writing."
           @keydown="onKeydown"
         />
@@ -70,14 +70,20 @@ function onKeydown(event: KeyboardEvent) {
 
     <div
       v-else
-      class="-mx-2 px-2 py-1"
-      :class="editable && 'cursor-text hover:bg-muted/50'"
+      class="rounded-xl border border-transparent px-3 py-2.5 transition-[background-color,border-color,box-shadow] duration-150"
+      :class="
+        editable
+          ? 'cursor-text hover:border-border/80 hover:bg-muted/35 hover:shadow-soft focus-visible:border-ring/50 focus-visible:bg-muted/35 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/20'
+          : 'border-border/50 bg-muted/20'
+      "
       :tabindex="editable ? 0 : undefined"
       @click="startEditing"
       @keydown.enter.prevent="startEditing"
     >
       <MarkdownContent v-if="description" :source="description" />
-      <p v-else class="py-2 text-sm text-muted-foreground">{{ editable ? 'Add a description…' : 'No description.' }}</p>
+      <p v-else class="py-1.5 text-sm text-muted-foreground">
+        {{ editable ? 'Add a description…' : 'No description.' }}
+      </p>
     </div>
   </section>
 </template>

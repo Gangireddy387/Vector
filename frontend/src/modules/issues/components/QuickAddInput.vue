@@ -60,7 +60,7 @@ async function submit() {
 
     const issue = await issuesApi.create(payload)
     text.value = ''
-    ui.notifyIssuesChanged()
+    ui.notifyIssuesChanged(issue.id)
     emit('created', issue)
     toast.success(`${issue.key} created`, {
       description: issue.title,

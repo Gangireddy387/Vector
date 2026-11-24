@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Archive, FolderKanban, Plus, Search, Star, Users } from 'lucide-vue-next'
+import { Archive, FolderKanban, Plus, Rocket, Search, Star, Users } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -18,11 +18,13 @@ import { formatDate } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import CreateProjectDialog from '../components/CreateProjectDialog.vue'
+import { useCreateSampleProject } from '../composables/useCreateSampleProject'
 import { useProjectsStore } from '../projects.store'
 
 const projects = useProjectsStore()
 const auth = useAuthStore()
 const route = useRoute()
+const { isCreatingSample, createSampleProject } = useCreateSampleProject()
 const isLoading = ref(!projects.projects.length)
 const loadError = ref<string | null>(null)
 const isCreateOpen = ref(route.query.welcome === '1')
@@ -30,6 +32,9 @@ const search = ref('')
 const typeFilter = ref<'all' | 'scrum' | 'kanban'>('all')
 const showArchived = ref(false)
 const pendingFavorite = ref<string | null>(null)
+const isTrulyEmpty = computed(
+  () => !search.value && typeFilter.value === 'all' && !showArchived.value && projects.activeProjects.length === 0,
+)
 
 const orgId = computed(() => auth.organization?.id ?? null)
 const favoriteIds = computed(() => new Set(orgId.value ? (auth.user?.preferences?.favoriteProjectIds?.[orgId.value] ?? []) : []))
@@ -145,7 +150,26 @@ async function onShowArchived(value: boolean) {
     </Toolbar>
 
     <div v-if="isLoading" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label="Loading projects">
-      <Skeleton v-for="index in 3" :key="index" class="h-40 rounded-2xl" />
+      <div
+        v-for="index in 6"
+        :key="index"
+        class="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-soft sm:p-5"
+      >
+        <div class="flex items-start gap-3">
+          <Skeleton class="size-9 shrink-0 rounded-lg" :delay="index" />
+          <div class="min-w-0 flex-1 space-y-2">
+            <Skeleton class="h-4 w-3/4" :delay="index" />
+            <Skeleton class="h-3 w-1/2" :delay="index + 1" />
+          </div>
+          <Skeleton class="size-7 shrink-0 rounded-md" :delay="index + 1" />
+        </div>
+        <Skeleton class="h-2 w-full rounded-full" :delay="index + 2" />
+        <div class="mt-auto flex items-center gap-2">
+          <Skeleton class="h-6 w-16 rounded-full" :delay="index + 2" />
+          <Skeleton class="ml-auto size-6 rounded-full" :delay="index + 3" />
+          <Skeleton class="size-6 rounded-full" :delay="index + 3" />
+        </div>
+      </div>
     </div>
 
     <EmptyState
@@ -160,15 +184,24 @@ async function onShowArchived(value: boolean) {
     <EmptyState
       v-else-if="!visible.length"
       :icon="FolderKanban"
-      :title="search || typeFilter !== 'all' || showArchived ? 'No projects match' : 'Create your first project'"
+      :title="isTrulyEmpty ? 'Create your first project' : 'No projects match'"
       :description="
-        search || typeFilter !== 'all' || showArchived
-          ? 'Try another search or clear filters.'
-          : 'Projects hold your board, backlog, automation rules and reports.'
+        isTrulyEmpty
+          ? 'Projects hold your board, backlog, automation and reports. Start with a ready-made sample, or create a blank one.'
+          : 'Try another search or clear filters.'
       "
     >
-      <Button v-if="search || typeFilter !== 'all'" variant="outline" @click=";(search = ''), (typeFilter = 'all')">Clear filters</Button>
-      <Button v-else @click="isCreateOpen = true"><Plus /> New project</Button>
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <Button v-if="search || typeFilter !== 'all'" variant="outline" @click=";(search = ''), (typeFilter = 'all')">Clear filters</Button>
+        <template v-else>
+          <Button v-if="auth.isOrganizationAdmin" :loading="isCreatingSample" @click="createSampleProject()">
+            <Rocket /> Explore sample
+          </Button>
+          <Button :variant="auth.isOrganizationAdmin ? 'outline' : 'default'" @click="isCreateOpen = true">
+            <Plus /> New project
+          </Button>
+        </template>
+      </div>
     </EmptyState>
 
     <div v-else class="stagger-in grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

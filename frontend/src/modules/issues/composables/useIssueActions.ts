@@ -19,7 +19,7 @@ export function useIssueActions() {
   async function update(issue: IssueLike, changes: UpdateIssueInput): Promise<IssueDetail | null> {
     try {
       const updated = await issuesApi.update(issue.id, changes)
-      ui.notifyIssuesChanged()
+      ui.notifyIssuesChanged(changes.statusId !== undefined ? issue.id : undefined)
       return updated
     } catch (error) {
       toast.error(getErrorMessage(error))

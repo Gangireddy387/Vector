@@ -65,7 +65,10 @@ async function copyLink() {
         </span>
         <span v-if="!compact" class="min-w-0 flex-1">
           <span class="block truncate text-[13.5px] leading-tight font-semibold tracking-tight">{{ auth.organization?.name ?? 'Vector' }}</span>
-          <span class="block truncate text-[11px] leading-tight text-muted-foreground">{{ auth.organization ? `/${auth.organization.slug}` : 'No organization' }}</span>
+          <span class="block truncate text-[11px] leading-tight text-muted-foreground">
+            <template v-if="auth.organization">Vector · /{{ auth.organization.slug }}</template>
+            <template v-else>No organization</template>
+          </span>
         </span>
       </template>
       <ChevronsUpDown v-if="!compact" class="size-4 shrink-0 text-muted-foreground" />

@@ -16,6 +16,7 @@ router.get('/ai/daily-briefing', aiFeature, aiLimiter, controller.dailyBriefing)
 router.post('/ai/draft-issue', aiFeature, aiLimiter, validate({ body: draftIssueSchema }), controller.draftIssue);
 router.post('/ai/issues/:issueId/summary', aiFeature, aiLimiter, validate({ params: issueRefParams }), controller.summarize);
 router.post('/ai/issues/:issueId/breakdown', aiFeature, aiLimiter, validate({ params: issueRefParams }), controller.breakdown);
+router.post('/ai/issues/:issueId/next-action', aiFeature, aiLimiter, validate({ params: issueRefParams }), controller.nextAction);
 router.post('/ai/writing/assist', aiFeature, writingLimiter, validate({ body: writingAssistSchema }), controller.writingAssist);
 router.post('/ai/writing/suggest', aiFeature, writingLimiter, validate({ body: writingSuggestSchema }), controller.writingSuggest);
 

@@ -41,12 +41,13 @@ const tone = (h: number, c: number, l: number, cDark: number, lDark: number, ext
   lDark,
   fgDark: 'light',
   shift: 30,
-  tint: 0.009,
+  // Strong enough that sidebar/canvas read as “this org”, not a grey sheet.
+  tint: 0.016,
   ...extra,
 })
 
 export const BRAND_THEMES: BrandTheme[] = [
-  { id: 'vector', label: 'Vector', description: 'Electric indigo', tone: tone(275, 0.2, 0.55, 0.17, 0.67, { tint: 0.006 }) },
+  { id: 'vector', label: 'Vector', description: 'Electric indigo', tone: tone(275, 0.2, 0.55, 0.17, 0.67, { tint: 0.014 }) },
   { id: 'ocean', label: 'Ocean', description: 'Deep sea blue', tone: tone(250, 0.17, 0.53, 0.15, 0.69, { shift: -35 }) },
   { id: 'lagoon', label: 'Lagoon', description: 'Calm teal', tone: tone(200, 0.12, 0.54, 0.11, 0.74, { shift: -30, fgDark: 'dark' }) },
   { id: 'emerald', label: 'Emerald', description: 'Fresh green', tone: tone(160, 0.15, 0.52, 0.15, 0.74, { shift: -30, fgDark: 'dark' }) },
@@ -55,7 +56,7 @@ export const BRAND_THEMES: BrandTheme[] = [
   { id: 'ruby', label: 'Ruby', description: 'Confident red', tone: tone(20, 0.2, 0.55, 0.18, 0.67, { shift: 18 }) },
   { id: 'rose', label: 'Rose', description: 'Vivid pink', tone: tone(355, 0.2, 0.57, 0.17, 0.7, { shift: -25 }) },
   { id: 'grape', label: 'Grape', description: 'Royal purple', tone: tone(305, 0.2, 0.53, 0.17, 0.69, { shift: 30 }) },
-  { id: 'graphite', label: 'Graphite', description: 'Monochrome', tone: tone(270, 0.012, 0.27, 0.01, 0.92, { shift: 0, fgDark: 'dark', tint: 0.003 }) },
+  { id: 'graphite', label: 'Graphite', description: 'Monochrome', tone: tone(270, 0.012, 0.27, 0.01, 0.92, { shift: 0, fgDark: 'dark', tint: 0.004 }) },
 ]
 
 export const DEFAULT_BRAND = BRAND_THEMES[0]!
@@ -105,8 +106,15 @@ export function toneFromHex(hex: string): BrandTone {
     lDark: darkL,
     fgDark: darkL >= 0.72 ? 'dark' : 'light',
     shift: h > 25 && h < 120 ? -20 : 30,
-    tint: 0.009,
+    tint: 0.016,
   }
+}
+
+/** Human label for a saved brand value (theme id, hex, or Vector default). */
+export function brandLabel(value: string | null | undefined): string {
+  if (!value || value === DEFAULT_BRAND.id) return DEFAULT_BRAND.label
+  if (HEX.test(value)) return value.toLowerCase()
+  return BRAND_THEMES.find((theme) => theme.id === value)?.label ?? DEFAULT_BRAND.label
 }
 
 /** The theme for an organization's saved value: a theme id, a hex colour, or nothing (Vector's own). */

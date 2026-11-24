@@ -376,10 +376,10 @@ async function deleteOrganization() {
 
     <Card>
       <CardHeader>
-        <CardTitle>Theme colour</CardTitle>
+        <CardTitle>Workspace brand colour</CardTitle>
         <CardDescription>
-          Buttons, links, highlights and the sidebar take this colour for everyone in {{ workspace.settings.name }}, right away. Pick a theme, match your logo or
-          use your brand colour.
+          Buttons, links, highlights, the sidebar and the app canvas take this colour for everyone in
+          {{ workspace.settings.name }} — instantly. Hover to preview, then pick a theme, match your logo, or use your brand hex.
         </CardDescription>
       </CardHeader>
       <CardContent>

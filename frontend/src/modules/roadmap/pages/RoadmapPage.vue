@@ -155,20 +155,30 @@ async function onReschedule(issue: Issue, changes: { startDate?: string; dueDate
 
 <template>
   <PageFrame mode="bare" pad="compact" class="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden sm:gap-4">
-    <header class="flex shrink-0 flex-col gap-2 sm:gap-3">
-      <div class="flex items-start justify-between gap-2">
+    <header class="relative flex shrink-0 flex-col gap-2 sm:gap-3">
+      <div
+        class="pointer-events-none absolute -inset-x-4 -top-4 h-24 opacity-90"
+        style="background: radial-gradient(70% 120% at 6% 0%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 65%)"
+        aria-hidden="true"
+      />
+      <div class="relative flex items-start justify-between gap-2">
         <div class="min-w-0 space-y-0.5 sm:space-y-1">
+          <p class="text-[11px] font-medium text-muted-foreground sm:text-xs">
+            <span class="text-brand font-semibold">Timeline</span>
+            <span class="mx-1.5 text-border">·</span>
+            Plan across weeks
+          </p>
           <h1 class="text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">Roadmap</h1>
           <p class="hidden max-w-2xl text-sm text-muted-foreground sm:block">
-            Timeline of epics and tasks — drag to move, resize edges for duration, or paint dates on empty rows.
-            Block links draw finish→start connectors on the Gantt.
+            Gantt view of epics and tasks — drag to move, resize edges for duration, or paint dates on empty rows.
+            Block links draw finish→start connectors.
           </p>
           <p class="text-xs text-muted-foreground sm:hidden">
             {{ stats.total }} items · {{ stats.dated }} dated
             <template v-if="isScrum"> · {{ sprints.length }} sprints</template>
           </p>
         </div>
-        <div class="flex shrink-0 items-center gap-1.5">
+        <div class="relative flex shrink-0 items-center gap-1.5">
           <Button
             v-if="isPhone"
             variant="outline"
@@ -187,7 +197,7 @@ async function onReschedule(issue: Issue, changes: { startDate?: string; dueDate
 
       <div
         :class="isPhone && !showFilters ? 'hidden' : 'flex'"
-        class="flex-wrap items-center gap-1.5 sm:gap-2"
+        class="relative flex-wrap items-center gap-1.5 sm:gap-2"
       >
         <Button variant="outline" size="sm" :aria-pressed="hideDone" @click="hideDone = !hideDone">
           {{ hideDone ? 'Show done' : 'Hide done' }}
@@ -239,27 +249,49 @@ async function onReschedule(issue: Issue, changes: { startDate?: string; dueDate
       </div>
     </header>
 
-    <section class="hidden shrink-0 gap-3 sm:grid sm:grid-cols-3">
-      <article class="rounded-xl border border-border/80 bg-card p-3 shadow-soft lg:p-4">
-        <p class="text-sm font-medium">On the roadmap</p>
-        <p class="mt-1 text-xl font-semibold tabular-nums lg:mt-2 lg:text-2xl">{{ stats.total }}</p>
-        <p class="text-xs text-muted-foreground">Visible work items</p>
-      </article>
-      <article class="rounded-xl border border-border/80 bg-card p-3 shadow-soft lg:p-4">
-        <p class="text-sm font-medium">With dates</p>
-        <p class="mt-1 text-xl font-semibold tabular-nums lg:mt-2 lg:text-2xl">{{ stats.dated }}</p>
-        <p class="text-xs text-muted-foreground">Own start or due date</p>
-      </article>
-      <article class="rounded-xl border border-border/80 bg-card p-3 shadow-soft lg:p-4">
-        <p class="text-sm font-medium">Sprints</p>
-        <p class="mt-1 text-xl font-semibold tabular-nums lg:mt-2 lg:text-2xl">{{ isScrum ? sprints.length : '—' }}</p>
-        <p class="text-xs text-muted-foreground">{{ isScrum ? 'Shown as timeline bands' : 'Kanban project' }}</p>
-      </article>
+    <section
+      class="hidden shrink-0 items-center gap-2 overflow-x-auto rounded-xl border border-border/70 bg-card/70 px-3 py-2 shadow-soft backdrop-blur-sm sm:flex"
+      aria-label="Roadmap summary"
+    >
+      <div class="flex items-baseline gap-1.5 pr-3">
+        <span class="text-lg font-semibold tabular-nums tracking-tight">{{ stats.total }}</span>
+        <span class="text-xs text-muted-foreground">on roadmap</span>
+      </div>
+      <div class="h-4 w-px shrink-0 bg-border/80" />
+      <div class="flex items-baseline gap-1.5 px-3">
+        <span class="text-lg font-semibold tabular-nums tracking-tight">{{ stats.dated }}</span>
+        <span class="text-xs text-muted-foreground">with dates</span>
+      </div>
+      <div class="h-4 w-px shrink-0 bg-border/80" />
+      <div class="flex items-baseline gap-1.5 px-3">
+        <span class="text-lg font-semibold tabular-nums tracking-tight">{{ isScrum ? sprints.length : '—' }}</span>
+        <span class="text-xs text-muted-foreground">{{ isScrum ? 'sprints' : 'kanban' }}</span>
+      </div>
+      <div v-if="dependencyEdges.length" class="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+        <GitBranch class="size-3.5 text-primary" />
+        {{ dependencyEdges.length }} block{{ dependencyEdges.length === 1 ? '' : 's' }}
+        <template v-if="criticalIssueIds.length"> · {{ criticalIssueIds.length }} on critical path</template>
+      </div>
     </section>
 
-    <div v-if="loading && !issues.length" class="min-h-0 flex-1 space-y-2">
-      <Skeleton class="h-10 w-full rounded-xl" />
-      <Skeleton class="h-full min-h-48 w-full rounded-xl sm:min-h-64" />
+    <div v-if="loading && !issues.length" class="min-h-0 flex-1 overflow-hidden rounded-xl border border-border/80 bg-card">
+      <div class="flex border-b border-border/60">
+        <Skeleton class="h-12 w-40 shrink-0 rounded-none border-r border-border/60 sm:w-64" />
+        <div class="flex flex-1 gap-0">
+          <Skeleton v-for="i in 6" :key="i" class="h-12 flex-1 rounded-none border-r border-border/40 last:border-0" />
+        </div>
+      </div>
+      <div class="space-y-0">
+        <div v-for="i in 8" :key="i" class="flex border-b border-border/40" :style="{ height: '44px' }">
+          <Skeleton class="h-full w-40 shrink-0 rounded-none border-r border-border/60 sm:w-64" />
+          <div class="relative flex-1 px-3 py-3">
+            <Skeleton
+              class="h-5 rounded-md"
+              :style="{ width: `${28 + ((i * 17) % 45)}%`, marginLeft: `${(i * 11) % 35}%` }"
+            />
+          </div>
+        </div>
+      </div>
     </div>
 
     <EmptyState
@@ -276,9 +308,13 @@ async function onReschedule(issue: Issue, changes: { startDate?: string; dueDate
       v-else-if="!rows.length"
       :icon="CalendarRange"
       title="Nothing on the roadmap yet"
-      description="Add start or due dates on epics and tasks to see them on the timeline."
+      description="Add start or due dates on epics and tasks — or paint dates directly on the timeline once work appears."
       class="min-h-0 flex-1"
-    />
+    >
+      <Button v-if="canEdit" variant="outline" as-child>
+        <RouterLink :to="{ name: 'project-board', params: { projectId } }">Open board</RouterLink>
+      </Button>
+    </EmptyState>
 
     <RoadmapTimeline
       v-else

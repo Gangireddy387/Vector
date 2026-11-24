@@ -35,6 +35,7 @@ const FIELDS: Array<{ key: keyof BoardCardFields; label: string }> = [
   { key: 'counts', label: 'Sub-tasks, comments, files' },
   { key: 'points', label: 'Story points' },
   { key: 'assignee', label: 'Assignee' },
+  { key: 'aiHint', label: 'AI next action' },
 ]
 </script>
 

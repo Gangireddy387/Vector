@@ -188,15 +188,26 @@ function startCodeLinking() {
 </script>
 
 <template>
-  <div v-if="isLoading" class="space-y-4 p-6" aria-busy="true" aria-label="Loading task">
-    <Skeleton class="h-5 w-40" />
-    <Skeleton class="h-8 w-3/4" />
-    <Skeleton class="h-32 w-full rounded-xl" />
-    <div class="grid gap-3 sm:grid-cols-2">
-      <Skeleton class="h-24 rounded-xl" />
-      <Skeleton class="h-24 rounded-xl" />
+  <div v-if="isLoading" class="flex h-full min-h-0 flex-col" aria-busy="true" aria-label="Loading task">
+    <div class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-4">
+      <Skeleton class="h-7 w-7 rounded-md" />
+      <Skeleton class="h-4 w-48" />
+      <Skeleton class="ml-auto h-7 w-7 rounded-md" />
+      <Skeleton class="h-7 w-7 rounded-md" />
     </div>
-    <Skeleton class="h-40 w-full rounded-xl" />
+    <div class="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div class="space-y-4 p-5">
+        <Skeleton class="h-9 w-4/5 rounded-lg" />
+        <Skeleton class="h-8 w-56 rounded-lg" />
+        <Skeleton class="h-36 w-full rounded-xl" />
+        <Skeleton class="h-24 w-full rounded-xl" />
+        <Skeleton class="h-40 w-full rounded-xl" />
+      </div>
+      <div class="hidden space-y-3 border-l border-border/70 bg-muted/15 p-4 lg:block">
+        <Skeleton class="h-3 w-16" />
+        <Skeleton v-for="index in 8" :key="index" class="h-8 w-full rounded-lg" />
+      </div>
+    </div>
   </div>
 
   <EmptyState v-else-if="loadError && !issue" title="This task did not load" :description="loadError" class="py-20">
@@ -212,13 +223,13 @@ function startCodeLinking() {
     <Button variant="outline" @click="mode === 'panel' ? emit('close') : router.push({ name: 'home' })">Go back</Button>
   </EmptyState>
 
-  <div v-else class="flex h-full min-h-0 flex-col">
+  <div v-else class="issue-detail rise-in flex h-full min-h-0 flex-col">
     <!-- Header: breadcrumbs and actions -->
     <Toolbar
       variant="wrap"
       dense
-      class="h-12 shrink-0 border-b border-border px-3 sm:px-4"
-      :class="!isDesktop && 'bg-background'"
+      class="sticky top-0 z-20 h-12 shrink-0 border-b border-border/80 bg-card/90 px-3 backdrop-blur-md sm:px-4 supports-[backdrop-filter]:bg-card/75"
+      :class="!isDesktop && 'bg-background/95'"
     >
       <Button
         v-if="mode === 'panel'"
@@ -242,7 +253,9 @@ function startCodeLinking() {
           </RouterLink>
           <ChevronRight class="size-3.5 shrink-0" />
         </template>
-        <span class="flex items-center gap-1.5 font-medium text-foreground"><IssueTypeIcon :type="issue.type" /> {{ issue.key }}</span>
+        <span class="inline-flex items-center gap-1.5 rounded-md bg-muted/70 px-1.5 py-0.5 font-medium text-foreground tabular-nums ring-1 ring-border/60">
+          <IssueTypeIcon :type="issue.type" /> {{ issue.key }}
+        </span>
       </nav>
 
       <Button
@@ -296,13 +309,13 @@ function startCodeLinking() {
     >
       <!-- Main column (60%) · details rail (40%) -->
       <div class="overflow-y-auto" :class="isWide ? (mode === 'panel' ? 'px-4 py-4 xl:px-5 xl:py-5' : 'px-5 py-5 xl:px-8 xl:py-6') : 'p-4 pb-8 sm:p-5'">
-        <div class="space-y-4 xl:space-y-5">
-        <div class="space-y-2.5">
+        <div class="space-y-5 xl:space-y-6">
+        <header class="space-y-3">
           <IssueTitleEditor :title="issue.title" :editable="canEditTitle" :done="isDone" @save="(title) => update({ title })" />
 
           <div
             v-if="intakeSubmission"
-            class="rounded-lg border px-3 py-2 text-sm"
+            class="rounded-xl border px-3.5 py-2.5 text-sm shadow-soft"
             :class="
               intakeSubmission.state === 'pending'
                 ? 'border-amber-500/30 bg-amber-500/10 text-amber-950 dark:text-amber-100'
@@ -323,7 +336,7 @@ function startCodeLinking() {
           </div>
 
           <!-- Primary actions stay visible; Attach / Link / Code live in the header ··· menu. -->
-          <Toolbar variant="wrap" dense>
+          <Toolbar variant="wrap" dense class="rounded-xl border border-border/60 bg-muted/25 px-2 py-1.5 dark:bg-muted/15">
             <StatusSelect
               v-if="!isWide"
               :model-value="issue.statusId"
@@ -360,16 +373,16 @@ function startCodeLinking() {
               <GitBranch /> Code
             </Button>
           </Toolbar>
-        </div>
+        </header>
 
         <IssueAiSummary v-if="canUseAi" ref="summaryRef" :issue-id="issue.id" />
 
         <!-- Phone and tablet: key fields before long-form content (side rail only on wide screens) -->
-        <details v-if="!isWide" class="group overflow-hidden rounded-xl border border-border/70 bg-card" open>
+        <details v-if="!isWide" class="group overflow-hidden rounded-xl border border-border/70 bg-card shadow-soft" open>
           <summary class="flex cursor-pointer list-none items-center justify-between px-3.5 py-2.5 text-sm font-semibold">
-            Details <ChevronRight class="size-4 transition-transform group-open:rotate-90" />
+            Details <ChevronRight class="size-4 text-muted-foreground transition-transform duration-200 group-open:rotate-90" />
           </summary>
-          <div class="border-t border-border/60 px-3.5 pb-3 pt-1">
+          <div class="border-t border-border/60 px-3 pb-3 pt-1.5">
             <IssueFieldsPanel
               :issue="issue"
               :project="project"
@@ -387,19 +400,26 @@ function startCodeLinking() {
           :editable="canEditDescription"
           @save="(description) => update({ description })"
         />
-        <IssueSubtasks :issue="issue" :project="project" :editable="canEdit" @changed="reloadQuietly" />
-        <IssueLinks ref="linksRef" :issue="issue" :editable="canEdit" @changed="reloadQuietly" />
-        <IssueExternalLinks
-          v-if="canLinkCode || (issue.externalLinks?.length ?? 0) > 0"
-          ref="externalLinksRef"
-          :issue="issue"
-          :editable="canLinkCode"
-          @changed="reloadQuietly"
-        />
-        <IssueAttachments ref="attachmentsRef" :issue-id="issue.id" :editable="canAttach" :refresh-key="refreshKey" />
+
+        <div class="space-y-4 rounded-xl border border-border/60 bg-card/40 p-3.5 shadow-soft sm:p-4 dark:bg-card/20">
+          <IssueSubtasks :issue="issue" :project="project" :editable="canEdit" @changed="reloadQuietly" />
+          <div class="border-t border-border/50" />
+          <IssueLinks ref="linksRef" :issue="issue" :editable="canEdit" @changed="reloadQuietly" />
+          <template v-if="canLinkCode || (issue.externalLinks?.length ?? 0) > 0">
+            <div class="border-t border-border/50" />
+            <IssueExternalLinks
+              ref="externalLinksRef"
+              :issue="issue"
+              :editable="canLinkCode"
+              @changed="reloadQuietly"
+            />
+          </template>
+          <div class="border-t border-border/50" />
+          <IssueAttachments ref="attachmentsRef" :issue-id="issue.id" :editable="canAttach" :refresh-key="refreshKey" />
+        </div>
 
         <Tabs v-model="activeTab" class="gap-4 border-t border-border/60 pt-5">
-          <TabsList class="h-auto min-h-10 w-full max-w-full flex-wrap justify-start gap-1.5 p-1.5 sm:w-auto">
+          <TabsList class="h-auto min-h-10 w-full max-w-full flex-wrap justify-start gap-1 rounded-xl border border-border/60 bg-muted/30 p-1.5 sm:w-auto">
             <TabsTrigger value="comments" class="h-8 px-3.5">Comments</TabsTrigger>
             <TabsTrigger v-if="auth.hasFeature('chat')" value="followups" class="h-8 px-3.5">Follow-ups</TabsTrigger>
             <TabsTrigger value="activity" class="h-8 px-3.5">History</TabsTrigger>
@@ -430,16 +450,18 @@ function startCodeLinking() {
       <!-- Wide screens: side panel with every field visible at once -->
       <aside
         v-if="isWide"
-        class="ghost-fields min-w-0 overflow-y-auto border-l border-border/70 bg-muted/20 px-3.5 py-3.5 xl:px-5 xl:py-4 dark:bg-sidebar/40"
+        class="ghost-fields min-w-0 overflow-y-auto border-l border-border/70 bg-[color-mix(in_oklch,var(--muted)_35%,var(--card))] px-3 py-3.5 xl:px-4 xl:py-4 dark:bg-sidebar/45"
       >
-        <IssueFieldsPanel
-          :issue="issue"
-          :project="project"
-          :sprints="sprints"
-          :editable="canEdit"
-          @update="update"
-          @refreshed="(next) => (issue = next)"
-        />
+        <div class="rounded-xl border border-border/50 bg-card/60 p-2 shadow-soft backdrop-blur-sm dark:bg-card/30">
+          <IssueFieldsPanel
+            :issue="issue"
+            :project="project"
+            :sprints="sprints"
+            :editable="canEdit"
+            @update="update"
+            @refreshed="(next) => (issue = next)"
+          />
+        </div>
       </aside>
     </div>
     <IssueShareDialog v-if="issue" v-model:open="shareOpen" :issue-id="issue.id" />

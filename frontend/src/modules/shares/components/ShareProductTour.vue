@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Check,
   ClipboardList,
+  Home,
   LayoutGrid,
   ListTodo,
   Map,
@@ -48,17 +49,31 @@ interface TourStep {
 
 const STEPS: TourStep[] = [
   {
+    id: 'home',
+    label: 'Home',
+    icon: Home,
+    view: 'home',
+    title: 'Start the day on Home',
+    text: 'The same morning loop you get after sign-in: standup → tasks → meetings → messages, with overdue and due-today work already waiting.',
+    highlights: [
+      'Day loop shows what to do next',
+      'My work lists overdue and due-today cards',
+      'Matches the real Home after you explore a sample',
+      'One place instead of four tools',
+    ],
+  },
+  {
     id: 'board',
     label: 'Board',
     icon: LayoutGrid,
     view: 'board',
-    title: 'The project board, in detail',
-    text: 'Every Vector project has a full workspace. Start on the board — columns, cards, labels, due dates, and assignees — then open any ticket for the full story.',
+    title: 'Drag work across the board',
+    text: 'The sample Website launch project — columns, labels, due dates, assignees. Watch a card move from To do to In progress the way it does in the real app.',
     highlights: [
-      'Project tabs: Board, Backlog, Tasks, Roadmap, and more',
-      'Realistic cards with type, labels, due dates, and avatars',
-      'Click a card on a shared board to open task detail',
-      'Sprint context stays visible while you plan delivery',
+      'Cards match the sample project (DEMO keys)',
+      'Status move settles with a short highlight',
+      'Sprint context stays in the project chrome',
+      'Open any card for the full issue panel',
     ],
   },
   {
@@ -177,7 +192,7 @@ const STEPS: TourStep[] = [
 
 const index = ref(0)
 const playing = ref(false)
-let timer: ReturnType<typeof setInterval> | null = null
+let timer: ReturnType<typeof setTimeout> | null = null
 
 const step = computed(() => STEPS[index.value]!)
 const isFirst = computed(() => index.value === 0)
@@ -186,7 +201,7 @@ const progress = computed(() => ((index.value + 1) / STEPS.length) * 100)
 
 function stop() {
   if (timer) {
-    clearInterval(timer)
+    clearTimeout(timer)
     timer = null
   }
 }
@@ -194,14 +209,16 @@ function stop() {
 function start() {
   stop()
   if (!playing.value || !open.value) return
-  timer = setInterval(() => {
+  const dwell = index.value < 2 ? 4800 : 5500
+  timer = setTimeout(() => {
     if (index.value >= STEPS.length - 1) {
       playing.value = false
       stop()
       return
     }
     index.value += 1
-  }, 5500)
+    start()
+  }, dwell)
 }
 
 function togglePlay() {
@@ -277,9 +294,9 @@ onBeforeUnmount(stop)
     <DialogContent class="flex max-h-[min(94dvh,56rem)] flex-col gap-0 overflow-hidden border-border/60 p-0 sm:max-w-6xl" hide-close>
       <div class="flex shrink-0 items-start justify-between gap-3 border-b border-border/60 px-4 py-3 sm:px-5">
         <div class="min-w-0">
-          <DialogTitle class="text-base">Explore a Vector project</DialogTitle>
+          <DialogTitle class="text-base">See Vector in motion</DialogTitle>
           <DialogDescription class="text-xs">
-            Board, backlog, tasks, roadmap, chat, meetings, and reports — the full project workspace in detail.
+            Home and the sample board first — then backlog, roadmap, chat, meetings, and reports.
           </DialogDescription>
         </div>
         <Button type="button" variant="ghost" size="icon" class="size-8 shrink-0" aria-label="Close" @click="open = false">

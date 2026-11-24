@@ -4,9 +4,11 @@ import {
   barForIssue,
   buildRoadmapRows,
   dayDeltaFromPixels,
+  monthBands,
   placementDates,
   resizeIssueDates,
   shiftIssueDates,
+  weekendOffsets,
 } from './roadmap-timeline'
 import { parseISO, startOfDay } from 'date-fns'
 
@@ -123,5 +125,21 @@ describe('roadmap timeline', () => {
     const start = startOfDay(parseISO('2026-11-01'))
     expect(placementDates(start, 0, 7)).toEqual({ startDate: '2026-11-01', dueDate: '2026-11-07' })
     expect(placementDates(start, 3, 1)).toEqual({ startDate: '2026-11-04', dueDate: '2026-11-04' })
+  })
+
+  it('builds month bands across the visible range', () => {
+    const start = startOfDay(parseISO('2026-11-15'))
+    const end = startOfDay(parseISO('2026-12-10'))
+    const bands = monthBands(start, end)
+    expect(bands).toHaveLength(2)
+    expect(bands[0]?.label).toBe('Nov 2026')
+    expect(bands[0]?.offset).toBe(0)
+    expect(bands[1]?.label).toBe('Dec 2026')
+  })
+
+  it('lists weekend day offsets', () => {
+    // 2026-11-01 is Sunday
+    const start = startOfDay(parseISO('2026-11-01'))
+    expect(weekendOffsets(start, 7)).toEqual([0, 6])
   })
 })

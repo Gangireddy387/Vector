@@ -18,6 +18,7 @@ import {
   heuristicExpand,
   heuristicPolish,
   heuristicShorten,
+  suggestNextAction,
   suggestSubtasks,
   summarizeText,
 } from './ai.heuristics.js';
@@ -76,10 +77,71 @@ Return JSON: {"type": one of ${ISSUE_TYPES.filter((t) => t !== 'subtask').join('
 async function loadIssueContext(issueIdOrKey, userId) {
   const issue = await loadIssueWithAccess(issueIdOrKey, userId);
   const [status, comments] = await Promise.all([
-    Status.findByPk(issue.statusId, { attributes: ['name'] }),
+    Status.findByPk(issue.statusId, { attributes: ['name', 'category'] }),
     Comment.findAll({ where: { issueId: issue.id }, order: [['createdAt', 'ASC']], limit: 50 }),
   ]);
-  return { issue, statusName: status?.name ?? 'Unknown', comments };
+  return {
+    issue,
+    statusName: status?.name ?? 'Unknown',
+    statusCategory: status?.category ?? 'todo',
+    comments,
+  };
+}
+
+/**
+ * Single next action for in-context board/card hints — cheaper than a full summary.
+ */
+export async function nextActionForIssue(userId, issueIdOrKey) {
+  const { issue, statusName, statusCategory, comments } = await loadIssueContext(issueIdOrKey, userId);
+  const children = await Issue.findAll({
+    where: { parentId: issue.id },
+    attributes: ['id', 'statusId'],
+    include: [{ model: Status, as: 'status', attributes: ['category'], required: false }],
+  });
+  const subtaskTotal = children.length;
+  const subtaskDone = children.filter((child) => child.status?.category === 'done').length;
+
+  const fallback = suggestNextAction({
+    title: issue.title,
+    type: issue.type,
+    statusName,
+    statusCategory,
+    priority: issue.priority,
+    dueDate: issue.dueDate,
+    assigneeId: issue.assigneeId,
+    subtaskDone,
+    subtaskTotal,
+    description: issue.description,
+    comments,
+  });
+
+  if (!fallback.action) {
+    return { source: 'heuristic', action: null, kind: 'done' };
+  }
+
+  const commentBlock = comments
+    .slice(-12)
+    .map((comment) => `- ${clip(comment.body, 280)}`)
+    .join('\n');
+
+  const result = await completeJsonDetailed({
+    system: SYSTEM_PROMPT,
+    user: `Suggest ONE concrete next action for this issue (imperative, max 12 words, no quotes).
+Key: ${issue.key} | Status: ${statusName} (${statusCategory}) | Priority: ${issue.priority}
+Assignee: ${issue.assigneeId ? 'assigned' : 'unassigned'} | Due: ${issue.dueDate || 'none'}
+Sub-tasks: ${subtaskDone}/${subtaskTotal} done
+Title: ${issue.title}
+Description: ${clip(issue.description ?? 'none', 2500)}
+Recent comments:
+${commentBlock || 'none'}
+Return JSON: {"action": string, "kind": one of progress|assign|schedule|breakdown|unblock|review}`,
+  });
+
+  const ai = result.data;
+  const kinds = new Set(['progress', 'assign', 'schedule', 'breakdown', 'unblock', 'review', 'done']);
+  const action = typeof ai?.action === 'string' && ai.action.trim() ? ai.action.trim().slice(0, 140) : fallback.action;
+  const kind = kinds.has(ai?.kind) ? ai.kind : fallback.kind;
+  return { source: sourceOf(result), action, kind };
 }
 
 export async function summarizeIssue(userId, issueIdOrKey) {

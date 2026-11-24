@@ -13,6 +13,7 @@ import { useNotificationsStore } from '@/modules/notifications/notifications.sto
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import { useUiStore } from '@/stores/ui.store'
+import BrandMark from './BrandMark.vue'
 import OrganizationSwitcher from './OrganizationSwitcher.vue'
 import SidebarLink from './SidebarLink.vue'
 import UserMenu from './UserMenu.vue'
@@ -160,10 +161,13 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
 <template>
   <aside
     :class="[isCollapsed ? 'w-16' : 'w-60']"
-    class="flex shrink-0 flex-col text-sidebar-foreground transition-[width] duration-200"
+    class="relative flex shrink-0 flex-col text-sidebar-foreground transition-[width] duration-200"
     aria-label="Main navigation"
   >
-    <div class="flex h-14 items-center justify-between gap-1 px-2.5">
+    <!-- Brand wash — same soft mesh language as marketing, clipped to the nav column. -->
+    <div class="pointer-events-none absolute inset-x-0 top-0 h-40 sidebar-brand-wash" aria-hidden="true" />
+
+    <div class="relative flex h-14 items-center justify-between gap-1 px-2.5">
       <OrganizationSwitcher :compact="isCollapsed" />
       <Tooltip v-if="!isCollapsed">
         <TooltipTrigger as-child>
@@ -175,21 +179,34 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
       </Tooltip>
     </div>
 
-    <div class="px-2.5 pb-1.5">
-      <Button v-if="!isCollapsed" variant="outline" class="w-full justify-start text-foreground" @click="openCreateIssue">
+    <div class="relative px-2.5 pb-1.5">
+      <Button
+        v-if="!isCollapsed"
+        variant="outline"
+        class="w-full justify-start border-primary/20 bg-primary/[0.06] text-foreground shadow-none hover:bg-primary/[0.1]"
+        @click="openCreateIssue"
+      >
         <Plus class="text-primary" />
         Create task
-        <kbd class="ml-auto rounded-[4px] border border-border bg-muted px-1.5 font-sans text-[10px] font-medium text-muted-foreground">C</kbd>
+        <kbd class="ml-auto rounded-[4px] border border-border/80 bg-background/70 px-1.5 font-sans text-[10px] font-medium text-muted-foreground">C</kbd>
       </Button>
       <Tooltip v-else>
         <TooltipTrigger as-child>
-          <Button variant="outline" size="icon" class="w-full" aria-label="Create task" @click="openCreateIssue"><Plus class="text-primary" /></Button>
+          <Button
+            variant="outline"
+            size="icon"
+            class="w-full border-primary/20 bg-primary/[0.06] hover:bg-primary/[0.1]"
+            aria-label="Create task"
+            @click="openCreateIssue"
+          >
+            <Plus class="text-primary" />
+          </Button>
         </TooltipTrigger>
         <TooltipContent side="right">Create task (C)</TooltipContent>
       </Tooltip>
     </div>
 
-    <nav class="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2.5 py-2 scrollbar-thin">
+    <nav class="relative flex min-h-0 flex-1 flex-col gap-px overflow-y-auto px-2.5 py-2 scrollbar-thin">
       <!-- Workday: the loop people run every morning -->
       <SidebarLink :to="{ name: 'home' }" label="Home" :icon="House" shortcut="G H" :collapsed="isCollapsed" exact />
       <SidebarLink :to="{ name: 'inbox' }" label="Inbox" :icon="Inbox" shortcut="G I" :badge="notifications.unreadCount" :collapsed="isCollapsed" />
@@ -295,7 +312,21 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
       </template>
     </nav>
 
-    <div class="space-y-1 p-2">
+    <div class="relative space-y-1 border-t border-sidebar-border/70 p-2">
+      <!-- Product mark so the signed-in shell still reads as Vector, not a grey admin chrome. -->
+      <div
+        class="mb-1 flex items-center gap-2 px-2"
+        :class="isCollapsed ? 'justify-center px-0' : ''"
+        aria-hidden="true"
+      >
+        <span class="relative flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-[5px] bg-brand text-white shadow-glow">
+          <span class="pointer-events-none absolute inset-0" style="background: radial-gradient(circle at 15% 5%, rgb(255 255 255 / 0.28), transparent 60%)" />
+          <BrandMark class="relative size-3.5" />
+        </span>
+        <span v-if="!isCollapsed" class="truncate text-[11px] font-semibold tracking-wide text-muted-foreground">
+          <span class="text-brand">Vector</span>
+        </span>
+      </div>
       <!-- Growing the team is one click away for admins -->
       <Tooltip v-if="auth.hasPermission('workspace.people')" :disabled="!isCollapsed">
         <TooltipTrigger as-child>

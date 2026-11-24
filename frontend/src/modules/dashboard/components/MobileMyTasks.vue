@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useOnline } from '@vueuse/core'
-import { PartyPopper, RefreshCw, Share2 } from 'lucide-vue-next'
+import { PartyPopper, Plus, RefreshCw, Rocket, Share2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageFrame from '@/components/common/PageFrame.vue'
 import Toolbar from '@/components/common/Toolbar.vue'
@@ -11,13 +11,15 @@ import { useAuthStore } from '@/modules/auth/auth.store'
 import IssueCard from '@/modules/issues/components/IssueCard.vue'
 import { useIssueActions } from '@/modules/issues/composables/useIssueActions'
 import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
+import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
+import { useCreateSampleProject } from '@/modules/projects/composables/useCreateSampleProject'
+import { useUiStore } from '@/stores/ui.store'
 import type { Issue } from '@/types/models'
 import { useDashboardData } from '../composables/useDashboardData'
 import { useHomeLayout } from '../composables/useHomeLayout'
 import { consumeStartDayQuery } from '../composables/useStartDayHighlight'
 import { bucketOf } from '../my-work'
 import { copyShareWorkday } from '../share-workday'
-import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
 import DailyBriefingCard from './DailyBriefingCard.vue'
 import HabitCoachCard from './HabitCoachCard.vue'
 import HabitNudgeBanner from './HabitNudgeBanner.vue'
@@ -37,11 +39,14 @@ import WeeklyPulseCard from './WeeklyPulseCard.vue'
 type Segment = 'today' | 'upcoming' | 'anytime' | 'done'
 
 const auth = useAuthStore()
+const ui = useUiStore()
 const route = useRoute()
 const router = useRouter()
 const actions = useIssueActions()
 const openIssue = useOpenIssue()
+const { isCreatingSample, createSampleProject } = useCreateSampleProject()
 const { data, isLoading, error, isStale, reload } = useDashboardData()
+const hasNoProjects = computed(() => !(data.value?.projects.length ?? 0))
 const isOnline = useOnline()
 const offlineLoadHint = computed(() =>
   !isOnline.value
@@ -92,9 +97,19 @@ async function complete(issue: Issue) {
 
 <template>
   <PageFrame gap="none" tab-clearance class="space-y-3.5">
-    <header class="flex items-start justify-between gap-2 px-1">
+    <header class="relative overflow-hidden rounded-xl px-1 py-1">
+      <div
+        class="pointer-events-none absolute -inset-x-6 -top-8 h-28"
+        style="background: radial-gradient(70% 120% at 10% 0%, color-mix(in oklch, var(--primary) 16%, transparent), transparent 65%)"
+        aria-hidden="true"
+      />
+      <div class="relative flex items-start justify-between gap-2">
       <div class="min-w-0 flex-1">
-        <p class="text-[11px] font-medium text-muted-foreground">Your workday</p>
+        <p class="text-[11px] font-medium text-muted-foreground">
+          <span class="text-brand font-semibold">Vector</span>
+          <span class="mx-1 text-border">·</span>
+          Your workday
+        </p>
         <p class="text-lg font-semibold">Hi {{ auth.user?.name?.split(' ')[0] }}</p>
         <p class="text-sm" :class="data?.stats?.overdue ? 'text-destructive' : 'text-muted-foreground'">{{ summary }}</p>
       </div>
@@ -115,6 +130,7 @@ async function complete(issue: Issue) {
         </Button>
         <Button variant="ghost" size="icon" aria-label="Refresh" @click="reload"><RefreshCw /></Button>
       </Toolbar>
+      </div>
     </header>
 
     <SetupChecklist v-if="data && show('setup')" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
@@ -124,12 +140,12 @@ async function complete(issue: Issue) {
     <HomeMyTeamCard v-if="data && show('myTeam')" :data="data" />
     <CreateProjectDialog v-model:open="isCreateProjectOpen" />
 
-    <QuickCapture v-if="show('quickCapture')" stacked />
+    <QuickCapture v-if="show('quickCapture') && !(!data && isLoading)" stacked />
 
     <HomeDayLoop v-if="data && show('dayLoop')" :data="data" :highlight="startDay" />
     <HomeFocusCards v-if="data && show('focus')" :data="data" @changed="reload" />
-    <PlanUsageCard v-if="show('planUsage')" />
-    <PlanUnlocksCard v-if="show('planUnlocks')" />
+    <PlanUsageCard v-if="show('planUsage') && !(!data && isLoading)" />
+    <PlanUnlocksCard v-if="show('planUnlocks') && !(!data && isLoading)" />
     <HomeTodayPanel v-if="data && show('today')" :data="data" @changed="reload" />
 
     <HomeLoadingShell v-if="isLoading && !data" variant="mobile" />
@@ -167,9 +183,38 @@ async function complete(issue: Issue) {
       <EmptyState
         v-if="!visible.length"
         :icon="PartyPopper"
-        :title="segment === 'done' ? 'Nothing completed yet this week' : 'All clear here'"
-        :description="segment === 'today' ? 'No overdue or urgent work. Capture something above or check Upcoming.' : undefined"
-      />
+        :title="
+          segment === 'done'
+            ? 'Nothing completed yet this week'
+            : hasNoProjects
+              ? 'Your workspace is empty'
+              : 'All clear here'
+        "
+        :description="
+          hasNoProjects
+            ? 'Explore a sample project to see a live board, or create your first task.'
+            : segment === 'today'
+              ? 'No overdue or urgent work. Capture something above or check Upcoming.'
+              : undefined
+        "
+      >
+        <div v-if="hasNoProjects || segment === 'today'" class="flex flex-wrap justify-center gap-2">
+          <Button
+            v-if="hasNoProjects && auth.isOrganizationAdmin"
+            size="sm"
+            :loading="isCreatingSample"
+            @click="createSampleProject({ onCreated: reload })"
+          >
+            <Rocket /> Explore sample
+          </Button>
+          <Button size="sm" :variant="hasNoProjects && auth.isOrganizationAdmin ? 'outline' : 'default'" @click="ui.openCreateIssue({})">
+            <Plus /> New task
+          </Button>
+          <Button v-if="hasNoProjects" variant="outline" size="sm" as-child>
+            <RouterLink :to="{ name: 'projects' }">Projects</RouterLink>
+          </Button>
+        </div>
+      </EmptyState>
       <ul v-else class="stagger-in space-y-2">
         <li v-for="issue in visible" :key="issue.id">
           <IssueCard :issue="issue" show-project completable @open="openIssue" @complete="complete" />

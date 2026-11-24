@@ -372,8 +372,21 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
           </Toolbar>
 
           <div class="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-            <div v-if="notifications.isLoading && !notifications.items.length" class="space-y-2 p-3" aria-busy="true" aria-label="Loading inbox">
-              <Skeleton v-for="index in 7" :key="index" class="h-14 w-full rounded-lg" />
+            <div v-if="notifications.isLoading && !notifications.items.length" class="space-y-1 p-2" aria-busy="true" aria-label="Loading inbox">
+              <div
+                v-for="index in 8"
+                :key="index"
+                class="flex items-start gap-3 rounded-lg px-2.5 py-2.5"
+              >
+                <Skeleton class="mt-0.5 size-8 shrink-0 rounded-lg" :delay="index" />
+                <div class="min-w-0 flex-1 space-y-2">
+                  <div class="flex items-center gap-2">
+                    <Skeleton class="h-3.5 min-w-0 flex-1" :delay="index" />
+                    <Skeleton class="h-3 w-10 shrink-0" :delay="index + 1" />
+                  </div>
+                  <Skeleton class="h-3 w-4/5" :delay="index + 1" />
+                </div>
+              </div>
             </div>
             <EmptyState
               v-else-if="notifications.loadError && !notifications.items.length"

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { CalendarDays, Download, Flag, Hash, History, LayoutGrid, List, ListTodo, SlidersHorizontal, Sparkles, Upload } from 'lucide-vue-next'
+import { CalendarDays, Download, Flag, Hash, History, LayoutGrid, List, ListTodo, Plus, SlidersHorizontal, Sparkles, Upload } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { type LocationQuery, useRoute, useRouter } from 'vue-router'
+import { type LocationQuery, RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageFrame from '@/components/common/PageFrame.vue'
@@ -363,7 +363,38 @@ useHotkeys({
           : 'space-y-2'
       "
     >
-      <Skeleton v-for="index in 8" :key="index" :class="layout === 'grid' ? 'h-40 w-full rounded-xl' : 'h-11 w-full rounded-lg'" />
+      <template v-if="layout === 'grid'">
+        <div
+          v-for="index in 8"
+          :key="index"
+          class="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-soft"
+        >
+          <div class="flex items-center gap-2">
+            <Skeleton class="size-4 rounded" :delay="index" />
+            <Skeleton class="h-3 w-16" :delay="index" />
+            <Skeleton class="ml-auto size-6 rounded-full" :delay="index + 1" />
+          </div>
+          <Skeleton class="h-4 w-full" :delay="index + 1" />
+          <Skeleton class="h-4 w-4/5" :delay="index + 2" />
+          <div class="mt-auto flex gap-2 pt-1">
+            <Skeleton class="h-5 w-14 rounded-full" :delay="index + 2" />
+            <Skeleton class="h-5 w-12 rounded-full" :delay="index + 3" />
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <div
+          v-for="index in 8"
+          :key="index"
+          class="flex h-11 items-center gap-2 rounded-lg border border-border/70 bg-card px-2"
+        >
+          <Skeleton class="size-4 shrink-0 rounded" :delay="index" />
+          <Skeleton class="h-3.5 w-16 shrink-0" :delay="index" />
+          <Skeleton class="h-3.5 min-w-0 flex-1" :delay="index + 1" />
+          <Skeleton class="h-5 w-20 shrink-0 rounded-full" :delay="index + 1" />
+          <Skeleton class="size-6 shrink-0 rounded-full" :delay="index + 2" />
+        </div>
+      </template>
     </div>
 
     <EmptyState v-else-if="loadError && !issues.length" :icon="ListTodo" title="Tasks did not load" :description="loadError">
@@ -373,11 +404,22 @@ useHotkeys({
     <EmptyState
       v-else-if="!issues.length"
       :icon="ListTodo"
-      title="No tasks match"
-      :description="activeFilterCount ? 'Try removing a filter.' : 'Create the first task to get started.'"
+      :title="activeFilterCount ? 'No tasks match' : 'No tasks yet'"
+      :description="
+        activeFilterCount
+          ? 'Try removing a filter.'
+          : projectId
+            ? 'Add the first task to fill this list — or use quick-add on the board.'
+            : 'Create a task, or open a project board to add work in context.'
+      "
     >
-      <Button v-if="activeFilterCount" variant="outline" @click="filters = {}">Clear filters</Button>
-      <Button v-else @click="ui.openCreateIssue({ projectId })">Create task</Button>
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <Button v-if="activeFilterCount" variant="outline" @click="filters = {}">Clear filters</Button>
+        <Button v-else @click="ui.openCreateIssue({ projectId })"><Plus /> Create task</Button>
+        <Button v-if="!activeFilterCount && projectId" variant="outline" as-child>
+          <RouterLink :to="{ name: 'project-board', params: { projectId } }">Open board</RouterLink>
+        </Button>
+      </div>
     </EmptyState>
 
     <!-- Dense list on wide screens. Phone and tablet stay on cards. -->

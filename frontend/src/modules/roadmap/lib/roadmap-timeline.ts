@@ -174,6 +174,30 @@ export function ticksForScale(rangeStart: Date, rangeEnd: Date, scale: RoadmapSc
   })
 }
 
+/** Month bands for the dual Gantt header (above week ticks). */
+export function monthBands(rangeStart: Date, rangeEnd: Date) {
+  return eachMonthOfInterval({ start: rangeStart, end: rangeEnd }).map((date) => {
+    const monthStart = max([date, rangeStart])
+    const monthEnd = min([endOfMonth(date), rangeEnd])
+    return {
+      date,
+      label: format(date, 'MMM yyyy'),
+      offset: dayOffset(rangeStart, monthStart),
+      span: differenceInCalendarDays(monthEnd, monthStart) + 1,
+    }
+  })
+}
+
+/** Weekend day columns (Sat–Sun) for subtle grid shading. */
+export function weekendOffsets(rangeStart: Date, totalDays: number) {
+  const offsets: number[] = []
+  for (let i = 0; i < totalDays; i += 1) {
+    const day = addDays(rangeStart, i).getDay()
+    if (day === 0 || day === 6) offsets.push(i)
+  }
+  return offsets
+}
+
 export function todayLineLeft(rangeStart: Date, totalDays: number, dayWidth: number) {
   const offset = dayOffset(rangeStart, startOfDay(new Date()))
   if (offset < 0 || offset > totalDays) return null

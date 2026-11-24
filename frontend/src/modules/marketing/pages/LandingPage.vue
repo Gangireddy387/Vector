@@ -5,9 +5,10 @@ import { RouterLink } from 'vue-router'
 import BrandOrbitShell from '@/components/layout/BrandOrbitShell.vue'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import LandingAppPreview from '@/modules/marketing/components/LandingAppPreview.vue'
 import ShareProductTour from '@/modules/shares/components/ShareProductTour.vue'
 
-/** Public marketing home — same rich orbit stage as sign-in. */
+/** Public marketing home — orbit stage + live Home/Board preview + product tour. */
 const auth = useAuthStore()
 const tourOpen = ref(false)
 
@@ -42,14 +43,16 @@ const primaryLabel = computed(() => (auth.isAuthenticated ? 'Open workspace' : '
       </Button>
     </template>
 
-    <div class="space-y-5 text-center">
-      <div class="space-y-2">
+    <div class="space-y-4 text-center">
+      <div class="space-y-1.5">
         <p class="text-xs font-semibold tracking-[0.16em] text-primary uppercase">Vector</p>
         <h1 class="text-2xl font-semibold tracking-tight sm:text-[1.65rem]">Start your workday</h1>
         <p class="text-sm leading-relaxed text-muted-foreground">
           Free includes standup, tasks, chat and meetings. No card needed.
         </p>
       </div>
+
+      <LandingAppPreview class="mx-auto w-full max-w-[22rem]" />
 
       <div class="flex flex-col gap-2.5">
         <Button variant="brand" size="lg" class="w-full" as-child>
@@ -68,6 +71,8 @@ const primaryLabel = computed(() => (auth.isAuthenticated ? 'Open workspace' : '
       </div>
 
       <nav class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground" aria-label="Explore">
+        <button type="button" class="hover:text-foreground hover:underline" @click="tourOpen = true">Watch tour</button>
+        <span aria-hidden="true">·</span>
         <RouterLink :to="{ name: 'workday-preview' }" class="hover:text-foreground hover:underline">Workday preview</RouterLink>
         <span aria-hidden="true">·</span>
         <RouterLink :to="{ name: 'privacy' }" class="hover:text-foreground hover:underline">Privacy</RouterLink>

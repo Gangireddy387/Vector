@@ -6,6 +6,7 @@ import {
   extractChecklist,
   guessPriority,
   guessType,
+  suggestNextAction,
   suggestSubtasks,
   summarizeMeetingMaterial,
   summarizeText,
@@ -39,6 +40,31 @@ describe('AI heuristics', () => {
     });
     assert.match(summary.summary, /Cart crashes/);
     assert.ok(summary.nextSteps.some((step) => /regression test/i.test(step)));
+  });
+
+  it('suggests a concrete next action from card signals', () => {
+    assert.equal(suggestNextAction({ statusCategory: 'done' }).action, null);
+    assert.match(
+      suggestNextAction({
+        statusCategory: 'todo',
+        dueDate: '2020-01-01',
+        today: new Date('2026-11-24'),
+      }).action,
+      /due date has passed/i,
+    );
+    assert.equal(
+      suggestNextAction({ statusCategory: 'todo', assigneeId: null, dueDate: null }).kind,
+      'assign',
+    );
+    assert.match(
+      suggestNextAction({
+        statusCategory: 'in_progress',
+        assigneeId: 'u1',
+        subtaskDone: 1,
+        subtaskTotal: 3,
+      }).action,
+      /2 remaining/i,
+    );
   });
 
   it('builds an extractive meeting summary without OpenAI', () => {

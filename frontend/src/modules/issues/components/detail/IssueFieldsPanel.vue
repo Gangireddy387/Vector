@@ -195,9 +195,9 @@ async function setStatus(statusId: string) {
 </script>
 
 <template>
-  <div class="space-y-3">
-    <section class="space-y-0.5">
-      <p class="px-0.5 pb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Details</p>
+  <div class="space-y-4">
+    <section class="space-y-1">
+      <p class="issue-fields-heading">Details</p>
       <IssueFieldRow v-if="showStatus" label="Status" for="field-status">
         <StatusSelect
           id="field-status"
@@ -294,8 +294,8 @@ async function setStatus(statusId: string) {
       </template>
     </section>
 
-    <section v-if="customFields.length" class="space-y-0.5 border-t border-border/60 pt-3">
-      <p class="px-0.5 pb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Custom</p>
+    <section v-if="customFields.length" class="space-y-1 border-t border-border/50 pt-3.5">
+      <p class="issue-fields-heading">Custom</p>
       <IssueFieldRow
         v-for="field in customFields"
         :key="field.id"
@@ -312,8 +312,8 @@ async function setStatus(statusId: string) {
       </IssueFieldRow>
     </section>
 
-    <section class="space-y-0.5 border-t border-border/60 pt-3">
-      <p class="px-0.5 pb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Planning</p>
+    <section class="space-y-1 border-t border-border/50 pt-3.5">
+      <p class="issue-fields-heading">Planning</p>
       <IssueFieldRow label="Story points" for="field-points">
         <NumberField
           id="field-points"
@@ -370,8 +370,8 @@ async function setStatus(statusId: string) {
       </IssueFieldRow>
     </section>
 
-    <section class="space-y-0.5 border-t border-border/60 pt-3">
-      <p class="px-0.5 pb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">People & activity</p>
+    <section class="space-y-1 border-t border-border/50 pt-3.5">
+      <p class="issue-fields-heading">People & activity</p>
       <IssueFieldRow label="Watchers" :readonly="!editable">
         <div class="w-full space-y-2">
           <ul v-if="issue.watchers.length" class="flex flex-wrap gap-1.5">
@@ -418,3 +418,15 @@ async function setStatus(statusId: string) {
     </section>
   </div>
 </template>
+
+<style scoped>
+.issue-fields-heading {
+  padding-inline: 0.25rem;
+  padding-bottom: 0.35rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+</style>

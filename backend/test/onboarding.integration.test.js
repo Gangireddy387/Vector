@@ -50,11 +50,26 @@ describe('sample project', () => {
     assert.equal(active.goal, 'Launch the new marketing website');
 
     const { issues, total } = (await asOwner('GET', `/issues?projectId=${sample.id}&limit=50`)).body;
-    assert.equal(total, 12);
+    assert.equal(total, 16, 'epic + stories/tasks + three sub-tasks');
     const categories = new Set(issues.map((issue) => issue.status.category));
     assert.deepEqual([...categories].sort(), ['done', 'in_progress', 'todo']);
+    assert.ok(issues.some((issue) => issue.type === 'epic'), 'includes a launch epic');
+    assert.ok(issues.some((issue) => issue.type === 'subtask'), 'includes sub-tasks under a parent');
     assert.ok(issues.some((issue) => issue.labels.length), 'tasks carry labels');
     assert.ok(issues.some((issue) => !issue.sprintId), 'some work waits in the backlog');
+
+    const contact = issues.find((issue) => issue.title === 'Set up the contact form backend');
+    assert.ok(contact, 'contact form task exists');
+    const comments = (await asOwner('GET', `/issues/${contact.id}/comments`)).body.comments;
+    assert.ok(comments?.length > 0, 'sample tasks include comments');
+
+    const hero = issues.find((issue) => issue.title === 'Hero image loads slowly on phones');
+    assert.ok(hero);
+    const heroDetail = (await asOwner('GET', `/issues/${hero.id}`)).body.issue;
+    assert.ok(
+      (heroDetail.links ?? []).some((link) => link.type === 'blocks'),
+      'hero bug blocks the launch announcement',
+    );
   });
 
   it('puts some of the work on the person who created it, so Home is not empty', async () => {

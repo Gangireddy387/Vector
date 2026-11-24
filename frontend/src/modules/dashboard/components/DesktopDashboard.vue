@@ -35,6 +35,7 @@ import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import ScheduleMeetingSheet from '@/modules/meetings/components/ScheduleMeetingSheet.vue'
 import { type Meeting, meetingsApi } from '@/modules/meetings/meetings.api'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
+import { useCreateSampleProject } from '@/modules/projects/composables/useCreateSampleProject'
 import { useUiStore } from '@/stores/ui.store'
 import type { Issue } from '@/types/models'
 import { useDashboardData } from '../composables/useDashboardData'
@@ -65,7 +66,9 @@ const route = useRoute()
 const router = useRouter()
 const openIssue = useOpenIssue()
 const issueActions = useIssueActions()
+const { isCreatingSample, createSampleProject } = useCreateSampleProject()
 const { data, isLoading, error, isStale, reload } = useDashboardData()
+const hasNoProjects = computed(() => !(data.value?.projects.length ?? 0))
 const isOnline = useOnline()
 const offlineLoadHint = computed(() =>
   !isOnline.value
@@ -163,9 +166,19 @@ const daysLeft = (endDate: string | null) => {
   <PageFrame gap="none" class="space-y-3.5 sm:space-y-4 lg:space-y-5">
     <!-- Greeting, the day in one sentence, and the things people start most -->
     <!-- Stack until xl: side-by-side with the action cluster squeezes the greeting into one-word lines. -->
-    <header class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between xl:gap-4">
+    <header class="relative overflow-hidden rounded-xl px-1 py-1 sm:px-1.5 sm:py-1.5">
+      <div
+        class="pointer-events-none absolute -inset-x-8 -top-10 h-36 opacity-90"
+        style="background: radial-gradient(70% 120% at 8% 0%, color-mix(in oklch, var(--primary) 14%, transparent), transparent 65%)"
+        aria-hidden="true"
+      />
+      <div class="relative flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between xl:gap-4">
       <div class="min-w-0 flex-1">
-        <p class="text-xs font-medium text-muted-foreground">{{ today }} · Your workday</p>
+        <p class="text-xs font-medium text-muted-foreground">
+          <span class="text-brand font-semibold">Vector</span>
+          <span class="mx-1.5 text-border">·</span>
+          {{ today }} · Your workday
+        </p>
         <h1 class="mt-0.5 text-balance text-[22px] font-semibold tracking-tight">
           {{ greeting }}, {{ auth.user?.name?.split(' ')[0] }}
         </h1>
@@ -189,6 +202,7 @@ const daysLeft = (endDate: string | null) => {
         </Button>
         <Button size="sm" @click="newTask"><Plus /> New task</Button>
       </Toolbar>
+      </div>
     </header>
 
     <SetupChecklist v-if="data && show('setup')" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
@@ -197,13 +211,13 @@ const daysLeft = (endDate: string | null) => {
     <TeamDensityCard v-if="data && show('density')" :data="data" />
     <HomeMyTeamCard v-if="data && show('myTeam')" :data="data" />
 
-    <QuickCapture v-if="show('quickCapture')" />
+    <QuickCapture v-if="show('quickCapture') && !(!data && isLoading)" />
 
     <!-- Primary: day loop → focus → today. Secondary lists load below. -->
     <HomeDayLoop v-if="data && show('dayLoop')" :data="data" :highlight="startDay" />
     <HomeFocusCards v-if="data && show('focus')" :data="data" @changed="reload" />
-    <PlanUsageCard v-if="show('planUsage')" />
-    <PlanUnlocksCard v-if="show('planUnlocks')" />
+    <PlanUsageCard v-if="show('planUsage') && !(!data && isLoading)" />
+    <PlanUnlocksCard v-if="show('planUnlocks') && !(!data && isLoading)" />
     <HomeTodayPanel v-if="data && show('today')" :data="data" @changed="reload" />
 
     <HomeLoadingShell v-if="isLoading && !data" />
@@ -259,12 +273,34 @@ const daysLeft = (endDate: string | null) => {
             <EmptyState
               v-if="!shownGroups.length"
               :icon="workTab === 'open' ? Inbox : CircleCheck"
-              :title="workTab === 'open' ? 'Nothing assigned to you' : 'Nothing finished yet this week'"
-              :description="workTab === 'open' ? 'Create a task, or pick one up from a project board.' : 'Tasks you complete this week show up here.'"
+              :title="
+                workTab === 'open'
+                  ? hasNoProjects
+                    ? 'Your workspace is empty'
+                    : 'Nothing assigned to you'
+                  : 'Nothing finished yet this week'
+              "
+              :description="
+                workTab === 'open'
+                  ? hasNoProjects
+                    ? 'Explore a sample project to see a live board, or create your own.'
+                    : 'Create a task, or pick one up from a project board.'
+                  : 'Tasks you complete this week show up here.'
+              "
               class="py-12"
             >
               <div v-if="workTab === 'open'" class="flex flex-wrap justify-center gap-2">
-                <Button size="sm" @click="newTask"><Plus /> New task</Button>
+                <Button
+                  v-if="hasNoProjects && auth.isOrganizationAdmin"
+                  size="sm"
+                  :loading="isCreatingSample"
+                  @click="createSampleProject({ onCreated: reload })"
+                >
+                  <Rocket /> Explore sample
+                </Button>
+                <Button size="sm" :variant="hasNoProjects && auth.isOrganizationAdmin ? 'outline' : 'default'" @click="newTask">
+                  <Plus /> New task
+                </Button>
                 <Button variant="outline" size="sm" as-child><RouterLink :to="{ name: 'projects' }">Browse projects</RouterLink></Button>
               </div>
             </EmptyState>

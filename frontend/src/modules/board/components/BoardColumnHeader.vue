@@ -30,21 +30,21 @@ const limitLabel = computed(() => (props.status.wipLimit !== null ? `${props.cou
 
   <div
     v-else
-    class="group/header flex h-11 min-w-0 items-center gap-2 whitespace-nowrap rounded-xl px-3"
-    :class="isOverLimit ? 'bg-destructive/10 ring-1 ring-destructive/30' : 'bg-muted/50 dark:bg-muted/35'"
+    class="group/header flex h-11 min-w-0 items-center gap-2 whitespace-nowrap rounded-xl px-3 transition-[background-color,box-shadow] duration-150"
+    :class="isOverLimit ? 'bg-destructive/10 ring-1 ring-destructive/30' : 'bg-muted/50 ring-1 ring-transparent hover:ring-border/70 dark:bg-muted/35'"
   >
     <span class="size-2.5 shrink-0 rounded-full ring-[3px]" :style="{ backgroundColor: status.color, '--tw-ring-color': `${status.color}2e` }" />
-    <h2 class="shrink-0 text-[13px] font-semibold">{{ status.name }}</h2>
+    <h2 class="min-w-0 shrink truncate text-[13px] font-semibold tracking-tight">{{ status.name }}</h2>
     <span
-      class="shrink-0 rounded-full px-1.5 text-[11px] font-semibold tabular-nums"
-      :class="isOverLimit ? 'bg-destructive text-white' : 'bg-background text-muted-foreground'"
+      class="shrink-0 rounded-full px-1.5 text-[11px] font-semibold tabular-nums shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--border)_70%,transparent)]"
+      :class="isOverLimit ? 'bg-destructive text-white shadow-none' : 'bg-background text-muted-foreground'"
       :title="status.wipLimit !== null ? (isOverLimit ? 'Over the WIP limit: finish work before starting more' : `WIP limit ${status.wipLimit}`) : `${count} tasks`"
     >
       {{ limitLabel }}
     </span>
     <span v-if="points" class="shrink-0 text-[11px] text-muted-foreground tabular-nums" title="Story points">{{ points }} pts</span>
 
-    <span class="ml-auto flex shrink-0 items-center opacity-100 transition-opacity sm:opacity-60 sm:group-hover/header:opacity-100 sm:focus-within:opacity-100">
+    <span class="ml-auto flex shrink-0 items-center opacity-100 transition-opacity sm:opacity-55 sm:group-hover/header:opacity-100 sm:focus-within:opacity-100">
       <Button v-if="editable" variant="ghost" size="icon-sm" class="size-7" :aria-label="`Add a task to ${status.name}`" title="Add a task" @click="emit('add')"><Plus /></Button>
       <DropdownMenu>
         <DropdownMenuTrigger as-child>

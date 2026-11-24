@@ -6,11 +6,10 @@ import { toast } from 'vue-sonner'
 import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { type Meeting } from '@/modules/meetings/meetings.api'
 import ScheduleMeetingSheet from '@/modules/meetings/components/ScheduleMeetingSheet.vue'
-import { useProjectsStore } from '@/modules/projects/projects.store'
+import { useCreateSampleProject } from '@/modules/projects/composables/useCreateSampleProject'
 import { useUiStore } from '@/stores/ui.store'
 import { type OnboardingStep, useOnboarding } from '../composables/useOnboarding'
 import type { DashboardData } from '../dashboard.api'
@@ -19,13 +18,12 @@ const props = defineProps<{ data: DashboardData | null }>()
 const emit = defineEmits<{ createProject: []; changed: [] }>()
 
 const auth = useAuthStore()
-const projects = useProjectsStore()
 const ui = useUiStore()
 const router = useRouter()
+const { isCreatingSample, createSampleProject } = useCreateSampleProject()
 const { steps, doneCount, isComplete, isVisible, hide, isAdmin, skip } = useOnboarding(toRef(props, 'data'))
 const percent = computed(() => Math.round((doneCount.value / Math.max(steps.value.length, 1)) * 100))
 const nextStep = computed(() => steps.value.find((step) => !step.done)?.id ?? null)
-const isCreatingSample = ref(false)
 const meetingSheet = ref<{ meeting?: Meeting } | null>(null)
 
 function run(step: OnboardingStep) {
@@ -38,19 +36,7 @@ function run(step: OnboardingStep) {
 }
 
 async function trySample() {
-  isCreatingSample.value = true
-  try {
-    const project = await projects.createSampleProject()
-    toast.success('Sample project ready', {
-      description: 'Explore the board, then convert it to a real project or wipe it from the banner.',
-    })
-    emit('changed')
-    await router.push({ name: 'project-board', params: { projectId: project.id } })
-  } catch (error) {
-    toast.error(getErrorMessage(error))
-  } finally {
-    isCreatingSample.value = false
-  }
+  await createSampleProject({ onCreated: () => emit('changed') })
 }
 
 function onMeetingSaved() {

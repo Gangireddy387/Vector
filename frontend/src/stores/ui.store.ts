@@ -12,6 +12,9 @@ export const useUiStore = defineStore('ui', () => {
 
   /** Bumped after local mutations so any visible list can refetch. */
   const issuesVersion = ref(0)
+  /** Brief board/list highlight after create or a status move (clears itself). */
+  const highlightedIssueId = ref<string | null>(null)
+  let highlightTimer: ReturnType<typeof setTimeout> | null = null
 
   /** Defaults of the open create-issue side panel (wide / laptop+); `null` when it is closed. */
   const createIssueDefaults = ref<CreateIssueDefaults | null>(null)
@@ -38,9 +41,29 @@ export const useUiStore = defineStore('ui', () => {
     createIssueDefaults.value = null
   }
 
-  const notifyIssuesChanged = () => {
-    issuesVersion.value += 1
+  function highlightIssue(issueId: string) {
+    highlightedIssueId.value = issueId
+    if (highlightTimer) clearTimeout(highlightTimer)
+    highlightTimer = setTimeout(() => {
+      if (highlightedIssueId.value === issueId) highlightedIssueId.value = null
+      highlightTimer = null
+    }, 900)
   }
 
-  return { isSearchOpen, issuesVersion, createIssueDefaults, createIssueSession, openCreateIssue, closeCreateIssue, notifyIssuesChanged }
+  const notifyIssuesChanged = (issueId?: string) => {
+    issuesVersion.value += 1
+    if (issueId) highlightIssue(issueId)
+  }
+
+  return {
+    isSearchOpen,
+    issuesVersion,
+    highlightedIssueId,
+    createIssueDefaults,
+    createIssueSession,
+    openCreateIssue,
+    closeCreateIssue,
+    highlightIssue,
+    notifyIssuesChanged,
+  }
 })

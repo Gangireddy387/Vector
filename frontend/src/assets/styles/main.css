@@ -33,8 +33,8 @@
   --brand-shift: 34;
 
   --tint-h: var(--brand-h);
-  /* Stronger brand tint so the canvas reads as a product, not a grey sheet. */
-  --tint-c: 0.014;
+  /* Org brand tint — surfaces lean toward --brand-h so ownership is visible. */
+  --tint-c: 0.016;
   --primary: oklch(var(--brand-l) var(--brand-c) var(--brand-h));
   --primary-foreground: var(--brand-fg);
   --brand-from: oklch(calc(var(--brand-l) + 0.02) calc(var(--brand-c) * 1.12) var(--brand-h));
@@ -71,13 +71,19 @@
   --scrim: color-mix(in oklch, var(--sidebar) 52%, transparent);
 
   /*
-   * Soft brand mesh behind the app canvas. Keeps depth without fighting content.
-   * Org theme colour flows through --brand-* / --tint-*.
+   * Soft brand mesh behind the app canvas — same language as the marketing orbit stage,
+   * quieter so signed-in content stays readable. Org theme flows through --brand-* / --tint-*.
    */
   --app-backdrop:
-    radial-gradient(120% 80% at 0% -10%, color-mix(in oklch, var(--primary) 16%, transparent), transparent 55%),
-    radial-gradient(90% 70% at 100% 0%, color-mix(in oklch, var(--brand-to) 12%, transparent), transparent 50%),
-    radial-gradient(70% 50% at 50% 100%, color-mix(in oklch, var(--primary) 8%, transparent), transparent 55%);
+    radial-gradient(130% 90% at -5% -15%, color-mix(in oklch, var(--primary) 22%, transparent), transparent 52%),
+    radial-gradient(100% 80% at 105% -5%, color-mix(in oklch, var(--brand-to) 16%, transparent), transparent 48%),
+    radial-gradient(80% 55% at 50% 110%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 55%),
+    linear-gradient(180deg, color-mix(in oklch, var(--sidebar) 88%, var(--primary)), var(--sidebar));
+
+  /* Sidebar brand wash (top of nav) — pairs with marketing glass without competing. */
+  --sidebar-brand-wash:
+    radial-gradient(120% 80% at 0% 0%, color-mix(in oklch, var(--primary) 18%, transparent), transparent 62%),
+    radial-gradient(90% 70% at 100% 0%, color-mix(in oklch, var(--brand-to) 12%, transparent), transparent 55%);
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
@@ -114,9 +120,14 @@
   --sidebar-accent: oklch(0.225 calc(var(--tint-c) * 2.8) var(--tint-h));
   --scrim: oklch(0 0 0 / 0.55);
   --app-backdrop:
-    radial-gradient(110% 80% at 0% -10%, color-mix(in oklch, var(--primary) 22%, transparent), transparent 55%),
-    radial-gradient(90% 70% at 100% 0%, color-mix(in oklch, var(--brand-to) 16%, transparent), transparent 50%),
-    radial-gradient(70% 50% at 50% 110%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 55%);
+    radial-gradient(120% 90% at -5% -12%, color-mix(in oklch, var(--primary) 28%, transparent), transparent 52%),
+    radial-gradient(100% 80% at 105% 0%, color-mix(in oklch, var(--brand-to) 20%, transparent), transparent 48%),
+    radial-gradient(75% 55% at 50% 115%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 55%),
+    linear-gradient(180deg, color-mix(in oklch, var(--sidebar) 82%, var(--primary)), var(--sidebar));
+
+  --sidebar-brand-wash:
+    radial-gradient(120% 80% at 0% 0%, color-mix(in oklch, var(--primary) 24%, transparent), transparent 62%),
+    radial-gradient(90% 70% at 100% 0%, color-mix(in oklch, var(--brand-to) 16%, transparent), transparent 55%);
 }
 
 /*
@@ -359,9 +370,13 @@
 
 /* --- Surfaces ------------------------------------------------------------ */
 @utility bg-app {
-  background-color: var(--background);
+  background-color: var(--sidebar);
   background-image: var(--app-backdrop);
   background-attachment: fixed;
+}
+
+@utility sidebar-brand-wash {
+  background-image: var(--sidebar-brand-wash);
 }
 @utility bg-brand {
   background-image: linear-gradient(135deg, var(--brand-from), var(--brand-to));
@@ -421,12 +436,12 @@
 }
 .page-enter-from {
   opacity: 0;
-  filter: blur(4px);
-  transform: translateY(1rem) scale(0.98);
+  filter: blur(3px);
+  transform: translateY(0.65rem) scale(0.99);
 }
 .page-leave-to {
   opacity: 0;
-  transform: translateY(-0.35rem) scale(0.995);
+  transform: translateY(-0.25rem) scale(0.997);
 }
 
 /* Soft crossfade for loading skeleton → content. */
@@ -493,6 +508,11 @@
   animation: motion-rise 520ms var(--ease-out-soft) both;
 }
 
+/** Brief settle flash after a status move or create (board cards, list rows). */
+@utility motion-flash {
+  animation: motion-flash 900ms var(--ease-out-soft) both;
+}
+
 @keyframes motion-rise {
   from {
     opacity: 0;
@@ -516,6 +536,26 @@
   100% {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes motion-flash {
+  0% {
+    box-shadow:
+      0 0 0 0 color-mix(in oklch, var(--primary) 45%, transparent),
+      var(--shadow-elevated);
+    border-color: color-mix(in oklch, var(--primary) 45%, var(--border));
+    background-color: color-mix(in oklch, var(--primary) 10%, var(--card));
+  }
+  35% {
+    box-shadow:
+      0 0 0 4px color-mix(in oklch, var(--primary) 18%, transparent),
+      var(--shadow-elevated);
+  }
+  100% {
+    box-shadow: var(--shadow-soft);
+    border-color: color-mix(in oklch, var(--border) 90%, transparent);
+    background-color: var(--card);
   }
 }
 
@@ -553,9 +593,27 @@
   }
   .stagger-in > *,
   .pop-in,
-  .rise-in {
+  .rise-in,
+  .motion-flash {
     animation: none !important;
   }
+}
+
+/* Side panels: softer slide + brand-tinted shadow while open. */
+[data-slot='sheet-content'][data-state='open'] {
+  transition-timing-function: var(--ease-out-soft);
+}
+[data-slot='dialog-content'][data-state='open'],
+[data-slot='dialog-content'][data-state='closed'] {
+  transition-timing-function: var(--ease-out-soft);
+  transition-duration: var(--motion-base);
+}
+
+/* Toast enter feels less abrupt next to the polished panels. */
+.vector-toaster [data-sonner-toast] {
+  transition:
+    transform var(--motion-base) var(--ease-out-soft),
+    opacity var(--motion-fast) ease !important;
 }
 
 /*

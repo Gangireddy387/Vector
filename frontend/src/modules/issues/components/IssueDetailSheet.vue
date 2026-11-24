@@ -34,7 +34,7 @@ function focusPanel(event: Event) {
   <Sheet v-model:open="isOpen">
     <SheetContent
       side="right"
-      class="w-full gap-0 p-0 outline-none sm:max-w-[min(100vw-1.5rem,72rem)]"
+      class="issue-detail-sheet w-full gap-0 overflow-hidden border-l border-border/80 p-0 shadow-[0_0_0_1px_color-mix(in_oklch,var(--border)_70%,transparent),_-24px_0_64px_-28px_oklch(0_0_0/0.28)] outline-none sm:max-w-[min(100vw-1.5rem,72rem)] dark:shadow-[0_0_0_1px_color-mix(in_oklch,var(--border)_80%,transparent),_-28px_0_72px_-24px_oklch(0_0_0/0.55)]"
       tabindex="-1"
       hide-close
       clear-backdrop

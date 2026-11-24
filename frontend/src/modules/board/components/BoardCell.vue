@@ -53,18 +53,21 @@ function onCardKey(event: KeyboardEvent, issue: Issue) {
 
 <template>
   <div
-    class="group/cell flex flex-col rounded-xl bg-muted/50 p-1.5 transition-colors dark:bg-muted/35"
+    class="group/cell board-cell flex flex-col rounded-xl p-1.5 transition-[background-color,box-shadow,outline-color] duration-150"
     :class="[
       fill || (dragging && editable) ? 'min-h-0 self-stretch' : 'self-start',
-      dragging && editable && 'bg-primary/[0.04] outline-1 outline-primary/25 outline-dashed dark:bg-primary/[0.06]',
+      dragging && editable
+        ? 'bg-primary/[0.05] outline-1 outline-dashed outline-primary/30 dark:bg-primary/[0.07]'
+        : 'bg-muted/50 dark:bg-muted/35',
     ]"
   >
     <div class="relative flex min-h-0 flex-1 flex-col" :class="fill && 'overflow-hidden'">
       <p
         v-if="!issues.length"
-        class="pointer-events-none absolute inset-x-0 top-0 z-0 flex h-12 items-center justify-center text-[11.5px] text-muted-foreground/70"
+        class="pointer-events-none absolute inset-x-0 top-0 z-0 flex h-12 items-center justify-center text-[11.5px]"
+        :class="dragging ? 'font-medium text-primary/80' : 'text-muted-foreground/70'"
       >
-        {{ dragging ? 'Drop here' : 'No tasks' }}
+        {{ dragging ? 'Drop here' : editable ? 'Add a task below' : 'No tasks yet' }}
       </p>
       <!-- Scroll on a wrapper — not on VueDraggable — or Sortable can stack cards with absolute offsets. -->
       <div
@@ -74,15 +77,18 @@ function onCardKey(event: KeyboardEvent, issue: Issue) {
         <VueDraggable
           v-model="issues"
           :group="group"
-          :animation="180"
+          :animation="240"
           :disabled="!editable"
           ghost-class="board-ghost"
           chosen-class="board-chosen"
           drag-class="board-drag"
           :data-status-id="status.id"
           :data-lane="laneKey"
-          class="flex flex-col gap-1.5"
-          :class="(!issues.length || dragging) && 'min-h-12'"
+          class="flex flex-col"
+          :class="[
+            view.density === 'compact' ? 'gap-1' : 'gap-1.5',
+            (!issues.length || dragging) && 'min-h-12',
+          ]"
           @start="emit('dragStart')"
           @end="(event: SortableEvent) => emit('dragEnd', event)"
         >
@@ -118,10 +124,10 @@ function onCardKey(event: KeyboardEvent, issue: Issue) {
       <button
         v-else
         type="button"
-        class="flex h-7 w-full items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium text-muted-foreground/80 transition-colors hover:bg-background/80 hover:text-foreground"
+        class="flex h-7 w-full items-center gap-1.5 rounded-lg px-2 text-[12px] font-medium text-muted-foreground/80 transition-colors hover:bg-background/80 hover:text-foreground group-hover/cell:text-foreground/80"
         @click="emit('add')"
       >
-        <Plus class="size-4" /> Add task
+        <Plus class="size-3.5" /> Add task
       </button>
     </div>
   </div>
@@ -129,17 +135,55 @@ function onCardKey(event: KeyboardEvent, issue: Issue) {
 
 <style scoped>
 :deep(.board-ghost) {
-  opacity: 1;
-  border-style: dashed;
-  border-color: color-mix(in oklch, var(--primary) 45%, transparent);
-  background: color-mix(in oklch, var(--primary) 6%, transparent);
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1.5px dashed color-mix(in oklch, var(--primary) 55%, transparent);
+  background: color-mix(in oklch, var(--primary) 8%, transparent);
   box-shadow: none;
+  opacity: 1;
+}
+:deep(.board-ghost::after) {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--primary) 12%, transparent),
+    transparent
+  );
+  animation: board-ghost-shimmer 1.1s ease-in-out infinite;
 }
 :deep(.board-ghost > *) {
   visibility: hidden;
 }
+:deep(.board-chosen) {
+  opacity: 0.92;
+  box-shadow: var(--shadow-elevated);
+}
 :deep(.board-drag) {
-  transform: rotate(2deg);
-  box-shadow: 0 18px 40px -12px oklch(0 0 0 / 0.35);
+  cursor: grabbing;
+  transform: rotate(1.5deg) scale(1.02);
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--primary) 22%, transparent),
+    0 18px 40px -12px oklch(0 0 0 / 0.32);
+  z-index: 30;
+}
+@keyframes board-ghost-shimmer {
+  from {
+    transform: translateX(-40%);
+  }
+  to {
+    transform: translateX(40%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :deep(.board-ghost::after) {
+    animation: none;
+  }
+  :deep(.board-drag) {
+    transform: none;
+  }
 }
 </style>

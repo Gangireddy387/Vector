@@ -217,8 +217,27 @@ const isCompleteOpen = computed({ get: () => Boolean(completingSprint.value), se
 
 <template>
   <PageFrame mode="scroll" class="space-y-4 sm:space-y-5">
-    <div v-if="isLoading" class="space-y-3" aria-busy="true" aria-label="Loading backlog">
-      <Skeleton v-for="index in 3" :key="index" class="h-40 w-full rounded-xl" />
+    <div v-if="isLoading" class="space-y-4" aria-busy="true" aria-label="Loading backlog">
+      <div class="flex flex-wrap items-center gap-2">
+        <Skeleton class="h-8 w-28 rounded-md" />
+        <Skeleton class="h-8 w-24 rounded-md" :delay="1" />
+        <Skeleton class="ml-auto h-8 w-32 rounded-md" :delay="2" />
+      </div>
+      <div v-for="section in 3" :key="section" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
+        <div class="flex h-12 items-center gap-2 border-b border-border px-3 sm:px-4">
+          <Skeleton class="h-4 w-36" :delay="section" />
+          <Skeleton class="h-5 w-10 rounded-full" :delay="section" />
+          <Skeleton class="ml-auto h-7 w-24 rounded-md" :delay="section + 1" />
+        </div>
+        <div class="divide-y divide-border/60">
+          <div v-for="row in 4" :key="row" class="flex items-center gap-3 px-3 py-2.5 sm:px-4">
+            <Skeleton class="size-4 shrink-0 rounded" :delay="row" />
+            <Skeleton class="h-4 w-14 shrink-0" :delay="row" />
+            <Skeleton class="h-4 min-w-0 flex-1" :delay="row + 1" />
+            <Skeleton class="size-6 shrink-0 rounded-full" :delay="row + 1" />
+          </div>
+        </div>
+      </div>
     </div>
 
     <EmptyState v-else-if="loadError && !project" title="The backlog did not load" :description="loadError">

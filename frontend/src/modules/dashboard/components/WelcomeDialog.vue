@@ -2,13 +2,11 @@
 import { useStorage } from '@vueuse/core'
 import { ArrowRight, FolderPlus, Rocket } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { toast } from 'vue-sonner'
 import BrandMark from '@/components/layout/BrandMark.vue'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
-import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import CreateProjectDialog from '@/modules/projects/components/CreateProjectDialog.vue'
+import { useCreateSampleProject } from '@/modules/projects/composables/useCreateSampleProject'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 
 /**
@@ -17,12 +15,11 @@ import { useProjectsStore } from '@/modules/projects/projects.store'
  */
 const auth = useAuthStore()
 const projects = useProjectsStore()
-const router = useRouter()
+const { isCreatingSample, createSampleProject } = useCreateSampleProject()
 const welcomed = useStorage<Record<string, boolean>>('vector.onboarding.welcomed', {})
 const scope = computed(() => `${auth.organization?.id ?? 'none'}.${auth.user?.id ?? 'none'}`)
 const isLoaded = ref(false)
 const isCreateOpen = ref(false)
-const isCreatingSample = ref(false)
 
 onMounted(async () => {
   await projects.fetchProjects().catch(() => undefined)
@@ -37,17 +34,7 @@ const isOpen = computed({
 })
 
 async function explore() {
-  isCreatingSample.value = true
-  try {
-    const project = await projects.createSampleProject()
-    isOpen.value = false
-    toast.success('Sample project ready', { description: 'Drag cards on the board, open a task, or check the backlog. Delete it from its settings when you are done.' })
-    await router.push({ name: 'project-board', params: { projectId: project.id } })
-  } catch (error) {
-    toast.error(getErrorMessage(error))
-  } finally {
-    isCreatingSample.value = false
-  }
+  await createSampleProject({ onCreated: () => { isOpen.value = false } })
 }
 
 function fromScratch() {
@@ -83,7 +70,7 @@ function fromScratch() {
               <span class="rounded-full bg-primary/12 px-1.5 py-px text-[10.5px] font-medium text-primary">Recommended</span>
             </span>
             <span class="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
-              A website launch with a running sprint and tasks in every column. Convert it to a real project when you’re ready, or wipe it.
+              A website launch with a running sprint, epic, sub-tasks, a blocker and comments — so every screen has something real to show.
             </span>
           </span>
           <ArrowRight class="mt-2 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />

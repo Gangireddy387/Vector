@@ -14,6 +14,8 @@ export interface BoardCardFields {
   counts: boolean
   priority: boolean
   assignee: boolean
+  /** In-context next-action hint on the card. */
+  aiHint: boolean
 }
 
 export interface BoardViewState {
@@ -26,7 +28,17 @@ export interface BoardViewState {
   collapsedLanes: string[]
 }
 
-export const DEFAULT_CARD_FIELDS: BoardCardFields = { key: true, labels: true, epic: true, dueDate: true, points: true, counts: true, priority: true, assignee: true }
+export const DEFAULT_CARD_FIELDS: BoardCardFields = {
+  key: true,
+  labels: true,
+  epic: true,
+  dueDate: true,
+  points: true,
+  counts: true,
+  priority: true,
+  assignee: true,
+  aiHint: true,
+}
 
 const defaults = (): BoardViewState => ({ groupBy: 'none', density: 'comfortable', fields: { ...DEFAULT_CARD_FIELDS }, collapsedColumns: [], collapsedLanes: [] })
 

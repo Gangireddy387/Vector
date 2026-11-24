@@ -11,12 +11,14 @@ import {
   Map,
   MessageSquare,
   Rocket,
+  Sparkles,
   SquareCheck,
   Video,
 } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 export type TourProjectView =
+  | 'home'
   | 'board'
   | 'backlog'
   | 'tasks'
@@ -41,6 +43,7 @@ const TABS = [
 
 const activeTab = computed(() => {
   const map: Record<TourProjectView, string> = {
+    home: 'board',
     board: 'board',
     backlog: 'backlog',
     tasks: 'tasks',
@@ -52,6 +55,42 @@ const activeTab = computed(() => {
   }
   return map[props.view]
 })
+
+/** Board demo: a card slides from To do → In progress when this step is shown. */
+const cardMoved = ref(false)
+let moveTimer: ReturnType<typeof setTimeout> | null = null
+
+watch(
+  () => props.view,
+  (view) => {
+    if (moveTimer) clearTimeout(moveTimer)
+    cardMoved.value = false
+    if (view === 'board') {
+      moveTimer = setTimeout(() => {
+        cardMoved.value = true
+      }, 650)
+    }
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  if (moveTimer) clearTimeout(moveTimer)
+})
+
+const HOME_LOOP = [
+  { label: 'Standup', hint: 'Posted', done: true },
+  { label: 'Tasks', hint: '3 open', active: true },
+  { label: 'Meetings', hint: '10:00' },
+  { label: 'Messages', hint: '2 unread' },
+] as const
+
+const HOME_WORK = [
+  { key: 'DEMO-6', title: 'Hero image loads slowly on phones', due: 'Overdue', tone: 'text-destructive' },
+  { key: 'DEMO-4', title: 'Set up the contact form backend', due: 'Due today', tone: 'text-amber-700 dark:text-amber-300' },
+  { key: 'DEMO-5', title: 'Write copy for the pricing page', due: 'Due today', tone: 'text-amber-700 dark:text-amber-300' },
+  { key: 'DEMO-3', title: 'Build the responsive navigation', due: 'In review', tone: 'text-muted-foreground' },
+] as const
 
 const COLUMNS = [
   {
@@ -103,6 +142,49 @@ const ROADMAP = [
 
 <template>
   <div class="overflow-hidden rounded-xl border border-border/80 bg-card shadow-elevated">
+    <!-- Home (workspace morning) -->
+    <template v-if="view === 'home'">
+      <div class="flex flex-wrap items-center gap-2 border-b border-border/70 bg-background/80 px-3 py-2.5">
+        <Sparkles class="size-3.5 text-primary" />
+        <p class="truncate text-sm font-semibold">Home · Your workday</p>
+        <span class="ml-auto text-[11px] text-muted-foreground">Sample org</span>
+      </div>
+      <div class="space-y-3 bg-muted/20 p-3">
+        <div class="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+          <div
+            v-for="step in HOME_LOOP"
+            :key="step.label"
+            class="rounded-lg border px-2.5 py-2 transition-colors"
+            :class="
+              'active' in step && step.active
+                ? 'border-primary/40 bg-primary/10'
+                : 'done' in step && step.done
+                  ? 'border-border/60 bg-card/80'
+                  : 'border-border/50 bg-card/50'
+            "
+          >
+            <p class="text-[11px] font-semibold">{{ step.label }}</p>
+            <p class="text-[10px] text-muted-foreground">{{ step.hint }}</p>
+          </div>
+        </div>
+        <div class="overflow-hidden rounded-xl border border-border/70 bg-card shadow-soft">
+          <div class="flex h-9 items-center border-b border-border/60 px-3">
+            <p class="text-xs font-semibold">My work</p>
+            <span class="ml-auto text-[10px] text-muted-foreground tabular-nums">4 open</span>
+          </div>
+          <ul class="divide-y divide-border/50">
+            <li v-for="(row, i) in HOME_WORK" :key="row.key" class="flex items-center gap-2 px-3 py-2" :class="i === 0 && 'bg-primary/[0.04]'">
+              <ListTodo class="size-3.5 shrink-0 text-muted-foreground" />
+              <span class="text-[11px] text-muted-foreground tabular-nums">{{ row.key }}</span>
+              <span class="min-w-0 flex-1 truncate text-[12px] font-medium">{{ row.title }}</span>
+              <span class="shrink-0 text-[10px] font-medium" :class="row.tone">{{ row.due }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </template>
+
+    <template v-else>
     <!-- Project chrome -->
     <div class="flex flex-wrap items-center gap-2 border-b border-border/70 bg-background/80 px-3 py-2.5">
       <span class="size-2.5 rounded-full bg-sky-500 ring-2 ring-sky-500/20" />
@@ -133,13 +215,27 @@ const ROADMAP = [
         <header class="mb-1.5 flex items-center gap-1.5 px-1">
           <span class="size-2 rounded-full" :style="{ backgroundColor: column.color }" />
           <span class="truncate text-[11px] font-semibold">{{ column.name }}</span>
-          <span class="ml-auto text-[10px] text-muted-foreground tabular-nums">{{ column.cards.length }}</span>
+          <span class="ml-auto text-[10px] text-muted-foreground tabular-nums">
+            {{
+              column.name === 'To do' && cardMoved
+                ? column.cards.length - 1
+                : column.name === 'In progress' && cardMoved
+                  ? column.cards.length + 1
+                  : column.cards.length
+            }}
+          </span>
         </header>
         <div class="space-y-1.5">
           <article
             v-for="card in column.cards"
             :key="card.key"
-            class="rounded-md border border-border/70 bg-card px-2 py-1.5 shadow-[0_1px_2px_oklch(0_0_0/0.04)]"
+            class="rounded-md border bg-card px-2 py-1.5 shadow-[0_1px_2px_oklch(0_0_0/0.04)] transition-all duration-500 ease-out"
+            :class="[
+              card.key === 'DEMO-6' && column.name === 'To do' && cardMoved
+                ? 'pointer-events-none scale-95 opacity-0'
+                : 'border-border/70 opacity-100',
+              card.key === 'DEMO-6' && column.name === 'To do' && !cardMoved && 'ring-2 ring-primary/30',
+            ]"
           >
             <div class="mb-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
               <Bug v-if="card.type === 'bug'" class="size-3 text-rose-500" />
@@ -162,6 +258,20 @@ const ROADMAP = [
               <span class="ml-auto flex size-5 items-center justify-center rounded-full text-[9px] font-bold text-white" :class="card.whoTone">
                 {{ card.who }}
               </span>
+            </div>
+          </article>
+          <article
+            v-if="column.name === 'In progress' && cardMoved"
+            class="motion-flash rounded-md border border-primary/40 bg-card px-2 py-1.5 shadow-elevated"
+          >
+            <div class="mb-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Bug class="size-3 text-rose-500" />
+              <span class="font-medium tabular-nums">DEMO-6</span>
+            </div>
+            <p class="line-clamp-2 text-[11px] leading-snug font-medium">Hero image loads slowly on phones</p>
+            <div class="mt-1.5 flex items-center gap-1.5 text-[10px]">
+              <span class="tabular-nums text-destructive">Moved just now</span>
+              <span class="ml-auto flex size-5 items-center justify-center rounded-full bg-emerald-500 text-[9px] font-bold text-white">GY</span>
             </div>
           </article>
         </div>
@@ -306,5 +416,6 @@ const ROADMAP = [
         <span v-for="(h, i) in [36, 48, 42, 58, 54, 70, 88]" :key="i" class="flex-1 rounded-t bg-linear-to-t from-sky-500/70 to-violet-400" :style="{ height: `${h}%` }" />
       </div>
     </div>
+    </template>
   </div>
 </template>

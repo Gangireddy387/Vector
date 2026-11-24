@@ -121,9 +121,25 @@ async function wipeSample() {
     <Button variant="outline" @click="loadProject(projectId)">Try again</Button>
   </EmptyState>
 
-  <div v-else-if="!project" class="space-y-4 p-6">
-    <Skeleton class="h-8 w-64" />
-    <Skeleton class="h-96 w-full" />
+  <div v-else-if="!project" class="flex h-full min-h-0 flex-col" aria-busy="true" aria-label="Loading project">
+    <div class="shrink-0 space-y-2 border-b border-border px-3 pt-2.5 pb-0 sm:px-4">
+      <div class="flex items-center gap-3">
+        <Skeleton class="size-7 rounded-[7px]" />
+        <Skeleton class="h-5 w-48" />
+        <Skeleton class="ml-auto h-8 w-20 rounded-md" :delay="1" />
+      </div>
+      <div class="flex gap-1 overflow-hidden pb-px">
+        <Skeleton v-for="index in 6" :key="index" class="h-9 w-20 rounded-none" :delay="index" />
+      </div>
+    </div>
+    <div class="grid min-h-0 flex-1 auto-cols-[minmax(17rem,1fr)] grid-flow-col gap-3 overflow-hidden p-3 sm:p-4">
+      <div v-for="col in 4" :key="col" class="flex min-w-[17rem] flex-col gap-2 rounded-xl bg-muted/40 p-1.5">
+        <Skeleton class="h-10 w-full rounded-xl" :delay="col" />
+        <Skeleton class="h-20 w-full rounded-[10px]" :delay="col" />
+        <Skeleton class="h-20 w-full rounded-[10px]" :delay="col + 1" />
+        <Skeleton class="h-16 w-full rounded-[10px]" :delay="col + 2" />
+      </div>
+    </div>
   </div>
 
   <div
@@ -225,20 +241,25 @@ async function wipeSample() {
     </nav>
 
     <!-- Sample → real: keep the demo work, or wipe and start fresh -->
-    <div v-if="project.settings?.isSample" class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-primary/[0.05] px-3 py-2 text-[13px] sm:px-4">
-      <Sparkles class="size-4 shrink-0 text-primary" />
-      <span class="min-w-0 flex-1">
-        <span class="font-medium">This is a sample project.</span>
-        <span class="ml-1 text-muted-foreground">Keep the demo work as yours, or wipe it and create a real project.</span>
-      </span>
-      <div v-if="project.myRole === 'admin'" class="flex w-full flex-wrap gap-2 sm:w-auto">
-        <Button size="sm" class="max-sm:flex-1" :loading="isConvertingSample" @click="keepSample">
-          <Check /> Keep as real project
-        </Button>
-        <Button variant="outline" size="sm" class="max-sm:flex-1 text-destructive hover:text-destructive" :disabled="isConvertingSample" @click="wipeSample">
-          <Trash2 /> Wipe & start fresh
-        </Button>
+    <div v-if="project.settings?.isSample" class="shrink-0 space-y-2 border-b border-border bg-primary/[0.05] px-3 py-2.5 sm:px-4">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px]">
+        <Sparkles class="size-4 shrink-0 text-primary" />
+        <span class="min-w-0 flex-1">
+          <span class="font-medium">This is a sample project.</span>
+          <span class="ml-1 text-muted-foreground">Try the board, open a task with comments, then keep or wipe it.</span>
+        </span>
+        <div v-if="project.myRole === 'admin'" class="flex w-full flex-wrap gap-2 sm:w-auto">
+          <Button size="sm" class="max-sm:flex-1" :loading="isConvertingSample" @click="keepSample">
+            <Check /> Keep as real project
+          </Button>
+          <Button variant="outline" size="sm" class="max-sm:flex-1 text-destructive hover:text-destructive" :disabled="isConvertingSample" @click="wipeSample">
+            <Trash2 /> Wipe & start fresh
+          </Button>
+        </div>
       </div>
+      <p class="pl-7 text-[11px] leading-relaxed text-muted-foreground">
+        Tip: drag a card between columns · open the overdue bug for a comment · check Dependencies for the blocker · convert when you’re ready.
+      </p>
     </div>
 
     <div

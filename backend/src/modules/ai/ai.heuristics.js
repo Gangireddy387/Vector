@@ -139,6 +139,81 @@ export function summarizeText({ title, description, comments = [], statusName, p
 }
 
 /**
+ * One concrete next action for a board card / issue glance.
+ * Prefer scheduling and ownership signals, then checklist/comment cues, then type defaults.
+ */
+export function suggestNextAction({
+  title,
+  type = 'task',
+  statusName,
+  statusCategory,
+  priority,
+  dueDate,
+  assigneeId,
+  subtaskDone = 0,
+  subtaskTotal = 0,
+  description,
+  comments = [],
+  today = new Date(),
+} = {}) {
+  if (statusCategory === 'done' || /done|closed/i.test(String(statusName || ''))) {
+    return { action: null, kind: 'done' };
+  }
+
+  const todayKey = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-');
+
+  if (dueDate && dueDate < todayKey) {
+    return { action: 'Unblock or finish — due date has passed', kind: 'schedule' };
+  }
+  if (dueDate === todayKey) {
+    return { action: 'Ship or update the due date today', kind: 'schedule' };
+  }
+  if (!assigneeId) {
+    return { action: 'Assign an owner so this does not stall', kind: 'assign' };
+  }
+  if (subtaskTotal > 0 && subtaskDone < subtaskTotal) {
+    const left = subtaskTotal - subtaskDone;
+    return {
+      action: left === 1 ? 'Close the last open sub-task' : `Knock out ${left} remaining sub-tasks`,
+      kind: 'progress',
+    };
+  }
+
+  const checklist = extractChecklist(description);
+  if (checklist.length) {
+    return { action: checklist[0].slice(0, 120), kind: 'progress' };
+  }
+  const fromComments = extractActionHints(comments);
+  if (fromComments.length) {
+    return { action: fromComments[0].slice(0, 120), kind: 'progress' };
+  }
+
+  if ((priority === 'highest' || priority === 'high') && statusCategory === 'todo') {
+    return { action: 'Start this — high priority still in the backlog', kind: 'progress' };
+  }
+  if (statusCategory === 'in_progress' && !dueDate) {
+    return { action: 'Add a due date to keep the pace visible', kind: 'schedule' };
+  }
+  if (type === 'bug') {
+    return { action: 'Reproduce, then pin the root cause', kind: 'progress' };
+  }
+  if (type === 'epic' && subtaskTotal === 0) {
+    return { action: 'Break the epic into child stories', kind: 'breakdown' };
+  }
+  if (statusCategory === 'todo') {
+    return { action: `Start “${String(title || 'this work').slice(0, 48)}”`, kind: 'progress' };
+  }
+  return {
+    action: `Push forward from ${statusName || 'the current status'}`,
+    kind: 'progress',
+  };
+}
+
+/**
  * Extractive meeting summary when OpenAI is off or fails — still produces decisions/actions from
  * transcript/chat/updates/notes so recaps are never a hard dead end.
  */

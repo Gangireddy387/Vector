@@ -33,7 +33,7 @@ const projectName = computed(() => {
 const openIssue = (key: string) => router.push({ query: { ...route.query, issue: key } })
 
 function onCreated(issue: IssueDetail) {
-  ui.notifyIssuesChanged()
+  ui.notifyIssuesChanged(issue.id)
   toast.success(`${issue.key} created`, { description: issue.title, action: { label: 'Open', onClick: () => openIssue(issue.key) } })
   if (!formRef.value?.createAnother) ui.closeCreateIssue()
 }
@@ -41,9 +41,15 @@ function onCreated(issue: IssueDetail) {
 
 <template>
   <Sheet v-model:open="isOpen">
-    <SheetContent side="right" class="flex w-full flex-col gap-0 p-0 sm:max-w-4xl" hide-close clear-backdrop @open-auto-focus.prevent>
+    <SheetContent
+      side="right"
+      class="flex w-full flex-col gap-0 overflow-hidden border-l border-border/80 p-0 shadow-[0_0_0_1px_color-mix(in_oklch,var(--border)_70%,transparent),_-24px_0_64px_-28px_oklch(0_0_0/0.28)] sm:max-w-4xl dark:shadow-[0_0_0_1px_color-mix(in_oklch,var(--border)_80%,transparent),_-28px_0_72px_-24px_oklch(0_0_0/0.55)]"
+      hide-close
+      clear-backdrop
+      @open-auto-focus.prevent
+    >
       <header class="flex shrink-0 items-center gap-3 border-b border-border/70 px-5 py-3.5">
-        <span class="flex size-9 shrink-0 items-center justify-center bg-brand text-white shadow-glow"><SquarePen class="size-4" /></span>
+        <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand text-white shadow-glow"><SquarePen class="size-4" /></span>
         <div class="min-w-0 flex-1">
           <SheetTitle class="truncate text-base font-semibold">Create task</SheetTitle>
           <SheetDescription class="truncate text-xs">
@@ -57,7 +63,7 @@ function onCreated(issue: IssueDetail) {
           v-if="ui.createIssueDefaults"
           :key="ui.createIssueSession"
           ref="formRef"
-          class="min-h-full"
+          class="rise-in min-h-full"
           :defaults="ui.createIssueDefaults"
           @created="onCreated"
           @cancel="isOpen = false"
