@@ -4,17 +4,20 @@ import { differenceInMinutes, format, isSameDay, isToday, isYesterday, parseISO 
 import { Ban, Check, CheckCheck, Copy, Lock, Pencil, SendHorizontal, Trash2, X } from 'lucide-vue-next'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import EmojiStickerPicker from '@/components/common/EmojiStickerPicker.vue'
+import StickerBubble from '@/components/common/StickerBubble.vue'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
+import { isStickerMessage } from '@/lib/emoji-stickers'
 import { getErrorMessage } from '@/lib/http'
 import { getSocket } from '@/lib/realtime'
 import { useSocketEvents } from '@/lib/socket-events'
 import { useAuthStore } from '@/modules/auth/auth.store'
-import { type ChatMessage, type ConversationSummary, messagesApi } from '../messages.api'
+import { type ChatMessage, type ConversationSummary, type MessageReaction, REACTIONS, messagesApi } from '../messages.api'
 import { useMessagesStore } from '../messages.store'
 
 /** One conversation, WhatsApp style: your messages green on the right; direct chats show blue ticks once read. */
@@ -122,6 +125,19 @@ function onHidden(event: { conversationId: string; messageId: string }) {
   messages.value = messages.value.filter((item) => item.id !== event.messageId)
   if (editing.value?.id === event.messageId) cancelEdit()
 }
+function onReactions(event: { conversationId: string; messageId: string; reactions: MessageReaction[] }) {
+  if (event.conversationId !== props.conversation.id || !messages.value) return
+  messages.value = messages.value.map((item) => (item.id === event.messageId ? { ...item, reactions: event.reactions } : item))
+}
+
+async function react(message: ChatMessage, emoji: string) {
+  if (message.deletedAt) return
+  try {
+    onReactions({ conversationId: props.conversation.id, ...(await messagesApi.react(props.conversation.id, message.id, emoji)) })
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  }
+}
 
 /** Who is typing (direct chats broadcast the same socket event as channels). */
 const typers = ref(new Map<string, { name: string; until: number }>())
@@ -155,6 +171,7 @@ useSocketEvents(
     'conversation:read': onRead,
     'conversation:cleared': onCleared,
     'conversation:hidden': onHidden,
+    'conversation:reactions': onReactions,
     'conversation:typing': onTyping,
   },
   {
@@ -191,6 +208,36 @@ async function submit() {
       autosize()
       onMessage(message)
     }
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isSending.value = false
+    input.value?.focus()
+  }
+}
+
+async function insertAtCaret(value: string) {
+  const element = input.value
+  if (!element) {
+    draft.value += value
+    return
+  }
+  const start = element.selectionStart
+  const before = `${draft.value.slice(0, start)}${value}`
+  draft.value = before + draft.value.slice(element.selectionEnd)
+  await nextTick()
+  element.focus()
+  element.setSelectionRange(before.length, before.length)
+  autosize()
+}
+
+/** Stickers always send as their own card message (never mixed into typed text). */
+async function onSticker(token: string) {
+  if (isSending.value || editing.value) return
+  isSending.value = true
+  try {
+    const message = await messagesApi.send(props.conversation.id, token)
+    onMessage(message)
   } catch (error) {
     toast.error(getErrorMessage(error))
   } finally {
@@ -386,6 +433,9 @@ const notice = computed(() =>
             <p v-if="message.deletedAt" class="flex items-center gap-1.5 pr-12 text-[13.5px] text-muted-foreground italic">
               <Ban class="size-3.5 shrink-0" /> {{ isMine(message) ? 'You deleted this message' : 'This message was deleted' }}
             </p>
+            <div v-else-if="isStickerMessage(message.body)" class="relative py-1 pr-14">
+              <StickerBubble :body="message.body" />
+            </div>
             <p v-else class="whitespace-pre-wrap break-words">
               {{ message.body }}<span class="inline-block" :class="isMine(message) ? (message.editedAt ? 'w-[7.25rem]' : 'w-[4.25rem]') : message.editedAt ? 'w-[5.75rem]' : 'w-12'" />
             </p>
@@ -397,19 +447,52 @@ const notice = computed(() =>
                 <Check v-else class="size-4" aria-label="Sent" />
               </template>
             </span>
+
+            <div v-if="message.reactions?.length && !message.deletedAt" class="mt-1 mb-0.5 flex flex-wrap gap-1 pr-14">
+              <button
+                v-for="reaction in message.reactions"
+                :key="reaction.emoji"
+                type="button"
+                class="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-xs tabular-nums transition-colors"
+                :class="
+                  reaction.userIds.includes(auth.user?.id ?? '')
+                    ? 'border-primary/50 bg-primary/10 font-semibold text-primary'
+                    : 'border-border bg-background/80 text-muted-foreground hover:border-input hover:text-foreground'
+                "
+                :aria-label="`React with ${reaction.emoji}`"
+                @click.stop="react(message, reaction.emoji)"
+              >
+                <span class="text-sm leading-none">{{ reaction.emoji }}</span> {{ reaction.userIds.length }}
+              </button>
+            </div>
           </div>
 
           <div
-            class="flex shrink-0 items-center gap-0.5 rounded-full bg-popover p-0.5 shadow-elevated ring-1 ring-border transition-opacity duration-150"
+            class="flex shrink-0 items-stretch overflow-hidden rounded-lg bg-popover shadow-elevated ring-1 ring-border transition-opacity duration-150"
             :class="activeId === message.id ? 'opacity-100' : 'opacity-100 sm:pointer-events-none sm:opacity-0 sm:group-hover/row:pointer-events-auto sm:group-hover/row:opacity-100 sm:focus-within:pointer-events-auto sm:focus-within:opacity-100'"
             role="toolbar"
             aria-label="Message actions"
           >
+            <template v-if="!message.deletedAt">
+              <button
+                v-for="emoji in REACTIONS"
+                :key="emoji"
+                type="button"
+                class="flex size-8 shrink-0 items-center justify-center text-base transition-colors hover:bg-accent"
+                :aria-label="`React with ${emoji}`"
+                :title="`React with ${emoji}`"
+                @click.stop="react(message, emoji)"
+              >
+                {{ emoji }}
+              </button>
+              <EmojiStickerPicker context="react" trigger-class="h-8" @emoji="react(message, $event)" @sticker="onSticker" />
+              <span class="my-1.5 w-px shrink-0 self-stretch bg-border" />
+            </template>
             <Tooltip v-for="action in actionsFor(message)" :key="action.label">
               <TooltipTrigger as-child>
                 <button
                   type="button"
-                  class="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors"
+                  class="flex size-8 shrink-0 items-center justify-center text-muted-foreground transition-colors"
                   :class="action.danger ? 'hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/15 dark:hover:text-red-400' : 'hover:bg-accent hover:text-foreground'"
                   :aria-label="action.label"
                   @click.stop="action.run()"
@@ -448,13 +531,14 @@ const notice = computed(() =>
       </button>
     </div>
     <form class="flex shrink-0 items-end gap-2 border-t border-border bg-background px-3 py-2.5" @submit.prevent="submit">
-      <div class="flex min-h-10 flex-1 items-center rounded-xl border border-border bg-card px-4 shadow-soft transition-colors focus-within:border-ring/60 focus-within:ring-[3px] focus-within:ring-ring/15">
+      <div class="flex min-h-10 flex-1 items-center gap-1 rounded-xl border border-border bg-card py-0.5 pr-2 pl-2 shadow-soft transition-colors focus-within:border-ring/60 focus-within:ring-[3px] focus-within:ring-ring/15">
+        <EmojiStickerPicker class="shrink-0" @emoji="insertAtCaret" @sticker="onSticker" />
         <textarea
           ref="input"
           v-model="draft"
           rows="1"
           maxlength="4000"
-          class="max-h-32 flex-1 resize-none bg-transparent py-2.5 text-[14px] leading-5 text-foreground outline-none placeholder:text-muted-foreground"
+          class="max-h-32 min-w-0 flex-1 resize-none bg-transparent py-2.5 text-[14px] leading-5 text-foreground outline-none placeholder:text-muted-foreground"
           placeholder="Type a message"
           aria-label="Message"
           title="Enter to send · Shift + Enter for a new line"

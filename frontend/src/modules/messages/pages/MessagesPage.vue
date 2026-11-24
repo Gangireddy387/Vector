@@ -82,6 +82,7 @@ const confirm = useConfirm()
 const { isDesktop, isWide } = useDevice()
 const search = ref('')
 const thread = useTemplateRef<InstanceType<typeof ConversationThread>>('thread')
+const channelThread = useTemplateRef<InstanceType<typeof ChannelThread>>('channelThread')
 
 const canDirect = computed(() => auth.hasFeature('directMessages'))
 const canGroup = computed(() => auth.hasFeature('teamChat'))
@@ -97,6 +98,33 @@ async function loadConversations() {
 onMounted(() => void loadConversations())
 
 const selected = computed(() => store.conversations?.find((conversation) => conversation.id === props.conversationId) ?? null)
+
+async function clearActiveChat() {
+  if (selected.value?.kind === 'direct') {
+    thread.value?.clearChat()
+    return
+  }
+  if (channelThread.value) {
+    channelThread.value.clearChat()
+    return
+  }
+  // Files/Docs/Board tab — clear via API so the next Posts open is empty for you.
+  const conversation = selected.value
+  if (!conversation) return
+  const ok = await confirm({
+    title: 'Clear all messages?',
+    description: `All posts disappear for you in ${conversation.title}. Everyone else still sees them. This cannot be undone.`,
+    confirmLabel: 'Clear all',
+    destructive: true,
+  })
+  if (!ok) return
+  try {
+    store.upsert(await messagesApi.clear(conversation.id))
+    toast.success('Cleared for you')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  }
+}
 watch(
   () => props.conversationId ?? null,
   (id) => (store.openId = id),
@@ -660,7 +688,13 @@ async function leaveChannel(conversation: ConversationSummary) {
               <DropdownMenuItem v-if="selected.kind !== 'direct'" @select="view = 'docs'"><FileText /> Docs</DropdownMenuItem>
               <DropdownMenuItem v-if="selected.team" @select="view = 'board'"><Kanban /> Board</DropdownMenuItem>
               <DropdownMenuSeparator v-if="selected.kind !== 'direct'" />
-              <DropdownMenuItem v-if="selected.kind === 'direct'" variant="destructive" :disabled="thread?.isEmpty" @select="thread?.clearChat()"><Eraser /> Clear chat</DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                :disabled="selected.kind === 'direct' ? thread?.isEmpty : channelThread?.isEmpty"
+                @select="clearActiveChat"
+              >
+                <Eraser /> {{ selected.kind === 'direct' ? 'Clear chat' : 'Clear all' }}
+              </DropdownMenuItem>
               <DropdownMenuItem v-if="selected.kind === 'team'" @select="addChannel(selected.team?.id ?? null)"><Plus /> Add a channel</DropdownMenuItem>
               <DropdownMenuItem v-if="selected.kind === 'team' && selected.team" @select="router.push({ name: 'team', params: { teamId: selected.team.id } })">
                 <ExternalLink /> Open the team page
@@ -683,6 +717,7 @@ async function leaveChannel(conversation: ConversationSummary) {
           <ChannelBoard v-else-if="view === 'board'" :key="`board-${selected.id}`" :conversation="selected" class="min-h-0 flex-1" />
           <ChannelThread
             v-else
+            ref="channelThread"
             :key="`posts-${selected.id}`"
             :conversation="selected"
             :focus-post-id="focusPostId"

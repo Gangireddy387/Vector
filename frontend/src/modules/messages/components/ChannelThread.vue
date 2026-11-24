@@ -336,6 +336,21 @@ function startEdit(message: ChatMessage) {
 }
 
 async function remove(message: ChatMessage) {
+  if (message.deletedAt) {
+    const ok = await confirm({
+      title: 'Remove from your view?',
+      description: 'This deleted post disappears for you only. Everyone else still sees the placeholder.',
+      confirmLabel: 'Remove for me',
+      destructive: true,
+    })
+    if (ok) {
+      void attempt(async () => {
+        store.upsert(await messagesApi.hide(props.conversation.id, message.id))
+        onHidden({ conversationId: props.conversation.id, messageId: message.id })
+      })
+    }
+    return
+  }
   const replies = message.parentId ? 0 : (repliesOf.value.get(message.id)?.length ?? 0)
   const ok = await confirm({
     title: message.parentId ? 'Delete this reply?' : 'Delete this post?',
@@ -345,6 +360,26 @@ async function remove(message: ChatMessage) {
   })
   if (ok) void attempt(async () => onUpdated(await messagesApi.remove(props.conversation.id, message.id)))
 }
+
+/** Empties this channel for you; others keep every post. */
+async function clearChat() {
+  const ok = await confirm({
+    title: 'Clear all messages?',
+    description: `All posts disappear for you in ${channelName.value}. Everyone else still sees them. This cannot be undone.`,
+    confirmLabel: 'Clear all',
+    destructive: true,
+  })
+  if (!ok) return
+  try {
+    store.upsert(await messagesApi.clear(props.conversation.id))
+    onCleared({ conversationId: props.conversation.id })
+    toast.success('Cleared for you')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  }
+}
+
+defineExpose({ clearChat, isEmpty: computed(() => !messages.value?.length) })
 
 const dayLabel = (value: string) => {
   const date = parseISO(value)
@@ -372,8 +407,12 @@ const respondApproval = (message: ChatMessage, decision: 'approved' | 'rejected'
   void attempt(async () => onUpdated(await messagesApi.respondApproval(props.conversation.id, message.approval!.id, decision)))
 }
 
+const sendSticker = (token: string) =>
+  void attempt(async () => onMessage(await messagesApi.send(props.conversation.id, token)))
+
 const messageEvents = (message: ChatMessage) => ({
   react: (emoji: string) => react(message, emoji),
+  sticker: (token: string) => sendSticker(token),
   copy: () => copy(message),
   copyLink: () => copyLink(message),
   pin: () => togglePin(message),

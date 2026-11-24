@@ -259,6 +259,21 @@ async function react(message: ChatMessage, emoji: string) {
   }
 }
 
+async function sendSticker(token: string) {
+  if (isSending.value) return
+  isSending.value = true
+  try {
+    const { message, reply } = await chatApi.send(projectId.value, { body: token, fileIds: [] })
+    upsert(message)
+    if (reply) upsert(reply)
+    await scrollToBottom(true)
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isSending.value = false
+  }
+}
+
 const useCommand = (command: AssistantCommand) => {
   replyTo.value = null
   composer.value?.setText(command.name === 'status' ? '/status ' : `/${command.name}`)
@@ -423,6 +438,7 @@ const discussedTasks = computed(() => {
                 @copy-link="copyMessageLink(row.message)"
                 @reply="startReply(row.message)"
                 @react="(emoji) => react(row.message, emoji)"
+                @sticker="sendSticker"
               />
               <div v-if="row.replies.length" class="border-l border-border/70 ml-8 sm:ml-12">
                 <ChatMessageItem
@@ -443,6 +459,7 @@ const discussedTasks = computed(() => {
                   @quote="quoteMessage(reply)"
                   @copy-link="copyMessageLink(reply)"
                   @react="(emoji) => react(reply, emoji)"
+                  @sticker="sendSticker"
                 />
               </div>
             </template>

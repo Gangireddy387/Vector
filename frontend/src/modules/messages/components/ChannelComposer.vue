@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { AtSign, Bold, CircleAlert, Code, FileText, Heading, Italic, List, LoaderCircle, Paperclip, SendHorizontal, Smile, UsersRound, X } from 'lucide-vue-next'
+import { AtSign, Bold, CircleAlert, Code, FileText, Heading, Italic, List, LoaderCircle, Paperclip, SendHorizontal, UsersRound, X } from 'lucide-vue-next'
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { toast } from 'vue-sonner'
+import EmojiStickerPicker from '@/components/common/EmojiStickerPicker.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { getErrorMessage } from '@/lib/http'
 import { formatBytes } from '@/lib/utils'
 import type { UserSummary } from '@/types/models'
@@ -11,7 +11,6 @@ import { type ComposerExtras, type ConversationFile, EVERYONE_ID, messagesApi } 
 
 const MENTION_TOKEN = /@\[([^\]]+)\]\(([0-9a-f-]{36})\)/gi
 const MAX_FILES = 10
-const EMOJIS = ['😀', '😄', '😂', '🙂', '😉', '😍', '🤔', '😮', '😢', '😅', '🙏', '👏', '👍', '👎', '👌', '🙌', '💪', '🔥', '🎉', '✅', '❌', '⚠️', '🚀', '💡', '❤️', '⭐', '👀', '☕']
 
 /**
  * The box for a new post, a reply or an edit in a channel, like Teams: markdown formatting, emoji, @mentions of the
@@ -97,6 +96,18 @@ async function insertAtCaret(text: string, { replaceFrom }: { replaceFrom?: numb
   element.focus()
   element.setSelectionRange(before.length, before.length)
   autosize()
+}
+
+/** Stickers always send as their own card message (never mixed into typed text). */
+async function onSticker(token: string) {
+  if (isSending.value || isUploading.value) return
+  isSending.value = true
+  try {
+    await props.send(token, { subject: null, important: false, fileIds: [] })
+  } finally {
+    isSending.value = false
+    input.value?.focus()
+  }
 }
 
 async function choose(suggestion: Suggestion) {
@@ -378,25 +389,7 @@ defineExpose({
             </button>
             <span class="mx-0.5 h-4 w-px shrink-0 bg-border" />
           </template>
-          <Popover>
-            <PopoverTrigger as-child>
-              <button type="button" :class="toolButton" aria-label="Emoji" title="Emoji"><Smile class="size-4" /></button>
-            </PopoverTrigger>
-            <PopoverContent side="top" align="start" class="w-72 p-2">
-              <div class="grid grid-cols-7 gap-0.5">
-                <button
-                  v-for="emoji in EMOJIS"
-                  :key="emoji"
-                  type="button"
-                  class="flex size-9 items-center justify-center rounded-md text-xl transition-transform hover:scale-110 hover:bg-accent"
-                  :aria-label="`Insert ${emoji}`"
-                  @click="insertAtCaret(emoji)"
-                >
-                  {{ emoji }}
-                </button>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <EmojiStickerPicker @emoji="insertAtCaret" @sticker="onSticker" />
           <button v-if="people.length || allowEveryone" type="button" :class="toolButton" aria-label="Mention someone" title="Mention someone" @click="startMention"><AtSign class="size-4" /></button>
           <template v-if="canAttach">
             <button type="button" :class="toolButton" aria-label="Attach files" title="Attach files (or paste / drop them)" @click="filePicker?.click()"><Paperclip class="size-4" /></button>

@@ -1,8 +1,10 @@
 import { DataTypes, Model } from 'sequelize';
 import { sequelize } from '../../database/connection.js';
 
+import { REACTION_EMOJIS } from '../messages/reaction-emojis.js';
+
 export const CHAT_MESSAGE_KINDS = ['user', 'bot'];
-export const CHAT_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
+export const CHAT_REACTION_EMOJIS = REACTION_EMOJIS;
 
 /** A message in a project's team chat. Bot messages have no author and carry structured data in `meta`. */
 export class ChatMessage extends Model {}

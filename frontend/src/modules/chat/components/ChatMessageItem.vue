@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { format, isValid, parseISO } from 'date-fns'
-import { Bot, Copy, MessageSquareReply, Pencil, Quote, SmilePlus, Trash2 } from 'lucide-vue-next'
+import { Bot, Copy, MessageSquareReply, Pencil, Quote, Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import EmojiStickerPicker from '@/components/common/EmojiStickerPicker.vue'
 import RichText from '@/components/common/RichText.vue'
+import StickerBubble from '@/components/common/StickerBubble.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
+import { isStickerMessage } from '@/lib/emoji-stickers'
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import ChatAttachment from '@/modules/meetings/components/ChatAttachment.vue'
@@ -38,6 +40,7 @@ const emit = defineEmits<{
   copyLink: []
   reply: []
   react: [emoji: string]
+  sticker: [token: string]
 }>()
 
 const auth = useAuthStore()
@@ -111,7 +114,8 @@ function saveEdit() {
         </div>
       </div>
       <template v-else>
-        <RichText v-if="body" :source="body" :issue-keys="issueKeys" compact />
+        <StickerBubble v-if="body && isStickerMessage(body)" class="mt-0.5" :body="body" />
+        <RichText v-else-if="body" :source="body" :issue-keys="issueKeys" compact />
         <span v-if="message.editedAt" class="text-[11px] text-muted-foreground">(edited)</span>
         <div v-if="isBot && message.meta" class="mt-2 max-w-2xl">
           <AssistantCard :meta="message.meta" :project-id="projectId" :issue-keys="issueKeys" @use-command="(command) => emit('useCommand', command)" />
@@ -154,50 +158,34 @@ function saveEdit() {
           </TooltipTrigger>
           <TooltipContent side="top">{{ reactedBy(reaction.userIds) }}</TooltipContent>
         </Tooltip>
-        <Popover v-if="canPost">
-          <PopoverTrigger as-child>
-            <button type="button" class="inline-flex h-6 items-center rounded-full border border-dashed border-border px-1.5 text-muted-foreground hover:border-input hover:text-foreground" aria-label="Add a reaction">
-              <SmilePlus class="size-3.5" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent side="top" align="start" class="w-auto p-1">
-            <div class="flex gap-0.5">
-              <button
-                v-for="emoji in REACTIONS"
-                :key="emoji"
-                type="button"
-                class="flex size-9 items-center justify-center rounded-md text-xl transition-transform hover:scale-125 hover:bg-accent"
-                :aria-label="`React with ${emoji}`"
-                @click="emit('react', emoji)"
-              >
-                {{ emoji }}
-              </button>
-            </div>
-          </PopoverContent>
-        </Popover>
+        <EmojiStickerPicker v-if="canPost" context="react" @emoji="emit('react', $event)" @sticker="emit('sticker', $event)" />
       </div>
     </div>
 
-    <div v-if="!isEditing" class="absolute top-1 right-3 hidden items-center border bg-card shadow-soft group-focus-within:flex group-hover:flex">
+    <div
+      v-if="!isEditing"
+      class="absolute top-1 right-3 hidden items-stretch overflow-hidden rounded-lg border bg-card shadow-soft group-focus-within:flex group-hover:flex"
+    >
       <template v-if="canPost">
         <button
           v-for="emoji in REACTIONS"
           :key="emoji"
           type="button"
-          class="flex size-7 items-center justify-center text-base transition-transform hover:scale-125 hover:bg-accent"
+          class="flex size-8 shrink-0 items-center justify-center text-base transition-colors hover:bg-accent"
           :aria-label="`React with ${emoji}`"
           :title="`React with ${emoji}`"
           @click="emit('react', emoji)"
         >
           {{ emoji }}
         </button>
-        <span class="mx-0.5 h-4 w-px bg-border" />
-        <Button v-if="canReply" variant="ghost" size="icon-sm" aria-label="Reply" @click="emit('reply')"><MessageSquareReply /></Button>
-        <Button variant="ghost" size="icon-sm" aria-label="Quote message" @click="emit('quote')"><Quote /></Button>
+        <EmojiStickerPicker context="react" trigger-class="h-8" @emoji="emit('react', $event)" @sticker="emit('sticker', $event)" />
+        <span class="my-1.5 w-px shrink-0 self-stretch bg-border" />
+        <Button v-if="canReply" variant="ghost" size="icon-sm" class="rounded-none" aria-label="Reply" @click="emit('reply')"><MessageSquareReply /></Button>
+        <Button variant="ghost" size="icon-sm" class="rounded-none" aria-label="Quote message" @click="emit('quote')"><Quote /></Button>
       </template>
-      <Button variant="ghost" size="icon-sm" aria-label="Copy message link" @click="emit('copyLink')"><Copy /></Button>
-      <Button v-if="canEdit" variant="ghost" size="icon-sm" aria-label="Edit message" @click="startEditing"><Pencil /></Button>
-      <Button v-if="canDelete" variant="ghost" size="icon-sm" aria-label="Delete message" class="text-destructive" @click="emit('remove')"><Trash2 /></Button>
+      <Button variant="ghost" size="icon-sm" class="rounded-none" aria-label="Copy message link" @click="emit('copyLink')"><Copy /></Button>
+      <Button v-if="canEdit" variant="ghost" size="icon-sm" class="rounded-none" aria-label="Edit message" @click="startEditing"><Pencil /></Button>
+      <Button v-if="canDelete" variant="ghost" size="icon-sm" class="rounded-none text-destructive" aria-label="Delete message" @click="emit('remove')"><Trash2 /></Button>
     </div>
   </article>
 </template>

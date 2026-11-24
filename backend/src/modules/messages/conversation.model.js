@@ -93,7 +93,7 @@ ConversationMessage.init(
   },
 );
 
-export const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
+export { REACTION_EMOJIS } from './reaction-emojis.js';
 
 /** One person's reaction to a message (each emoji at most once per person). */
 export class ConversationReaction extends Model {}

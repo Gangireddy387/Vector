@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { format, isToday, parseISO } from 'date-fns'
-import { Ban, Bookmark, BookmarkCheck, CircleAlert, Copy, Ellipsis, EyeOff, Forward, History, Link2, ListTodo, Pencil, Pin, PinOff, SmilePlus, Trash2 } from 'lucide-vue-next'
+import { Ban, Bookmark, BookmarkCheck, CircleAlert, Copy, Ellipsis, EyeOff, Forward, History, Link2, ListTodo, Pencil, Pin, PinOff, Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import EmojiStickerPicker from '@/components/common/EmojiStickerPicker.vue'
 import MarkdownContent from '@/components/common/MarkdownContent.vue'
 import PersonCard from '@/components/common/PersonCard.vue'
+import StickerBubble from '@/components/common/StickerBubble.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
+import { isStickerMessage } from '@/lib/emoji-stickers'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useDevice } from '@/composables/useDevice'
 import ChatAttachment from '@/modules/meetings/components/ChatAttachment.vue'
@@ -34,6 +36,7 @@ const props = withDefaults(
 )
 const emit = defineEmits<{
   react: [emoji: string]
+  sticker: [token: string]
   copy: []
   copyLink: []
   pin: []
@@ -65,7 +68,8 @@ const timeLabel = (value: string) => {
   return isToday(date) ? format(date, 'HH:mm') : format(date, 'd MMM, HH:mm')
 }
 const resolveFile = (fileId: string) => messagesApi.fileLink(props.message.conversationId, fileId)
-const hoverButton = 'flex size-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+const hoverButton =
+  'flex size-8 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
 </script>
 
 <template>
@@ -113,7 +117,8 @@ const hoverButton = 'flex size-7 items-center justify-center rounded text-muted-
       <template v-else>
         <p v-if="message.important" class="mt-1 flex items-center gap-1 text-[11px] font-bold tracking-wide text-red-600 uppercase dark:text-red-400"><CircleAlert class="size-3.5" /> Important!</p>
         <h3 v-if="message.subject" class="mt-1 text-[15.5px] leading-snug font-semibold">{{ message.subject }}</h3>
-        <MarkdownContent v-if="message.body && !message.poll" :source="message.body" class="compact mt-0.5 break-words" :class="reply ? 'text-[13.5px]' : 'text-[14px]'" />
+        <StickerBubble v-if="message.body && !message.poll && isStickerMessage(message.body)" class="mt-1" :body="message.body" />
+        <MarkdownContent v-else-if="message.body && !message.poll" :source="message.body" class="compact mt-0.5 break-words" :class="reply ? 'text-[13.5px]' : 'text-[14px]'" />
         <MarkdownContent v-else-if="message.body && message.poll && message.body !== message.poll.question" :source="message.body" class="compact mt-0.5 break-words" :class="reply ? 'text-[13.5px]' : 'text-[14px]'" />
         <MessagePollCard v-if="message.poll && !message.deletedAt" :poll="message.poll" @vote="emit('votePoll', $event)" @close="emit('closePoll')" />
         <MessageApprovalCard v-if="message.approval && !message.deletedAt" :approval="message.approval" @respond="emit('respondApproval', $event)" />
@@ -141,34 +146,14 @@ const hoverButton = 'flex size-7 items-center justify-center rounded text-muted-
           </TooltipTrigger>
           <TooltipContent side="top">{{ reactedBy(reaction.userIds) }}</TooltipContent>
         </Tooltip>
-        <Popover>
-          <PopoverTrigger as-child>
-            <button type="button" class="inline-flex h-6 items-center rounded-full border border-dashed border-border px-1.5 text-muted-foreground hover:border-input hover:text-foreground" aria-label="Add a reaction">
-              <SmilePlus class="size-3.5" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent side="top" align="start" class="w-auto p-1">
-            <div class="flex gap-0.5">
-              <button
-                v-for="emoji in REACTIONS"
-                :key="emoji"
-                type="button"
-                class="flex size-9 items-center justify-center rounded-md text-xl transition-transform hover:scale-125 hover:bg-accent"
-                :aria-label="`React with ${emoji}`"
-                @click="emit('react', emoji)"
-              >
-                {{ emoji }}
-              </button>
-            </div>
-          </PopoverContent>
-        </Popover>
+        <EmojiStickerPicker context="react" @emoji="emit('react', $event)" @sticker="emit('sticker', $event)" />
       </div>
     </div>
 
     <!-- Desktop: hover bar. Phone: tap the post to reveal (no hover). -->
     <div
-      v-if="!message.deletedAt && !editing"
-      class="absolute right-3 flex items-center gap-0.5 rounded-lg bg-popover p-0.5 shadow-elevated ring-1 ring-border transition-opacity"
+      v-if="!editing"
+      class="absolute right-3 flex items-stretch overflow-hidden rounded-lg bg-popover shadow-elevated ring-1 ring-border transition-opacity"
       :class="[
         reply ? 'top-1' : 'top-1.5',
         isDesktop
@@ -181,41 +166,52 @@ const hoverButton = 'flex size-7 items-center justify-center rounded text-muted-
       :aria-label="reply ? 'Reply actions' : 'Post actions'"
       @click.stop
     >
-      <button
-        v-for="emoji in REACTIONS"
-        :key="emoji"
-        type="button"
-        class="flex size-7 items-center justify-center rounded text-base transition-transform hover:scale-125 hover:bg-accent"
-        :aria-label="`React with ${emoji}`"
-        :title="`React with ${emoji}`"
-        @click="emit('react', emoji)"
-      >
-        {{ emoji }}
-      </button>
-      <span class="mx-0.5 h-4 w-px bg-border" />
+      <template v-if="!message.deletedAt">
+        <button
+          v-for="emoji in REACTIONS"
+          :key="emoji"
+          type="button"
+          class="flex size-8 shrink-0 items-center justify-center text-base transition-colors hover:bg-accent"
+          :aria-label="`React with ${emoji}`"
+          :title="`React with ${emoji}`"
+          @click="emit('react', emoji)"
+        >
+          {{ emoji }}
+        </button>
+        <EmojiStickerPicker
+          context="react"
+          trigger-class="h-8"
+          @emoji="emit('react', $event)"
+          @sticker="emit('sticker', $event)"
+        />
+        <span class="my-1.5 w-px shrink-0 self-stretch bg-border" />
+      </template>
       <DropdownMenu>
         <DropdownMenuTrigger as-child>
           <button type="button" :class="hoverButton" aria-label="More options" title="More options"><Ellipsis class="size-4" /></button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" class="w-52">
-          <DropdownMenuItem @select="emit('toggleSaved')">
-            <BookmarkCheck v-if="saved" /><Bookmark v-else /> {{ saved ? 'Unsave this message' : 'Save this message' }}
-          </DropdownMenuItem>
-          <DropdownMenuItem v-if="!message.deletedAt" @select="emit('createTask')">
-            <ListTodo /> Create task from this
-          </DropdownMenuItem>
-          <DropdownMenuItem v-if="!message.deletedAt" @select="emit('forward')"><Forward /> Forward</DropdownMenuItem>
-          <DropdownMenuItem v-if="!reply" @select="emit('pin')">
-            <PinOff v-if="message.pinnedAt" /><Pin v-else /> {{ message.pinnedAt ? 'Unpin' : 'Pin to the top' }}
-          </DropdownMenuItem>
-          <DropdownMenuItem @select="emit('copyLink')"><Link2 /> Copy link</DropdownMenuItem>
-          <DropdownMenuItem v-if="message.body" @select="emit('copy')"><Copy /> Copy text</DropdownMenuItem>
-          <DropdownMenuItem v-if="message.editedAt && !message.deletedAt" @select="emit('showHistory')"><History /> View edit history</DropdownMenuItem>
-          <DropdownMenuItem v-if="!isMine" @select="emit('markUnread')"><EyeOff /> Mark as unread</DropdownMenuItem>
-          <template v-if="isMine">
-            <DropdownMenuSeparator />
-            <DropdownMenuItem v-if="message.body || message.subject" @select="emit('edit')"><Pencil /> Edit</DropdownMenuItem>
-            <DropdownMenuItem variant="destructive" @select="emit('remove')"><Trash2 /> Delete</DropdownMenuItem>
+          <template v-if="message.deletedAt">
+            <DropdownMenuItem variant="destructive" @select="emit('remove')"><Trash2 /> Remove from my view</DropdownMenuItem>
+          </template>
+          <template v-else>
+            <DropdownMenuItem @select="emit('toggleSaved')">
+              <BookmarkCheck v-if="saved" /><Bookmark v-else /> {{ saved ? 'Unsave this message' : 'Save this message' }}
+            </DropdownMenuItem>
+            <DropdownMenuItem @select="emit('createTask')"><ListTodo /> Create task from this</DropdownMenuItem>
+            <DropdownMenuItem @select="emit('forward')"><Forward /> Forward</DropdownMenuItem>
+            <DropdownMenuItem v-if="!reply" @select="emit('pin')">
+              <PinOff v-if="message.pinnedAt" /><Pin v-else /> {{ message.pinnedAt ? 'Unpin' : 'Pin to the top' }}
+            </DropdownMenuItem>
+            <DropdownMenuItem @select="emit('copyLink')"><Link2 /> Copy link</DropdownMenuItem>
+            <DropdownMenuItem v-if="message.body" @select="emit('copy')"><Copy /> Copy text</DropdownMenuItem>
+            <DropdownMenuItem v-if="message.editedAt" @select="emit('showHistory')"><History /> View edit history</DropdownMenuItem>
+            <DropdownMenuItem v-if="!isMine" @select="emit('markUnread')"><EyeOff /> Mark as unread</DropdownMenuItem>
+            <template v-if="isMine">
+              <DropdownMenuSeparator />
+              <DropdownMenuItem v-if="message.body || message.subject" @select="emit('edit')"><Pencil /> Edit</DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" @select="emit('remove')"><Trash2 /> Delete</DropdownMenuItem>
+            </template>
           </template>
         </DropdownMenuContent>
       </DropdownMenu>

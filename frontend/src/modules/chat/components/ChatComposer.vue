@@ -3,6 +3,7 @@ import { useDebounceFn } from '@vueuse/core'
 import { Bot, FileText, Hash, LoaderCircle, Paperclip, SendHorizontal, Slash, X } from 'lucide-vue-next'
 import { computed, nextTick, ref } from 'vue'
 import { toast } from 'vue-sonner'
+import EmojiStickerPicker from '@/components/common/EmojiStickerPicker.vue'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
@@ -114,6 +115,27 @@ async function replaceTrigger(insert: string) {
   el.focus()
   el.setSelectionRange(before.length, before.length)
   autosize()
+}
+
+async function insertAtCaret(value: string) {
+  const el = textarea.value
+  if (!el) {
+    text.value += value
+    return
+  }
+  const start = el.selectionStart
+  const before = `${text.value.slice(0, start)}${value}`
+  text.value = before + text.value.slice(el.selectionEnd)
+  await nextTick()
+  el.focus()
+  el.setSelectionRange(before.length, before.length)
+  autosize()
+}
+
+/** Stickers always send as their own card message (never mixed into typed text). */
+function onSticker(token: string) {
+  if (props.disabled || isUploading.value) return
+  emit('submit', { body: token, fileIds: [] })
 }
 
 function choose(suggestion: Suggestion) {
@@ -287,16 +309,19 @@ defineExpose({ setText, focus: () => textarea.value?.focus() })
       @drop.prevent="onDrop"
     >
       <div class="flex items-end gap-2 p-2">
-        <button
-          type="button"
-          class="mb-1 flex size-8 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
-          aria-label="Attach files"
-          title="Attach files (or paste / drop them)"
-          :disabled="disabled || pending.length >= MAX_FILES"
-          @click="filePicker?.click()"
-        >
-          <Paperclip class="size-4" />
-        </button>
+        <div class="mb-1 flex shrink-0 items-center gap-0.5">
+          <button
+            type="button"
+            class="flex size-8 items-center justify-center text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+            aria-label="Attach files"
+            title="Attach files (or paste / drop them)"
+            :disabled="disabled || pending.length >= MAX_FILES"
+            @click="filePicker?.click()"
+          >
+            <Paperclip class="size-4" />
+          </button>
+          <EmojiStickerPicker :disabled="disabled" @emoji="insertAtCaret" @sticker="onSticker" />
+        </div>
         <input
           ref="filePicker"
           type="file"
@@ -346,6 +371,7 @@ defineExpose({ setText, focus: () => textarea.value?.focus() })
       <span class="inline-flex items-center gap-1"><Hash class="size-3" /> link a task</span>
       <span class="inline-flex items-center gap-1"><Slash class="size-3" /> assistant commands</span>
       <span class="inline-flex items-center gap-1"><Paperclip class="size-3" /> attach</span>
+      <span>emoji inserts · stickers send</span>
     </p>
   </div>
 </template>
