@@ -173,7 +173,18 @@ onMounted(async () => {
 
     <template v-if="!searching">
       <div v-if="isLoading" class="space-y-3" aria-busy="true" aria-label="Loading meetings">
-        <Skeleton v-for="index in 3" :key="index" class="h-28 w-full rounded-xl" />
+        <article
+          v-for="index in 4"
+          :key="index"
+          class="flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-3.5 shadow-soft sm:flex-row sm:items-center sm:gap-4 sm:p-4"
+        >
+          <Skeleton class="size-11 shrink-0 rounded-lg sm:size-12" :delay="index" />
+          <div class="min-w-0 flex-1 space-y-2">
+            <Skeleton class="h-4 w-2/3 max-w-xs" :delay="index + 1" />
+            <Skeleton class="h-3 w-40" :delay="index + 2" />
+          </div>
+          <Skeleton class="hidden h-8 w-24 rounded-md sm:block" :delay="index + 3" />
+        </article>
       </div>
 
       <EmptyState

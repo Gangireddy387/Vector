@@ -429,6 +429,19 @@
   transform: translateY(-0.35rem) scale(0.995);
 }
 
+/* Soft crossfade for loading skeleton → content. */
+.fade-soft-enter-active,
+.fade-soft-leave-active {
+  transition:
+    opacity 280ms var(--ease-out-soft),
+    transform 280ms var(--ease-out-soft);
+}
+.fade-soft-enter-from,
+.fade-soft-leave-to {
+  opacity: 0;
+  transform: translateY(0.35rem);
+}
+
 /* Staggered list / card entrance — put on a grid or ul. */
 @utility stagger-in {
   & > * {
@@ -526,11 +539,15 @@
 
 @media (prefers-reduced-motion: reduce) {
   .page-enter-active,
-  .page-leave-active {
+  .page-leave-active,
+  .fade-soft-enter-active,
+  .fade-soft-leave-active {
     transition: none;
   }
   .page-enter-from,
-  .page-leave-to {
+  .page-leave-to,
+  .fade-soft-enter-from,
+  .fade-soft-leave-to {
     filter: none;
     transform: none;
   }

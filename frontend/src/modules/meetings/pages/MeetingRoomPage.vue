@@ -381,17 +381,50 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
 
 <template>
   <div class="flex h-full min-h-0 flex-col">
+    <Transition name="fade-soft" mode="out-in">
     <div
       v-if="isLoading"
-      class="grid w-full gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(18rem,1fr)]"
+      key="loading"
+      class="flex w-full flex-col gap-4 sm:gap-5"
       :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'"
+      aria-busy="true"
+      aria-label="Loading meeting"
     >
-      <Skeleton class="aspect-video w-full" />
-      <Skeleton class="h-80 w-full" />
+      <Skeleton class="h-4 w-28" :delay="0" />
+      <div class="grid w-full items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(18rem,1fr)]">
+        <div class="min-w-0 space-y-4">
+          <Skeleton class="h-44 w-full rounded-xl sm:h-52" :delay="1" />
+          <div class="overflow-hidden rounded-xl border border-border/70 bg-card p-4 shadow-soft">
+            <Skeleton class="h-4 w-32" :delay="2" />
+            <div class="mt-3 space-y-2">
+              <Skeleton v-for="index in 4" :key="index" class="h-10 w-full rounded-lg" :delay="3 + index" />
+            </div>
+          </div>
+        </div>
+        <div class="flex min-w-0 flex-col gap-4">
+          <div class="space-y-3 rounded-xl border border-border/70 bg-card p-4 shadow-soft">
+            <Skeleton class="h-6 w-3/4 max-w-xs" :delay="2" />
+            <Skeleton class="h-3 w-48" :delay="3" />
+            <Skeleton class="h-3 w-40" :delay="4" />
+            <Skeleton class="h-3 w-36" :delay="5" />
+          </div>
+          <div class="overflow-hidden rounded-xl border border-border/70 bg-card shadow-soft">
+            <div class="flex gap-2 border-b border-border px-4 py-3">
+              <Skeleton class="h-7 w-16 rounded-md" :delay="3" />
+              <Skeleton class="h-7 w-20 rounded-md" :delay="4" />
+              <Skeleton class="h-7 w-14 rounded-md" :delay="5" />
+            </div>
+            <div class="space-y-3 p-4">
+              <Skeleton v-for="index in 3" :key="index" class="h-12 w-full rounded-lg" :delay="6 + index" />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <CallView
       v-else-if="meeting && inThisCall"
+      key="call"
       v-model:panel-open="panelOpen"
       :title="meeting.title"
       :started-at="meeting.startedAt"
@@ -416,7 +449,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
     </CallView>
 
     <!-- Lobby, or the summary of a meeting that is over -->
-    <div v-else-if="meeting" class="min-h-0 flex-1 overflow-y-auto">
+    <div v-else-if="meeting" key="lobby" class="min-h-0 flex-1 overflow-y-auto rise-in">
       <div class="flex w-full flex-col gap-4 sm:gap-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
         <!-- Back link above the split so both columns share one top edge. -->
         <button type="button" class="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" @click="router.push({ name: 'meetings' })">
@@ -648,5 +681,6 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
