@@ -10,6 +10,7 @@ import { getErrorMessage } from '@/lib/http'
 import { PLAN_FEATURE_GROUPS, PLAN_FEATURES } from '@/lib/plan-features'
 import { type Plan, superAdminApi } from '../super-admin.api'
 import PlanEditorDialog from './PlanEditorDialog.vue'
+import PricingCurrencyPanel from './PricingCurrencyPanel.vue'
 
 /** Plans the super admin offers: limits and features, assigned to organizations on the Organizations tab. */
 const props = defineProps<{ plans: Plan[] | null }>()
@@ -40,6 +41,8 @@ const limitLabel = (value: number | null, noun: string) => (value === null ? `Un
 
 <template>
   <section class="space-y-3.5 sm:space-y-4">
+    <PricingCurrencyPanel @saved="emit('changed')" />
+
     <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       <p class="max-w-xl text-[13px] text-muted-foreground sm:text-sm">
         Plans decide which features and emails an organization gets and how many people and projects it may have. Changes apply right away.

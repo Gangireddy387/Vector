@@ -203,7 +203,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
         :locked="messagesLink.locked"
       />
 
-      <!-- Rhythm: standup, calendar and meetings that close the loop -->
+      <!-- Workday: standup, calendar, meetings, and related day-to-day tools -->
       <button
         v-if="!isCollapsed"
         type="button"
@@ -211,7 +211,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
         :aria-expanded="!folded.workspace"
         @click="toggle('workspace')"
       >
-        Rhythm
+        Workday
         <ChevronRight class="size-3 transition-transform" :class="!folded.workspace && 'rotate-90'" />
       </button>
       <div v-else class="mx-2 my-3 border-t border-sidebar-border" />
@@ -231,7 +231,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
         </template>
       </template>
 
-      <!-- Projects: same fold control as Rhythm; + still creates a project -->
+      <!-- Projects: same fold control as Workday; + still creates a project -->
       <div v-if="!isCollapsed" class="group/section mt-4 mb-0.5 flex h-6 items-center gap-0.5 pr-1">
         <button
           type="button"

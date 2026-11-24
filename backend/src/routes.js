@@ -46,6 +46,7 @@ import templateRoutes from './modules/templates/template.routes.js';
 import { avatarRoutes, publicAvatarRoutes } from './modules/users/avatar.routes.js';
 import { publicShowcaseRoutes, showcaseAdminRoutes } from './modules/marketing/showcase.routes.js';
 import { publicLegalRoutes, legalAdminRoutes } from './modules/legal/legal.routes.js';
+import { publicPricingRoutes, pricingAdminRoutes } from './modules/plans/pricing.routes.js';
 import { publicRingtoneRoutes, ringtoneRoutes } from './modules/users/ringtone.routes.js';
 import userRoutes from './modules/users/user.routes.js';
 import worklogRoutes from './modules/worklogs/worklog.routes.js';
@@ -69,6 +70,7 @@ export function createApiRouter() {
   router.use(publicAvatarRoutes);
   router.use(publicShowcaseRoutes);
   router.use(publicLegalRoutes);
+  router.use(publicPricingRoutes);
   router.use(publicRingtoneRoutes);
   router.use(publicOrganizationRoutes);
   router.use(publicMeetingRoutes);
@@ -98,6 +100,7 @@ export function createApiRouter() {
   router.use(superAdminRoutes);
   router.use(showcaseAdminRoutes);
   router.use(legalAdminRoutes);
+  router.use(pricingAdminRoutes);
   router.use(supportCallRoutes);
 
   // Everything below works inside the signed-in person's current organization.

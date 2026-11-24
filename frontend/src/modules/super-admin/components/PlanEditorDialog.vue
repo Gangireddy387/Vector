@@ -86,7 +86,12 @@ async function save() {
           <FormField label="Plan name" for="plan-name" :error="fieldErrors.name">
             <Input id="plan-name" v-model="form.name" placeholder="e.g. Pro" maxlength="60" required />
           </FormField>
-          <FormField label="Price label" for="plan-price" hint="Display only, e.g. “₹999 / month”." :error="fieldErrors.priceLabel">
+          <FormField
+            label="Price label"
+            for="plan-price"
+            hint="Display only. For Pro and Enterprise, prefer the Plans “List price currency” amounts (₹ or $); custom labels still work here."
+            :error="fieldErrors.priceLabel"
+          >
             <Input id="plan-price" v-model="form.priceLabel" placeholder="Free" maxlength="60" />
           </FormField>
         </div>

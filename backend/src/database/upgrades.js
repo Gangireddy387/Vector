@@ -93,6 +93,7 @@ const ADDED_COLUMNS = [
     definition: { type: DataTypes.JSON, allowNull: false, defaultValue: [] },
   },
   { table: 'workspace_settings', column: 'legal', definition: { type: DataTypes.JSON, allowNull: true } },
+  { table: 'workspace_settings', column: 'pricing', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'showcase_portraits', column: 'role', definition: { type: DataTypes.STRING(80), allowNull: false, defaultValue: '' } },
   { table: 'showcase_portraits', column: 'feedback', definition: { type: DataTypes.STRING(280), allowNull: false, defaultValue: '' } },
   { table: 'organizations', column: 'retention', definition: { type: DataTypes.JSON, allowNull: true } },

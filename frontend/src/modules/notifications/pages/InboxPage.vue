@@ -1,7 +1,21 @@
 <script setup lang="ts">
-import { useOnline } from '@vueuse/core'
+import { useOnline, useStorage } from '@vueuse/core'
 import { format, isThisWeek, isToday, isYesterday, parseISO } from 'date-fns'
-import { ArrowLeft, ArrowUpRight, BellOff, CheckCheck, EllipsisVertical, Eraser, Inbox, MessageCircle, Search, Trash2 } from 'lucide-vue-next'
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  BellOff,
+  CheckCheck,
+  EllipsisVertical,
+  Eraser,
+  Inbox,
+  LayoutList,
+  MessageCircle,
+  PanelLeft,
+  PanelLeftClose,
+  Search,
+  Trash2,
+} from 'lucide-vue-next'
 import { computed, defineAsyncComponent, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -36,6 +50,9 @@ const filter = ref<InboxFilter>('all')
 const supportChat = useTemplateRef<InstanceType<typeof SupportChatThread>>('supportChat')
 const search = ref('')
 const selectedKey = ref<string | null>(null)
+/** Persist pane visibility so Reminders / Inbox reading can reclaim width. */
+const folderOpen = useStorage('vector.inbox.folderOpen', true)
+const listOpen = useStorage('vector.inbox.listOpen', true)
 
 onMounted(() => void notifications.fetchNotifications().catch(() => undefined))
 
@@ -176,12 +193,18 @@ const listTime = (notification: AppNotification) => {
 }
 
 /**
- * Folder rail: always when browsing (no selection) on desktop/tablet.
- * While reading, only from xl — at ~1024 the rail + list steal the detail pane.
+ * Folder rail: when browsing on desktop/tablet, or while reading from xl —
+ * unless the user hid it. At ~1024 the rail still auto-hides while reading.
  */
-const showFolderRail = computed(() => isDesktop.value && (!selected.value || isTable.value))
+const showFolderRail = computed(
+  () => folderOpen.value && isDesktop.value && (!selected.value || isTable.value),
+)
 /** Reading pane only on desktop/tablet shells — phones navigate out. */
 const reading = computed(() => (isDesktop.value ? selected.value : null))
+/** Hide notification list while reading so the detail pane goes full width (Wiki-style). */
+const listCollapsed = computed(() => isWide.value && Boolean(reading.value) && !listOpen.value)
+const foldersHiddenWhileReading = computed(() => Boolean(reading.value) && isTable.value && !folderOpen.value)
+const showPaneRestores = computed(() => listCollapsed.value || foldersHiddenWhileReading.value)
 
 const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
   all: { title: 'Nothing here yet', description: 'You will hear about tasks assigned to you, mentions, deadlines and work you watch.' },
@@ -235,7 +258,20 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         class="flex w-40 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border bg-muted/20 px-2 py-3 scrollbar-thin xl:w-[12.5rem]"
         aria-label="Inbox folders"
       >
-        <p class="mb-1.5 px-2.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Folders</p>
+        <div class="mb-1.5 flex items-center gap-1 px-1">
+          <p class="min-w-0 flex-1 px-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Folders</p>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            class="size-7 shrink-0 text-muted-foreground"
+            title="Hide folders"
+            aria-label="Hide folders"
+            @click="folderOpen = false"
+          >
+            <PanelLeftClose class="size-3.5" />
+          </Button>
+        </div>
         <button
           v-for="folder in folders"
           :key="folder.value"
@@ -267,6 +303,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
       <SplitPane
         require-selection
         :selected="Boolean(reading)"
+        :collapsed="listCollapsed"
         master-class="w-[min(20rem,36%)] shrink-0 xl:w-[min(24rem,34%)] 2xl:w-[26rem]"
         class="min-h-0 flex-1"
       >
@@ -305,9 +342,33 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
           </div>
 
           <Toolbar v-else variant="wrap" dense class="h-10 shrink-0 border-b border-border/70 px-3">
+            <Button
+              v-if="!showFolderRail && isDesktop && (!reading || isTable)"
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              class="size-7 shrink-0"
+              title="Show folders"
+              aria-label="Show folders"
+              @click="folderOpen = true"
+            >
+              <PanelLeft class="size-3.5" />
+            </Button>
             <component :is="activeFolder.icon" class="size-3.5 text-primary" />
             <p class="min-w-0 flex-1 truncate text-[13px] font-semibold">{{ activeFolder.label }}</p>
             <span class="text-[11px] text-muted-foreground tabular-nums">{{ entries.length }}</span>
+            <Button
+              v-if="isWide && reading"
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              class="size-7 shrink-0 text-muted-foreground"
+              title="Hide list"
+              aria-label="Hide notification list"
+              @click="listOpen = false"
+            >
+              <PanelLeftClose class="size-3.5" />
+            </Button>
           </Toolbar>
 
           <div class="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
@@ -405,6 +466,34 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
             <article v-if="paneMode === 'chat'" class="flex min-h-0 min-w-0 flex-1 flex-col">
               <Toolbar variant="wrap" dense class="h-12 shrink-0 border-b border-border px-3 sm:gap-3 sm:px-4">
                 <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
+                <template v-if="showPaneRestores">
+                  <Button
+                    v-if="foldersHiddenWhileReading"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="h-8 shrink-0 gap-1.5"
+                    title="Show folders"
+                    aria-label="Show folders"
+                    @click="folderOpen = true"
+                  >
+                    <PanelLeft class="size-3.5" />
+                    <span class="hidden sm:inline">Folders</span>
+                  </Button>
+                  <Button
+                    v-if="listCollapsed"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="h-8 shrink-0 gap-1.5"
+                    title="Show notification list"
+                    aria-label="Show notification list"
+                    @click="listOpen = true"
+                  >
+                    <LayoutList class="size-3.5" />
+                    <span class="hidden sm:inline">List</span>
+                  </Button>
+                </template>
                 <span class="flex size-9 items-center justify-center rounded-lg" :class="kindOf('support_message').tone"><MessageCircle class="size-4" /></span>
                 <span class="min-w-0 flex-1">
                   <span class="block text-sm font-semibold">Vector team</span>
@@ -433,13 +522,70 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
               />
             </article>
 
-            <article v-else-if="paneMode === 'task'" class="min-h-0 min-w-0 flex-1 overflow-hidden">
-              <IssueDetailView :key="taskKey!" :issue-key="taskKey!" mode="panel" class="h-full" @close="selectedKey = null" />
+            <article v-else-if="paneMode === 'task'" class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <Toolbar v-if="showPaneRestores" variant="wrap" dense class="h-10 shrink-0 border-b border-border px-3 sm:px-4">
+                <Button
+                  v-if="foldersHiddenWhileReading"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  class="h-8 shrink-0 gap-1.5"
+                  title="Show folders"
+                  aria-label="Show folders"
+                  @click="folderOpen = true"
+                >
+                  <PanelLeft class="size-3.5" />
+                  <span class="hidden sm:inline">Folders</span>
+                </Button>
+                <Button
+                  v-if="listCollapsed"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  class="h-8 shrink-0 gap-1.5"
+                  title="Show notification list"
+                  aria-label="Show notification list"
+                  @click="listOpen = true"
+                >
+                  <LayoutList class="size-3.5" />
+                  <span class="hidden sm:inline">List</span>
+                </Button>
+                <span class="min-w-0 flex-1 truncate text-xs text-muted-foreground">Reading with more space</span>
+              </Toolbar>
+              <IssueDetailView :key="taskKey!" :issue-key="taskKey!" mode="panel" class="min-h-0 flex-1" @close="selectedKey = null" />
             </article>
 
             <article v-else-if="paneMode === 'project-chat'" class="flex min-h-0 min-w-0 flex-1 flex-col">
               <Toolbar variant="wrap" dense class="h-12 shrink-0 border-b border-border px-3 sm:gap-2.5 sm:px-4">
                 <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
+                <template v-if="showPaneRestores">
+                  <Button
+                    v-if="foldersHiddenWhileReading"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="h-8 shrink-0 gap-1.5"
+                    title="Show folders"
+                    aria-label="Show folders"
+                    @click="folderOpen = true"
+                  >
+                    <PanelLeft class="size-3.5" />
+                    <span class="hidden sm:inline">Folders</span>
+                  </Button>
+                  <Button
+                    v-if="listCollapsed"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="h-8 shrink-0 gap-1.5"
+                    title="Show notification list"
+                    aria-label="Show notification list"
+                    @click="listOpen = true"
+                  >
+                    <LayoutList class="size-3.5" />
+                    <span class="hidden sm:inline">List</span>
+                  </Button>
+                </template>
                 <UserAvatar v-if="reading.latest.actor" :user="reading.latest.actor" size="md" class="size-7" />
                 <span class="min-w-0 flex-1">
                   <span class="block truncate text-[13px] font-semibold">{{ reading.latest.title }}</span>
@@ -454,9 +600,37 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
             </article>
 
             <article v-else class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-              <Toolbar v-if="!isWide" variant="wrap" dense class="h-12 shrink-0 border-b border-border px-3">
-                <Button variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
-                <span class="truncate text-sm font-semibold">Notification</span>
+              <Toolbar v-if="!isWide || showPaneRestores" variant="wrap" dense class="h-12 shrink-0 border-b border-border px-3">
+                <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
+                <template v-if="showPaneRestores">
+                  <Button
+                    v-if="foldersHiddenWhileReading"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="h-8 shrink-0 gap-1.5"
+                    title="Show folders"
+                    aria-label="Show folders"
+                    @click="folderOpen = true"
+                  >
+                    <PanelLeft class="size-3.5" />
+                    <span class="hidden sm:inline">Folders</span>
+                  </Button>
+                  <Button
+                    v-if="listCollapsed"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="h-8 shrink-0 gap-1.5"
+                    title="Show notification list"
+                    aria-label="Show notification list"
+                    @click="listOpen = true"
+                  >
+                    <LayoutList class="size-3.5" />
+                    <span class="hidden sm:inline">List</span>
+                  </Button>
+                </template>
+                <span v-if="!isWide" class="truncate text-sm font-semibold">Notification</span>
               </Toolbar>
               <NotificationDetail
                 class="min-h-0 flex-1"

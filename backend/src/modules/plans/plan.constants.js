@@ -77,7 +77,7 @@ export const DEFAULT_PLANS = [
   {
     name: 'Enterprise',
     description: 'Everything, with no limits.',
-    priceLabel: 'Per seat',
+    priceLabel: '₹2499 / month',
     maxMembers: null,
     maxProjects: null,
     features: ALL_FEATURES,
