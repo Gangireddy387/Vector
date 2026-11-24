@@ -40,7 +40,7 @@ const hasFooter = computed(
 
 <template>
   <article
-    class="group/card relative cursor-pointer overflow-hidden rounded-lg border bg-card text-left shadow-[0_1px_2px_oklch(0_0_0/0.05)] transition-[box-shadow,border-color,transform] duration-150 hover:-translate-y-px hover:border-input hover:shadow-[0_6px_16px_-6px_oklch(0_0_0/0.18)] focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none active:translate-y-0 dark:shadow-none dark:hover:border-muted-foreground/30"
+    class="group/card relative block w-full shrink-0 cursor-pointer overflow-hidden rounded-lg border bg-card text-left shadow-[0_1px_2px_oklch(0_0_0/0.05)] transition-[box-shadow,border-color,transform] duration-150 hover:-translate-y-px hover:border-input hover:shadow-[0_6px_16px_-6px_oklch(0_0_0/0.18)] focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none active:translate-y-0 dark:shadow-none dark:hover:border-muted-foreground/30"
     :class="[isOverdue ? 'border-destructive/40' : 'border-border', compact ? 'px-2.5 py-2' : 'px-3 py-2.5', isDone && 'bg-card/70']"
     tabindex="0"
     :aria-label="`${issue.key} ${issue.title}${isDone ? ', done' : ''}`"

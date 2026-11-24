@@ -55,49 +55,58 @@ function onCardKey(event: KeyboardEvent, issue: Issue) {
   <div
     class="group/cell flex flex-col rounded-xl bg-muted/50 p-1.5 transition-colors dark:bg-muted/35"
     :class="[
-      fill || (dragging && editable) ? 'self-stretch' : 'self-start',
+      fill || (dragging && editable) ? 'min-h-0 self-stretch' : 'self-start',
       dragging && editable && 'bg-primary/[0.04] outline-1 outline-primary/25 outline-dashed dark:bg-primary/[0.06]',
     ]"
   >
-    <div class="relative flex flex-1 flex-col">
-    <p v-if="!issues.length" class="pointer-events-none absolute inset-x-0 top-0 flex h-12 items-center justify-center text-[11.5px] text-muted-foreground/70">
-      {{ dragging ? 'Drop here' : 'No tasks' }}
-    </p>
-    <VueDraggable
-      v-model="issues"
-      :group="group"
-      :animation="180"
-      :disabled="!editable"
-      ghost-class="board-ghost"
-      chosen-class="board-chosen"
-      drag-class="board-drag"
-      :data-status-id="status.id"
-      :data-lane="laneKey"
-      class="flex flex-1 flex-col gap-1.5"
-      :class="!issues.length || dragging ? 'min-h-12' : ''"
-      @start="emit('dragStart')"
-      @end="(event: SortableEvent) => emit('dragEnd', event)"
-    >
-      <BoardCard
-        v-for="issue in issues"
-        :key="issue.id"
-        :issue="issue"
-        :fields="view.fields"
-        :density="view.density"
-        :data-issue-id="issue.id"
-        :aria-keyshortcuts="editable ? 'Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown' : undefined"
-        @open="emit('open', $event)"
-        @keydown="onCardKey($event, issue)"
-      />
-    </VueDraggable>
+    <div class="relative flex min-h-0 flex-1 flex-col" :class="fill && 'overflow-hidden'">
+      <p
+        v-if="!issues.length"
+        class="pointer-events-none absolute inset-x-0 top-0 z-0 flex h-12 items-center justify-center text-[11.5px] text-muted-foreground/70"
+      >
+        {{ dragging ? 'Drop here' : 'No tasks' }}
+      </p>
+      <!-- Scroll on a wrapper — not on VueDraggable — or Sortable can stack cards with absolute offsets. -->
+      <div
+        class="relative z-[1] flex min-h-0 flex-1 flex-col"
+        :class="fill ? 'overflow-y-auto overscroll-contain scrollbar-thin' : ''"
+      >
+        <VueDraggable
+          v-model="issues"
+          :group="group"
+          :animation="180"
+          :disabled="!editable"
+          ghost-class="board-ghost"
+          chosen-class="board-chosen"
+          drag-class="board-drag"
+          :data-status-id="status.id"
+          :data-lane="laneKey"
+          class="flex flex-col gap-1.5"
+          :class="(!issues.length || dragging) && 'min-h-12'"
+          @start="emit('dragStart')"
+          @end="(event: SortableEvent) => emit('dragEnd', event)"
+        >
+          <BoardCard
+            v-for="issue in issues"
+            :key="issue.id"
+            :issue="issue"
+            :fields="view.fields"
+            :density="view.density"
+            :data-issue-id="issue.id"
+            :aria-keyshortcuts="editable ? 'Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown' : undefined"
+            @open="emit('open', $event)"
+            @keydown="onCardKey($event, issue)"
+          />
+        </VueDraggable>
+      </div>
     </div>
 
     <div
       v-if="editable"
-      class="pt-1"
+      class="shrink-0 pt-1"
       :class="
         fill &&
-        'sticky bottom-0 z-[1] -mx-1.5 mt-auto -mb-1.5 rounded-b-xl bg-[color-mix(in_oklch,var(--muted)_50%,var(--background))] px-1.5 pb-1.5 dark:bg-[color-mix(in_oklch,var(--muted)_35%,var(--background))]'
+        '-mx-1.5 -mb-1.5 rounded-b-xl bg-[color-mix(in_oklch,var(--muted)_50%,var(--background))] px-1.5 pb-1.5 dark:bg-[color-mix(in_oklch,var(--muted)_35%,var(--background))]'
       "
     >
       <div v-if="adding" class="flex items-start gap-1">

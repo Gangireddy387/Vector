@@ -14,7 +14,7 @@ const toggleSchema = z.object({
   /** Set a new password; empty string clears. Omit to leave unchanged. */
   password: z.union([z.string().min(4).max(72), z.literal('')]).optional(),
   /** ISO datetime or datetime-local string; null clears. */
-  expiresAt: z.union([z.string().min(1).max(40), z.null()]).optional(),
+  expiresAt: z.union([z.string().min(1).max(64), z.null()]).optional(),
   guestCommentsEnabled: z.boolean().optional(),
 });
 

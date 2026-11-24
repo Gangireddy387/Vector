@@ -29,6 +29,10 @@ publicShareRoutes.get('/share-links/:token', readLimiter, async (req, res) => {
   res.json(await service.getPublicShare(req.params.token, req.headers.authorization));
 });
 
+publicShareRoutes.get('/share-links/:token/issues/:issueId', readLimiter, async (req, res) => {
+  res.json(await service.getPublicShareIssue(req.params.token, req.headers.authorization, req.params.issueId));
+});
+
 publicShareRoutes.post('/share-links/:token/unlock', readLimiter, validate({ body: unlockSchema }), async (req, res) => {
   res.json(await service.unlockPublicShare(req.params.token, req.body.password));
 });

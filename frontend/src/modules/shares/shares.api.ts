@@ -59,6 +59,8 @@ export interface PublicSharePayload {
   locked?: boolean
   requiresPassword?: boolean
   accessToken?: string | null
+  /** ISO datetime when the link stops working; client hides the view at that moment. */
+  expiresAt?: string | null
   guestCommentsEnabled?: boolean
   comments?: PublicShareComment[]
   organization: { id: string; name: string; logoUrl: string | null }
@@ -113,6 +115,10 @@ export const sharesApi = {
       .then((r) => r.data.share),
   publicShare: (token: string) =>
     http.get<PublicSharePayload>(`/share-links/${token}`, { headers: shareAuthHeaders(token) }).then((r) => r.data),
+  publicShareIssue: (token: string, issueId: string) =>
+    http
+      .get<PublicSharePayload>(`/share-links/${token}/issues/${issueId}`, { headers: shareAuthHeaders(token) })
+      .then((r) => r.data),
   unlockShare: (token: string, password: string) =>
     http.post<PublicSharePayload>(`/share-links/${token}/unlock`, { password }).then((r) => {
       if (r.data.accessToken) writeShareAccessToken(token, r.data.accessToken)

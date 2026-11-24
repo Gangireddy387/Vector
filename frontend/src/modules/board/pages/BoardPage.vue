@@ -269,9 +269,12 @@ const shownLanes = computed(() => lanes.value.filter((lane) => view.value.groupB
 const columnIssues = (statusId: string) => filteredIssues.value.filter((issue) => issue.statusId === statusId)
 const columnPoints = (statusId: string) => columnIssues(statusId).reduce((total, issue) => total + (issue.storyPoints ?? 0), 0)
 const isCollapsed = (statusId: string) => view.value.collapsedColumns.includes(statusId)
-/** Narrower min on laptop so 4+ columns fit beside the sidebar without forcing a huge H-scroll. */
+/**
+ * Keep columns wide enough for full status names ("In Progress") + pts + actions.
+ * Below that width we H-scroll instead of compressing labels.
+ */
 const gridTemplate = computed(() =>
-  statuses.value.map((status) => (isCollapsed(status.id) ? '2.75rem' : 'minmax(13.5rem, 1fr)')).join(' '),
+  statuses.value.map((status) => (isCollapsed(status.id) ? '2.75rem' : 'minmax(17rem, 1fr)')).join(' '),
 )
 
 /** A task added in a cell gets its status and its swimlane's assignee, priority, type or epic. */
@@ -447,11 +450,11 @@ function moveOnMobile(issue: Issue, status: Status) {
     <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
     <div
       v-if="isLoading"
-      class="grid min-h-0 flex-1 auto-cols-[minmax(13.5rem,1fr)] grid-flow-col gap-3 overflow-x-auto p-3 sm:p-4"
+      class="grid min-h-0 flex-1 auto-cols-[minmax(17rem,1fr)] grid-flow-col gap-3 overflow-x-auto p-3 sm:p-4"
       aria-busy="true"
       aria-label="Loading board"
     >
-      <div v-for="index in 4" :key="index" class="flex min-w-[13.5rem] flex-col gap-2">
+      <div v-for="index in 4" :key="index" class="flex min-w-[17rem] flex-col gap-2">
         <Skeleton class="h-8 w-full rounded-lg" />
         <Skeleton class="h-20 w-full rounded-xl" />
         <Skeleton class="h-20 w-full rounded-xl" />
@@ -559,12 +562,20 @@ function moveOnMobile(issue: Issue, status: Status) {
           <button type="button" class="font-medium text-primary hover:underline" @click="filters = { search: '', assigneeIds: [] }">Clear filters</button>
         </p>
 
-        <div class="min-h-0 flex-1 overflow-auto scrollbar-thin" :class="isDragging && 'select-none'">
-          <!-- Without swimlanes the columns run down to the bottom of the board -->
+        <div
+          class="min-h-0 flex-1 scrollbar-thin"
+          :class="[
+            isDragging && 'select-none',
+            view.groupBy === 'none' ? 'overflow-x-auto overflow-y-hidden' : 'overflow-auto',
+          ]"
+        >
           <div
-            class="inline-grid min-w-full gap-x-2 px-3 pb-4 sm:gap-x-3 sm:px-4"
-            :class="view.groupBy === 'none' && 'min-h-full'"
-            :style="{ gridTemplateColumns: gridTemplate, gridTemplateRows: view.groupBy === 'none' ? 'auto 1fr' : undefined }"
+            class="inline-grid w-max min-w-full gap-x-2 px-3 sm:gap-x-3 sm:px-4"
+            :class="view.groupBy === 'none' ? 'h-full pb-3' : 'pb-4'"
+            :style="{
+              gridTemplateColumns: gridTemplate,
+              gridTemplateRows: view.groupBy === 'none' ? 'auto minmax(0, 1fr)' : undefined,
+            }"
           >
             <!-- Column headers stay pinned while the board scrolls -->
             <div class="sticky top-0 z-20 col-span-full grid gap-x-2 bg-background pt-3 pb-2 sm:gap-x-3" :style="{ gridTemplateColumns: gridTemplate }">

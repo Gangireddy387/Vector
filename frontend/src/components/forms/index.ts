@@ -1,6 +1,7 @@
 export { default as ColorField } from './ColorField.vue'
 export { default as DateField } from './DateField.vue'
 export { default as DatePicker } from './DatePicker.vue'
+export { default as DateTimePicker } from './DateTimePicker.vue'
 export { default as NumberField } from './NumberField.vue'
 export { default as SelectField } from './SelectField.vue'
 export { default as TimeField } from './TimeField.vue'

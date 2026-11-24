@@ -56,7 +56,7 @@ function describeShare(share) {
     token: share.token,
     createdAt: share.createdAt,
     hasPassword: Boolean(share.passwordHash),
-    expiresAt: share.expiresAt ?? null,
+    expiresAt: share.expiresAt ? new Date(share.expiresAt).toISOString() : null,
     guestCommentsEnabled: Boolean(share.guestCommentsEnabled),
   };
 }
@@ -294,8 +294,8 @@ async function loadBoardPayload(project) {
   };
 }
 
-async function loadIssuePayload(share, project) {
-  const issue = await Issue.findByPk(share.issueId, {
+async function loadPublicIssueDetail(project, issueId, { guestCommentsEnabled = false } = {}) {
+  const issue = await Issue.findByPk(issueId, {
     include: [
       { model: User, as: 'assignee', attributes: USER_SUMMARY_ATTRIBUTES },
       { model: User, as: 'reporter', attributes: USER_SUMMARY_ATTRIBUTES },
@@ -305,8 +305,19 @@ async function loadIssuePayload(share, project) {
       { model: Sprint, as: 'sprint', attributes: ['id', 'name', 'state'] },
     ],
   });
-  if (!issue || issue.projectId !== project.id) {
-    throw ApiError.notFound('This share link does not work any more.');
+  if (!issue || issue.projectId !== project.id || issue.type === 'epic') {
+    throw ApiError.notFound('Task not found on this share.');
+  }
+
+  // Board shares only expose the active sprint on scrum projects (same filter as the board list).
+  if (project.type === 'scrum') {
+    const active = await Sprint.findOne({
+      where: { projectId: project.id, state: 'active' },
+      attributes: ['id'],
+    });
+    if (active && issue.sprintId !== active.id) {
+      throw ApiError.notFound('Task not found on this share.');
+    }
   }
 
   const subtasks = await Issue.findAll({
@@ -316,16 +327,14 @@ async function loadIssuePayload(share, project) {
   });
 
   const [decorated] = await decorateIssues([issue]);
-  const comments = share.guestCommentsEnabled ? await listPublicComments(issue.id) : [];
-  const commentCount = share.guestCommentsEnabled
+  const comments = guestCommentsEnabled ? await listPublicComments(issue.id) : [];
+  const commentCount = guestCommentsEnabled
     ? comments.length
     : await Comment.count({ where: { issueId: issue.id, parentId: null } });
 
   return {
-    scope: 'issue',
-    guestCommentsEnabled: Boolean(share.guestCommentsEnabled),
+    guestCommentsEnabled: Boolean(guestCommentsEnabled),
     comments,
-    project: { id: project.id, key: project.key, name: project.name, color: project.color, type: project.type },
     issue: {
       ...publicIssueCard({ ...decorated, commentCount }),
       description: issue.description ?? null,
@@ -344,10 +353,23 @@ async function loadIssuePayload(share, project) {
   };
 }
 
+async function loadIssuePayload(share, project) {
+  const detail = await loadPublicIssueDetail(project, share.issueId, {
+    guestCommentsEnabled: Boolean(share.guestCommentsEnabled),
+  });
+  return {
+    scope: 'issue',
+    project: { id: project.id, key: project.key, name: project.name, color: project.color, type: project.type },
+    ...detail,
+  };
+}
+
 async function buildPublicPayload(share, organization, project) {
   const base = {
     locked: false,
     requiresPassword: false,
+    /** So the guest page can hide itself when this moment passes (without a refresh). */
+    expiresAt: share.expiresAt ? new Date(share.expiresAt).toISOString() : null,
     organization: { id: organization.id, name: organization.name, logoUrl: organization.logoUrl },
   };
   if (share.scope === 'board') return { ...base, ...(await loadBoardPayload(project)) };
@@ -368,6 +390,27 @@ export async function getPublicShare(token, authorization) {
     }
   }
   return buildPublicPayload(share, organization, project);
+}
+
+/**
+ * Open one task from a public board share (description, subtasks, etc.).
+ * Issue-scope links already return the full task in getPublicShare.
+ */
+export async function getPublicShareIssue(token, authorization, issueId) {
+  const { share, organization, project } = await resolveShare(token);
+  assertShareUnlocked(share, authorization);
+  if (share.scope !== 'board') {
+    throw ApiError.badRequest('Open the share link to view this task.');
+  }
+  const detail = await loadPublicIssueDetail(project, issueId, { guestCommentsEnabled: false });
+  return {
+    locked: false,
+    requiresPassword: false,
+    organization: { id: organization.id, name: organization.name, logoUrl: organization.logoUrl },
+    project: { id: project.id, key: project.key, name: project.name, color: project.color, type: project.type },
+    scope: 'issue',
+    ...detail,
+  };
 }
 
 /** Verify the share password and return an access token plus the unlocked payload. */

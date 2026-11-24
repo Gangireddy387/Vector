@@ -13,7 +13,7 @@ const open = defineModel<boolean>({ default: false })
         <DialogTitle>Share task</DialogTitle>
         <DialogDescription>Create a public link so people outside your organization can view this task.</DialogDescription>
       </DialogHeader>
-      <ShareLinkCard kind="issue" :target-id="issueId" />
+      <ShareLinkCard kind="issue" :target-id="issueId" dense />
     </DialogContent>
   </Dialog>
 </template>
