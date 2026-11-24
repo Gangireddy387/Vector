@@ -2,6 +2,7 @@
 import { ClipboardList, Lock, ListTodo, MessageCircle, Play, Video } from 'lucide-vue-next'
 import { computed, onMounted, useTemplateRef } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { featureLabel, type PlanFeatureKey } from '@/lib/plan-features'
 import RequestUpgradeButton from '@/modules/admin/components/RequestUpgradeButton.vue'
@@ -159,31 +160,37 @@ const ctaLabel = computed(() => {
     :class="highlight ? 'border-primary ring-2 ring-primary/25' : 'border-border'"
     aria-label="Your workday loop"
   >
-    <header class="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center">
-      <div class="min-w-0 flex-1">
-        <div class="flex flex-wrap items-center gap-2">
-          <h2 class="text-sm font-semibold">{{ highlight ? 'Start my day' : 'Workday loop' }}</h2>
-          <span class="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
-            {{ doneCount }}/{{ steps.length }}
-          </span>
-          <span v-if="highlight" class="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Welcome</span>
-        </div>
-        <p class="mt-0.5 text-xs text-muted-foreground">
-          {{
-            highlight
-              ? 'You’re in. Hit Start my day — standup, then tasks, meetings and messages.'
-              : allDone
-                ? 'You’re through today’s loop. Capture anything new or take a break.'
-                : 'Standup → tasks → meetings → messages — Vector’s daily rhythm.'
-          }}
-        </p>
-      </div>
-      <Button v-if="next && !allDone" size="sm" class="shrink-0 self-start sm:self-center" as-child>
-        <RouterLink :to="next.to"><Play /> {{ ctaLabel }}</RouterLink>
-      </Button>
-      <Button v-else size="sm" variant="outline" class="shrink-0 self-start sm:self-center" as-child>
-        <RouterLink :to="{ name: 'home' }">{{ ctaLabel }}</RouterLink>
-      </Button>
+    <header class="border-b border-border px-4 py-3">
+      <Toolbar justify="between" align="center">
+        <template #start>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="text-sm font-semibold">{{ highlight ? 'Start my day' : 'Workday loop' }}</h2>
+              <span class="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
+                {{ doneCount }}/{{ steps.length }}
+              </span>
+              <span v-if="highlight" class="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">Welcome</span>
+            </div>
+            <p class="mt-0.5 text-xs text-muted-foreground">
+              {{
+                highlight
+                  ? 'You’re in. Hit Start my day — standup, then tasks, meetings and messages.'
+                  : allDone
+                    ? 'You’re through today’s loop. Capture anything new or take a break.'
+                    : 'Standup → tasks → meetings → messages — Vector’s daily rhythm.'
+              }}
+            </p>
+          </div>
+        </template>
+        <template #end>
+          <Button v-if="next && !allDone" size="sm" as-child>
+            <RouterLink :to="next.to"><Play /> {{ ctaLabel }}</RouterLink>
+          </Button>
+          <Button v-else size="sm" variant="outline" as-child>
+            <RouterLink :to="{ name: 'home' }">{{ ctaLabel }}</RouterLink>
+          </Button>
+        </template>
+      </Toolbar>
     </header>
 
     <ol class="grid sm:grid-cols-2 lg:grid-cols-4 lg:divide-x lg:divide-border/70">
@@ -238,19 +245,25 @@ const ctaLabel = computed(() => {
 
     <div
       v-if="lockedSteps.length"
-      class="flex flex-col gap-2 border-t border-dashed border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center"
+      class="border-t border-dashed border-border bg-muted/30 px-4 py-3"
     >
-      <p class="min-w-0 flex-1 text-[12px] text-muted-foreground">
-        <Lock class="mr-1 inline size-3 align-text-bottom" />
-        Unlock {{ unlockLabel }} to complete the full workday loop
-        {{ auth.isOrganizationAdmin ? ' — upgrade once for the whole org.' : ' — ask an admin to upgrade.' }}
-      </p>
-      <RequestUpgradeButton v-if="auth.isOrganizationAdmin" target="pro" class="shrink-0" />
-      <Button v-else size="sm" variant="outline" class="shrink-0" as-child>
-        <RouterLink :to="{ name: 'feature-locked', query: { feature: lockedSteps[0]?.unlockFeature, from: 'loop' } }">
-          What’s locked
-        </RouterLink>
-      </Button>
+      <Toolbar dense justify="between" align="center">
+        <template #start>
+          <p class="min-w-0 flex-1 text-[12px] text-muted-foreground">
+            <Lock class="mr-1 inline size-3 align-text-bottom" />
+            Unlock {{ unlockLabel }} to complete the full workday loop
+            {{ auth.isOrganizationAdmin ? ' — upgrade once for the whole org.' : ' — ask an admin to upgrade.' }}
+          </p>
+        </template>
+        <template #end>
+          <RequestUpgradeButton v-if="auth.isOrganizationAdmin" target="pro" class="shrink-0" />
+          <Button v-else size="sm" variant="outline" class="shrink-0" as-child>
+            <RouterLink :to="{ name: 'feature-locked', query: { feature: lockedSteps[0]?.unlockFeature, from: 'loop' } }">
+              What’s locked
+            </RouterLink>
+          </Button>
+        </template>
+      </Toolbar>
     </div>
   </section>
 </template>

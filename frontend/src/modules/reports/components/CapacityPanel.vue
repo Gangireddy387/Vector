@@ -3,6 +3,8 @@ import { Gauge } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ResponsiveTable from '@/components/common/ResponsiveTable.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -118,21 +120,23 @@ watch([projectId, horizonWeeks], load, { immediate: true })
           Open work vs weekly capacity. Effort uses task estimates, otherwise story points (4h each), otherwise 1 day.
         </CardDescription>
       </CardHeader>
-      <CardContent class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-        <div v-if="!lockedProjectId" class="min-w-[12rem] flex-1 space-y-1.5">
-          <p class="text-xs font-medium text-muted-foreground">Project</p>
-          <SelectField v-model="projectId" :options="projectOptions" aria-label="Project" />
-        </div>
-        <div class="w-full space-y-1.5 sm:w-36">
-          <p class="text-xs font-medium text-muted-foreground">Horizon</p>
-          <SelectField v-model="horizonWeeks" :options="HORIZONS" aria-label="Capacity horizon" />
-        </div>
-        <div class="w-full space-y-1.5 sm:w-36">
-          <p class="text-xs font-medium text-muted-foreground">Hours / week</p>
-          <Input v-model="hoursPerWeek" type="number" min="1" max="168" aria-label="Hours per week" @change="load" />
-        </div>
-        <Button v-if="canSaveOrgCapacity" variant="outline" :loading="isSavingCapacity" @click="saveOrgDefault">Save as org default</Button>
-        <Button variant="ghost" :disabled="isLoading" @click="load">Refresh</Button>
+      <CardContent>
+        <Toolbar variant="stack" align="end" class="sm:items-end">
+          <div v-if="!lockedProjectId" class="min-w-0 w-full space-y-1.5 sm:min-w-[12rem] sm:flex-1">
+            <p class="text-xs font-medium text-muted-foreground">Project</p>
+            <SelectField v-model="projectId" :options="projectOptions" aria-label="Project" />
+          </div>
+          <div class="w-full space-y-1.5 sm:w-36">
+            <p class="text-xs font-medium text-muted-foreground">Horizon</p>
+            <SelectField v-model="horizonWeeks" :options="HORIZONS" aria-label="Capacity horizon" />
+          </div>
+          <div class="w-full space-y-1.5 sm:w-36">
+            <p class="text-xs font-medium text-muted-foreground">Hours / week</p>
+            <Input v-model="hoursPerWeek" type="number" min="1" max="168" aria-label="Hours per week" @change="load" />
+          </div>
+          <Button v-if="canSaveOrgCapacity" variant="outline" class="max-sm:w-full" :loading="isSavingCapacity" @click="saveOrgDefault">Save as org default</Button>
+          <Button variant="ghost" class="max-sm:w-full" :disabled="isLoading" @click="load">Refresh</Button>
+        </Toolbar>
       </CardContent>
     </Card>
 
@@ -172,65 +176,69 @@ watch([projectId, horizonWeeks], load, { immediate: true })
         </CardHeader>
         <CardContent class="px-0">
           <p v-if="!report.people.length" class="px-4 py-8 text-center text-sm text-muted-foreground">No people or open work in this scope.</p>
-          <ul v-else class="divide-y xl:hidden">
-            <li v-for="row in report.people" :key="row.user?.id ?? 'unassigned'" class="space-y-2 px-4 py-3">
-              <span class="flex min-w-0 items-center gap-2.5">
-                <UserAvatar :user="row.user" size="sm" />
-                <span class="min-w-0 flex-1 truncate" :class="!row.user && 'text-muted-foreground italic'">{{ row.user?.name ?? 'Unassigned' }}</span>
-                <span class="shrink-0 text-xs font-medium" :class="row.status === 'over' ? 'text-destructive' : 'text-muted-foreground'">{{ statusLabel(row.status) }}</span>
-              </span>
-              <span v-if="row.user" class="block h-1.5 bg-muted">
-                <span class="block h-full transition-[width]" :class="barClass(row.status)" :style="{ width: `${Math.min(100, row.utilization ?? 0)}%` }" />
-              </span>
-              <span class="grid grid-cols-3 gap-2 text-xs">
-                <span><span class="block text-muted-foreground">Load</span><span class="font-medium tabular-nums">{{ formatHours(row.loadMinutes) }}</span></span>
-                <span><span class="block text-muted-foreground">Open</span><span class="font-medium tabular-nums">{{ row.open }}</span></span>
-                <span><span class="block text-muted-foreground">Weeks</span><span class="font-medium tabular-nums">{{ row.weeksOfWork ?? '—' }}</span></span>
-              </span>
-            </li>
-          </ul>
-          <div v-if="report.people.length" class="hidden overflow-x-auto xl:block">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="border-y bg-muted/40 text-left text-xs font-medium text-muted-foreground">
-                  <th class="px-4 py-2 font-semibold">Person</th>
-                  <th class="w-1/3 px-3 py-2 font-semibold">Utilization</th>
-                  <th class="px-3 py-2 text-right font-semibold">Load</th>
-                  <th class="px-3 py-2 text-right font-semibold">Open</th>
-                  <th class="px-3 py-2 text-right font-semibold">Points</th>
-                  <th class="px-3 py-2 text-right font-semibold">Overdue</th>
-                  <th class="px-4 py-2 text-right font-semibold">Weeks of work</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y">
-                <tr v-for="row in report.people" :key="row.user?.id ?? 'unassigned'">
-                  <td class="px-4 py-2.5">
-                    <span class="flex items-center gap-2.5">
-                      <UserAvatar :user="row.user" size="sm" />
-                      <span class="min-w-0">
-                        <span class="block truncate" :class="!row.user && 'text-muted-foreground italic'">{{ row.user?.name ?? 'Unassigned' }}</span>
-                        <span class="text-[11px] text-muted-foreground">{{ statusLabel(row.status) }}</span>
+          <ResponsiveTable v-else>
+            <template #list>
+              <ul class="divide-y">
+                <li v-for="row in report.people" :key="row.user?.id ?? 'unassigned'" class="space-y-2 px-4 py-3">
+                  <span class="flex min-w-0 items-center gap-2.5">
+                    <UserAvatar :user="row.user" size="sm" />
+                    <span class="min-w-0 flex-1 truncate" :class="!row.user && 'text-muted-foreground italic'">{{ row.user?.name ?? 'Unassigned' }}</span>
+                    <span class="shrink-0 text-xs font-medium" :class="row.status === 'over' ? 'text-destructive' : 'text-muted-foreground'">{{ statusLabel(row.status) }}</span>
+                  </span>
+                  <span v-if="row.user" class="block h-1.5 bg-muted">
+                    <span class="block h-full transition-[width]" :class="barClass(row.status)" :style="{ width: `${Math.min(100, row.utilization ?? 0)}%` }" />
+                  </span>
+                  <span class="grid grid-cols-3 gap-2 text-xs">
+                    <span><span class="block text-muted-foreground">Load</span><span class="font-medium tabular-nums">{{ formatHours(row.loadMinutes) }}</span></span>
+                    <span><span class="block text-muted-foreground">Open</span><span class="font-medium tabular-nums">{{ row.open }}</span></span>
+                    <span><span class="block text-muted-foreground">Weeks</span><span class="font-medium tabular-nums">{{ row.weeksOfWork ?? '—' }}</span></span>
+                  </span>
+                </li>
+              </ul>
+            </template>
+            <template #table>
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-y bg-muted/40 text-left text-xs font-medium text-muted-foreground">
+                    <th class="px-4 py-2 font-semibold">Person</th>
+                    <th class="w-1/3 px-3 py-2 font-semibold">Utilization</th>
+                    <th class="px-3 py-2 text-right font-semibold">Load</th>
+                    <th class="px-3 py-2 text-right font-semibold">Open</th>
+                    <th class="px-3 py-2 text-right font-semibold">Points</th>
+                    <th class="px-3 py-2 text-right font-semibold">Overdue</th>
+                    <th class="px-4 py-2 text-right font-semibold">Weeks of work</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y">
+                  <tr v-for="row in report.people" :key="row.user?.id ?? 'unassigned'">
+                    <td class="px-4 py-2.5">
+                      <span class="flex items-center gap-2.5">
+                        <UserAvatar :user="row.user" size="sm" />
+                        <span class="min-w-0">
+                          <span class="block truncate" :class="!row.user && 'text-muted-foreground italic'">{{ row.user?.name ?? 'Unassigned' }}</span>
+                          <span class="text-[11px] text-muted-foreground">{{ statusLabel(row.status) }}</span>
+                        </span>
                       </span>
-                    </span>
-                  </td>
-                  <td class="px-3 py-2.5">
-                    <span v-if="row.user" class="flex items-center gap-2">
-                      <span class="h-2 flex-1 bg-muted">
-                        <span class="block h-full transition-[width]" :class="barClass(row.status)" :style="{ width: `${Math.min(100, row.utilization ?? 0)}%` }" />
+                    </td>
+                    <td class="px-3 py-2.5">
+                      <span v-if="row.user" class="flex items-center gap-2">
+                        <span class="h-2 flex-1 bg-muted">
+                          <span class="block h-full transition-[width]" :class="barClass(row.status)" :style="{ width: `${Math.min(100, row.utilization ?? 0)}%` }" />
+                        </span>
+                        <span class="w-10 text-right tabular-nums">{{ row.utilization }}%</span>
                       </span>
-                      <span class="w-10 text-right tabular-nums">{{ row.utilization }}%</span>
-                    </span>
-                    <span v-else class="text-muted-foreground">—</span>
-                  </td>
-                  <td class="px-3 py-2.5 text-right tabular-nums">{{ formatHours(row.loadMinutes) }}</td>
-                  <td class="px-3 py-2.5 text-right tabular-nums">{{ row.open }}</td>
-                  <td class="px-3 py-2.5 text-right text-muted-foreground tabular-nums">{{ row.openPoints || '—' }}</td>
-                  <td class="px-3 py-2.5 text-right tabular-nums" :class="row.overdue ? 'font-semibold text-destructive' : 'text-muted-foreground'">{{ row.overdue }}</td>
-                  <td class="px-4 py-2.5 text-right tabular-nums">{{ row.weeksOfWork ?? '—' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                      <span v-else class="text-muted-foreground">—</span>
+                    </td>
+                    <td class="px-3 py-2.5 text-right tabular-nums">{{ formatHours(row.loadMinutes) }}</td>
+                    <td class="px-3 py-2.5 text-right tabular-nums">{{ row.open }}</td>
+                    <td class="px-3 py-2.5 text-right text-muted-foreground tabular-nums">{{ row.openPoints || '—' }}</td>
+                    <td class="px-3 py-2.5 text-right tabular-nums" :class="row.overdue ? 'font-semibold text-destructive' : 'text-muted-foreground'">{{ row.overdue }}</td>
+                    <td class="px-4 py-2.5 text-right tabular-nums">{{ row.weeksOfWork ?? '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </template>
+          </ResponsiveTable>
         </CardContent>
       </Card>
     </template>

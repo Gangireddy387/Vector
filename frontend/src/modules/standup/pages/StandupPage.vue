@@ -5,6 +5,8 @@ import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { DatePicker } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -130,9 +132,9 @@ async function copySummary() {
 </script>
 
 <template>
-  <div class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <PageFrame mode="scroll" :tab-clearance="!isDesktop">
     <!-- Day navigation -->
-    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+    <Toolbar>
       <div class="flex min-w-0 flex-wrap items-center gap-1">
         <Button variant="outline" size="icon-sm" aria-label="Previous day" @click="shift(-1)"><ChevronLeft /></Button>
         <DatePicker
@@ -167,7 +169,7 @@ async function copySummary() {
         </div>
       </div>
       <Button variant="outline" size="sm" class="max-sm:w-full sm:ml-auto" :disabled="!day?.stats.posted" @click="copySummary"><ClipboardCopy /> Copy summary</Button>
-    </div>
+    </Toolbar>
 
     <p v-if="errorMessage" class="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
 
@@ -309,5 +311,5 @@ async function copySummary() {
         />
       </div>
     </template>
-  </div>
+  </PageFrame>
 </template>

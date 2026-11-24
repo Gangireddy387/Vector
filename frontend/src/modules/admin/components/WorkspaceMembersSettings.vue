@@ -3,6 +3,7 @@ import { useStorage } from '@vueuse/core'
 import { Crown, Ellipsis, FolderKanban, LayoutGrid, List, MailPlus, MessageCircle, Search, ShieldCheck, UserCheck, UserMinus, UserPlus, UserRound, UserX } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { toast } from 'vue-sonner'
 import PresenceBadge from '@/components/common/PresenceBadge.vue'
@@ -349,8 +350,8 @@ async function sendInvite() {
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-4">
-        <div class="flex flex-wrap items-center gap-2">
-          <div class="relative w-full sm:max-w-xs">
+        <Toolbar variant="wrap" dense>
+          <div class="relative w-full sm:max-w-xs sm:flex-1">
             <Search class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input v-model="search" placeholder="Search by name, title or email" class="pl-9" aria-label="Search people" />
           </div>
@@ -381,7 +382,7 @@ async function sendInvite() {
               <component :is="option.icon" class="size-3.5" /> {{ option.label }}
             </button>
           </div>
-        </div>
+        </Toolbar>
 
         <div v-if="!members" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           <Skeleton v-for="index in 8" :key="index" class="h-64 w-full" />
@@ -515,8 +516,8 @@ async function sendInvite() {
               :options="ROLE_OPTIONS"
               :disabled="member.id === auth.user?.id"
               size="sm"
-              class="w-36"
-              content-class="w-72"
+              class="w-full sm:w-36"
+              content-class="w-[min(18rem,calc(100vw-1.5rem))]"
               align="end"
               :aria-label="`Organization role of ${member.name}`"
               @update:model-value="(value) => value && value !== member.workspaceRole && changeRole(member, value as WorkspaceRole)"
@@ -527,8 +528,8 @@ async function sendInvite() {
               :options="customRoleOptions"
               :disabled="member.id === auth.user?.id"
               size="sm"
-              class="w-44"
-              content-class="w-80"
+              class="w-full sm:w-44"
+              content-class="w-[min(20rem,calc(100vw-1.5rem))]"
               align="end"
               :aria-label="`Custom role of ${member.name}`"
               @update:model-value="(value) => value !== (member.customRoleId ?? '') && changeCustomRole(member, String(value ?? ''))"

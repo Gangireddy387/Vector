@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { format, isToday, parseISO } from 'date-fns'
 import { CalendarCheck2, FolderKanban, ListTodo, MapPin, Plus, UserRound } from 'lucide-vue-next'
+import type { HTMLAttributes } from 'vue'
 import { computed } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
+import { cn } from '@/lib/utils'
 import type { Issue } from '@/types/models'
 import { type Clock, categoryInfo, durationMinutes, formatHours, hasStarted, isPastDay, timeLabel } from '../calendar-categories'
 import type { CalendarEvent } from '../calendar.api'
@@ -19,6 +21,7 @@ const props = withDefaults(
     /** Team mode: no create / tick, show owner. */
     readOnly?: boolean
     tasksLabel?: string
+    class?: HTMLAttributes['class']
   }>(),
   { readOnly: false, tasksLabel: 'Your tasks due' },
 )
@@ -46,7 +49,10 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
 </script>
 
 <template>
-  <section class="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft" aria-live="polite">
+  <section
+    :class="cn('flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft', props.class)"
+    aria-live="polite"
+  >
     <header class="shrink-0 space-y-3 border-b border-border/70 p-4">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">

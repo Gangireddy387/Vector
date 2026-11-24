@@ -14,6 +14,7 @@ import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useConfirm } from '@/composables/useConfirm'
+import PageFrame from '@/components/common/PageFrame.vue'
 import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -153,7 +154,7 @@ async function remove() {
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <PageFrame>
     <EmptyState
       v-if="loadError && structure.departments === null"
       :icon="Building2"
@@ -383,5 +384,5 @@ async function remove() {
         </TabsContent>
       </Tabs>
     </template>
-  </div>
+  </PageFrame>
 </template>

@@ -4,6 +4,8 @@ import { PartyPopper, RefreshCw, Share2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import IssueCard from '@/modules/issues/components/IssueCard.vue'
@@ -89,14 +91,14 @@ async function complete(issue: Issue) {
 </script>
 
 <template>
-  <div class="w-full space-y-3.5 p-3 sm:space-y-4">
-    <div class="flex flex-col gap-2 px-1 sm:flex-row sm:items-start sm:justify-between">
-      <div>
+  <PageFrame gap="none" tab-clearance class="space-y-3.5">
+    <header class="flex items-start justify-between gap-2 px-1">
+      <div class="min-w-0 flex-1">
         <p class="text-[11px] font-medium text-muted-foreground">Your workday</p>
         <p class="text-lg font-semibold">Hi {{ auth.user?.name?.split(' ')[0] }}</p>
         <p class="text-sm" :class="data?.stats?.overdue ? 'text-destructive' : 'text-muted-foreground'">{{ summary }}</p>
       </div>
-      <div class="flex self-end items-center gap-1 sm:self-start">
+      <Toolbar variant="wrap" dense class="w-auto shrink-0">
         <HomeCustomizeMenu
           :hidden="hiddenKeys"
           :customized="isCustomized"
@@ -112,8 +114,8 @@ async function complete(issue: Issue) {
           <Share2 />
         </Button>
         <Button variant="ghost" size="icon" aria-label="Refresh" @click="reload"><RefreshCw /></Button>
-      </div>
-    </div>
+      </Toolbar>
+    </header>
 
     <SetupChecklist v-if="data && show('setup')" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
     <HabitCoachCard v-if="data && show('habit')" :data="data" @create-project="isCreateProjectOpen = true" />
@@ -174,5 +176,5 @@ async function complete(issue: Issue) {
         </li>
       </ul>
     </template>
-  </div>
+  </PageFrame>
 </template>

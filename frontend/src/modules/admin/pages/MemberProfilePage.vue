@@ -26,6 +26,7 @@ import {
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PresenceBadge from '@/components/common/PresenceBadge.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
@@ -33,7 +34,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
-import { useDevice } from '@/composables/useDevice'
 import { formatDate, timeAgo } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
 import { PRESENCE_LOOK } from '@/lib/presence'
@@ -51,7 +51,6 @@ const props = defineProps<{ userId: string }>()
 
 const auth = useAuthStore()
 const confirm = useConfirm()
-const { isDesktop } = useDevice()
 const { copy } = useClipboard()
 const { canMessage, messagePerson, openingId } = useDirectMessage()
 
@@ -154,7 +153,7 @@ async function copyEmail() {
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <PageFrame>
     <RouterLink
       :to="{ name: 'workspace-admin', query: { tab: 'people' } }"
       class="mb-3 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -405,5 +404,5 @@ async function copyEmail() {
         </aside>
       </div>
     </div>
-  </div>
+  </PageFrame>
 </template>

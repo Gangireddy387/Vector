@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -86,10 +87,10 @@ async function save() {
       </div>
       <p v-if="draft.enabled && overnight" class="text-xs text-muted-foreground">Overnight window — quiet from {{ draft.start }} until {{ draft.end }} the next day.</p>
 
-      <div class="flex flex-wrap items-center gap-2">
-        <Button size="sm" :loading="saving" :disabled="!dirty" @click="save">Save quiet hours</Button>
+      <Toolbar variant="footer" dense>
         <Button v-if="dirty" size="sm" variant="ghost" :disabled="saving" @click="draft = { ...saved }">Reset</Button>
-      </div>
+        <Button size="sm" :loading="saving" :disabled="!dirty" @click="save">Save quiet hours</Button>
+      </Toolbar>
     </CardContent>
   </Card>
 </template>

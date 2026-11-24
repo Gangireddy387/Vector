@@ -5,6 +5,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatusBadge from '@/components/common/StatusBadge.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -211,7 +212,7 @@ const rowClass =
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <PageFrame>
     <PageHeader
       v-if="isDesktop"
       title="Search"
@@ -473,5 +474,5 @@ const rowClass =
         <Button variant="outline" :loading="isLoadingMore" @click="loadMore">Load more</Button>
       </div>
     </template>
-  </div>
+  </PageFrame>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CalendarRange, FolderKanban, RotateCcw, UserRound, Users } from 'lucide-vue-next'
 import { computed } from 'vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { DatePicker, SelectField, type SelectFieldOption } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { useDevice } from '@/composables/useDevice'
@@ -10,7 +11,7 @@ import type { ReportFilters } from '../reports.api'
 
 const props = defineProps<{ projects: Project[]; members: UserSummary[]; lockProject?: boolean }>()
 const filters = defineModel<ReportFilters>({ required: true })
-const { isDesktop, isWide } = useDevice()
+const { isWide } = useDevice()
 
 const PERIOD_OPTIONS: SelectFieldOption[] = [
   ...[7, 14, 30, 90, 180].map((days) => ({
@@ -94,9 +95,10 @@ function reset() {
 </script>
 
 <template>
-  <div
-    class="flex gap-2"
-    :class="isDesktop ? 'flex-wrap items-center' : 'w-full flex-col'"
+  <Toolbar
+    variant="wrap"
+    dense
+    class="w-full"
     role="group"
     aria-label="Report filters"
   >
@@ -105,7 +107,7 @@ function reset() {
       :model-value="filters.projectId ?? null"
       :options="projectOptions"
       size="sm"
-      class="max-sm:w-full sm:w-52"
+      class="w-full min-w-0 sm:w-52"
       aria-label="Project"
       @update:model-value="(value) => set('projectId', value ?? undefined)"
     />
@@ -113,7 +115,7 @@ function reset() {
       :model-value="periodValue"
       :options="PERIOD_OPTIONS"
       size="sm"
-      class="max-sm:w-full sm:w-44"
+      class="w-full min-w-0 sm:w-44"
       aria-label="Period"
       @update:model-value="setPeriod"
     />
@@ -121,7 +123,7 @@ function reset() {
       <DatePicker
         :model-value="filters.from!"
         size="sm"
-        class="max-sm:w-full sm:w-40"
+        class="w-full min-w-0 sm:w-40"
         :clearable="false"
         aria-label="From"
         @update:model-value="(value) => value && setCustomDate('from', value)"
@@ -130,7 +132,7 @@ function reset() {
       <DatePicker
         :model-value="filters.to!"
         size="sm"
-        class="max-sm:w-full sm:w-40"
+        class="w-full min-w-0 sm:w-40"
         :clearable="false"
         aria-label="To"
         @update:model-value="(value) => value && setCustomDate('to', value)"
@@ -140,7 +142,7 @@ function reset() {
       :model-value="filters.assigneeId ?? null"
       :options="assigneeOptions"
       size="sm"
-      class="max-sm:w-full sm:w-48"
+      class="w-full min-w-0 sm:w-48"
       aria-label="Assignee"
       @update:model-value="(value) => set('assigneeId', value ?? undefined)"
     />
@@ -149,7 +151,7 @@ function reset() {
       :model-value="filters.type ?? null"
       :options="typeOptions"
       size="sm"
-      class="max-sm:w-full sm:w-36"
+      class="w-full min-w-0 sm:w-36"
       aria-label="Task type"
       @update:model-value="(value) => set('type', value ?? undefined)"
     />
@@ -158,10 +160,10 @@ function reset() {
       :model-value="filters.priority ?? null"
       :options="priorityOptions"
       size="sm"
-      class="max-sm:w-full sm:w-40"
+      class="w-full min-w-0 sm:w-40"
       aria-label="Priority"
       @update:model-value="(value) => set('priority', value ?? undefined)"
     />
-    <Button v-if="isFiltered" variant="ghost" size="sm" :class="!isDesktop && 'w-full'" @click="reset"><RotateCcw /> Reset</Button>
-  </div>
+    <Button v-if="isFiltered" variant="ghost" size="sm" class="max-sm:w-full" @click="reset"><RotateCcw /> Reset</Button>
+  </Toolbar>
 </template>

@@ -88,7 +88,7 @@ async function removeLink(linkId: string) {
       <Input
         v-model="url"
         placeholder="https://github.com/org/repo/issues/12"
-        class="h-8 min-w-56 flex-1"
+        class="h-8 min-w-0 flex-1 sm:min-w-56"
         autofocus
       />
       <Button type="submit" size="sm" :loading="isSaving">Link</Button>

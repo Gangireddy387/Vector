@@ -3,7 +3,9 @@ import { AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, RefreshCw, User
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -68,7 +70,7 @@ const percent = (row: StandupRollupItem) => (row.expected ? Math.round((row.post
 </script>
 
 <template>
-  <div class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3 pb-2'">
+  <PageFrame mode="scroll" :tab-clearance="!isDesktop">
     <PageHeader
       v-if="isDesktop"
       title="Standup rollup"
@@ -82,14 +84,14 @@ const percent = (row: StandupRollupItem) => (row.expected ? Math.round((row.post
         <Button variant="outline" size="sm" :loading="isLoading" @click="load"><RefreshCw /> Refresh</Button>
       </template>
     </PageHeader>
-    <div v-else class="flex items-center justify-between gap-2 px-1">
+    <Toolbar v-else variant="wrap" dense justify="between" class="px-1">
       <p class="text-sm text-muted-foreground">
         <template v-if="rollupDate">{{ formatDate(rollupDate, 'EEE d MMM') }}</template>
         <template v-else>Projects you lead or admin</template>
         <template v-if="lastLoadedAt"> · {{ timeAgo(lastLoadedAt) }}</template>
       </p>
       <Button variant="ghost" size="icon-sm" aria-label="Refresh" @click="load"><RefreshCw /></Button>
-    </div>
+    </Toolbar>
 
     <div v-if="isLoading && !rows.length" class="space-y-3">
       <Skeleton v-for="index in 3" :key="index" class="h-28 w-full rounded-xl" />
@@ -230,5 +232,5 @@ const percent = (row: StandupRollupItem) => (row.expected ? Math.round((row.post
 
       <p v-if="!auth.hasFeature('chat')" class="text-xs text-muted-foreground">Standups need Team chat & standups on your plan.</p>
     </template>
-  </div>
+  </PageFrame>
 </template>

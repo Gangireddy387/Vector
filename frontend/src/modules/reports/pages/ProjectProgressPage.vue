@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import LineChart from '@/components/common/charts/LineChart.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -88,7 +89,7 @@ const burnupTooltips = computed(
 </script>
 
 <template>
-  <div class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <PageFrame mode="scroll">
     <MobileSectionSelect v-if="views.length > 1 && !isDesktop" v-model="view" :options="views" aria-label="Progress views" />
     <Tabs v-else-if="views.length > 1" v-model="view">
       <TabsList class="inline-flex h-9 flex-wrap">
@@ -166,5 +167,5 @@ const burnupTooltips = computed(
     </template>
 
     <TeamPerformance v-else-if="view === 'team'" :locked-project-id="projectId" />
-  </div>
+  </PageFrame>
 </template>

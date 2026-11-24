@@ -383,7 +383,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
   <div class="flex h-full min-h-0 flex-col">
     <div
       v-if="isLoading"
-      class="grid w-full gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr]"
+      class="grid w-full gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(18rem,1fr)]"
       :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'"
     >
       <Skeleton class="aspect-video w-full" />
@@ -417,15 +417,15 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
 
     <!-- Lobby, or the summary of a meeting that is over -->
     <div v-else-if="meeting" class="min-h-0 flex-1 overflow-y-auto">
-      <div
-        class="grid w-full gap-4 space-y-0 sm:gap-5 lg:grid-cols-[1.6fr_1fr]"
-        :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'"
-      >
-        <div class="space-y-4">
-          <button type="button" class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" @click="router.push({ name: 'meetings' })">
-            <ArrowLeft class="size-4" /> All meetings
-          </button>
+      <div class="flex w-full flex-col gap-4 sm:gap-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+        <!-- Back link above the split so both columns share one top edge. -->
+        <button type="button" class="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" @click="router.push({ name: 'meetings' })">
+          <ArrowLeft class="size-4" /> All meetings
+        </button>
 
+        <!-- Stack until xl — at 1024 the 1.6/1 split leaves the side panel taller than the main column. -->
+        <div class="grid w-full items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(18rem,1fr)]">
+        <div class="min-w-0 space-y-4">
           <div v-if="canJoin && inOtherCall" class="flex flex-col items-center gap-3 rounded-xl border border-border/70 bg-card px-6 py-12 text-center shadow-soft">
             <span class="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary"><PhoneCall class="size-6" /></span>
             <p class="font-semibold">You are in another call{{ call.title.value ? `: “${call.title.value}”` : '' }}</p>
@@ -598,11 +598,11 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
           </section>
         </div>
 
-        <div class="flex min-h-0 flex-col gap-4">
+        <div class="flex min-h-0 min-w-0 flex-col gap-4">
           <section class="min-w-0 space-y-3 rounded-xl border border-border/70 bg-card p-4 shadow-soft">
-            <div class="flex flex-wrap items-center gap-2">
-              <h1 class="min-w-0 flex-1 truncate text-lg font-semibold">{{ meeting.title }}</h1>
-              <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :class="BADGE_CLASSES[meetingBadge(meeting, now).tone]">{{ meetingBadge(meeting, now).label }}</span>
+            <div class="flex flex-wrap items-start gap-2">
+              <h1 class="min-w-0 flex-1 text-lg font-semibold leading-snug text-pretty break-words">{{ meeting.title }}</h1>
+              <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium" :class="BADGE_CLASSES[meetingBadge(meeting, now).tone]">{{ meetingBadge(meeting, now).label }}</span>
             </div>
             <dl class="space-y-1.5 text-sm">
               <div class="flex items-center gap-2 text-muted-foreground"><CalendarDays class="size-4" /> {{ dayLabel(meeting.startsAt) }} · {{ format(parseISO(meeting.startsAt), 'd MMM yyyy') }}</div>
@@ -631,7 +631,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
             </Button>
           </section>
 
-          <section class="flex min-h-[min(24rem,60vh)] flex-col overflow-hidden rounded-xl border border-border/70 shadow-soft sm:h-[460px] sm:min-h-0">
+          <section class="flex min-h-[min(20rem,50vh)] flex-col overflow-hidden rounded-xl border border-border/70 shadow-soft xl:h-[460px] xl:min-h-0">
             <MeetingPanel
               v-model:tab="panelTab"
               :meeting="meeting"
@@ -644,6 +644,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
               @changed="onChanged"
             />
           </section>
+        </div>
         </div>
       </div>
     </div>

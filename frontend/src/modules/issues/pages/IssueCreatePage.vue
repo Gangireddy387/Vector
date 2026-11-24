@@ -3,6 +3,8 @@ import { ArrowLeft } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import PageFrame from '@/components/common/PageFrame.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { useDevice } from '@/composables/useDevice'
 import { useProjectsStore } from '@/modules/projects/projects.store'
@@ -14,7 +16,7 @@ const route = useRoute()
 const router = useRouter()
 const ui = useUiStore()
 const projects = useProjectsStore()
-const { isDesktop, isWide } = useDevice()
+const { isWide } = useDevice()
 const formRef = ref<InstanceType<typeof IssueCreateForm> | null>(null)
 
 const queryValue = (key: string) => (typeof route.query[key] === 'string' && route.query[key] ? (route.query[key] as string) : undefined)
@@ -60,18 +62,16 @@ function onCreated(issue: IssueDetail) {
 </script>
 
 <template>
-  <div class="flex min-h-full w-full flex-col" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
-    <header class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2">
-      <div class="flex min-w-0 items-center gap-2">
-        <Button variant="ghost" size="icon" aria-label="Back" @click="leave()"><ArrowLeft /></Button>
-        <div class="min-w-0 flex-1">
-          <h1 class="truncate text-lg font-bold tracking-tight sm:text-xl">Create task</h1>
-          <p class="text-[13px] text-muted-foreground sm:text-sm">
-            {{ projectName ? `New task in ${projectName}` : isWide ? 'Capture the task, then fine-tune the details on the right.' : 'Fill in the essentials below.' }}
-          </p>
-        </div>
+  <PageFrame class="flex min-h-full flex-col">
+    <Toolbar>
+      <Button variant="ghost" size="icon" aria-label="Back" @click="leave()"><ArrowLeft /></Button>
+      <div class="min-w-0 flex-1">
+        <h1 class="truncate text-lg font-bold tracking-tight sm:text-xl">Create task</h1>
+        <p class="text-[13px] text-muted-foreground sm:text-sm">
+          {{ projectName ? `New task in ${projectName}` : isWide ? 'Capture the task, then fine-tune the details on the right.' : 'Fill in the essentials below.' }}
+        </p>
       </div>
-    </header>
+    </Toolbar>
     <IssueCreateForm
       :key="route.fullPath"
       ref="formRef"
@@ -81,5 +81,5 @@ function onCreated(issue: IssueDetail) {
       @created="onCreated"
       @cancel="leave()"
     />
-  </div>
+  </PageFrame>
 </template>

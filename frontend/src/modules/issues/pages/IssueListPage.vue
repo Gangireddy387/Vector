@@ -5,7 +5,9 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { type LocationQuery, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -266,18 +268,15 @@ useHotkeys({
 </script>
 
 <template>
-  <div
-    class="min-h-full w-full space-y-4 sm:space-y-5"
-    :class="isDesktop ? (projectId ? 'px-5 py-4' : 'p-4 sm:p-5 lg:p-6') : 'p-3'"
-  >
+  <PageFrame :pad="projectId ? 'compact' : 'default'">
     <PageHeader
       v-if="!projectId"
       title="Tasks"
       description="Your work across projects — defaults to assigned to you, sorted by due date."
     />
 
-    <!-- Desktop / tablet toolbar -->
-    <div v-if="isDesktop" class="flex flex-wrap items-start justify-between gap-3">
+    <!-- Filters full-width; actions on their own row so laptop doesn’t squeeze the search row. -->
+    <div v-if="isDesktop" class="space-y-2">
       <IssueFilterBar
         v-model="filters"
         :members="members"
@@ -288,67 +287,71 @@ useHotkeys({
         :show-sprint="project?.type === 'scrum'"
         :show-epic="Boolean(projectId)"
       />
-      <div class="flex flex-wrap items-center gap-2">
-        <SelectField :model-value="sort" :options="SORT_OPTIONS" size="sm" class="w-44 lg:w-48" aria-label="Sort by" @update:model-value="setSort" />
-        <div v-if="isWide" class="inline-flex h-8 items-center rounded-md border border-border bg-muted/40 p-0.5" role="group" aria-label="Layout">
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                class="size-7"
-                :class="layout === 'list' && 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]'"
-                :aria-pressed="layout === 'list'"
-                aria-label="List view"
-                @click="layout = 'list'"
-              >
-                <List />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>List</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                class="size-7"
-                :class="layout === 'grid' && 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]'"
-                :aria-pressed="layout === 'grid'"
-                aria-label="Grid view"
-                @click="layout = 'grid'"
-              >
-                <LayoutGrid />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Grid</TooltipContent>
-          </Tooltip>
-        </div>
-        <SavedFiltersMenu :project-id="projectId" :criteria="filters" @apply="applySaved" />
-        <Button variant="outline" size="sm" @click="isImportOpen = true"><Upload /> Import CSV</Button>
-        <Button variant="outline" size="sm" :loading="isExporting" @click="exportCsv"><Download /> Export CSV</Button>
-      </div>
+      <Toolbar variant="wrap" dense justify="between" align="center">
+        <template #start>
+          <SelectField :model-value="sort" :options="SORT_OPTIONS" size="sm" class="w-full max-w-48 sm:w-44" aria-label="Sort by" @update:model-value="setSort" />
+          <div v-if="isWide" class="inline-flex h-8 items-center rounded-md border border-border bg-muted/40 p-0.5" role="group" aria-label="Layout">
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  class="size-7"
+                  :class="layout === 'list' && 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]'"
+                  :aria-pressed="layout === 'list'"
+                  aria-label="List view"
+                  @click="layout = 'list'"
+                >
+                  <List />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>List</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  class="size-7"
+                  :class="layout === 'grid' && 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]'"
+                  :aria-pressed="layout === 'grid'"
+                  aria-label="Grid view"
+                  @click="layout = 'grid'"
+                >
+                  <LayoutGrid />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Grid</TooltipContent>
+            </Tooltip>
+          </div>
+          <SavedFiltersMenu :project-id="projectId" :criteria="filters" @apply="applySaved" />
+        </template>
+        <template #end>
+          <Button variant="outline" size="sm" @click="isImportOpen = true"><Upload /> Import CSV</Button>
+          <Button variant="outline" size="sm" :loading="isExporting" @click="exportCsv"><Download /> Export CSV</Button>
+        </template>
+      </Toolbar>
     </div>
 
     <!-- Phone toolbar (cards only — list/grid toggle is for tablet+) -->
-    <div v-else class="flex items-center gap-2">
+    <Toolbar v-else variant="wrap" dense>
       <Button variant="outline" size="sm" class="shrink-0" aria-label="Import CSV" @click="isImportOpen = true"><Upload /></Button>
       <Button variant="outline" size="sm" class="shrink-0" :loading="isExporting" aria-label="Export CSV" @click="exportCsv"><Download /></Button>
-      <Button variant="outline" size="sm" class="flex-1" @click="isFilterSheetOpen = true">
+      <Button variant="outline" size="sm" class="min-w-0 flex-1" @click="isFilterSheetOpen = true">
         <SlidersHorizontal /> Filters<span v-if="activeFilterCount" class="text-primary">({{ activeFilterCount }})</span>
       </Button>
-      <SelectField :model-value="sort" :options="SORT_OPTIONS" size="sm" class="flex-1" aria-label="Sort by" @update:model-value="setSort" />
-    </div>
+      <SelectField :model-value="sort" :options="SORT_OPTIONS" size="sm" class="min-w-0 flex-1" aria-label="Sort by" @update:model-value="setSort" />
+    </Toolbar>
 
-    <div class="flex flex-wrap items-center gap-2">
+    <Toolbar variant="wrap" dense justify="between">
       <p class="text-xs text-muted-foreground">{{ total }} issue{{ total === 1 ? '' : 's' }}</p>
-      <label v-if="showGrid && issues.length" class="ml-auto inline-flex items-center gap-2 text-xs text-muted-foreground">
+      <label v-if="showGrid && issues.length" class="inline-flex items-center gap-2 text-xs text-muted-foreground">
         <Checkbox :model-value="allSelected" aria-label="Select all" @update:model-value="toggleAll" />
         Select all
       </label>
-    </div>
+    </Toolbar>
 
     <div
       v-if="isLoading"
@@ -356,11 +359,11 @@ useHotkeys({
       aria-label="Loading tasks"
       :class="
         layout === 'grid'
-          ? 'grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
+          ? 'grid grid-cols-1 items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'
           : 'space-y-2'
       "
     >
-      <Skeleton v-for="index in 8" :key="index" :class="layout === 'grid' ? 'h-36 w-full rounded-xl' : 'h-11 w-full rounded-lg'" />
+      <Skeleton v-for="index in 8" :key="index" :class="layout === 'grid' ? 'h-40 w-full rounded-xl' : 'h-11 w-full rounded-lg'" />
     </div>
 
     <EmptyState v-else-if="loadError && !issues.length" :icon="ListTodo" title="Tasks did not load" :description="loadError">
@@ -406,10 +409,10 @@ useHotkeys({
     <!-- Grid cards (and phone list = stacked cards) -->
     <div
       v-else-if="showGrid"
-      class="stagger-in grid gap-2.5 sm:gap-3"
+      class="stagger-in grid items-stretch gap-2.5 sm:gap-3"
       :class="
         layout === 'grid'
-          ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
+          ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'
           : 'grid-cols-1'
       "
     >
@@ -472,5 +475,5 @@ useHotkeys({
     </Sheet>
 
     <IssueImportDialog v-model:open="isImportOpen" :project-id="projectId" @imported="() => void fetchIssues('replace')" />
-  </div>
+  </PageFrame>
 </template>

@@ -4,6 +4,7 @@ import { Copy, Download, Eye, FileArchive, FileImage, FileSpreadsheet, FileText,
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import FilePreviewLightbox from '@/components/common/FilePreviewLightbox.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -116,13 +117,13 @@ async function copyLink(file: SharedFile) {
 
 <template>
   <div class="flex min-h-0 flex-col">
-    <div class="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
-      <div class="relative max-w-xs flex-1">
+    <Toolbar variant="wrap" dense class="shrink-0 border-b border-border px-4 py-2.5">
+      <div class="relative max-w-xs min-w-0 flex-1">
         <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input v-model="search" class="h-8 pl-9" placeholder="Search files" aria-label="Search files" />
       </div>
       <span v-if="files" class="text-xs text-muted-foreground">{{ files.length }} {{ files.length === 1 ? 'file' : 'files' }}</span>
-    </div>
+    </Toolbar>
 
     <div class="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
       <div v-if="files === null" class="space-y-2 p-4">

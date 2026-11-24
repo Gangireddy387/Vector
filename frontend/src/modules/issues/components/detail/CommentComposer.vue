@@ -150,7 +150,7 @@ defineExpose({ reset, done: () => (isSubmitting.value = false) })
       @click="detectMention"
       @keydown="onKeydown"
     />
-    <ul v-if="suggestions.length" class="absolute top-full left-0 z-20 mt-1 w-64 overflow-hidden border bg-popover p-1 shadow-md" role="listbox">
+    <ul v-if="suggestions.length" class="absolute top-full left-0 z-20 mt-1 w-[min(16rem,calc(100%-0.5rem))] overflow-hidden border bg-popover p-1 shadow-md" role="listbox">
       <li v-for="(member, index) in suggestions" :key="member.id">
         <button
           type="button"

@@ -7,7 +7,9 @@ import type { SortableEvent } from 'vue-draggable-plus'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { SelectField } from '@/components/forms'
 import { Button } from '@/components/ui/button'
@@ -432,9 +434,12 @@ function moveOnMobile(issue: Issue, status: Status) {
 </script>
 
 <template>
-  <div
-    class="flex w-full flex-col"
-    :class="isPhone ? 'w-full overflow-visible' : 'h-full min-h-0 overflow-x-clip'"
+  <PageFrame
+    mode="bare"
+    gap="none"
+    pad="none"
+    class="flex flex-col"
+    :class="isPhone ? 'overflow-visible' : 'h-full min-h-0 overflow-x-clip'"
   >
     <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
     <div v-if="isLoading" class="flex gap-3 overflow-x-auto p-3 sm:p-4" aria-busy="true" aria-label="Loading board">
@@ -452,12 +457,12 @@ function moveOnMobile(issue: Issue, status: Status) {
       description="Start a sprint in the backlog, or complete one first so you can revisit it here."
       class="px-3 py-20"
     >
-      <div class="flex flex-wrap items-center justify-center gap-2">
+      <Toolbar variant="actions" justify="center" class="justify-center">
         <Button as-child>
           <RouterLink :to="{ name: 'project-backlog', params: { projectId } }">Go to backlog</RouterLink>
         </Button>
         <Button variant="outline" @click="reload">Refresh</Button>
-      </div>
+      </Toolbar>
     </EmptyState>
 
     <template v-else-if="project">
@@ -466,13 +471,13 @@ function moveOnMobile(issue: Issue, status: Status) {
         <RouterLink :to="{ name: 'project-issues', params: { projectId } }" class="font-medium underline">the task list</RouterLink>.
       </p>
 
-      <!-- Desktop: the whole workflow at a glance -->
+      <!-- Laptop/desktop: the whole workflow at a glance -->
       <template v-if="isWide">
         <div class="space-y-2 border-b border-border px-3 py-2.5 lg:px-4">
           <div class="min-w-0">
             <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" />
           </div>
-          <div class="flex flex-wrap items-center gap-2 lg:gap-3">
+          <Toolbar variant="wrap" dense class="lg:gap-3">
             <SavedFiltersMenu
               :project-id="projectId"
               surface="board"
@@ -533,7 +538,7 @@ function moveOnMobile(issue: Issue, status: Status) {
               @field="setField"
               @reset="resetView"
             />
-          </div>
+          </Toolbar>
         </div>
 
         <p v-if="isFiltered" class="flex flex-wrap items-center gap-2 border-b border-border bg-primary/[0.03] px-3 py-1.5 text-xs text-muted-foreground lg:px-4">
@@ -634,7 +639,7 @@ function moveOnMobile(issue: Issue, status: Status) {
       <!-- Phone and tablet: one status at a time. Phone scrolls the page; tablet scrolls inside the shell. -->
       <template v-else>
         <div class="flex w-full min-w-0 flex-col" :class="isPhone ? '' : 'h-full min-h-0 overflow-y-auto'">
-          <div class="flex items-center gap-2 border-b border-border px-3 py-2">
+          <Toolbar variant="wrap" dense class="border-b border-border px-3 py-2">
             <div class="relative min-w-0 flex-1">
               <Search class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input v-model="filters.search" placeholder="Search board" class="h-9 pl-8" aria-label="Search this board" />
@@ -664,7 +669,7 @@ function moveOnMobile(issue: Issue, status: Status) {
               @field="setField"
               @reset="resetView"
             />
-          </div>
+          </Toolbar>
 
           <p v-if="isFiltered" class="flex flex-wrap items-center gap-2 border-b border-border bg-primary/[0.03] px-3 py-1.5 text-xs text-muted-foreground">
             Showing <strong class="font-semibold text-foreground tabular-nums">{{ filteredIssues.length }}</strong> of {{ issues.length }}
@@ -680,8 +685,8 @@ function moveOnMobile(issue: Issue, status: Status) {
               placeholder="Choose sprint"
               @update:model-value="onSelectSprint"
             />
-            <div v-if="viewedSprint" class="flex items-center justify-between gap-2">
-              <p class="min-w-0 truncate text-sm font-semibold">
+            <Toolbar v-if="viewedSprint" variant="wrap" dense justify="between" align="center">
+              <p class="min-w-0 flex-1 truncate text-sm font-semibold">
                 {{ viewedSprint.name }}
                 <span class="ml-1 text-[11px] font-medium text-muted-foreground">
                   · {{ isHistorical ? 'completed' : viewedSprint.state === 'planned' ? 'planned' : 'active' }}
@@ -696,7 +701,7 @@ function moveOnMobile(issue: Issue, status: Status) {
               >
                 Complete
               </Button>
-            </div>
+            </Toolbar>
             <SprintProgress v-if="viewedSprint" :sprint="viewedSprint" :stats="sprintStats" />
           </div>
 
@@ -733,9 +738,11 @@ function moveOnMobile(issue: Issue, status: Status) {
                   @loaded="onBoardViewsLoaded"
                 />
                 <BoardFilters v-model="filters" :members="project.members" :labels="project.labels" stacked hide-search />
-                <Button class="w-full" @click="isFilterSheetOpen = false">
-                  Show {{ filteredIssues.length }} tasks
-                </Button>
+                <Toolbar variant="actions">
+                  <Button class="w-full" @click="isFilterSheetOpen = false">
+                    Show {{ filteredIssues.length }} tasks
+                  </Button>
+                </Toolbar>
               </div>
             </SheetContent>
           </Sheet>
@@ -751,5 +758,5 @@ function moveOnMobile(issue: Issue, status: Status) {
         @completed="reload"
       />
     </template>
-  </div>
+  </PageFrame>
 </template>

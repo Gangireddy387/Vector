@@ -21,7 +21,9 @@ import {
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import StatCard from '@/components/common/StatCard.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -157,28 +159,35 @@ const daysLeft = (endDate: string | null) => {
 </script>
 
 <template>
-  <div class="w-full space-y-3.5 p-4 sm:space-y-4 sm:p-5 lg:space-y-5 lg:p-6">
+  <PageFrame gap="none" class="space-y-3.5 sm:space-y-4 lg:space-y-5">
     <!-- Greeting, the day in one sentence, and the things people start most -->
-    <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div class="min-w-0">
+    <!-- Stack until xl: side-by-side with the action cluster squeezes the greeting into one-word lines. -->
+    <header class="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between xl:gap-4">
+      <div class="min-w-0 flex-1">
         <p class="text-xs font-medium text-muted-foreground">{{ today }} · Your workday</p>
-        <h1 class="mt-0.5 text-[22px] font-semibold tracking-tight">{{ greeting }}, {{ auth.user?.name?.split(' ')[0] }}</h1>
-        <p v-if="summary" class="mt-1 text-[13.5px] text-muted-foreground">{{ summary }}</p>
+        <h1 class="mt-0.5 text-balance text-[22px] font-semibold tracking-tight">
+          {{ greeting }}, {{ auth.user?.name?.split(' ')[0] }}
+        </h1>
+        <p v-if="summary" class="mt-1 text-pretty text-[13.5px] text-muted-foreground">{{ summary }}</p>
       </div>
-      <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+      <Toolbar variant="wrap" dense class="w-full shrink-0 xl:w-auto xl:justify-end">
         <HomeCustomizeMenu
           :hidden="hiddenKeys"
           :customized="isCustomized"
           @toggle="toggleHomeWidget"
           @reset="resetHomeLayout"
         />
-        <Button variant="outline" size="sm" class="max-lg:flex-1" @click="copyShareWorkday(auth.organization?.slug)">
+        <Button variant="outline" size="sm" @click="copyShareWorkday(auth.organization?.slug)">
           <Share2 /> Share workday
         </Button>
-        <Button v-if="canSchedule" variant="outline" size="sm" class="max-lg:flex-1" @click="meetingSheet = {}"><CalendarPlus /> Schedule meeting</Button>
-        <Button variant="outline" size="sm" class="max-lg:flex-1" @click="isCreateProjectOpen = true"><FolderPlus /> New project</Button>
-        <Button size="sm" class="max-lg:flex-1" @click="newTask"><Plus /> New task</Button>
-      </div>
+        <Button v-if="canSchedule" variant="outline" size="sm" @click="meetingSheet = {}">
+          <CalendarPlus /> Schedule meeting
+        </Button>
+        <Button variant="outline" size="sm" @click="isCreateProjectOpen = true">
+          <FolderPlus /> New project
+        </Button>
+        <Button size="sm" @click="newTask"><Plus /> New task</Button>
+      </Toolbar>
     </header>
 
     <SetupChecklist v-if="data && show('setup')" :data="data" @create-project="isCreateProjectOpen = true" @changed="reload" />
@@ -211,7 +220,8 @@ const daysLeft = (endDate: string | null) => {
         Showing last loaded Home{{ !isOnline ? ' while offline' : '' }}.
         <button type="button" class="ml-1 font-medium underline" @click="reload">Refresh</button>
       </p>
-      <div v-if="show('stats')" class="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5">
+      <!-- 2 → 3 → 5 cols so laptop doesn’t crush labels into “Assign…”. -->
+      <div v-if="show('stats')" class="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
         <RouterLink
           v-for="stat in stats"
           :key="stat.label"
@@ -224,7 +234,8 @@ const daysLeft = (endDate: string | null) => {
         </RouterLink>
       </div>
 
-      <div class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] xl:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(24rem,30rem)]">
+      <!-- Full-width cards until 2xl — two columns at laptop squeeze My work / Projects. -->
+      <div class="flex flex-col gap-5 2xl:grid 2xl:grid-cols-[minmax(0,1fr)_minmax(22rem,28rem)] 2xl:items-start">
         <div class="min-w-0 space-y-5">
           <!-- My work -->
           <section v-if="show('myWork')" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
@@ -263,7 +274,7 @@ const daysLeft = (endDate: string | null) => {
                 <Button variant="outline" size="sm" as-child><RouterLink :to="{ name: 'projects' }">Browse projects</RouterLink></Button>
               </div>
             </EmptyState>
-            <div v-else class="max-h-[30rem] overflow-y-auto scrollbar-thin">
+            <div v-else class="max-h-[30rem] overflow-x-hidden overflow-y-auto scrollbar-thin">
               <section v-for="group in shownGroups" :key="group.bucket">
                 <h3
                   class="sticky top-0 z-10 flex items-center gap-2 border-b border-border/70 bg-muted/80 px-4 py-1.5 text-xs font-medium backdrop-blur"
@@ -298,34 +309,41 @@ const daysLeft = (endDate: string | null) => {
                 <RouterLink :to="{ name: 'projects' }">All projects <ArrowRight /></RouterLink>
               </Button>
             </header>
-            <div class="hidden grid-cols-[minmax(0,1.6fr)_6rem_minmax(0,1fr)_5rem_minmax(8rem,1fr)_auto] gap-4 border-b border-border/70 bg-muted/40 px-4 py-1.5 text-[11px] font-medium text-muted-foreground md:grid">
+            <div class="hidden grid-cols-[minmax(0,1.4fr)_4.5rem_minmax(0,1fr)_4.5rem_minmax(6rem,1fr)_auto] gap-3 border-b border-border/70 bg-muted/40 px-4 py-1.5 text-[11px] font-medium text-muted-foreground lg:grid">
               <span>Project</span><span class="text-right">Open</span><span>Sprint</span><span>People</span><span>Progress</span><span class="text-right">Continue</span>
             </div>
             <div
               v-for="project in data.projects"
               :key="project.id"
-              class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border/60 px-4 py-2.5 last:border-0 md:grid-cols-[minmax(0,1.6fr)_6rem_minmax(0,1fr)_5rem_minmax(8rem,1fr)_auto] md:gap-4"
+              class="flex flex-col gap-2 border-b border-border/60 px-4 py-3 last:border-0 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:grid lg:grid-cols-[minmax(0,1.4fr)_4.5rem_minmax(0,1fr)_4.5rem_minmax(6rem,1fr)_auto] lg:items-center lg:gap-3 lg:py-2.5"
             >
-              <RouterLink :to="{ name: 'project-board', params: { projectId: project.id } }" class="flex min-w-0 items-center gap-2.5 hover:opacity-90">
+              <RouterLink :to="{ name: 'project-board', params: { projectId: project.id } }" class="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-90 lg:flex-none">
                 <span class="flex size-7 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white" :style="{ backgroundColor: project.color }">
                   {{ project.key.slice(0, 3) }}
                 </span>
                 <span class="min-w-0">
                   <span class="block truncate text-[13px] font-medium">{{ project.name }}</span>
-                  <span class="block truncate text-[11.5px] text-muted-foreground">{{ project.team?.name ?? (project.type === 'scrum' ? 'Scrum' : 'Kanban') }}</span>
+                  <span class="block truncate text-[11.5px] text-muted-foreground lg:hidden">
+                    {{ project.team?.name ?? (project.type === 'scrum' ? 'Scrum' : 'Kanban') }}
+                    · {{ project.issueSummary?.open ?? 0 }} open
+                    <template v-if="project.activeSprint"> · {{ project.activeSprint.name }}</template>
+                  </span>
+                  <span class="hidden truncate text-[11.5px] text-muted-foreground lg:block">
+                    {{ project.team?.name ?? (project.type === 'scrum' ? 'Scrum' : 'Kanban') }}
+                  </span>
                 </span>
               </RouterLink>
-              <span class="text-right text-[13px] tabular-nums">{{ project.issueSummary?.open ?? 0 }}</span>
-              <span class="hidden min-w-0 truncate text-[12.5px] text-muted-foreground md:block">
+              <span class="hidden text-right text-[13px] tabular-nums lg:block">{{ project.issueSummary?.open ?? 0 }}</span>
+              <span class="hidden min-w-0 truncate text-[12.5px] text-muted-foreground lg:block">
                 <template v-if="project.activeSprint"><Rocket class="mr-1 inline size-3 text-primary" />{{ project.activeSprint.name }}</template>
                 <template v-else>—</template>
               </span>
-              <span class="hidden items-center gap-1 text-[12.5px] text-muted-foreground tabular-nums md:flex"><UsersRound class="size-3.5" /> {{ project.memberCount ?? 0 }}</span>
-              <span class="hidden items-center gap-2 md:flex">
-                <Progress :model-value="percent(project.issueSummary?.done, project.issueSummary?.total)" class="h-1.5 flex-1" indicator-class="bg-success" />
-                <span class="w-9 text-right text-[12px] text-muted-foreground tabular-nums">{{ percent(project.issueSummary?.done, project.issueSummary?.total) }}%</span>
+              <span class="hidden items-center gap-1 text-[12.5px] text-muted-foreground tabular-nums lg:flex"><UsersRound class="size-3.5" /> {{ project.memberCount ?? 0 }}</span>
+              <span class="flex min-w-[8rem] flex-1 items-center gap-2 lg:min-w-0">
+                <Progress :model-value="percent(project.issueSummary?.done, project.issueSummary?.total)" class="h-1.5 min-w-0 flex-1" indicator-class="bg-success" />
+                <span class="w-9 shrink-0 text-right text-[12px] text-muted-foreground tabular-nums">{{ percent(project.issueSummary?.done, project.issueSummary?.total) }}%</span>
               </span>
-              <div class="flex shrink-0 items-center justify-end gap-1.5">
+              <div class="flex shrink-0 flex-wrap items-center gap-1.5 sm:ml-auto lg:ml-0 lg:justify-end">
                 <Button v-if="pendingStandupIds.has(project.id)" size="sm" variant="outline" as-child>
                   <RouterLink :to="{ name: 'project-standup', params: { projectId: project.id } }">Standup</RouterLink>
                 </Button>
@@ -409,5 +427,5 @@ const daysLeft = (endDate: string | null) => {
 
     <CreateProjectDialog v-model:open="isCreateProjectOpen" />
     <ScheduleMeetingSheet v-if="canSchedule" v-model:target="meetingSheet" @saved="agenda.reload()" />
-  </div>
+  </PageFrame>
 </template>

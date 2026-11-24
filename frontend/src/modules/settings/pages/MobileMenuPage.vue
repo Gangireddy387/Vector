@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { BarChart3, BookOpen, Building2, CalendarDays, Check, ChevronRight, ClipboardList, Crown, Download, FolderKanban, Gem, LayoutGrid, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck, Target, Video } from 'lucide-vue-next'
 import { computed } from 'vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useDevice } from '@/composables/useDevice'
 import { usePwaInstall } from '@/composables/usePwaInstall'
@@ -60,7 +61,7 @@ const itemClass =
 </script>
 
 <template>
-  <div class="space-y-5 p-3">
+  <PageFrame gap="default" pad="compact" tab-clearance>
     <RouterLink
       :to="{ name: 'settings' }"
       class="flex items-center gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-soft transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/25 active:bg-muted"
@@ -147,5 +148,5 @@ const itemClass =
     >
       <LogOut class="size-5" /> Sign out
     </button>
-  </div>
+  </PageFrame>
 </template>

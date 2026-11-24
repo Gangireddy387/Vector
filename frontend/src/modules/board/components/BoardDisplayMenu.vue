@@ -51,7 +51,7 @@ const FIELDS: Array<{ key: keyof BoardCardFields; label: string }> = [
         <span class="hidden sm:inline">Display</span>
       </Button>
     </PopoverTrigger>
-    <PopoverContent align="end" class="w-80 p-0">
+    <PopoverContent align="end" class="w-[min(20rem,calc(100vw-1.5rem))] p-0">
       <section class="space-y-2 border-b border-border p-3">
         <p class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Layers class="size-3.5" /> Swimlanes</p>
         <div class="grid grid-cols-5 gap-1" role="radiogroup" aria-label="Group the board into swimlanes by">

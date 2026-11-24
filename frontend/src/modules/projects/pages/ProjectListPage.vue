@@ -4,7 +4,9 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,7 +14,6 @@ import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
-import { useDevice } from '@/composables/useDevice'
 import { formatDate } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -22,7 +23,6 @@ import { useProjectsStore } from '../projects.store'
 const projects = useProjectsStore()
 const auth = useAuthStore()
 const route = useRoute()
-const { isDesktop } = useDevice()
 const isLoading = ref(!projects.projects.length)
 const loadError = ref<string | null>(null)
 const isCreateOpen = ref(route.query.welcome === '1')
@@ -105,17 +105,17 @@ async function onShowArchived(value: boolean) {
 </script>
 
 <template>
-  <div class="min-h-full w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <PageFrame>
     <PageHeader
       title="Projects"
       :description="auth.isOrganizationAdmin ? 'Every project in the organization. As an admin you can open all of them.' : 'Every project you are a member of.'"
     >
       <template #actions>
-        <Button class="max-sm:w-full" @click="isCreateOpen = true"><Plus /> New project</Button>
+        <Button @click="isCreateOpen = true"><Plus /> New project</Button>
       </template>
     </PageHeader>
 
-    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+    <Toolbar>
       <div class="relative min-w-0 flex-1 sm:max-w-sm">
         <Search class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input v-model="search" class="pl-9" placeholder="Search projects" aria-label="Search projects" />
@@ -142,7 +142,7 @@ async function onShowArchived(value: boolean) {
         <Switch :model-value="showArchived" aria-label="Show archived projects" @update:model-value="onShowArchived" />
         Show archived
       </label>
-    </div>
+    </Toolbar>
 
     <div v-if="isLoading" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label="Loading projects">
       <Skeleton v-for="index in 3" :key="index" class="h-40 rounded-2xl" />
@@ -218,5 +218,5 @@ async function onShowArchived(value: boolean) {
     </div>
 
     <CreateProjectDialog v-model:open="isCreateOpen" />
-  </div>
+  </PageFrame>
 </template>

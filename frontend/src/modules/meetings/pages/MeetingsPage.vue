@@ -6,14 +6,15 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import UserAvatarStack from '@/components/common/UserAvatarStack.vue'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
-import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
 import { useSocketEvents } from '@/lib/socket-events'
 import MeetingSearch from '../components/MeetingSearch.vue'
@@ -24,7 +25,6 @@ import { type Meeting, meetingsApi } from '../meetings.api'
 
 const router = useRouter()
 const confirm = useConfirm()
-const { isDesktop } = useDevice()
 const now = useNow({ scheduler: (callback) => useIntervalFn(callback, 30_000) })
 
 const scope = ref<'upcoming' | 'past'>('upcoming')
@@ -138,14 +138,14 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3 pb-2'">
+  <PageFrame mode="scroll" tab-clearance>
     <PageHeader title="Meetings" description="Join in-browser, then turn action items into tracked tasks — part of your workday loop.">
       <template #actions>
-        <Button v-if="canSchedule" variant="brand" class="max-sm:w-full" @click="sheetTarget = {}"><Plus /> Schedule meeting</Button>
+        <Button v-if="canSchedule" variant="brand" @click="sheetTarget = {}"><Plus /> Schedule meeting</Button>
       </template>
     </PageHeader>
 
-    <div class="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
+    <Toolbar justify="between">
       <div class="inline-flex h-9 w-full items-center rounded-lg bg-muted p-0.5 sm:h-8 sm:w-auto" role="tablist">
         <button
           v-for="tab in [{ value: 'upcoming', label: 'Upcoming', icon: CalendarClock }, { value: 'past', label: 'Past', icon: History }] as const"
@@ -165,7 +165,7 @@ onMounted(async () => {
         <span class="sm:hidden">Leads schedule meetings; invites show up here.</span>
         <span class="max-sm:hidden">Admins, department heads and team leads schedule meetings. The ones you are invited to show here.</span>
       </p>
-    </div>
+    </Toolbar>
 
     <MeetingSearch v-model="searchQuery" />
 
@@ -299,5 +299,5 @@ onMounted(async () => {
     </template>
 
     <ScheduleMeetingSheet v-model:target="sheetTarget" @saved="onSaved" />
-  </div>
+  </PageFrame>
 </template>

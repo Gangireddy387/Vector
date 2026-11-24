@@ -4,8 +4,10 @@ import { computed, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import FormField from '@/components/common/FormField.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import SettingsLayout, { type SettingsSection } from '@/components/common/SettingsLayout.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -254,7 +256,7 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
 </script>
 
 <template>
-  <div class="w-full space-y-3" :class="isDesktop ? 'p-4 sm:p-5' : 'p-3'">
+  <PageFrame gap="compact" pad="compact">
     <PageHeader v-if="isDesktop" title="Settings" description="Your profile, notifications and preferences." />
 
     <SettingsLayout v-model="activeSection" :sections="SECTIONS" aria-label="Account settings">
@@ -313,9 +315,9 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
 
                 <TimezoneField />
 
-                <div class="flex flex-wrap items-center justify-end gap-2 border-t border-border/60 pt-3">
-                  <Button type="submit" class="max-sm:w-full" :loading="isSavingProfile">Save profile</Button>
-                </div>
+                <Toolbar variant="footer" class="border-t border-border/60 pt-3">
+                  <Button type="submit" :loading="isSavingProfile">Save profile</Button>
+                </Toolbar>
               </form>
             </CardContent>
           </Card>
@@ -352,11 +354,11 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
                 <FormField v-if="!hasPassword" label="Repeat password" for="confirm-password">
                   <PasswordInput id="confirm-password" v-model="passwords.confirmPassword" autocomplete="new-password" required />
                 </FormField>
-                <div class="sm:col-span-2">
-                  <Button type="submit" variant="outline" class="max-sm:w-full" :loading="isSavingPassword">
+                <Toolbar variant="footer" class="sm:col-span-2">
+                  <Button type="submit" variant="outline" :loading="isSavingPassword">
                     {{ hasPassword ? 'Change password' : 'Set password' }}
                   </Button>
-                </div>
+                </Toolbar>
               </form>
             </CardContent>
           </Card>
@@ -513,20 +515,20 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
               <CardDescription>Download a copy of your account data, or permanently disable this account.</CardDescription>
             </CardHeader>
             <CardContent class="space-y-2.5">
-              <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3">
+              <Toolbar variant="wrap" dense justify="between" class="rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3">
                 <div class="min-w-0">
                   <p class="text-sm font-medium">Export data</p>
                   <p class="mt-0.5 text-xs text-muted-foreground">JSON with your profile, memberships, preferences and assigned task keys.</p>
                 </div>
                 <Button variant="outline" :loading="isExporting" @click="exportData"><Download /> Export data</Button>
-              </div>
-              <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/25 bg-destructive/5 px-3.5 py-3">
+              </Toolbar>
+              <Toolbar variant="wrap" dense justify="between" class="rounded-xl border border-destructive/25 bg-destructive/5 px-3.5 py-3">
                 <div class="min-w-0">
                   <p class="text-sm font-medium text-destructive">Delete account</p>
                   <p class="mt-0.5 text-xs text-muted-foreground">Disables your account and anonymizes your email. This cannot be undone.</p>
                 </div>
                 <Button variant="destructive" @click="isDeleteOpen = true"><Trash2 /> Delete account</Button>
-              </div>
+              </Toolbar>
             </CardContent>
           </Card>
         </div>
@@ -555,5 +557,5 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  </div>
+  </PageFrame>
 </template>

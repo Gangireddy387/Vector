@@ -5,8 +5,9 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/
 import IssueDetailView from './detail/IssueDetailView.vue'
 
 /**
- * Desktop issue preview driven by the `?issue=KEY` query parameter,
+ * Wide / laptop+ issue preview driven by the `?issue=KEY` query parameter,
  * so boards and lists keep their context and the URL stays shareable.
+ * Mounted only when `useDevice().isWide` (≥1024px); narrower viewports use the full issue page.
  */
 const route = useRoute()
 const router = useRouter()

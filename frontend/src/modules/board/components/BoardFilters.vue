@@ -2,6 +2,7 @@
 import { AlarmClock, Check, CircleUserRound, History, Search, TriangleAlert, X } from 'lucide-vue-next'
 import { computed } from 'vue'
 import FilterDropdown from '@/components/common/FilterDropdown.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -62,60 +63,56 @@ function clearFilters() {
 </script>
 
 <template>
-  <div :class="stacked ? 'space-y-4' : 'flex min-w-0 items-center gap-2 overflow-x-auto pb-0.5'">
-    <div v-if="!hideSearch" class="relative shrink-0" :class="stacked ? 'w-full' : 'w-56'">
+  <div v-if="stacked" class="space-y-4">
+    <div v-if="!hideSearch" class="relative w-full">
       <Search class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
       <Input v-model="filters.search" placeholder="Search this board" class="h-8 pl-8" aria-label="Search this board" />
     </div>
 
-    <div class="shrink-0">
-      <p v-if="stacked" class="mb-2 text-xs font-medium text-muted-foreground">Assignee</p>
-      <div class="flex items-center gap-2">
-        <div class="flex items-center -space-x-1.5" role="group" aria-label="Filter by assignee">
-          <button
-            v-for="member in shownMembers"
-            :key="member.id"
-            type="button"
-            class="relative rounded-full ring-2 transition"
-            :class="filters.assigneeIds.includes(member.id) ? 'z-10 ring-primary' : 'ring-background hover:z-10 hover:-translate-y-0.5'"
-            :aria-pressed="filters.assigneeIds.includes(member.id)"
-            :aria-label="`Only ${member.name}`"
-            @click="toggleAssignee(member.id)"
-          >
-            <UserAvatar :user="member" size="md" show-tooltip />
-            <span v-if="filters.assigneeIds.includes(member.id)" :class="SELECTED_TICK_CLASS" aria-hidden="true">
-              <Check class="size-2.5" stroke-width="3.5" />
-            </span>
-          </button>
-          <span
-            v-if="hiddenMembers"
-            class="relative flex size-8 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-background"
-            :title="members.slice(AVATAR_LIMIT).map((member) => member.name).join(', ')"
-          >
-            +{{ hiddenMembers }}
+    <div>
+      <p class="mb-2 text-xs font-medium text-muted-foreground">Assignee</p>
+      <div class="flex items-center -space-x-1.5" role="group" aria-label="Filter by assignee">
+        <button
+          v-for="member in shownMembers"
+          :key="member.id"
+          type="button"
+          class="relative rounded-full ring-2 transition"
+          :class="filters.assigneeIds.includes(member.id) ? 'z-10 ring-primary' : 'ring-background hover:z-10 hover:-translate-y-0.5'"
+          :aria-pressed="filters.assigneeIds.includes(member.id)"
+          :aria-label="`Only ${member.name}`"
+          @click="toggleAssignee(member.id)"
+        >
+          <UserAvatar :user="member" size="md" show-tooltip />
+          <span v-if="filters.assigneeIds.includes(member.id)" :class="SELECTED_TICK_CLASS" aria-hidden="true">
+            <Check class="size-2.5" stroke-width="3.5" />
           </span>
-          <button
-            type="button"
-            class="relative rounded-full ring-2 transition"
-            :class="filters.assigneeIds.includes('unassigned') ? 'z-10 ring-primary' : 'ring-background hover:z-10 hover:-translate-y-0.5'"
-            :aria-pressed="filters.assigneeIds.includes('unassigned')"
-            aria-label="Only unassigned"
-            @click="toggleAssignee('unassigned')"
-          >
-            <UserAvatar :user="null" size="md" show-tooltip />
-            <span v-if="filters.assigneeIds.includes('unassigned')" :class="SELECTED_TICK_CLASS" aria-hidden="true">
-              <Check class="size-2.5" stroke-width="3.5" />
-            </span>
-          </button>
-        </div>
+        </button>
+        <span
+          v-if="hiddenMembers"
+          class="relative flex size-8 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-background"
+          :title="members.slice(AVATAR_LIMIT).map((member) => member.name).join(', ')"
+        >
+          +{{ hiddenMembers }}
+        </span>
+        <button
+          type="button"
+          class="relative rounded-full ring-2 transition"
+          :class="filters.assigneeIds.includes('unassigned') ? 'z-10 ring-primary' : 'ring-background hover:z-10 hover:-translate-y-0.5'"
+          :aria-pressed="filters.assigneeIds.includes('unassigned')"
+          aria-label="Only unassigned"
+          @click="toggleAssignee('unassigned')"
+        >
+          <UserAvatar :user="null" size="md" show-tooltip />
+          <span v-if="filters.assigneeIds.includes('unassigned')" :class="SELECTED_TICK_CLASS" aria-hidden="true">
+            <Check class="size-2.5" stroke-width="3.5" />
+          </span>
+        </button>
       </div>
     </div>
 
-    <span v-if="!stacked" class="mx-0.5 hidden h-5 w-px shrink-0 bg-border lg:block" />
-
-    <div class="shrink-0">
-      <p v-if="stacked" class="mb-2 text-xs font-medium text-muted-foreground">Quick filters</p>
-      <div class="flex items-center gap-1.5" role="group" aria-label="Quick filters">
+    <div>
+      <p class="mb-2 text-xs font-medium text-muted-foreground">Quick filters</p>
+      <div class="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none" role="group" aria-label="Quick filters">
         <button
           v-for="option in QUICK_FILTERS"
           :key="option.value"
@@ -134,14 +131,86 @@ function clearFilters() {
       </div>
     </div>
 
-    <div class="shrink-0">
-      <p v-if="stacked" class="mb-2 text-xs font-medium text-muted-foreground">More</p>
-      <div class="flex items-center gap-1.5">
+    <div>
+      <p class="mb-2 text-xs font-medium text-muted-foreground">More</p>
+      <Toolbar variant="wrap" dense>
         <FilterDropdown v-model="filters.types" label="Type" :options="typeOptions" />
         <FilterDropdown v-model="filters.priorities" label="Priority" :options="priorityOptions" />
         <FilterDropdown v-if="labelOptions.length" v-model="filters.labelIds" label="Label" :options="labelOptions" />
         <Button v-if="hasFilters" variant="ghost" size="sm" class="shrink-0" @click="clearFilters"><X /> Clear</Button>
-      </div>
+      </Toolbar>
     </div>
   </div>
+
+  <Toolbar v-else variant="wrap" dense class="min-w-0 overflow-x-auto pb-0.5">
+    <div v-if="!hideSearch" class="relative w-full max-w-56 shrink-0 sm:w-56">
+      <Search class="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Input v-model="filters.search" placeholder="Search this board" class="h-8 pl-8" aria-label="Search this board" />
+    </div>
+
+    <div class="flex shrink-0 items-center -space-x-1.5" role="group" aria-label="Filter by assignee">
+      <button
+        v-for="member in shownMembers"
+        :key="member.id"
+        type="button"
+        class="relative rounded-full ring-2 transition"
+        :class="filters.assigneeIds.includes(member.id) ? 'z-10 ring-primary' : 'ring-background hover:z-10 hover:-translate-y-0.5'"
+        :aria-pressed="filters.assigneeIds.includes(member.id)"
+        :aria-label="`Only ${member.name}`"
+        @click="toggleAssignee(member.id)"
+      >
+        <UserAvatar :user="member" size="md" show-tooltip />
+        <span v-if="filters.assigneeIds.includes(member.id)" :class="SELECTED_TICK_CLASS" aria-hidden="true">
+          <Check class="size-2.5" stroke-width="3.5" />
+        </span>
+      </button>
+      <span
+        v-if="hiddenMembers"
+        class="relative flex size-8 items-center justify-center rounded-full bg-muted text-[11px] font-semibold text-muted-foreground ring-2 ring-background"
+        :title="members.slice(AVATAR_LIMIT).map((member) => member.name).join(', ')"
+      >
+        +{{ hiddenMembers }}
+      </span>
+      <button
+        type="button"
+        class="relative rounded-full ring-2 transition"
+        :class="filters.assigneeIds.includes('unassigned') ? 'z-10 ring-primary' : 'ring-background hover:z-10 hover:-translate-y-0.5'"
+        :aria-pressed="filters.assigneeIds.includes('unassigned')"
+        aria-label="Only unassigned"
+        @click="toggleAssignee('unassigned')"
+      >
+        <UserAvatar :user="null" size="md" show-tooltip />
+        <span v-if="filters.assigneeIds.includes('unassigned')" :class="SELECTED_TICK_CLASS" aria-hidden="true">
+          <Check class="size-2.5" stroke-width="3.5" />
+        </span>
+      </button>
+    </div>
+
+    <span class="mx-0.5 hidden h-5 w-px shrink-0 bg-border lg:block" />
+
+    <div class="flex shrink-0 items-center gap-1.5" role="group" aria-label="Quick filters">
+      <button
+        v-for="option in QUICK_FILTERS"
+        :key="option.value"
+        type="button"
+        class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium whitespace-nowrap transition-colors"
+        :class="
+          filters.quick?.includes(option.value)
+            ? 'border-primary/50 bg-primary/10 text-primary'
+            : 'border-border bg-background text-muted-foreground hover:border-input hover:text-foreground'
+        "
+        :aria-pressed="filters.quick?.includes(option.value) ?? false"
+        @click="toggleQuick(option.value)"
+      >
+        <component :is="option.icon" class="size-3.5" /> {{ option.label }}
+      </button>
+    </div>
+
+    <div class="flex shrink-0 items-center gap-1.5">
+      <FilterDropdown v-model="filters.types" label="Type" :options="typeOptions" />
+      <FilterDropdown v-model="filters.priorities" label="Priority" :options="priorityOptions" />
+      <FilterDropdown v-if="labelOptions.length" v-model="filters.labelIds" label="Label" :options="labelOptions" />
+      <Button v-if="hasFilters" variant="ghost" size="sm" class="shrink-0" @click="clearFilters"><X /> Clear</Button>
+    </div>
+  </Toolbar>
 </template>

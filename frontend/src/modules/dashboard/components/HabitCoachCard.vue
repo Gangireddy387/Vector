@@ -3,6 +3,7 @@ import { useStorage } from '@vueuse/core'
 import { ClipboardList, ListTodo, Share2, Users, X } from 'lucide-vue-next'
 import { computed, toRef } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useUiStore } from '@/stores/ui.store'
@@ -123,15 +124,17 @@ const dismiss = () => (dismissed.value = { ...dismissed.value, [scope.value]: tr
       </Button>
     </header>
     <ul class="divide-y divide-border/70">
-      <li v-for="step in steps" :key="step.id" class="flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center">
-        <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-          <component :is="step.icon" class="size-3.5" />
-        </span>
-        <div class="min-w-0 flex-1">
-          <p class="text-[13px] font-medium">{{ step.title }}</p>
-          <p class="text-[12px] text-muted-foreground">{{ step.detail }}</p>
-        </div>
-        <Button size="sm" variant="outline" class="shrink-0 max-sm:w-full" @click="step.run">{{ step.actionLabel }}</Button>
+      <li v-for="step in steps" :key="step.id" class="px-4 py-2.5">
+        <Toolbar dense>
+          <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <component :is="step.icon" class="size-3.5" />
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="text-[13px] font-medium">{{ step.title }}</p>
+            <p class="text-[12px] text-muted-foreground">{{ step.detail }}</p>
+          </div>
+          <Button size="sm" variant="outline" class="w-full shrink-0 sm:w-auto" @click="step.run">{{ step.actionLabel }}</Button>
+        </Toolbar>
       </li>
     </ul>
     <div class="border-t border-border/60 px-4 py-2 text-right">

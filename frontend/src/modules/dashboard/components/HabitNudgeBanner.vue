@@ -3,6 +3,7 @@ import { Play, Sunrise, X } from 'lucide-vue-next'
 import { useStorage } from '@vueuse/core'
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import type { HabitNudge } from '../dashboard.api'
@@ -35,21 +36,25 @@ function dismiss() {
 <template>
   <section
     v-if="visible"
-    class="flex flex-col gap-3 overflow-hidden rounded-xl border border-primary/25 bg-primary/[0.04] px-4 py-3 shadow-soft sm:flex-row sm:items-center"
+    class="overflow-hidden rounded-xl border border-primary/25 bg-primary/[0.04] px-4 py-3 shadow-soft"
     :aria-label="nudge.title"
   >
-    <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary"><Sunrise class="size-4" /></span>
-    <div class="min-w-0 flex-1">
-      <h2 class="text-sm font-semibold">{{ nudge.title }}</h2>
-      <p class="mt-0.5 text-xs text-muted-foreground">
-        Habit check: {{ detail }}. Run the loop — standup → tasks → meetings → messages.
-      </p>
-    </div>
-    <div class="flex w-full flex-wrap gap-2 sm:w-auto">
-      <Button size="sm" class="max-sm:flex-1" as-child>
-        <RouterLink :to="ctaTo"><Play /> Start my day</RouterLink>
-      </Button>
-      <Button variant="ghost" size="icon-sm" class="text-muted-foreground" aria-label="Dismiss" @click="dismiss"><X /></Button>
-    </div>
+    <Toolbar justify="between" align="center">
+      <template #start>
+        <span class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary"><Sunrise class="size-4" /></span>
+        <div class="min-w-0 flex-1">
+          <h2 class="text-sm font-semibold">{{ nudge.title }}</h2>
+          <p class="mt-0.5 text-xs text-muted-foreground">
+            Habit check: {{ detail }}. Run the loop — standup → tasks → meetings → messages.
+          </p>
+        </div>
+      </template>
+      <template #end>
+        <Button size="sm" class="max-sm:min-w-0 max-sm:flex-1" as-child>
+          <RouterLink :to="ctaTo"><Play /> Start my day</RouterLink>
+        </Button>
+        <Button variant="ghost" size="icon-sm" class="shrink-0 text-muted-foreground" aria-label="Dismiss" @click="dismiss"><X /></Button>
+      </template>
+    </Toolbar>
   </section>
 </template>

@@ -91,7 +91,7 @@ async function copyEmail() {
         <slot />
       </button>
     </PopoverTrigger>
-    <PopoverContent side="bottom" align="start" class="w-80 overflow-hidden p-0">
+    <PopoverContent side="bottom" align="start" class="w-[min(20rem,calc(100vw-1.5rem))] overflow-hidden p-0">
       <div class="flex items-start gap-3 bg-gradient-to-br from-primary/10 to-transparent px-4 pt-4 pb-3">
         <UserAvatar :user="user" size="lg" class="size-14 text-lg" presence />
         <div class="min-w-0 flex-1 pt-0.5">
@@ -106,7 +106,7 @@ async function copyEmail() {
         <button type="button" class="group flex w-full items-center gap-2.5 text-left" title="Copy email" @click="copyEmail">
           <Mail class="size-4 shrink-0 text-muted-foreground" />
           <span class="min-w-0 flex-1 truncate">{{ user.email }}</span>
-          <Copy class="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
+          <Copy class="size-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-sm:opacity-100" />
         </button>
         <p v-if="localTime && !isMe" class="flex items-center gap-2.5 text-muted-foreground"><Clock class="size-4 shrink-0" /> {{ localTime }}</p>
       </div>

@@ -52,7 +52,7 @@ const idle = 'bg-white/10 hover:bg-white/20'
   <div
     v-if="visible && call.inCall.value"
     class="flex flex-col overflow-hidden bg-[#0d1017] text-white"
-    :class="variant === 'pip' ? 'h-full' : 'fixed right-3 bottom-20 z-50 w-72 rounded-2xl shadow-2xl ring-1 ring-white/10 lg:right-4 lg:bottom-4'"
+    :class="variant === 'pip' ? 'h-full' : 'fixed right-3 bottom-20 z-50 w-[min(18rem,calc(100vw-1.5rem))] rounded-2xl shadow-2xl ring-1 ring-white/10 lg:right-4 lg:bottom-4'"
     role="region"
     aria-label="Current call"
   >

@@ -20,16 +20,16 @@ const standupTone = computed(() => {
 
 <template>
   <section v-if="show && pulse" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft" aria-label="Weekly team pulse">
-    <header class="flex h-11 items-center gap-2 border-b border-border px-4">
-      <h2 class="text-sm font-semibold">Weekly team pulse</h2>
-      <span class="text-xs text-muted-foreground">Last 5 workdays · {{ pulse.projectCount }} project{{ pulse.projectCount === 1 ? '' : 's' }}</span>
+    <header class="flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 border-b border-border px-4 py-2">
+      <h2 class="shrink-0 text-sm font-semibold">Weekly team pulse</h2>
+      <span class="min-w-0 text-xs text-muted-foreground">Last 5 workdays · {{ pulse.projectCount }} project{{ pulse.projectCount === 1 ? '' : 's' }}</span>
       <Button v-if="data.standupRollup?.length" variant="ghost" size="sm" class="ml-auto text-muted-foreground" as-child>
         <RouterLink :to="{ name: 'standup-rollup' }">Standup rollup</RouterLink>
       </Button>
     </header>
     <div class="grid grid-cols-3 divide-x divide-border/70">
-      <div class="px-3 py-3 sm:px-4">
-        <p class="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"><ClipboardList class="size-3.5" /> Standups</p>
+      <div class="min-w-0 px-2.5 py-3 sm:px-4">
+        <p class="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"><ClipboardList class="size-3.5 shrink-0" /> <span class="truncate">Standups</span></p>
         <p class="mt-1 text-lg font-semibold tabular-nums" :class="standupTone">
           {{ pulse.standupPct == null ? '—' : `${pulse.standupPct}%` }}
         </p>
@@ -37,13 +37,13 @@ const standupTone = computed(() => {
           {{ pulse.standupPosted }}/{{ pulse.standupExpected }} posted
         </p>
       </div>
-      <div class="px-3 py-3 sm:px-4">
-        <p class="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"><ListTodo class="size-3.5" /> Closed</p>
+      <div class="min-w-0 px-2.5 py-3 sm:px-4">
+        <p class="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"><ListTodo class="size-3.5 shrink-0" /> <span class="truncate">Closed</span></p>
         <p class="mt-1 text-lg font-semibold tabular-nums">{{ pulse.tasksClosed }}</p>
         <p class="text-[11px] text-muted-foreground">tasks this week</p>
       </div>
-      <div class="px-3 py-3 sm:px-4">
-        <p class="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"><Video class="size-3.5" /> Actions</p>
+      <div class="min-w-0 px-2.5 py-3 sm:px-4">
+        <p class="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground"><Video class="size-3.5 shrink-0" /> <span class="truncate">Actions</span></p>
         <p class="mt-1 text-lg font-semibold tabular-nums" :class="pulse.meetingActionsOpen ? 'text-primary' : ''">
           {{ pulse.meetingActionsOpen }}
         </p>

@@ -276,7 +276,7 @@ const dayButtonClass = (day: Date) => {
         align="start"
         :side-offset="4"
         :collision-padding="12"
-        :class="cn(fieldPanelClass, 'w-[19rem] p-3')"
+        :class="cn(fieldPanelClass, 'w-[min(19rem,calc(100vw-1.5rem))] p-3')"
         @open-auto-focus="onOpenAutoFocus"
       >
         <div class="mb-2 flex items-center justify-between">

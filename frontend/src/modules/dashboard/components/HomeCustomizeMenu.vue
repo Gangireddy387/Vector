@@ -28,7 +28,7 @@ const hiddenKeys = computed(() => (Array.isArray(props.hidden) ? props.hidden : 
         <span class="hidden sm:inline">Customize</span>
       </Button>
     </PopoverTrigger>
-    <PopoverContent align="end" class="w-72 p-0">
+    <PopoverContent align="end" class="w-[min(18rem,calc(100vw-1.5rem))] p-0">
       <section class="space-y-1 border-b border-border p-3">
         <p class="mb-2 text-xs font-medium text-muted-foreground">Show on Home</p>
         <label

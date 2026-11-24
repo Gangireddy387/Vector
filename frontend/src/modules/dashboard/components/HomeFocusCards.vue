@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowRight, ListTodo, LoaderCircle } from 'lucide-vue-ne
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { toast } from 'vue-sonner'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { getErrorMessage } from '@/lib/http'
@@ -136,43 +137,44 @@ async function createAll(item: MeetingActionHomeItem) {
         <span class="text-xs text-muted-foreground">Recap → owned work in one click</span>
       </header>
       <ul class="divide-y divide-border/70">
-        <li v-for="item in actions.slice(0, 4)" :key="item.meetingId" class="flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center">
-          <RouterLink
-            :to="{ name: 'meeting-room', params: { meetingId: item.meetingId }, query: { focus: 'actions' } }"
-            class="min-w-0 flex-1 transition-colors hover:text-primary"
-          >
-            <p class="flex flex-wrap items-center gap-2 truncate text-[13px] font-medium">
-              {{ item.title }}
-              <span
-                v-if="justEnded(item)"
-                class="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary"
-              >
-                Just ended
-              </span>
-            </p>
-            <p class="text-[12px] text-muted-foreground">
-              {{ item.openCount }} open
-              <template v-if="item.preview[0]"> · {{ item.preview[0] }}</template>
-            </p>
-          </RouterLink>
-          <div class="flex shrink-0 flex-wrap gap-1.5">
-            <Button
-              size="sm"
-              variant="brand"
-              class="max-sm:flex-1"
-              :disabled="creatingId === item.meetingId"
-              @click="createAll(item)"
+        <li v-for="item in actions.slice(0, 4)" :key="item.meetingId" class="px-4 py-2.5">
+          <Toolbar dense>
+            <RouterLink
+              :to="{ name: 'meeting-room', params: { meetingId: item.meetingId }, query: { focus: 'actions' } }"
+              class="min-w-0 flex-1 transition-colors hover:text-primary"
             >
-              <LoaderCircle v-if="creatingId === item.meetingId" class="animate-spin" />
-              <ListTodo v-else />
-              Create {{ item.openCount }} {{ item.openCount === 1 ? 'task' : 'tasks' }}
-            </Button>
-            <Button size="sm" variant="ghost" class="text-muted-foreground" as-child>
-              <RouterLink :to="{ name: 'meeting-room', params: { meetingId: item.meetingId }, query: { focus: 'actions' } }">
-                Review
-              </RouterLink>
-            </Button>
-          </div>
+              <p class="flex flex-wrap items-center gap-2 truncate text-[13px] font-medium">
+                {{ item.title }}
+                <span
+                  v-if="justEnded(item)"
+                  class="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary"
+                >
+                  Just ended
+                </span>
+              </p>
+              <p class="text-[12px] text-muted-foreground">
+                {{ item.openCount }} open
+                <template v-if="item.preview[0]"> · {{ item.preview[0] }}</template>
+              </p>
+            </RouterLink>
+            <Toolbar variant="actions" dense class="w-full sm:w-auto">
+              <Button
+                size="sm"
+                variant="brand"
+                :disabled="creatingId === item.meetingId"
+                @click="createAll(item)"
+              >
+                <LoaderCircle v-if="creatingId === item.meetingId" class="animate-spin" />
+                <ListTodo v-else />
+                Create {{ item.openCount }} {{ item.openCount === 1 ? 'task' : 'tasks' }}
+              </Button>
+              <Button size="sm" variant="ghost" class="text-muted-foreground" as-child>
+                <RouterLink :to="{ name: 'meeting-room', params: { meetingId: item.meetingId }, query: { focus: 'actions' } }">
+                  Review
+                </RouterLink>
+              </Button>
+            </Toolbar>
+          </Toolbar>
         </li>
       </ul>
     </div>

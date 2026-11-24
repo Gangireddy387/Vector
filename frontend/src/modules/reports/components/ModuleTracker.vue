@@ -3,6 +3,7 @@ import { ArrowDownUp, Boxes, ChevronRight, CircleAlert, CircleCheck, Clock, Laye
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import UserAvatarStack from '@/components/common/UserAvatarStack.vue'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
@@ -76,13 +77,13 @@ const width = (part: number, whole: number) => `${whole ? (part / whole) * 100 :
     />
 
     <section v-else class="border border-border/70 bg-card shadow-soft">
-      <header class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-        <div>
+      <Toolbar variant="wrap" dense justify="between" class="border-b px-4 py-3">
+        <div class="min-w-0">
           <h2 class="text-sm font-semibold">Modules</h2>
           <p class="text-xs text-muted-foreground">Progress counts every story, task, bug and sub-task under the epic. Expand a module to see who worked on it.</p>
         </div>
-        <SelectField v-model="sort" :options="SORT_OPTIONS" size="sm" class="w-52" aria-label="Sort modules" />
-      </header>
+        <SelectField v-model="sort" :options="SORT_OPTIONS" size="sm" class="w-full sm:w-52" aria-label="Sort modules" />
+      </Toolbar>
 
       <ul class="divide-y">
         <li v-for="module in sorted" :key="module.id">

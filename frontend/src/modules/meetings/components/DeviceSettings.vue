@@ -80,7 +80,7 @@ onBeforeUnmount(stopMeter)
         <Settings2 class="size-5" />
       </button>
     </PopoverTrigger>
-    <PopoverContent :side="side" class="w-80 space-y-3 p-3">
+    <PopoverContent :side="side" class="w-[min(20rem,calc(100vw-1.5rem))] space-y-3 p-3">
       <p class="text-sm font-semibold">Devices</p>
       <div v-for="row in rows" :key="row.kind" class="space-y-1">
         <p class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><component :is="row.icon" class="size-3.5" /> {{ row.label }}</p>

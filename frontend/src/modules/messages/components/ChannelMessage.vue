@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { format, isToday, parseISO } from 'date-fns'
 import { Ban, Bookmark, BookmarkCheck, CircleAlert, Copy, Ellipsis, EyeOff, Forward, History, Link2, ListTodo, Pencil, Pin, PinOff, SmilePlus, Trash2 } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import MarkdownContent from '@/components/common/MarkdownContent.vue'
 import PersonCard from '@/components/common/PersonCard.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useDevice } from '@/composables/useDevice'
 import ChatAttachment from '@/modules/meetings/components/ChatAttachment.vue'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import type { UserSummary } from '@/types/models'
@@ -50,6 +51,9 @@ const emit = defineEmits<{
 }>()
 
 const auth = useAuthStore()
+const { isDesktop } = useDevice()
+/** Phone has no hover — tap the post to reveal the action bar (same idea as DM threads). */
+const revealed = ref(false)
 const isMine = computed(() => props.message.authorId === auth.user?.id)
 const nameOf = (userId: string) => (userId === auth.user?.id ? 'You' : (props.people.find((person) => person.id === userId)?.name ?? 'Someone'))
 const reactedBy = (userIds: string[]) => {
@@ -68,6 +72,7 @@ const hoverButton = 'flex size-7 items-center justify-center rounded text-muted-
   <div
     class="group/msg relative flex"
     :class="[reply ? 'gap-2.5 py-2 pr-4 pl-8' : 'gap-3 px-4 pt-3 pb-2', message.important && !message.deletedAt && !reply && 'border-l-[3px] border-l-red-500']"
+    @click="!isDesktop && (revealed = !revealed)"
   >
     <PersonCard :user="message.author" class="mt-0.5 shrink-0 self-start">
       <UserAvatar :user="message.author" :size="reply ? 'sm' : 'md'" :class="reply ? 'size-7' : 'size-9'" presence />
@@ -160,13 +165,21 @@ const hoverButton = 'flex size-7 items-center justify-center rounded text-muted-
       </div>
     </div>
 
-    <!-- Teams-style hover bar: quick reactions, then "…" -->
+    <!-- Desktop: hover bar. Phone: tap the post to reveal (no hover). -->
     <div
       v-if="!message.deletedAt && !editing"
-      class="absolute right-3 flex items-center gap-0.5 rounded-lg bg-popover p-0.5 opacity-0 shadow-elevated ring-1 ring-border transition-opacity group-hover/msg:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100"
-      :class="reply ? 'top-1' : 'top-1.5'"
+      class="absolute right-3 flex items-center gap-0.5 rounded-lg bg-popover p-0.5 shadow-elevated ring-1 ring-border transition-opacity"
+      :class="[
+        reply ? 'top-1' : 'top-1.5',
+        isDesktop
+          ? 'opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100'
+          : revealed
+            ? 'opacity-100'
+            : 'pointer-events-none opacity-0',
+      ]"
       role="toolbar"
       :aria-label="reply ? 'Reply actions' : 'Post actions'"
+      @click.stop
     >
       <button
         v-for="emoji in REACTIONS"

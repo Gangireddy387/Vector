@@ -31,6 +31,9 @@ import { computed, nextTick, onMounted, onBeforeUnmount, ref, useTemplateRef, wa
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
+import SplitPane from '@/components/common/SplitPane.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -75,7 +78,7 @@ const auth = useAuthStore()
 const store = useMessagesStore()
 const presenceStore = usePresenceStore()
 const confirm = useConfirm()
-const { isWide } = useDevice()
+const { isDesktop, isWide } = useDevice()
 const search = ref('')
 const thread = useTemplateRef<InstanceType<typeof ConversationThread>>('thread')
 
@@ -354,23 +357,18 @@ async function leaveChannel(conversation: ConversationSummary) {
 </script>
 
 <template>
-  <div class="flex min-h-0 w-full flex-1 flex-col">
-    <div class="flex min-h-0 flex-1 overflow-hidden bg-background">
-      <!-- Conversation list: full width on phone/tablet until a chat is open -->
-      <aside
-        v-if="isWide || !selected"
-        class="flex min-h-0 flex-col border-border"
-        :class="isWide ? 'w-[min(22rem,36%)] shrink-0 border-r xl:w-[26rem]' : 'w-full'"
-      >
-        <header class="flex h-12 shrink-0 items-center gap-1 px-4">
-          <h1 class="flex-1 text-[15px] font-semibold">{{ tab === 'chat' ? 'Chat' : 'Teams' }}</h1>
+  <PageFrame mode="bare" gap="none" pad="none" class="flex min-h-0 w-full flex-1 flex-col">
+    <SplitPane :selected="Boolean(selected)" class="bg-background">
+      <template #master>
+        <Toolbar variant="wrap" dense class="h-12 shrink-0 px-4">
+          <h1 class="min-w-0 flex-1 text-[15px] font-semibold">{{ tab === 'chat' ? 'Chat' : 'Teams' }}</h1>
           <Button variant="ghost" size="icon-sm" title="Search messages" aria-label="Search messages" @click="searchOpen = true"><Search /></Button>
           <Button variant="ghost" size="icon-sm" title="Saved messages" aria-label="Saved messages" @click="savedOpen = true"><Bookmark /></Button>
           <Button v-if="tab === 'chat' && canDirect" variant="ghost" size="icon-sm" title="New chat" aria-label="New chat" @click="openPicker"><MessageCirclePlus /></Button>
           <Button v-else-if="tab === 'teams' && teamsForChannels.length" variant="ghost" size="icon-sm" title="Add a channel" aria-label="Add a channel" @click="addChannel()">
             <Plus />
           </Button>
-        </header>
+        </Toolbar>
 
         <p class="shrink-0 px-4 pb-2 text-[11.5px] leading-snug text-muted-foreground">
           Last step in your workday loop — people and teams. Project talk stays in <span class="font-medium text-foreground/80">Work chat</span>.
@@ -561,11 +559,15 @@ async function leaveChannel(conversation: ConversationSummary) {
             </section>
           </template>
         </div>
-      </aside>
+      </template>
 
-      <!-- Open conversation -->
-      <section v-if="selected" class="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header class="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-2 sm:gap-3 sm:px-4">
+      <template #detail>
+        <template v-if="selected">
+        <Toolbar
+          variant="wrap"
+          dense
+          class="h-12 shrink-0 border-b border-border bg-background px-2 sm:gap-3 sm:px-4"
+        >
           <Button v-if="!isWide" variant="ghost" size="icon-sm" class="shrink-0" aria-label="Back to the list" @click="router.push({ name: 'messages' })"><ArrowLeft /></Button>
           <UserAvatar v-if="selected.kind === 'direct'" :user="selected.person" size="md" class="size-8 shrink-0" />
           <span v-else-if="selected.kind === 'department'" class="flex size-8 shrink-0 items-center justify-center rounded-md bg-violet-500 text-white"><Building2 class="size-5" /></span>
@@ -573,7 +575,7 @@ async function leaveChannel(conversation: ConversationSummary) {
             <Lock v-if="selected.channel?.privacy === 'private'" class="size-4" />
             <Hash v-else class="size-4" />
           </span>
-          <span class="min-w-0 flex-1">
+          <span class="min-w-0" :class="selected.kind === 'direct' || !isDesktop ? 'flex-1' : 'max-w-[40%] shrink'">
             <span class="flex items-center gap-1.5 truncate text-[13.5px] font-semibold">
               {{ headerTitle(selected) }}
               <component
@@ -596,7 +598,11 @@ async function leaveChannel(conversation: ConversationSummary) {
               <Input v-model="channelSearch" class="h-8 pr-8 pl-9" :placeholder="`Search in ${headerTitle(selected)}`" aria-label="Search in this channel" autofocus @keydown.esc="closeSearch" />
               <button type="button" class="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label="Close search" @click="closeSearch"><X class="size-4" /></button>
             </div>
-            <nav v-else class="ml-1 flex h-full min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto scrollbar-none" aria-label="Channel tabs">
+            <nav
+              v-else-if="isDesktop"
+              class="ml-1 flex h-full min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto scrollbar-none"
+              aria-label="Channel tabs"
+            >
               <button
                 v-for="item in channelTabs"
                 :key="item.value"
@@ -610,11 +616,21 @@ async function leaveChannel(conversation: ConversationSummary) {
                 <span v-if="view === item.value" class="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-primary" />
               </button>
             </nav>
-            <Button v-if="!isSearching && view === 'posts'" variant="ghost" size="icon-sm" class="shrink-0" title="Search in this channel" aria-label="Search in this channel" @click="isSearching = true"><Search /></Button>
+            <Button
+              v-if="!isSearching && view === 'posts' && isDesktop"
+              variant="ghost"
+              size="icon-sm"
+              class="shrink-0"
+              title="Search in this channel"
+              aria-label="Search in this channel"
+              @click="isSearching = true"
+            >
+              <Search />
+            </Button>
           </template>
 
           <MeetButton v-if="meetPreset && conversationPeople.length" :key="selected.id" :preset="meetPreset" :compact="!isWide" />
-          <Button v-if="selected.kind === 'channel'" variant="ghost" size="sm" class="shrink-0" title="People in this channel" @click="membersOpen = true">
+          <Button v-if="selected.kind === 'channel' && isDesktop" variant="ghost" size="sm" class="shrink-0" title="People in this channel" @click="membersOpen = true">
             <UsersRound /> {{ selected.memberCount ?? 0 }}
           </Button>
           <DropdownMenu>
@@ -628,7 +644,8 @@ async function leaveChannel(conversation: ConversationSummary) {
                 <Check v-if="notifyLevelOf(selected) === option.value" class="ml-auto size-3.5" />
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem v-if="selected.kind !== 'direct' && !isWide && view !== 'posts'" @select="view = 'posts'"><Hash /> Posts</DropdownMenuItem>
+              <DropdownMenuItem v-if="selected.kind !== 'direct' && !isDesktop && view !== 'posts'" @select="view = 'posts'"><Hash /> Posts</DropdownMenuItem>
+              <DropdownMenuItem v-if="selected.kind !== 'direct' && !isDesktop" @select="isSearching = true"><Search /> Search in channel</DropdownMenuItem>
               <DropdownMenuItem v-if="selected.kind !== 'direct'" @select="view = 'files'"><FolderOpen /> Files shared here</DropdownMenuItem>
               <DropdownMenuItem v-if="selected.kind !== 'direct'" @select="view = 'docs'"><FileText /> Docs</DropdownMenuItem>
               <DropdownMenuItem v-if="selected.team" @select="view = 'board'"><Kanban /> Board</DropdownMenuItem>
@@ -648,7 +665,7 @@ async function leaveChannel(conversation: ConversationSummary) {
               </template>
             </DropdownMenuContent>
           </DropdownMenu>
-        </header>
+        </Toolbar>
         <ConversationThread v-if="selected.kind === 'direct'" ref="thread" :key="selected.id" :conversation="selected" class="min-h-0 flex-1" />
         <ChannelFiles v-else-if="view === 'files'" :key="`files-${selected.id}`" :conversation-id="selected.id" class="min-h-0 flex-1" @open-post="openPost" />
         <ChannelDocs v-else-if="view === 'docs'" :key="`docs-${selected.id}`" :conversation-id="selected.id" class="min-h-0 flex-1" />
@@ -663,23 +680,26 @@ async function leaveChannel(conversation: ConversationSummary) {
           :can-attach="canAttach"
           class="min-h-0 flex-1"
         />
-      </section>
+        </template>
+      </template>
 
-      <section v-else-if="isWide" class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-        <span class="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <MessagesSquare v-if="tab === 'chat'" class="size-6" />
-          <UsersRound v-else class="size-6" />
-        </span>
-        <p class="text-sm font-medium">{{ tab === 'chat' ? 'Chat' : 'Teams' }}</p>
-        <p class="max-w-sm text-sm text-muted-foreground">
-          {{
-            tab === 'chat'
-              ? 'Pick a chat on the left, or start a new one with anyone in your organization.'
-              : 'Pick a team’s General chat or one of its channels. Add channels to keep conversations organized by topic; private channels include only the people you add.'
-          }}
-        </p>
-      </section>
-    </div>
+      <template #empty>
+        <div class="flex min-w-0 flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+          <span class="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <MessagesSquare v-if="tab === 'chat'" class="size-6" />
+            <UsersRound v-else class="size-6" />
+          </span>
+          <p class="text-sm font-medium">{{ tab === 'chat' ? 'Chat' : 'Teams' }}</p>
+          <p class="max-w-sm text-sm text-muted-foreground">
+            {{
+              tab === 'chat'
+                ? 'Pick a chat on the left, or start a new one with anyone in your organization.'
+                : 'Pick a team’s General chat or one of its channels. Add channels to keep conversations organized by topic; private channels include only the people you add.'
+            }}
+          </p>
+        </div>
+      </template>
+    </SplitPane>
 
     <Dialog v-model:open="isPickerOpen">
       <DialogContent class="gap-3 sm:max-w-md">
@@ -723,5 +743,5 @@ async function leaveChannel(conversation: ConversationSummary) {
     <MessageSearchDialog v-model:open="searchOpen" />
     <SavedMessagesDialog v-model:open="savedOpen" />
     <ChannelMembersDialog v-if="selected?.kind === 'channel'" v-model:open="membersOpen" :conversation="selected" @changed="reload" />
-  </div>
+  </PageFrame>
 </template>

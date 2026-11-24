@@ -19,6 +19,7 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -212,7 +213,12 @@ function startCodeLinking() {
 
   <div v-else class="flex h-full min-h-0 flex-col">
     <!-- Header: breadcrumbs and actions -->
-    <header class="flex h-12 shrink-0 items-center gap-1.5 border-b border-border px-4" :class="!isDesktop && 'bg-background'">
+    <Toolbar
+      variant="wrap"
+      dense
+      class="h-12 shrink-0 border-b border-border px-4"
+      :class="!isDesktop && 'bg-background'"
+    >
       <nav class="flex min-w-0 flex-1 items-center gap-1 text-[13px] text-muted-foreground" aria-label="Breadcrumb">
         <RouterLink :to="{ name: 'project-board', params: { projectId: project.id } }" class="hidden truncate hover:text-foreground sm:inline">
           {{ project.name }}
@@ -266,7 +272,7 @@ function startCodeLinking() {
         </DropdownMenuContent>
       </DropdownMenu>
       <Button v-if="mode === 'panel'" variant="ghost" size="icon-sm" aria-label="Close" @click="emit('close')"><X /></Button>
-    </header>
+    </Toolbar>
 
     <div class="min-h-0 flex-1" :class="isWide ? 'grid grid-cols-[minmax(0,1fr)_minmax(15rem,18rem)] overflow-hidden xl:grid-cols-[minmax(0,1fr)_340px]' : ''">
       <!-- Main column -->
@@ -298,7 +304,7 @@ function startCodeLinking() {
           </div>
 
           <!-- Task-focused quick actions (primary when there is no side rail) -->
-          <div class="flex flex-wrap items-center gap-2">
+          <Toolbar variant="wrap" dense>
             <StatusSelect
               v-if="!isWide"
               :model-value="issue.statusId"
@@ -326,7 +332,7 @@ function startCodeLinking() {
             <Button v-if="canAttach" variant="outline" size="sm" @click="attachmentsRef?.openPicker()"><Paperclip /> Attach</Button>
             <Button v-if="canEdit" variant="outline" size="sm" @click="startLinking"><Link2 /> Link</Button>
             <Button v-if="canLinkCode" variant="outline" size="sm" @click="startCodeLinking"><GitBranch /> Code</Button>
-          </div>
+          </Toolbar>
         </div>
 
         <IssueAiSummary v-if="canUseAi" ref="summaryRef" :issue-id="issue.id" />

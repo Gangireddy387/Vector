@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import Toolbar from '@/components/common/Toolbar.vue'
+
 defineProps<{ title: string; description?: string }>()
 </script>
 
@@ -10,8 +12,8 @@ defineProps<{ title: string; description?: string }>()
       <h1 class="truncate text-[20px] leading-tight font-semibold tracking-tight">{{ title }}</h1>
       <p v-if="description" class="mt-1 max-w-3xl text-[13px] text-muted-foreground">{{ description }}</p>
     </div>
-    <div v-if="$slots.actions" class="flex shrink-0 flex-wrap items-center gap-2 max-sm:[&>*]:flex-1">
+    <Toolbar v-if="$slots.actions" variant="actions" class="sm:w-auto">
       <slot name="actions" />
-    </div>
+    </Toolbar>
   </header>
 </template>

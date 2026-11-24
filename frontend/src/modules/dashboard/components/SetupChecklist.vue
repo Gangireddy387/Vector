@@ -3,6 +3,7 @@ import { Check, PartyPopper, Sparkles, X } from 'lucide-vue-next'
 import { computed, ref, toRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { getErrorMessage } from '@/lib/http'
@@ -87,22 +88,29 @@ function onMeetingSaved() {
       </div>
     </header>
 
-    <div v-if="isComplete" class="flex flex-col gap-3 px-3 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:px-4">
-      <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"><PartyPopper class="size-4.5" /></span>
-      <p class="min-w-0 flex-1 text-[13px]">
-        <span class="font-medium">You’re all set.</span>
-        <span class="ml-1 text-muted-foreground">
-          {{ isAdmin ? 'Run the workday loop from Home every morning.' : 'Your work will show up below as it is assigned to you.' }}
-        </span>
-      </p>
-      <Button variant="outline" size="sm" class="w-full sm:w-auto" @click="hide">Hide checklist</Button>
+    <div v-if="isComplete" class="px-3 py-4 sm:px-4">
+      <Toolbar justify="between" align="center">
+        <template #start>
+          <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success"><PartyPopper class="size-4.5" /></span>
+          <p class="min-w-0 flex-1 text-[13px]">
+            <span class="font-medium">You’re all set.</span>
+            <span class="ml-1 text-muted-foreground">
+              {{ isAdmin ? 'Run the workday loop from Home every morning.' : 'Your work will show up below as it is assigned to you.' }}
+            </span>
+          </p>
+        </template>
+        <template #end>
+          <Button variant="outline" size="sm" class="w-full sm:w-auto" @click="hide">Hide checklist</Button>
+        </template>
+      </Toolbar>
     </div>
 
-    <ol v-else class="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-5">
+    <!-- 1 → 2 → 3 → 5 cols so laptop (1024) isn’t a ragged 2+2+1. -->
+    <ol v-else class="grid auto-rows-fr gap-px bg-border sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       <li
         v-for="(step, index) in steps"
         :key="step.id"
-        class="flex flex-col gap-2 bg-card p-3.5 sm:p-4"
+        class="flex min-h-0 flex-col gap-2 bg-card p-3.5 sm:p-4"
         :class="step.done ? 'bg-muted/30' : step.id === nextStep && 'bg-primary/[0.04]'"
       >
         <div class="flex items-center gap-2">
@@ -113,12 +121,12 @@ function onMeetingSaved() {
             <Check v-if="step.done" class="size-3.5" />
             <template v-else>{{ index + 1 }}</template>
           </span>
-          <h3 class="min-w-0 flex-1 text-[13px] font-medium" :class="step.done && 'text-muted-foreground line-through decoration-muted-foreground/40'">
+          <h3 class="min-w-0 flex-1 text-[13px] font-medium leading-snug" :class="step.done && 'text-muted-foreground line-through decoration-muted-foreground/40'">
             {{ step.title }}
           </h3>
         </div>
-        <p class="flex-1 text-xs leading-relaxed text-muted-foreground">{{ step.description }}</p>
-        <div v-if="!step.done" class="flex flex-wrap items-center gap-1.5">
+        <p class="min-h-0 flex-1 text-xs leading-relaxed text-muted-foreground">{{ step.description }}</p>
+        <div v-if="!step.done" class="mt-auto flex flex-wrap items-center gap-1.5">
           <Button :variant="step.id === nextStep ? 'default' : 'outline'" size="sm" class="max-sm:flex-1" @click="run(step)">
             {{ step.actionLabel }}
           </Button>
@@ -127,7 +135,7 @@ function onMeetingSaved() {
           </Button>
           <Button v-if="step.optional" variant="ghost" size="sm" class="text-muted-foreground" @click="skip(step.id)">Skip</Button>
         </div>
-        <p v-else class="text-xs font-medium text-success">Done</p>
+        <p v-else class="mt-auto text-xs font-medium text-success">Done</p>
       </li>
     </ol>
 

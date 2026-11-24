@@ -27,7 +27,7 @@ import { useUiStore } from '@/stores/ui.store'
 import { useWorkspaceStore } from '@/stores/workspace.store'
 import type { AppNotification } from '@/types/models'
 
-const { isDesktop } = useDevice()
+const { isDesktop, isWide } = useDevice()
 const route = useRoute()
 const router = useRouter()
 /** Full-height panes (chat, board on desktop) skip enter animation so the flex height chain stays intact. */
@@ -35,6 +35,37 @@ const pageTransition = computed(() =>
   route.name !== 'project-board' && route.matched.some((record) => record.meta.fillHeight) ? undefined : 'page',
 )
 const ui = useUiStore()
+
+/** String defaults only — same filter as `openCreateIssue` when falling back to the create route. */
+function createIssueQuery(defaults: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(defaults).filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1] !== ''),
+  )
+}
+
+/**
+ * Side sheets need `isWide` (≥1024). If the viewport is narrow (or shrinks) while a panel
+ * flow is open, demote to full pages so phone/tablet never keep a stuck `?issue=` or orphaned create state.
+ */
+watch(
+  isWide,
+  (wide) => {
+    if (wide) return
+
+    const issueKey = typeof route.query.issue === 'string' ? route.query.issue : null
+    if (issueKey) {
+      const { issue: _issue, ...query } = route.query
+      void router.replace({ name: 'issue', params: { issueKey }, query })
+    }
+
+    const defaults = ui.createIssueDefaults
+    if (defaults) {
+      ui.closeCreateIssue()
+      void router.push({ name: 'issue-create', query: createIssueQuery(defaults) })
+    }
+  },
+  { immediate: true },
+)
 const projects = useProjectsStore()
 const notifications = useNotificationsStore()
 const workspace = useWorkspaceStore()
@@ -126,8 +157,8 @@ useHotkeys({
     </RouterView>
   </MobileShell>
 
-  <IssueDetailSheet v-if="isDesktop" />
-  <IssueCreateSheet v-if="isDesktop" />
+  <IssueDetailSheet v-if="isWide" />
+  <IssueCreateSheet v-if="isWide" />
   <KeyboardShortcutsDialog v-model:open="isShortcutsOpen" />
   <SetOwnPasswordDialog />
   <MiniCall variant="floating" />

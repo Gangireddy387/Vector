@@ -5,6 +5,9 @@ import { ArrowLeft, ArrowUpRight, BellOff, CheckCheck, EllipsisVertical, Eraser,
 import { computed, defineAsyncComponent, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
+import SplitPane from '@/components/common/SplitPane.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -172,8 +175,10 @@ const listTime = (notification: AppNotification) => {
   return isToday(date) ? format(date, 'HH:mm') : format(date, 'd MMM')
 }
 
+/** Folder rail beside the list on workspace shells; hides when tablet is reading a notification. */
 const showFolderRail = computed(() => isDesktop.value && (isWide.value || !selected.value))
-const showList = computed(() => !isDesktop.value || isWide.value || !selected.value)
+/** Reading pane only on desktop/tablet shells — phones navigate out. */
+const reading = computed(() => (isDesktop.value ? selected.value : null))
 
 const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
   all: { title: 'Nothing here yet', description: 'You will hear about tasks assigned to you, mentions, deadlines and work you watch.' },
@@ -188,9 +193,11 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
 
 <template>
   <!-- One adaptive shell: phone, tablet and desktop share the same folders + list language -->
-  <div class="flex h-full min-h-0 w-full flex-1 flex-col bg-background">
-    <header
-      class="flex shrink-0 items-center gap-2 border-b border-border px-3"
+  <PageFrame mode="bare" gap="none" pad="none" class="flex h-full min-h-0 flex-1 flex-col bg-background">
+    <Toolbar
+      variant="wrap"
+      dense
+      class="shrink-0 border-b border-border px-3"
       :class="isDesktop ? 'h-12 sm:gap-3 sm:px-4' : 'h-11 gap-2'"
     >
       <h1 v-if="isDesktop" class="flex min-w-0 items-center gap-2 text-[15px] font-semibold">
@@ -216,7 +223,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         <CheckCheck />
         <span class="hidden sm:inline">Mark all read</span>
       </Button>
-    </header>
+    </Toolbar>
 
     <div class="flex min-h-0 flex-1 overflow-hidden">
       <!-- Desktop/tablet: vertical folders -->
@@ -254,210 +261,215 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
         </button>
       </nav>
 
-      <!-- List column -->
-      <section
-        v-show="showList"
-        class="flex min-w-0 flex-col border-border"
-        :class="isWide && selected ? 'w-[min(24rem,34%)] shrink-0 border-r xl:w-[26rem]' : 'min-w-0 flex-1'"
+      <SplitPane
+        require-selection
+        :selected="Boolean(reading)"
+        master-class="w-[min(24rem,34%)] shrink-0 xl:w-[26rem]"
+        class="min-h-0 flex-1"
       >
-        <!-- Phone: same folders as chips so the model matches desktop -->
-        <div
-          v-if="!isDesktop"
-          class="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border/70 px-3 py-2 scrollbar-none"
-          role="tablist"
-          aria-label="Inbox folders"
-        >
-          <button
-            v-for="folder in folders"
-            :key="folder.value"
-            type="button"
-            role="tab"
-            class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors"
-            :class="
-              filter === folder.value
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted/60 text-muted-foreground hover:bg-accent hover:text-foreground'
-            "
-            :aria-selected="filter === folder.value"
-            @click="chooseFilter(folder.value)"
+        <template #master>
+          <!-- Phone: same folders as chips so the model matches desktop (scroll row, not wrap) -->
+          <div
+            v-if="!isDesktop"
+            class="flex shrink-0 gap-1.5 overflow-x-auto border-b border-border/70 px-3 py-2 scrollbar-none"
+            role="tablist"
+            aria-label="Inbox folders"
           >
-            <component :is="folder.icon" class="size-3.5" />
-            {{ folder.label }}
-            <span
-              v-if="unreadIn(folder.value)"
-              class="min-w-4 rounded-full px-1 text-center text-[10px] font-semibold tabular-nums"
-              :class="filter === folder.value ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary text-primary-foreground'"
+            <button
+              v-for="folder in folders"
+              :key="folder.value"
+              type="button"
+              role="tab"
+              class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors"
+              :class="
+                filter === folder.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted/60 text-muted-foreground hover:bg-accent hover:text-foreground'
+              "
+              :aria-selected="filter === folder.value"
+              @click="chooseFilter(folder.value)"
             >
-              {{ unreadIn(folder.value) }}
-            </span>
-          </button>
-        </div>
-
-        <div v-else class="flex h-10 shrink-0 items-center gap-2 border-b border-border/70 px-3">
-          <component :is="activeFolder.icon" class="size-3.5 text-primary" />
-          <p class="min-w-0 flex-1 truncate text-[13px] font-semibold">{{ activeFolder.label }}</p>
-          <span class="text-[11px] text-muted-foreground tabular-nums">{{ entries.length }}</span>
-        </div>
-
-        <div class="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-          <div v-if="notifications.isLoading && !notifications.items.length" class="space-y-2 p-3" aria-busy="true" aria-label="Loading inbox">
-            <Skeleton v-for="index in 7" :key="index" class="h-14 w-full rounded-lg" />
+              <component :is="folder.icon" class="size-3.5" />
+              {{ folder.label }}
+              <span
+                v-if="unreadIn(folder.value)"
+                class="min-w-4 rounded-full px-1 text-center text-[10px] font-semibold tabular-nums"
+                :class="filter === folder.value ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary text-primary-foreground'"
+              >
+                {{ unreadIn(folder.value) }}
+              </span>
+            </button>
           </div>
-          <EmptyState
-            v-else-if="notifications.loadError && !notifications.items.length"
-            :icon="Inbox"
-            title="Inbox did not load"
-            :description="
-              !isOnline
-                ? 'You appear to be offline. Connect and try again, or open Inbox once online so it can load for next time.'
-                : notifications.loadError
-            "
-            class="px-4 py-14"
-          >
-            <Button variant="outline" @click="retryLoad">Try again</Button>
-          </EmptyState>
-          <p
-            v-else-if="notifications.loadError && notifications.items.length"
-            class="mx-3 mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100"
-            role="status"
-          >
-            Showing last loaded inbox. {{ notifications.loadError }}
-            <button type="button" class="ml-1 font-medium underline" @click="retryLoad">Retry</button>
-          </p>
-          <EmptyState
-            v-else-if="!entries.length"
-            :icon="search ? Search : filter === 'unread' ? Inbox : BellOff"
-            :title="search ? `Nothing matches “${search}”` : EMPTY[filter].title"
-            :description="search ? 'Try other words or another folder.' : EMPTY[filter].description"
-            class="px-4 py-14"
-          >
-            <div class="flex flex-wrap justify-center gap-2">
-              <Button v-if="search.trim()" variant="outline" size="sm" @click="search = ''">Clear search</Button>
-              <Button
-                v-if="notifications.hasMore && !search.trim()"
-                variant="outline"
-                size="sm"
-                :loading="notifications.isLoadingOlder"
-                @click="notifications.loadOlder()"
-              >
-                Load older
-              </Button>
+
+          <Toolbar v-else variant="wrap" dense class="h-10 shrink-0 border-b border-border/70 px-3">
+            <component :is="activeFolder.icon" class="size-3.5 text-primary" />
+            <p class="min-w-0 flex-1 truncate text-[13px] font-semibold">{{ activeFolder.label }}</p>
+            <span class="text-[11px] text-muted-foreground tabular-nums">{{ entries.length }}</span>
+          </Toolbar>
+
+          <div class="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+            <div v-if="notifications.isLoading && !notifications.items.length" class="space-y-2 p-3" aria-busy="true" aria-label="Loading inbox">
+              <Skeleton v-for="index in 7" :key="index" class="h-14 w-full rounded-lg" />
             </div>
-          </EmptyState>
-          <template v-else>
-            <template v-for="section in sections" :key="section.label">
-              <p class="sticky top-0 z-10 bg-background/95 px-4 pt-3 pb-1 text-[11.5px] font-medium text-muted-foreground backdrop-blur">
-                {{ section.label }}
-              </p>
-              <button
-                v-for="entry in section.entries"
-                :key="entry.key"
-                type="button"
-                class="relative mx-1.5 flex w-[calc(100%-0.75rem)] items-start gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-accent/60"
-                :class="selectedKey === entry.key && 'bg-accent'"
-                @click="select(entry)"
-              >
-                <UserAvatar v-if="entry.latest.actor" :user="entry.latest.actor" size="md" class="mt-0.5 size-8" />
-                <span v-else class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg" :class="kindOf(entry.latest.type).tone">
-                  <component :is="kindOf(entry.latest.type).icon" class="size-4" />
-                </span>
-                <span class="min-w-0 flex-1">
-                  <span class="flex items-baseline gap-2">
-                    <span class="min-w-0 flex-1 truncate text-[13px]" :class="isUnread(entry) ? 'font-semibold' : 'font-medium text-foreground/85'">
-                      {{ entry.latest.title }}
-                      <span v-if="entry.items.length > 1" class="font-normal text-muted-foreground">({{ entry.items.length }})</span>
+            <EmptyState
+              v-else-if="notifications.loadError && !notifications.items.length"
+              :icon="Inbox"
+              title="Inbox did not load"
+              :description="
+                !isOnline
+                  ? 'You appear to be offline. Connect and try again, or open Inbox once online so it can load for next time.'
+                  : notifications.loadError
+              "
+              class="px-4 py-14"
+            >
+              <Button variant="outline" @click="retryLoad">Try again</Button>
+            </EmptyState>
+            <p
+              v-else-if="notifications.loadError && notifications.items.length"
+              class="mx-3 mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100"
+              role="status"
+            >
+              Showing last loaded inbox. {{ notifications.loadError }}
+              <button type="button" class="ml-1 font-medium underline" @click="retryLoad">Retry</button>
+            </p>
+            <EmptyState
+              v-else-if="!entries.length"
+              :icon="search ? Search : filter === 'unread' ? Inbox : BellOff"
+              :title="search ? `Nothing matches “${search}”` : EMPTY[filter].title"
+              :description="search ? 'Try other words or another folder.' : EMPTY[filter].description"
+              class="px-4 py-14"
+            >
+              <div class="flex flex-wrap justify-center gap-2">
+                <Button v-if="search.trim()" variant="outline" size="sm" @click="search = ''">Clear search</Button>
+                <Button
+                  v-if="notifications.hasMore && !search.trim()"
+                  variant="outline"
+                  size="sm"
+                  :loading="notifications.isLoadingOlder"
+                  @click="notifications.loadOlder()"
+                >
+                  Load older
+                </Button>
+              </div>
+            </EmptyState>
+            <template v-else>
+              <template v-for="section in sections" :key="section.label">
+                <p class="sticky top-0 z-10 bg-background/95 px-4 pt-3 pb-1 text-[11.5px] font-medium text-muted-foreground backdrop-blur">
+                  {{ section.label }}
+                </p>
+                <button
+                  v-for="entry in section.entries"
+                  :key="entry.key"
+                  type="button"
+                  class="relative mx-1.5 flex w-[calc(100%-0.75rem)] items-start gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors hover:bg-accent/60"
+                  :class="selectedKey === entry.key && 'bg-accent'"
+                  @click="select(entry)"
+                >
+                  <UserAvatar v-if="entry.latest.actor" :user="entry.latest.actor" size="md" class="mt-0.5 size-8" />
+                  <span v-else class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg" :class="kindOf(entry.latest.type).tone">
+                    <component :is="kindOf(entry.latest.type).icon" class="size-4" />
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span class="flex items-baseline gap-2">
+                      <span class="min-w-0 flex-1 truncate text-[13px]" :class="isUnread(entry) ? 'font-semibold' : 'font-medium text-foreground/85'">
+                        {{ entry.latest.title }}
+                        <span v-if="entry.items.length > 1" class="font-normal text-muted-foreground">({{ entry.items.length }})</span>
+                      </span>
+                      <span class="shrink-0 text-[11px] tabular-nums" :class="isUnread(entry) ? 'font-semibold text-primary' : 'text-muted-foreground'">
+                        {{ listTime(entry.latest) }}
+                      </span>
                     </span>
-                    <span class="shrink-0 text-[11px] tabular-nums" :class="isUnread(entry) ? 'font-semibold text-primary' : 'text-muted-foreground'">
-                      {{ listTime(entry.latest) }}
+                    <span class="flex items-center gap-2">
+                      <span class="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                        {{ senderOf(entry.latest) }} · {{ entry.latest.body ? toPlainText(entry.latest.body, 140) : kindOf(entry.latest.type).label }}
+                      </span>
+                      <span v-if="isUnread(entry)" class="size-2 shrink-0 rounded-full bg-brand" aria-label="Unread" />
                     </span>
                   </span>
-                  <span class="flex items-center gap-2">
-                    <span class="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-                      {{ senderOf(entry.latest) }} · {{ entry.latest.body ? toPlainText(entry.latest.body, 140) : kindOf(entry.latest.type).label }}
-                    </span>
-                    <span v-if="isUnread(entry)" class="size-2 shrink-0 rounded-full bg-brand" aria-label="Unread" />
-                  </span>
-                </span>
-              </button>
+                </button>
+              </template>
+              <div v-if="notifications.hasMore" class="flex justify-center px-4 py-3">
+                <Button variant="outline" size="sm" :loading="notifications.isLoadingOlder" @click="notifications.loadOlder()">
+                  Load older
+                </Button>
+              </div>
             </template>
-            <div v-if="notifications.hasMore" class="flex justify-center px-4 py-3">
-              <Button variant="outline" size="sm" :loading="notifications.isLoadingOlder" @click="notifications.loadOlder()">
-                Load older
-              </Button>
-            </div>
+          </div>
+        </template>
+
+        <template #detail>
+          <template v-if="reading">
+            <article v-if="paneMode === 'chat'" class="flex min-h-0 min-w-0 flex-1 flex-col">
+              <Toolbar variant="wrap" dense class="h-12 shrink-0 border-b border-border px-3 sm:gap-3 sm:px-4">
+                <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
+                <span class="flex size-9 items-center justify-center rounded-lg" :class="kindOf('support_message').tone"><MessageCircle class="size-4" /></span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-semibold">Vector team</span>
+                  <span class="block truncate text-xs text-muted-foreground">Your organization’s conversation with the portal team. Reply right here.</span>
+                </span>
+                <div id="inbox-chat-actions" class="flex items-center gap-0.5" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger as-child>
+                    <Button variant="ghost" size="icon-sm" aria-label="Chat options"><EllipsisVertical /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" class="w-48">
+                    <DropdownMenuItem variant="destructive" @select="supportChat?.clearChat()"><Eraser /> Clear chat</DropdownMenuItem>
+                    <DropdownMenuItem @select="removeEntry(reading)"><Trash2 /> Dismiss from Inbox</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </Toolbar>
+              <SupportChatThread
+                ref="supportChat"
+                :key="auth.organization!.id"
+                class="min-h-0 flex-1"
+                side="organization"
+                :organization-id="auth.organization!.id"
+                :api="organizationSupportApi"
+                actions-to="#inbox-chat-actions"
+                notice="Messages here are only between your organization’s admins and the Vector team."
+              />
+            </article>
+
+            <article v-else-if="paneMode === 'task'" class="min-h-0 min-w-0 flex-1 overflow-hidden">
+              <IssueDetailView :key="taskKey!" :issue-key="taskKey!" mode="panel" class="h-full" @close="selectedKey = null" />
+            </article>
+
+            <article v-else-if="paneMode === 'project-chat'" class="flex min-h-0 min-w-0 flex-1 flex-col">
+              <Toolbar variant="wrap" dense class="h-12 shrink-0 border-b border-border px-3 sm:gap-2.5 sm:px-4">
+                <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
+                <UserAvatar v-if="reading.latest.actor" :user="reading.latest.actor" size="md" class="size-7" />
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-[13px] font-semibold">{{ reading.latest.title }}</span>
+                  <span class="block truncate text-[11.5px] text-muted-foreground">
+                    {{ timeAgo(reading.latest.createdAt) || formatDate(reading.latest.createdAt, 'd MMM, HH:mm') }}
+                  </span>
+                </span>
+                <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="removeEntry(reading)"><Trash2 /> Dismiss</Button>
+                <Button variant="outline" size="sm" @click="openLink(reading)">Open full chat <ArrowUpRight /></Button>
+              </Toolbar>
+              <ProjectChatPage :key="chatTarget!.projectId" :project-id="chatTarget!.projectId" :message-id="chatTarget!.messageId" embedded class="min-h-0 flex-1" />
+            </article>
+
+            <article v-else class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <Toolbar v-if="!isWide" variant="wrap" dense class="h-12 shrink-0 border-b border-border px-3">
+                <Button variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
+                <span class="truncate text-sm font-semibold">Notification</span>
+              </Toolbar>
+              <NotificationDetail
+                class="min-h-0 flex-1"
+                :latest="reading.latest"
+                :items="reading.items"
+                :unread="isUnread(reading)"
+                :related="related"
+                @open="openLink(reading)"
+                @read="markEntryRead(reading)"
+                @remove="removeEntry(reading)"
+                @select="selectNotification"
+              />
+            </article>
           </template>
-        </div>
-      </section>
-
-      <!-- Reading pane (desktop/tablet only) -->
-      <article v-if="isDesktop && selected && paneMode === 'chat'" class="flex min-w-0 flex-1 flex-col">
-        <div class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 sm:gap-3 sm:px-4">
-          <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
-          <span class="flex size-9 items-center justify-center rounded-lg" :class="kindOf('support_message').tone"><MessageCircle class="size-4" /></span>
-          <span class="min-w-0 flex-1">
-            <span class="block text-sm font-semibold">Vector team</span>
-            <span class="block truncate text-xs text-muted-foreground">Your organization’s conversation with the portal team. Reply right here.</span>
-          </span>
-          <div id="inbox-chat-actions" class="flex items-center gap-0.5" />
-          <DropdownMenu>
-            <DropdownMenuTrigger as-child>
-              <Button variant="ghost" size="icon-sm" aria-label="Chat options"><EllipsisVertical /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" class="w-48">
-              <DropdownMenuItem variant="destructive" @select="supportChat?.clearChat()"><Eraser /> Clear chat</DropdownMenuItem>
-              <DropdownMenuItem @select="removeEntry(selected)"><Trash2 /> Dismiss from Inbox</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <SupportChatThread
-          ref="supportChat"
-          :key="auth.organization!.id"
-          class="min-h-0 flex-1"
-          side="organization"
-          :organization-id="auth.organization!.id"
-          :api="organizationSupportApi"
-          actions-to="#inbox-chat-actions"
-          notice="Messages here are only between your organization’s admins and the Vector team."
-        />
-      </article>
-
-      <article v-else-if="isDesktop && selected && paneMode === 'task'" class="min-w-0 flex-1 overflow-hidden">
-        <IssueDetailView :key="taskKey!" :issue-key="taskKey!" mode="panel" class="h-full" @close="selectedKey = null" />
-      </article>
-
-      <article v-else-if="isDesktop && selected && paneMode === 'project-chat'" class="flex min-w-0 flex-1 flex-col">
-        <div class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3 sm:gap-2.5 sm:px-4">
-          <Button v-if="!isWide" variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
-          <UserAvatar v-if="selected.latest.actor" :user="selected.latest.actor" size="md" class="size-7" />
-          <span class="min-w-0 flex-1">
-            <span class="block truncate text-[13px] font-semibold">{{ selected.latest.title }}</span>
-            <span class="block truncate text-[11.5px] text-muted-foreground">
-              {{ timeAgo(selected.latest.createdAt) || formatDate(selected.latest.createdAt, 'd MMM, HH:mm') }}
-            </span>
-          </span>
-          <Button variant="ghost" size="sm" class="text-muted-foreground hover:text-destructive" @click="removeEntry(selected)"><Trash2 /> Dismiss</Button>
-          <Button variant="outline" size="sm" @click="openLink(selected)">Open full chat <ArrowUpRight /></Button>
-        </div>
-        <ProjectChatPage :key="chatTarget!.projectId" :project-id="chatTarget!.projectId" :message-id="chatTarget!.messageId" embedded class="min-h-0 flex-1" />
-      </article>
-
-      <article v-else-if="isDesktop && selected" class="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div v-if="!isWide" class="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
-          <Button variant="ghost" size="icon-sm" aria-label="Back to inbox" @click="selectedKey = null"><ArrowLeft /></Button>
-          <span class="truncate text-sm font-semibold">Notification</span>
-        </div>
-        <NotificationDetail
-          class="min-h-0 flex-1"
-          :latest="selected.latest"
-          :items="selected.items"
-          :unread="isUnread(selected)"
-          :related="related"
-          @open="openLink(selected)"
-          @read="markEntryRead(selected)"
-          @remove="removeEntry(selected)"
-          @select="selectNotification"
-        />
-      </article>
+        </template>
+      </SplitPane>
     </div>
-  </div>
+  </PageFrame>
 </template>

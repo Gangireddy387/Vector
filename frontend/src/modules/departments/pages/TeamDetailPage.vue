@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useConfirm } from '@/composables/useConfirm'
-import { useDevice } from '@/composables/useDevice'
+import PageFrame from '@/components/common/PageFrame.vue'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import MeetButton from '@/modules/meetings/components/MeetButton.vue'
@@ -31,7 +31,6 @@ const isAdmin = computed(() => (auth.isOrganizationAdmin || auth.hasPermission('
 const route = useRoute()
 const router = useRouter()
 const confirm = useConfirm()
-const { isDesktop } = useDevice()
 const loadError = ref('')
 
 async function load() {
@@ -110,7 +109,7 @@ async function remove() {
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <PageFrame>
     <EmptyState
       v-if="loadError && structure.departments === null"
       :icon="UsersRound"
@@ -220,5 +219,5 @@ async function remove() {
         </TabsContent>
       </Tabs>
     </template>
-  </div>
+  </PageFrame>
 </template>

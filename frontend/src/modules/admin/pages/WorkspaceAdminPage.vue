@@ -2,6 +2,7 @@
 import { Gem, History, KeyRound, MessageCircle, Plug, Settings2, Users } from 'lucide-vue-next'
 import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import SettingsLayout, { type SettingsSection } from '@/components/common/SettingsLayout.vue'
 import { useDevice } from '@/composables/useDevice'
@@ -77,7 +78,7 @@ watch(
 </script>
 
 <template>
-  <div class="w-full space-y-3.5 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <PageFrame gap="compact">
     <PageHeader v-if="isDesktop" title="Organization settings" :description="`Name, integrations, people, plan and support for ${workspace.settings.name}.`" />
 
     <SettingsLayout v-if="SECTIONS.length" v-model="activeSection" :sections="SECTIONS" aria-label="Organization settings">
@@ -89,5 +90,5 @@ watch(
       <template #activity><WorkspaceAuditSettings /></template>
       <template #support><WorkspaceSupportSettings /></template>
     </SettingsLayout>
-  </div>
+  </PageFrame>
 </template>

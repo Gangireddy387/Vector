@@ -3,6 +3,7 @@ import { Download, History, KeyRound, Shield } from 'lucide-vue-next'
 import { onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -158,17 +159,17 @@ onMounted(() => void load())
           <code class="text-xs">workspace.audit.created</code> webhooks for live streaming.
         </CardDescription>
       </div>
-      <div class="flex flex-wrap gap-2">
+      <Toolbar variant="wrap" dense class="w-auto shrink-0">
         <Button variant="outline" size="sm" :loading="isExporting" :disabled="isLoading" @click="exportLog('csv')">
           <Download /> Export CSV
         </Button>
         <Button variant="outline" size="sm" :loading="isExporting" :disabled="isLoading" @click="exportLog('jsonl')">
           <Download /> Export JSONL
         </Button>
-      </div>
+      </Toolbar>
     </CardHeader>
     <CardContent class="space-y-3">
-      <div class="flex flex-wrap gap-1.5" role="tablist" aria-label="Audit categories">
+      <Toolbar variant="wrap" dense role="tablist" aria-label="Audit categories">
         <button
           v-for="item in FILTERS"
           :key="item.value"
@@ -191,7 +192,7 @@ onMounted(() => void load())
           </span>
           <span class="mt-0.5 block text-[10px] text-muted-foreground max-sm:hidden">{{ item.hint }}</span>
         </button>
-      </div>
+      </Toolbar>
 
       <div v-if="isLoading" class="space-y-2">
         <Skeleton v-for="index in 6" :key="index" class="h-14 w-full" />

@@ -10,7 +10,7 @@ import { useUiStore } from '@/stores/ui.store'
 import type { IssueDetail } from '@/types/models'
 import IssueCreateForm from './IssueCreateForm.vue'
 
-/** Desktop create-issue panel: opens beside the current page so boards, lists and team pages keep their context. */
+/** Wide / laptop+ create-issue panel (≥1024px): opens beside the current page so boards and lists keep context. */
 const ui = useUiStore()
 const route = useRoute()
 const router = useRouter()
@@ -29,7 +29,7 @@ const projectName = computed(() => {
   return id ? projects.activeProjects.find((project) => project.id === id)?.name : undefined
 })
 
-/** Opens the new issue in the preview panel, keeping the page underneath. */
+/** Opens the new issue in the preview panel (wide only), keeping the page underneath. */
 const openIssue = (key: string) => router.push({ query: { ...route.query, issue: key } })
 
 function onCreated(issue: IssueDetail) {

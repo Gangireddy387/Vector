@@ -20,8 +20,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -46,7 +48,7 @@ import YearView from '../components/YearView.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { isDesktop, isWide } = useDevice()
+const { isWide } = useDevice()
 const auth = useAuthStore()
 const tick = useNow({ scheduler: (callback) => useIntervalFn(callback, 30_000) })
 const now = computed(() => clockIn(auth.user?.timezone, tick.value))
@@ -384,10 +386,12 @@ useHotkeys({
 </script>
 
 <template>
-  <!-- On wide screens the page fits the window: the calendar takes the remaining height instead of the page scrolling. -->
-  <div
-    class="flex min-h-0 w-full flex-1 flex-col space-y-4 overflow-y-auto sm:space-y-5 lg:gap-4 lg:space-y-0 lg:overflow-hidden"
-    :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'"
+  <!-- fillHeight shell clips main; this page owns scroll. min-h on the pane forces scroll when short. -->
+  <PageFrame
+    mode="bare"
+    gap="none"
+    pad="default"
+    class="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto sm:gap-4"
   >
     <PageHeader
       title="Calendar"
@@ -412,11 +416,10 @@ useHotkeys({
       <RouterLink :to="{ name: 'issues', query: { assigneeId: 'me' } }" class="font-medium underline-offset-2 hover:underline">My tasks</RouterLink>.
     </p>
 
-    <!-- Compact on tablet; full strip on wide screens -->
-    <div class="grid shrink-0 grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+    <div class="grid shrink-0 grid-cols-2 gap-2 sm:gap-2.5 xl:grid-cols-4">
       <StatCard variant="card" label="Events" :value="stats.planned" :icon="CalendarDays" :hint="periodLabel" />
       <StatCard variant="card" label="Completed" :value="`${stats.percent}%`" :icon="CalendarCheck2" tone="success" :hint="`${stats.done} of ${stats.planned} done`">
-        <Progress :model-value="stats.percent" class="mt-2.5 h-1.5" indicator-class="bg-success" />
+        <Progress :model-value="stats.percent" class="mt-2 h-1.5" indicator-class="bg-success" />
       </StatCard>
       <StatCard variant="card" label="Time scheduled" :value="formatHours(stats.minutes)" :icon="Clock3" tone="warning" :hint="periodLabel" />
       <StatCard
@@ -429,8 +432,9 @@ useHotkeys({
       />
     </div>
 
-    <div class="grid min-h-0 gap-4 sm:gap-5 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <section class="relative flex min-h-[28rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft lg:min-h-0">
+    <!-- Agenda beside the grid only from xl. min-h keeps the month usable and enables page scroll when short. -->
+    <div class="grid min-h-[36rem] flex-1 grid-rows-[minmax(0,1fr)_auto] gap-3 sm:min-h-[40rem] sm:gap-4 xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] xl:grid-rows-1 xl:gap-4">
+      <section class="relative flex min-h-[24rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft sm:min-h-[28rem] xl:h-full xl:min-h-0">
         <div v-if="isLoading" class="loading-shimmer-bar absolute inset-x-0 top-0 z-30" aria-hidden="true" />
         <div
           v-if="isLoading && !events.length"
@@ -450,8 +454,8 @@ useHotkeys({
           <Button variant="outline" @click="load">Try again</Button>
         </EmptyState>
 
-        <div class="flex shrink-0 flex-col gap-2 border-b border-border px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <div class="flex min-w-0 flex-wrap items-center gap-2">
+        <Toolbar variant="wrap" dense justify="between" class="shrink-0 border-b border-border px-3 py-2">
+          <template #start>
             <div class="inline-flex h-8 items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="Calendar scope">
               <button
                 type="button"
@@ -479,17 +483,16 @@ useHotkeys({
               <Button variant="ghost" size="icon-sm" :aria-label="`Previous ${stepLabel}`" :title="`Previous ${stepLabel} (←)`" @click="shift(-1)"><ChevronLeft /></Button>
               <Button variant="ghost" size="icon-sm" :aria-label="`Next ${stepLabel}`" :title="`Next ${stepLabel} (→)`" @click="shift(1)"><ChevronRight /></Button>
             </div>
-            <h2 class="min-w-0 flex-1 truncate text-base font-semibold tracking-tight sm:mr-auto" aria-live="polite">{{ heading }}</h2>
-          </div>
-
-          <div class="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto">
+            <h2 class="shrink-0 whitespace-nowrap text-base font-semibold tracking-tight" aria-live="polite">{{ heading }}</h2>
+          </template>
+          <template #end>
             <template v-if="isTeam">
               <SelectField
                 v-model="teamId"
                 :options="teamOptions"
                 placeholder="Choose team…"
                 size="sm"
-                class="w-40"
+                class="w-full max-w-40 sm:w-40"
                 aria-label="Team"
               />
               <SelectField
@@ -498,7 +501,7 @@ useHotkeys({
                 :options="[{ value: '', label: 'All projects' }, ...teamProjects]"
                 placeholder="All projects"
                 size="sm"
-                class="w-44"
+                class="w-full max-w-44 sm:w-44"
                 aria-label="Project filter"
               />
               <label class="flex items-center gap-1.5 text-xs text-muted-foreground"><Switch v-model="showMeetings" /> Meetings</label>
@@ -513,26 +516,24 @@ useHotkeys({
               aria-label="Calendar view"
               @update:model-value="onViewSelect"
             />
-            <div v-else class="flex h-8 min-w-0 flex-wrap items-center sm:w-auto">
-              <div class="inline-flex flex-wrap items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="Calendar view">
-                <button
-                  v-for="option in VIEWS"
-                  :key="option.value"
-                  type="button"
-                  role="tab"
-                  class="flex h-7 items-center justify-center gap-1.5 rounded-[5px] px-3 text-xs font-medium transition-colors"
-                  :class="view === option.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
-                  :aria-selected="view === option.value"
-                  :title="`${option.label} view (${option.key})`"
-                  @click="setView(option.value)"
-                >
-                  <component :is="option.icon" class="size-3.5" />
-                  {{ option.label }}
-                </button>
-              </div>
+            <div v-else class="inline-flex flex-wrap items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="Calendar view">
+              <button
+                v-for="option in VIEWS"
+                :key="option.value"
+                type="button"
+                role="tab"
+                class="flex h-7 items-center justify-center gap-1.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors sm:px-3"
+                :class="view === option.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
+                :aria-selected="view === option.value"
+                :title="`${option.label} view (${option.key})`"
+                @click="setView(option.value)"
+              >
+                <component :is="option.icon" class="size-3.5" />
+                <span class="hidden sm:inline">{{ option.label }}</span>
+              </button>
             </div>
-          </div>
-        </div>
+          </template>
+        </Toolbar>
 
         <TimeGrid
           v-if="view === 'day' || (view === 'week' && isWide)"
@@ -589,6 +590,7 @@ useHotkeys({
       </section>
 
       <DayAgenda
+        class="min-h-[14rem] shrink-0 xl:h-full xl:min-h-0 xl:shrink"
         :date="selected"
         :events="eventsByDay.get(selected) ?? []"
         :tasks="tasksByDay.get(selected) ?? []"
@@ -603,5 +605,5 @@ useHotkeys({
     </div>
 
     <EventSheet v-if="!isTeam" v-model:target="sheetTarget" @changed="load" />
-  </div>
+  </PageFrame>
 </template>

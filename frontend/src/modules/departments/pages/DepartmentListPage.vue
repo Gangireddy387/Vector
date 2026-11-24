@@ -3,6 +3,7 @@ import { ArrowRight, Building2, Crown, FolderKanban, Plus, Search, UserRoundX, U
 import { computed, onMounted, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -10,7 +11,6 @@ import UserAvatarStack from '@/components/common/UserAvatarStack.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { departmentPeople, useStructureStore } from '../departments.store'
@@ -18,7 +18,6 @@ import { departmentPeople, useStructureStore } from '../departments.store'
 const structure = useStructureStore()
 const auth = useAuthStore()
 const isAdmin = computed(() => (auth.isOrganizationAdmin || auth.hasPermission('workspace.structure')))
-const { isDesktop } = useDevice()
 const search = ref('')
 const loadError = ref('')
 
@@ -68,7 +67,7 @@ const STATS = computed(() => [
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <PageFrame>
     <PageHeader
       title="Departments"
       :description="
@@ -78,7 +77,7 @@ const STATS = computed(() => [
       "
     >
       <template v-if="isAdmin" #actions>
-        <Button variant="brand" class="max-sm:w-full" as-child>
+        <Button variant="brand" as-child>
           <RouterLink :to="{ name: 'department-create' }"><Plus /> New department</RouterLink>
         </Button>
       </template>
@@ -184,5 +183,5 @@ const STATS = computed(() => [
         </div>
       </RouterLink>
     </div>
-  </div>
+  </PageFrame>
 </template>

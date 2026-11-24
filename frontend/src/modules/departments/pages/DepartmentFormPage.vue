@@ -5,12 +5,12 @@ import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import FormField from '@/components/common/FormField.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
-import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
 import StructureBreadcrumb from '../components/StructureBreadcrumb.vue'
 import { structureApi } from '../departments.api'
@@ -20,7 +20,6 @@ import { useStructureStore } from '../departments.store'
 const props = defineProps<{ departmentId?: string }>()
 const structure = useStructureStore()
 const router = useRouter()
-const { isDesktop } = useDevice()
 
 const form = reactive({ name: '', description: '', headId: null as string | null })
 const fieldErrors = ref<Record<string, string>>({})
@@ -67,7 +66,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <PageFrame>
     <div class="space-y-1.5">
       <StructureBreadcrumb
         :items="[
@@ -116,5 +115,5 @@ async function save() {
         <Button type="submit" variant="brand" class="max-sm:w-full" :loading="isSaving" :disabled="form.name.trim().length < 2">{{ isEdit ? 'Save department' : 'Create department' }}</Button>
       </div>
     </form>
-  </div>
+  </PageFrame>
 </template>

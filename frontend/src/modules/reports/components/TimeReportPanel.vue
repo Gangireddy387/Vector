@@ -3,6 +3,8 @@ import { Clock3, RefreshCw } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ResponsiveTable from '@/components/common/ResponsiveTable.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -64,19 +66,19 @@ const peakDay = computed(() => {
 
 <template>
   <div class="space-y-4">
-    <div class="flex flex-wrap items-center gap-2">
+    <Toolbar variant="wrap" dense>
       <PeriodPicker v-model="period" />
       <select
         v-if="!lockedProjectId"
         v-model="selectedProjectId"
-        class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+        class="h-9 max-sm:w-full rounded-md border border-input bg-transparent px-2 text-sm sm:w-auto"
         aria-label="Project filter"
       >
         <option value="">All projects</option>
         <option v-for="project in projectOptions" :key="project.id" :value="project.id">{{ project.label }}</option>
       </select>
       <Button variant="outline" size="sm" :loading="loading" @click="load"><RefreshCw /></Button>
-    </div>
+    </Toolbar>
 
     <div v-if="loading && !report" class="grid gap-3 sm:grid-cols-3">
       <Skeleton v-for="index in 3" :key="index" class="h-24 rounded-xl" />
@@ -146,20 +148,49 @@ const peakDay = computed(() => {
 
         <article class="space-y-2 rounded-xl border bg-card p-3 shadow-soft sm:p-4 lg:col-span-2">
           <h3 class="text-sm font-semibold">By issue</h3>
-          <ul class="divide-y divide-border/60">
-            <li v-for="row in report.byIssue" :key="row.issue.id">
-              <button
-                type="button"
-                class="flex w-full items-center gap-2 py-2 text-left text-sm hover:bg-muted/40"
-                @click="openIssue({ key: row.issue.key })"
-              >
-                <span class="font-mono text-[11px] text-muted-foreground">{{ row.issue.key }}</span>
-                <span class="min-w-0 flex-1 truncate">{{ row.issue.title }}</span>
-                <span class="text-xs text-muted-foreground">{{ row.entries }}×</span>
-                <span class="font-medium tabular-nums">{{ formatMinutes(row.minutes) }}</span>
-              </button>
-            </li>
-          </ul>
+          <ResponsiveTable breakpoint="lg">
+            <template #list>
+              <ul class="divide-y divide-border/60">
+                <li v-for="row in report.byIssue" :key="row.issue.id">
+                  <button
+                    type="button"
+                    class="flex w-full items-center gap-2 py-2 text-left text-sm hover:bg-muted/40"
+                    @click="openIssue({ key: row.issue.key })"
+                  >
+                    <span class="font-mono text-[11px] text-muted-foreground">{{ row.issue.key }}</span>
+                    <span class="min-w-0 flex-1 truncate">{{ row.issue.title }}</span>
+                    <span class="text-xs text-muted-foreground">{{ row.entries }}×</span>
+                    <span class="font-medium tabular-nums">{{ formatMinutes(row.minutes) }}</span>
+                  </button>
+                </li>
+              </ul>
+            </template>
+            <template #table>
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-y bg-muted/40 text-left text-xs font-medium text-muted-foreground">
+                    <th class="px-2 py-2 font-semibold">Key</th>
+                    <th class="px-2 py-2 font-semibold">Title</th>
+                    <th class="px-2 py-2 text-right font-semibold">Entries</th>
+                    <th class="px-2 py-2 text-right font-semibold">Time</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border/60">
+                  <tr
+                    v-for="row in report.byIssue"
+                    :key="row.issue.id"
+                    class="cursor-pointer hover:bg-muted/40"
+                    @click="openIssue({ key: row.issue.key })"
+                  >
+                    <td class="px-2 py-2 font-mono text-[11px] text-muted-foreground">{{ row.issue.key }}</td>
+                    <td class="max-w-0 truncate px-2 py-2">{{ row.issue.title }}</td>
+                    <td class="px-2 py-2 text-right text-muted-foreground tabular-nums">{{ row.entries }}</td>
+                    <td class="px-2 py-2 text-right font-medium tabular-nums">{{ formatMinutes(row.minutes) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </template>
+          </ResponsiveTable>
         </article>
       </div>
     </template>

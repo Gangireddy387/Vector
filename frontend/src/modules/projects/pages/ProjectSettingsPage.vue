@@ -3,8 +3,8 @@ import { Columns3, ListTree, Settings2, Shield, Tags, Users, Wand2 } from 'lucid
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import SettingsLayout, { type SettingsSection } from '@/components/common/SettingsLayout.vue'
-import { useDevice } from '@/composables/useDevice'
 import CustomFieldsSettings from '../components/settings/CustomFieldsSettings.vue'
 import FieldPermissionsSettings from '../components/settings/FieldPermissionsSettings.vue'
 import GeneralSettings from '../components/settings/GeneralSettings.vue'
@@ -17,7 +17,6 @@ import { useProjectsStore } from '../projects.store'
 const route = useRoute()
 const router = useRouter()
 const projects = useProjectsStore()
-const { isDesktop } = useDevice()
 
 const project = computed(() => projects.details[route.params.projectId as string])
 const SECTIONS: SettingsSection[] = [
@@ -38,7 +37,7 @@ const activeSection = computed({
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'px-5 py-4' : 'p-3'">
+  <PageFrame pad="compact">
     <EmptyState v-if="project && project.myRole !== 'admin'" title="Admins only" description="Ask a project admin to change these settings." />
     <SettingsLayout v-else-if="project" v-model="activeSection" :sections="SECTIONS" aria-label="Project settings">
       <template #general><GeneralSettings :project="project" /></template>
@@ -49,5 +48,5 @@ const activeSection = computed({
       <template #custom-fields><CustomFieldsSettings :project="project" /></template>
       <template #smart-defaults><SmartDefaultsSettings :project="project" /></template>
     </SettingsLayout>
-  </div>
+  </PageFrame>
 </template>

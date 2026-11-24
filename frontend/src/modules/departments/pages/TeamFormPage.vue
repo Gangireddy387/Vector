@@ -5,6 +5,8 @@ import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import FormField from '@/components/common/FormField.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +15,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
-import { useDevice } from '@/composables/useDevice'
 import { getErrorMessage, getFieldErrors } from '@/lib/http'
 import StructureBreadcrumb from '../components/StructureBreadcrumb.vue'
 import { structureApi } from '../departments.api'
@@ -23,7 +24,6 @@ import { useStructureStore } from '../departments.store'
 const props = defineProps<{ departmentId?: string; teamId?: string }>()
 const structure = useStructureStore()
 const router = useRouter()
-const { isDesktop } = useDevice()
 
 const form = reactive({ name: '', description: '', departmentId: '', leadId: null as string | null, memberIds: [] as string[] })
 const search = ref('')
@@ -102,7 +102,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <PageFrame>
     <div class="space-y-1.5">
       <StructureBreadcrumb
         :items="[
@@ -184,10 +184,10 @@ async function save() {
       </section>
       </div>
 
-      <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button variant="ghost" class="max-sm:w-full" as-child><RouterLink :to="back">Cancel</RouterLink></Button>
-        <Button type="submit" variant="brand" class="max-sm:w-full" :loading="isSaving" :disabled="form.name.trim().length < 2 || !form.departmentId">{{ isEdit ? 'Save team' : 'Create team' }}</Button>
-      </div>
+      <Toolbar variant="footer">
+        <Button variant="ghost" as-child><RouterLink :to="back">Cancel</RouterLink></Button>
+        <Button type="submit" variant="brand" :loading="isSaving" :disabled="form.name.trim().length < 2 || !form.departmentId">{{ isEdit ? 'Save team' : 'Create team' }}</Button>
+      </Toolbar>
     </form>
-  </div>
+  </PageFrame>
 </template>

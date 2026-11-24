@@ -3,6 +3,8 @@ import { ArrowDownWideNarrow, ArrowUpNarrowWide, Award, Bug, CircleCheck, Clock,
 import { type Component, computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ResponsiveTable from '@/components/common/ResponsiveTable.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
 import { Button } from '@/components/ui/button'
@@ -220,8 +222,8 @@ function exportCsv() {
 
 <template>
   <div class="space-y-4">
-    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+    <Toolbar justify="between">
+      <template #start>
         <SelectField
           v-if="!lockedProjectId"
           :model-value="projectId ?? null"
@@ -232,8 +234,8 @@ function exportCsv() {
           @update:model-value="(value) => (projectId = value ?? undefined)"
         />
         <PeriodPicker v-model="period" class="w-full sm:w-auto" />
-      </div>
-      <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+      </template>
+      <template #end>
         <Popover>
           <PopoverTrigger as-child>
             <Button variant="ghost" size="sm" class="max-sm:w-full"><Info /> How scores work</Button>
@@ -251,8 +253,8 @@ function exportCsv() {
           </PopoverContent>
         </Popover>
         <Button variant="outline" size="sm" class="max-sm:w-full" :disabled="!report?.members.length" @click="exportCsv"><Download /> Export CSV</Button>
-      </div>
-    </div>
+      </template>
+    </Toolbar>
 
     <div v-if="errorMessage" class="flex flex-wrap items-center justify-between gap-2 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
       <p>{{ errorMessage }}</p>
@@ -338,13 +340,13 @@ function exportCsv() {
       />
 
       <section v-else class="border border-border/70 bg-card shadow-soft">
-        <header class="flex flex-col gap-3 border-b px-3 py-3 sm:px-4 xl:flex-row xl:items-center xl:justify-between">
+        <Toolbar variant="wrap" dense justify="between" class="border-b px-3 py-3 sm:px-4">
           <div class="min-w-0">
             <h2 class="text-sm font-semibold">Member review</h2>
             <p class="text-xs text-muted-foreground xl:hidden">Tap a person for their full review. Sort with the menu.</p>
             <p class="hidden text-xs text-muted-foreground xl:block">Click a column to sort. Click a person for their full review: every task they finished, by module and sprint.</p>
           </div>
-          <div class="flex w-full min-w-0 items-center gap-2 xl:hidden">
+          <Toolbar variant="wrap" dense class="w-full min-w-0 xl:hidden">
             <SelectField v-model="sortSelection" :options="sortOptions" size="sm" class="min-w-0 flex-1" aria-label="Sort members" />
             <Button
               variant="outline"
@@ -358,130 +360,133 @@ function exportCsv() {
               <ArrowUpNarrowWide v-if="sortAscending" />
               <ArrowDownWideNarrow v-else />
             </Button>
-          </div>
-        </header>
+          </Toolbar>
+        </Toolbar>
 
-        <ul class="divide-y xl:hidden">
-          <li v-for="row in rows" :key="row.user.id">
-            <button
-              type="button"
-              class="w-full px-3 py-3 text-left transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none sm:px-4"
-              :aria-label="`Open review for ${row.user.name}`"
-              @click="reviewUserId = row.user.id"
-            >
-              <span class="flex items-center gap-2.5">
-                <span v-if="row.rank" class="inline-flex size-6 shrink-0 items-center justify-center text-xs font-bold tabular-nums" :class="rankTone(row.rank)">{{ row.rank }}</span>
-                <span v-else class="inline-flex size-6 shrink-0 items-center justify-center text-xs text-muted-foreground">—</span>
-                <UserAvatar :user="row.user" size="md" />
-                <span class="min-w-0 flex-1">
-                  <span class="block truncate font-medium">{{ row.user.name }}</span>
-                  <span class="block truncate text-xs text-muted-foreground">{{ roleLine(row) }}</span>
-                </span>
-                <span v-if="row.score !== null" class="shrink-0 text-right">
-                  <span class="block text-lg leading-none font-semibold tabular-nums">{{ row.score }}</span>
-                  <span class="mt-1 block h-1.5 w-14 bg-muted"><span class="block h-full" :class="scoreTone(row.score)" :style="{ width: `${row.score}%` }" /></span>
-                </span>
-                <span v-else class="max-w-24 shrink-0 text-right text-xs text-muted-foreground">No completed work</span>
-              </span>
-              <span class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
-                <span v-for="metric in metricsFor(row)" :key="metric.label" class="min-w-0">
-                  <span class="block text-[11px] text-muted-foreground">{{ metric.label }}</span>
-                  <span class="block text-sm font-medium tabular-nums" :class="metricClass(metric.tone)">{{ metric.value }}</span>
-                  <span v-if="metric.detail" class="block truncate text-[11px]" :class="metric.tone === 'danger' ? 'font-medium text-destructive' : 'text-muted-foreground'">{{ metric.detail }}</span>
-                </span>
-              </span>
-              <span v-if="row.trend.length > 1" class="mt-3 flex items-center justify-between gap-3">
-                <span class="text-[11px] text-muted-foreground">Completed per {{ report.buckets[0]?.unit ?? 'week' }}</span>
-                <TrendSparkline :values="row.trend" :label="`Completed per ${report.buckets[0]?.unit ?? 'week'}: ${row.trend.map((value, index) => `${bucketLabels[index]} ${value}`).join(', ')}`" />
-              </span>
-            </button>
-          </li>
-        </ul>
-
-        <div class="hidden overflow-x-auto xl:block">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="border-b bg-muted/40 text-left text-xs font-medium text-muted-foreground">
-                <th class="w-12 px-4 py-2 font-semibold">#</th>
-                <th class="px-3 py-2 font-semibold">Person</th>
-                <th
-                  v-for="column in COLUMNS"
-                  :key="column.key"
-                  class="px-3 py-2 font-semibold whitespace-nowrap"
-                  :class="column.align === 'right' && 'text-right'"
-                  :aria-sort="sortKey === column.key ? (sortAscending ? 'ascending' : 'descending') : 'none'"
+        <ResponsiveTable>
+          <template #list>
+            <ul class="divide-y">
+              <li v-for="row in rows" :key="row.user.id">
+                <button
+                  type="button"
+                  class="w-full px-3 py-3 text-left transition-colors hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none sm:px-4"
+                  :aria-label="`Open review for ${row.user.name}`"
+                  @click="reviewUserId = row.user.id"
                 >
-                  <button
-                    type="button"
-                    class="inline-flex items-center gap-1 uppercase transition-colors hover:text-foreground"
-                    :class="sortKey === column.key && 'text-foreground'"
-                    :title="column.hint"
-                    @click="sortBy(column.key)"
-                  >
-                    {{ column.label }}
-                    <span v-if="sortKey === column.key" aria-hidden="true">{{ sortAscending ? '↑' : '↓' }}</span>
-                  </button>
-                </th>
-                <th class="px-4 py-2 font-semibold">Trend</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y">
-              <tr
-                v-for="row in rows"
-                :key="row.user.id"
-                class="cursor-pointer transition-colors hover:bg-accent/40"
-                tabindex="0"
-                :aria-label="`Open review for ${row.user.name}`"
-                @click="reviewUserId = row.user.id"
-                @keydown.enter="reviewUserId = row.user.id"
-              >
-                <td class="px-4 py-2.5">
-                  <span v-if="row.rank" class="inline-flex size-6 items-center justify-center text-xs font-bold tabular-nums" :class="rankTone(row.rank)">{{ row.rank }}</span>
-                  <span v-else class="text-muted-foreground">—</span>
-                </td>
-                <td class="px-3 py-2.5">
-                  <span class="flex min-w-0 items-center gap-2.5">
+                  <span class="flex items-center gap-2.5">
+                    <span v-if="row.rank" class="inline-flex size-6 shrink-0 items-center justify-center text-xs font-bold tabular-nums" :class="rankTone(row.rank)">{{ row.rank }}</span>
+                    <span v-else class="inline-flex size-6 shrink-0 items-center justify-center text-xs text-muted-foreground">—</span>
                     <UserAvatar :user="row.user" size="md" />
-                    <span class="min-w-0">
+                    <span class="min-w-0 flex-1">
                       <span class="block truncate font-medium">{{ row.user.name }}</span>
                       <span class="block truncate text-xs text-muted-foreground">{{ roleLine(row) }}</span>
                     </span>
+                    <span v-if="row.score !== null" class="shrink-0 text-right">
+                      <span class="block text-lg leading-none font-semibold tabular-nums">{{ row.score }}</span>
+                      <span class="mt-1 block h-1.5 w-14 bg-muted"><span class="block h-full" :class="scoreTone(row.score)" :style="{ width: `${row.score}%` }" /></span>
+                    </span>
+                    <span v-else class="max-w-24 shrink-0 text-right text-xs text-muted-foreground">No completed work</span>
                   </span>
-                </td>
-                <td class="px-3 py-2.5">
-                  <span v-if="row.score !== null" class="flex items-center gap-2">
-                    <span class="h-1.5 w-16 bg-muted"><span class="block h-full" :class="scoreTone(row.score)" :style="{ width: `${row.score}%` }" /></span>
-                    <span class="w-7 font-semibold tabular-nums">{{ row.score }}</span>
+                  <span class="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
+                    <span v-for="metric in metricsFor(row)" :key="metric.label" class="min-w-0">
+                      <span class="block text-[11px] text-muted-foreground">{{ metric.label }}</span>
+                      <span class="block text-sm font-medium tabular-nums" :class="metricClass(metric.tone)">{{ metric.value }}</span>
+                      <span v-if="metric.detail" class="block truncate text-[11px]" :class="metric.tone === 'danger' ? 'font-medium text-destructive' : 'text-muted-foreground'">{{ metric.detail }}</span>
+                    </span>
                   </span>
-                  <span v-else class="text-xs text-muted-foreground">No completed work</span>
-                </td>
-                <td class="px-3 py-2.5 text-right tabular-nums">
-                  <span class="font-semibold">{{ row.completed }}</span>
-                  <span v-if="row.completedPoints" class="block text-xs text-muted-foreground">{{ row.completedPoints }} pts</span>
-                </td>
-                <td class="px-3 py-2.5 text-right tabular-nums">
-                  <template v-if="row.onTimeRate !== null">
-                    <span :class="row.onTimeRate >= 80 ? 'text-success' : row.onTimeRate >= 50 ? '' : 'text-destructive'" class="font-medium">{{ row.onTimeRate }}%</span>
-                    <span class="block text-xs text-muted-foreground">{{ row.onTime }}/{{ row.withDueDate }}</span>
-                  </template>
-                  <span v-else class="text-muted-foreground">—</span>
-                </td>
-                <td class="px-3 py-2.5 text-right tabular-nums">{{ row.averageCycleDays === null ? '—' : `${row.averageCycleDays}d` }}</td>
-                <td class="px-3 py-2.5 text-right tabular-nums" :class="!row.bugsFixed && 'text-muted-foreground'">{{ row.bugsFixed }}</td>
-                <td class="px-3 py-2.5 text-right tabular-nums" :class="row.reopened ? 'font-medium text-destructive' : 'text-muted-foreground'">{{ row.reopened }}</td>
-                <td class="px-3 py-2.5 text-right tabular-nums">{{ hours(row.loggedMinutes) }}</td>
-                <td class="px-3 py-2.5 text-right tabular-nums" :class="!row.comments && 'text-muted-foreground'">{{ row.comments }}</td>
-                <td class="px-3 py-2.5 text-right tabular-nums">
-                  {{ row.open }}
-                  <span v-if="row.overdue" class="block text-xs font-medium text-destructive">{{ row.overdue }} overdue</span>
-                </td>
-                <td class="px-4 py-2.5">
-                  <TrendSparkline :values="row.trend" :label="`Completed per ${report.buckets[0]?.unit ?? 'week'}: ${row.trend.map((value, index) => `${bucketLabels[index]} ${value}`).join(', ')}`" />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                  <span v-if="row.trend.length > 1" class="mt-3 flex items-center justify-between gap-3">
+                    <span class="text-[11px] text-muted-foreground">Completed per {{ report.buckets[0]?.unit ?? 'week' }}</span>
+                    <TrendSparkline :values="row.trend" :label="`Completed per ${report.buckets[0]?.unit ?? 'week'}: ${row.trend.map((value, index) => `${bucketLabels[index]} ${value}`).join(', ')}`" />
+                  </span>
+                </button>
+              </li>
+            </ul>
+          </template>
+          <template #table>
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b bg-muted/40 text-left text-xs font-medium text-muted-foreground">
+                  <th class="w-12 px-4 py-2 font-semibold">#</th>
+                  <th class="px-3 py-2 font-semibold">Person</th>
+                  <th
+                    v-for="column in COLUMNS"
+                    :key="column.key"
+                    class="px-3 py-2 font-semibold whitespace-nowrap"
+                    :class="column.align === 'right' && 'text-right'"
+                    :aria-sort="sortKey === column.key ? (sortAscending ? 'ascending' : 'descending') : 'none'"
+                  >
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1 uppercase transition-colors hover:text-foreground"
+                      :class="sortKey === column.key && 'text-foreground'"
+                      :title="column.hint"
+                      @click="sortBy(column.key)"
+                    >
+                      {{ column.label }}
+                      <span v-if="sortKey === column.key" aria-hidden="true">{{ sortAscending ? '↑' : '↓' }}</span>
+                    </button>
+                  </th>
+                  <th class="px-4 py-2 font-semibold">Trend</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y">
+                <tr
+                  v-for="row in rows"
+                  :key="row.user.id"
+                  class="cursor-pointer transition-colors hover:bg-accent/40"
+                  tabindex="0"
+                  :aria-label="`Open review for ${row.user.name}`"
+                  @click="reviewUserId = row.user.id"
+                  @keydown.enter="reviewUserId = row.user.id"
+                >
+                  <td class="px-4 py-2.5">
+                    <span v-if="row.rank" class="inline-flex size-6 items-center justify-center text-xs font-bold tabular-nums" :class="rankTone(row.rank)">{{ row.rank }}</span>
+                    <span v-else class="text-muted-foreground">—</span>
+                  </td>
+                  <td class="px-3 py-2.5">
+                    <span class="flex min-w-0 items-center gap-2.5">
+                      <UserAvatar :user="row.user" size="md" />
+                      <span class="min-w-0">
+                        <span class="block truncate font-medium">{{ row.user.name }}</span>
+                        <span class="block truncate text-xs text-muted-foreground">{{ roleLine(row) }}</span>
+                      </span>
+                    </span>
+                  </td>
+                  <td class="px-3 py-2.5">
+                    <span v-if="row.score !== null" class="flex items-center gap-2">
+                      <span class="h-1.5 w-16 bg-muted"><span class="block h-full" :class="scoreTone(row.score)" :style="{ width: `${row.score}%` }" /></span>
+                      <span class="w-7 font-semibold tabular-nums">{{ row.score }}</span>
+                    </span>
+                    <span v-else class="text-xs text-muted-foreground">No completed work</span>
+                  </td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">
+                    <span class="font-semibold">{{ row.completed }}</span>
+                    <span v-if="row.completedPoints" class="block text-xs text-muted-foreground">{{ row.completedPoints }} pts</span>
+                  </td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">
+                    <template v-if="row.onTimeRate !== null">
+                      <span :class="row.onTimeRate >= 80 ? 'text-success' : row.onTimeRate >= 50 ? '' : 'text-destructive'" class="font-medium">{{ row.onTimeRate }}%</span>
+                      <span class="block text-xs text-muted-foreground">{{ row.onTime }}/{{ row.withDueDate }}</span>
+                    </template>
+                    <span v-else class="text-muted-foreground">—</span>
+                  </td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">{{ row.averageCycleDays === null ? '—' : `${row.averageCycleDays}d` }}</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums" :class="!row.bugsFixed && 'text-muted-foreground'">{{ row.bugsFixed }}</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums" :class="row.reopened ? 'font-medium text-destructive' : 'text-muted-foreground'">{{ row.reopened }}</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">{{ hours(row.loggedMinutes) }}</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums" :class="!row.comments && 'text-muted-foreground'">{{ row.comments }}</td>
+                  <td class="px-3 py-2.5 text-right tabular-nums">
+                    {{ row.open }}
+                    <span v-if="row.overdue" class="block text-xs font-medium text-destructive">{{ row.overdue }} overdue</span>
+                  </td>
+                  <td class="px-4 py-2.5">
+                    <TrendSparkline :values="row.trend" :label="`Completed per ${report.buckets[0]?.unit ?? 'week'}: ${row.trend.map((value, index) => `${bucketLabels[index]} ${value}`).join(', ')}`" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </template>
+        </ResponsiveTable>
       </section>
     </div>
 

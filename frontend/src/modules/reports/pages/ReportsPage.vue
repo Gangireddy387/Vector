@@ -2,6 +2,7 @@
 import { BarChart3, Clock3, Gauge, Users } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDevice } from '@/composables/useDevice'
@@ -52,10 +53,7 @@ const description = computed(() => {
 </script>
 
 <template>
-  <div
-    class="min-h-0 w-full flex-1 space-y-4 overflow-y-auto sm:space-y-5"
-    :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'"
-  >
+  <PageFrame mode="scroll">
     <PageHeader v-if="isDesktop && !projectId" title="Reports" :description="description" />
     <Tabs v-model="tab">
       <TabsList
@@ -72,5 +70,5 @@ const description = computed(() => {
     <TimeReportPanel v-else-if="tab === 'time'" :locked-project-id="projectId" />
     <CapacityPanel v-else-if="tab === 'capacity'" :locked-project-id="projectId" />
     <ReportsDashboard v-else :locked-project-id="projectId" />
-  </div>
+  </PageFrame>
 </template>

@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import { useStorage } from '@vueuse/core'
 import { format, parseISO } from 'date-fns'
-import { ArrowLeft, BookOpen, FileText, Folder, History, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, BookOpen, FileText, Folder, History, PanelLeft, PanelLeftClose, Pencil, Plus, Search, Sparkles, Trash2 } from 'lucide-vue-next'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import PageFrame from '@/components/common/PageFrame.vue'
 import RichText from '@/components/common/RichText.vue'
+import SplitPane from '@/components/common/SplitPane.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -38,9 +42,13 @@ const route = useRoute()
 const router = useRouter()
 const { isWide } = useDevice()
 
+/** Wiki page list open/closed on laptop+; remembered so reading width stays preferred. */
+const listOpen = useStorage('vector.wiki.listOpen', true)
+
 const pages = ref<WikiPage[] | null>(null)
 const templates = ref<WikiTemplate[]>([])
 const selectedId = ref<string | null>(null)
+const listCollapsed = computed(() => isWide.value && Boolean(selectedId.value) && !listOpen.value)
 const activeFolderId = ref<string | null>(null)
 const expandedFolders = ref<Set<string>>(new Set())
 const title = ref('')
@@ -98,8 +106,6 @@ watch(
 
 const canAi = computed(() => auth.hasFeature('aiAssistant'))
 const selected = computed(() => pages.value?.find((page) => page.id === selectedId.value) ?? null)
-const showList = computed(() => isWide.value || !selectedId.value)
-const showEditor = computed(() => isWide.value || Boolean(selectedId.value))
 const isEmptyOrg = computed(() => pages.value !== null && !pages.value.length && !query.value.trim())
 const looksUnfinished = computed(() => /_[^_\n]{2,80}_|> \*\*Tip:\*\*/.test(body.value))
 const issueKeys = computed(() => referencedIssues.value.map((issue) => issue.key))
@@ -466,13 +472,15 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col md:flex-row">
-    <aside
-      v-if="showList"
-      class="flex min-h-0 w-full shrink-0 flex-col border-border bg-background md:w-80 md:border-r"
-      :class="showEditor && isWide ? '' : 'flex-1'"
-    >
-      <div class="flex items-center gap-2 border-b border-border px-3 py-2.5">
+  <PageFrame mode="bare" gap="none" pad="none" class="flex min-h-0 flex-1 flex-col">
+  <SplitPane
+    :selected="Boolean(selectedId)"
+    :collapsed="listCollapsed"
+    master-class="w-72 shrink-0 xl:w-80"
+    detail-class="bg-sidebar/30"
+  >
+    <template #master>
+      <Toolbar variant="wrap" dense class="border-b border-border px-3 py-2.5">
         <BookOpen class="size-4 text-primary" />
         <div class="min-w-0 flex-1">
           <p class="text-[13px] font-semibold">Wiki</p>
@@ -486,6 +494,16 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
             }}
           </p>
         </div>
+        <Button
+          v-if="isWide && selectedId"
+          size="icon-sm"
+          variant="ghost"
+          title="Hide page list"
+          aria-label="Hide page list"
+          @click="listOpen = false"
+        >
+          <PanelLeftClose class="size-3.5" />
+        </Button>
         <Button size="icon-sm" variant="ghost" title="New folder" :disabled="creating" @click="createFolder">
           <Folder class="size-3.5" />
         </Button>
@@ -494,7 +512,7 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
           <Plus v-else class="size-3.5" />
           New
         </Button>
-      </div>
+      </Toolbar>
       <div class="border-b border-border px-2 py-2">
         <div class="relative">
           <Search class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -548,10 +566,10 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
           @select-folder="selectFolder"
         />
       </div>
-    </aside>
+    </template>
 
-    <section v-if="showEditor" class="flex min-h-0 min-w-0 flex-1 flex-col bg-sidebar/30">
-      <div v-if="!selected" class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center sm:p-8">
+    <template #empty>
+      <div class="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center sm:p-8">
         <span class="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Sparkles v-if="canAi" class="size-6" />
           <BookOpen v-else class="size-6" />
@@ -587,10 +605,23 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
           </button>
         </div>
       </div>
+    </template>
 
-      <template v-else>
-        <div class="flex items-center gap-2 border-b border-border bg-background px-3 py-2.5 sm:px-5">
+    <template #detail>
+        <Toolbar variant="wrap" dense class="border-b border-border bg-background px-3 py-2.5 sm:px-5">
           <Button v-if="!isWide" variant="ghost" size="icon-sm" class="shrink-0" aria-label="Back to wiki" @click="closeEditor"><ArrowLeft /></Button>
+          <Button
+            v-else-if="listCollapsed"
+            variant="outline"
+            size="sm"
+            class="shrink-0 gap-1.5"
+            aria-label="Show page list"
+            title="Show page list"
+            @click="listOpen = true"
+          >
+            <PanelLeft class="size-3.5" />
+            <span class="hidden sm:inline">Pages</span>
+          </Button>
           <div class="min-w-0 flex-1">
             <Input
               v-if="editing"
@@ -603,8 +634,8 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
             <template v-else>
               <h1 class="truncate text-base font-semibold tracking-tight sm:text-lg">{{ title }}</h1>
               <p class="truncate text-[11px] text-muted-foreground">
-                {{ selected.updatedBy?.name ?? selected.createdBy?.name ?? 'Someone' }}
-                · {{ format(parseISO(selected.updatedAt), 'd MMM, HH:mm') }}
+                {{ selected?.updatedBy?.name ?? selected?.createdBy?.name ?? 'Someone' }}
+                · {{ selected ? format(parseISO(selected.updatedAt), 'd MMM, HH:mm') : '' }}
                 <span v-if="saveLabel || saving"> · {{ saving ? 'Saving…' : saveLabel }}</span>
               </p>
             </template>
@@ -644,11 +675,11 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
               <Button size="sm" variant="ghost" @click="editing = false">Done</Button>
               <Button size="sm" :disabled="!dirty || saving" :loading="saving" @click="save()">Save</Button>
             </template>
-            <Button v-if="canDelete(selected)" size="icon-sm" variant="ghost" title="Delete page" @click="removePage(selected)">
+            <Button v-if="selected && canDelete(selected)" size="icon-sm" variant="ghost" title="Delete page" @click="removePage(selected)">
               <Trash2 />
             </Button>
           </div>
-        </div>
+        </Toolbar>
 
         <!-- Read mode: document first -->
         <div v-if="!editing" class="min-h-0 flex-1 overflow-y-auto">
@@ -761,21 +792,21 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
             </div>
           </div>
         </template>
-      </template>
-    </section>
+    </template>
+  </SplitPane>
 
-    <WikiNewPageDialog
-      v-model:open="showNew"
-      :templates="templates"
-      :creating="creating"
-      :prefer-template-id="preferTemplateId"
-      @create="createFromDialog"
-    />
-    <WikiHistoryDialog
-      v-model:open="showHistory"
-      :page-id="selectedId"
-      :page-title="selected?.title"
-      @restored="onHistoryRestored"
-    />
-  </div>
+  <WikiNewPageDialog
+    v-model:open="showNew"
+    :templates="templates"
+    :creating="creating"
+    :prefer-template-id="preferTemplateId"
+    @create="createFromDialog"
+  />
+  <WikiHistoryDialog
+    v-model:open="showHistory"
+    :page-id="selectedId"
+    :page-title="selected?.title"
+    @restored="onHistoryRestored"
+  />
+  </PageFrame>
 </template>

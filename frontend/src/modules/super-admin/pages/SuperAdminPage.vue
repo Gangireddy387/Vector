@@ -31,6 +31,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import FormField from '@/components/common/FormField.vue'
+import ResponsiveTable from '@/components/common/ResponsiveTable.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import SelectField from '@/components/forms/SelectField.vue'
 import BrandMark from '@/components/layout/BrandMark.vue'
 import { Badge } from '@/components/ui/badge'
@@ -531,12 +533,12 @@ function signOut() {
       </section>
 
       <section class="space-y-3">
-        <div class="flex items-center justify-between gap-3">
+        <Toolbar variant="wrap" dense justify="between">
           <h2 class="text-sm font-medium text-muted-foreground">
             {{ FILTERS.find((item) => item.value === filter)?.label }}
           </h2>
           <span class="text-xs text-muted-foreground tabular-nums">{{ visible.length }} shown</span>
-        </div>
+        </Toolbar>
 
         <div v-if="organizations === null" class="space-y-3">
           <Skeleton v-for="index in 3" :key="index" class="h-36 w-full rounded-xl" />
@@ -554,8 +556,9 @@ function signOut() {
           class="rounded-xl py-14 sm:py-16"
         />
 
-        <!-- Mobile / tablet cards -->
-        <ul v-else class="space-y-3 xl:hidden">
+        <ResponsiveTable v-else>
+          <template #list>
+        <ul class="space-y-3">
           <li
             v-for="organization in visible"
             :key="organization.id"
@@ -675,9 +678,10 @@ function signOut() {
             </div>
           </li>
         </ul>
+          </template>
 
-        <!-- Wide desktop table -->
-        <div v-if="visible.length" class="hidden overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft xl:block">
+          <template #table>
+        <div class="overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft">
           <div
             class="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.8fr)_7.5rem_10rem_6.5rem_7rem_auto] items-center gap-4 border-b border-border/70 bg-muted/40 px-4 py-2.5 text-xs font-medium text-muted-foreground"
           >
@@ -818,6 +822,8 @@ function signOut() {
             </li>
           </ul>
         </div>
+          </template>
+        </ResponsiveTable>
       </section>
       </template>
     </main>

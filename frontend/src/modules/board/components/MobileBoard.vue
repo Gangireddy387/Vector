@@ -4,6 +4,7 @@ import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Inbox } from 'lucid
 import { computed, ref, watch } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import {
@@ -146,7 +147,7 @@ useSwipe(pane, {
   <!-- Natural page scroll on phone — no nested column scrollbar -->
   <div ref="pane" class="flex w-full min-w-0 flex-col touch-pan-y">
     <div class="border-b border-border bg-background px-2 py-2">
-      <div class="flex items-center gap-1">
+      <Toolbar variant="wrap" dense class="items-center gap-1">
         <Button
           type="button"
           variant="ghost"
@@ -207,7 +208,7 @@ useSwipe(pane, {
         >
           <ChevronRight class="size-5" />
         </Button>
-      </div>
+      </Toolbar>
 
       <div v-if="statuses.length > 1" class="mt-1.5 flex items-center justify-center gap-1.5">
         <button

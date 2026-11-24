@@ -23,7 +23,7 @@ const emit = defineEmits<{ open: [issue: Issue]; toggleSelect: [issue: Issue] }>
 
 <template>
   <div
-    class="group flex h-10 items-center gap-2 border-b border-border/70 bg-card px-3 text-[13px] transition-colors last:border-b-0 hover:bg-accent/60"
+    class="group flex min-h-10 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border/70 bg-card px-3 py-2 text-[13px] transition-colors last:border-b-0 hover:bg-accent/60"
     :class="[selected && 'bg-accent hover:bg-accent', focused && 'bg-accent/80 ring-1 ring-inset ring-primary/40']"
     :data-issue-id="issue.id"
   >
@@ -35,24 +35,24 @@ const emit = defineEmits<{ open: [issue: Issue]; toggleSelect: [issue: Issue] }>
       @update:model-value="emit('toggleSelect', issue)"
       @click.stop
     />
-    <IssueTypeIcon :type="issue.type" />
-    <span class="w-20 shrink-0 text-xs font-medium text-muted-foreground" :class="issue.status.category === 'done' && 'line-through'">
+    <IssueTypeIcon :type="issue.type" class="shrink-0" />
+    <span class="w-[4.5rem] shrink-0 truncate text-xs font-medium text-muted-foreground sm:w-20" :class="issue.status.category === 'done' && 'line-through'">
       {{ issue.key }}
     </span>
-    <button type="button" class="min-w-0 flex-1 truncate text-left hover:underline" @click="emit('open', issue)">
+    <button type="button" class="min-w-0 flex-1 basis-[min(100%,12rem)] truncate text-left hover:underline" @click="emit('open', issue)">
       {{ issue.title }}
     </button>
-    <span v-if="issue.parent" class="hidden max-w-36 truncate rounded-[4px] bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-medium text-violet-600 xl:inline dark:text-violet-300">
+    <span v-if="issue.parent" class="hidden max-w-36 truncate rounded-[4px] bg-violet-500/10 px-1.5 py-0.5 text-[11px] font-medium text-violet-600 2xl:inline dark:text-violet-300">
       {{ issue.parent.title }}
     </span>
-    <span class="hidden gap-1 lg:flex">
+    <span class="hidden gap-1 xl:flex">
       <LabelChip v-for="label in issue.labels.slice(0, 2)" :key="label.id" :label="label" />
     </span>
     <DueDateBadge :due-date="issue.dueDate" :done="issue.status.category === 'done'" compact />
-    <StatusBadge :status="issue.status" class="w-28 justify-center" />
-    <span class="w-6 text-center text-xs font-semibold text-muted-foreground tabular-nums">{{ issue.storyPoints ?? '–' }}</span>
-    <PriorityIcon :priority="issue.priority" />
-    <UserAvatar :user="issue.assignee" size="sm" show-tooltip />
+    <StatusBadge :status="issue.status" class="max-w-[7rem] min-w-0 shrink justify-center truncate xl:max-w-none xl:w-28" />
+    <span class="hidden w-6 text-center text-xs font-semibold text-muted-foreground tabular-nums xl:inline">{{ issue.storyPoints ?? '–' }}</span>
+    <PriorityIcon :priority="issue.priority" class="hidden sm:inline-flex" />
+    <UserAvatar :user="issue.assignee" size="sm" show-tooltip class="hidden sm:inline-flex" />
     <slot name="actions" />
   </div>
 </template>

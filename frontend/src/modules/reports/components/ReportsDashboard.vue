@@ -7,6 +7,7 @@ import DonutChart from '@/components/common/charts/DonutChart.vue'
 import HorizontalBarList from '@/components/common/charts/HorizontalBarList.vue'
 import LineChart from '@/components/common/charts/LineChart.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -189,23 +190,34 @@ async function setWeeklyEmail(value: boolean) {
 
 <template>
   <div class="reports-dashboard space-y-4">
-    <div class="reports-toolbar flex flex-wrap items-center justify-between gap-3">
-      <ReportFilterBar v-model="filters" :projects="projects.activeProjects" :members="members" :lock-project="Boolean(lockedProjectId)" />
-      <div class="flex flex-wrap items-center gap-2">
-        <p v-if="report" class="text-xs text-muted-foreground">
-          {{ formatDate(report.period.from, 'd MMM') }} – {{ formatDate(report.period.to, 'd MMM yyyy') }}
-          · {{ report.projects.length === 1 ? report.projects[0]!.name : `${report.projects.length} projects` }}
-        </p>
-        <label class="flex items-center gap-2 text-xs text-muted-foreground">
-          <Switch
-            :model-value="auth.user?.preferences.weeklyReportsEmail ?? false"
-            @update:model-value="(value: boolean) => setWeeklyEmail(value)"
-          />
-          Email me weekly
-        </label>
-        <Button variant="outline" size="sm" :disabled="!report" @click="downloadPdf"><FileText /> Download PDF</Button>
-        <Button variant="outline" size="sm" :disabled="!report" @click="exportCsv"><Download /> Export CSV</Button>
-      </div>
+    <!-- Filters and actions on separate full-width rows — nesting them in one
+         justify-between toolbar squeezes selects into a narrow icon column. -->
+    <div class="reports-toolbar space-y-2">
+      <ReportFilterBar
+        v-model="filters"
+        :projects="projects.activeProjects"
+        :members="members"
+        :lock-project="Boolean(lockedProjectId)"
+      />
+      <Toolbar variant="wrap" dense justify="between" align="center">
+        <template #start>
+          <p v-if="report" class="text-xs text-muted-foreground">
+            {{ formatDate(report.period.from, 'd MMM') }} – {{ formatDate(report.period.to, 'd MMM yyyy') }}
+            · {{ report.projects.length === 1 ? report.projects[0]!.name : `${report.projects.length} projects` }}
+          </p>
+        </template>
+        <template #end>
+          <label class="flex items-center gap-2 text-xs text-muted-foreground">
+            <Switch
+              :model-value="auth.user?.preferences.weeklyReportsEmail ?? false"
+              @update:model-value="(value: boolean) => setWeeklyEmail(value)"
+            />
+            Email me weekly
+          </label>
+          <Button variant="outline" size="sm" :disabled="!report" @click="downloadPdf"><FileText /> Download PDF</Button>
+          <Button variant="outline" size="sm" :disabled="!report" @click="exportCsv"><Download /> Export CSV</Button>
+        </template>
+      </Toolbar>
     </div>
 
     <div v-if="errorMessage" class="flex flex-wrap items-center justify-between gap-2 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
@@ -314,30 +326,36 @@ async function setWeeklyEmail(value: boolean) {
       <!-- Projects side by side (all-projects view) -->
       <ProjectBreakdownTable v-if="report.byProject.length > 1" :rows="report.byProject" :days="report.period.days" @select="focusProject" />
 
-      <!-- Breakdowns -->
-      <div class="grid items-start gap-4 lg:grid-cols-3">
-        <Card>
+      <!-- Breakdowns: equal-height cards; donut stacks so it matches the bar lists in a 3-col row. -->
+      <div class="grid items-stretch gap-3 sm:gap-4 lg:grid-cols-3">
+        <Card class="h-full">
           <CardHeader>
             <CardTitle>{{ report.byStatus.length ? 'By status' : 'By stage' }}</CardTitle>
             <CardDescription>
               {{ report.totals.total === 1 ? 'Where the one task is in the workflow.' : `Where all ${report.totals.total} tasks are in the workflow.` }}
             </CardDescription>
           </CardHeader>
-          <CardContent><DonutChart :segments="statusSegments" center-label="issues" :size="140" /></CardContent>
+          <CardContent class="flex flex-1 flex-col justify-center">
+            <DonutChart :segments="statusSegments" center-label="issues" :size="140" layout="stack" />
+          </CardContent>
         </Card>
-        <Card>
+        <Card class="h-full">
           <CardHeader>
             <CardTitle>Open work by priority</CardTitle>
             <CardDescription>How urgent the remaining work is.</CardDescription>
           </CardHeader>
-          <CardContent><HorizontalBarList :items="priorityBars" empty-text="No open work" /></CardContent>
+          <CardContent class="flex flex-1 flex-col justify-center">
+            <HorizontalBarList :items="priorityBars" empty-text="No open work" />
+          </CardContent>
         </Card>
-        <Card>
+        <Card class="h-full">
           <CardHeader>
             <CardTitle>By type</CardTitle>
             <CardDescription>The mix of stories, tasks, bugs and more.</CardDescription>
           </CardHeader>
-          <CardContent><HorizontalBarList :items="typeBars" empty-text="No tasks" /></CardContent>
+          <CardContent class="flex flex-1 flex-col justify-center">
+            <HorizontalBarList :items="typeBars" empty-text="No tasks" />
+          </CardContent>
         </Card>
       </div>
 

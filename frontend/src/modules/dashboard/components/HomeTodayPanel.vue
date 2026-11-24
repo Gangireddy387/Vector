@@ -154,7 +154,7 @@ async function complete(issue: Issue) {
         <span class="flex size-8 shrink-0 items-center justify-center rounded-md bg-card text-foreground shadow-xs"><ListTodo class="size-4" /></span>
         <div class="min-w-0 flex-1">
           <p class="text-[11.5px] font-medium text-muted-foreground">Focus next · {{ remaining }} in morning list</p>
-          <p class="truncate text-[13px] font-semibold">{{ focusTask.key }} · {{ focusTask.title }}</p>
+          <p class="text-[13px] font-semibold text-pretty break-words">{{ focusTask.key }} · {{ focusTask.title }}</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" @click="openIssue(focusTask)">Open</Button>
@@ -162,25 +162,28 @@ async function complete(issue: Issue) {
         </div>
       </div>
 
-      <div class="grid gap-4 lg:grid-cols-2">
+      <div class="grid gap-4 xl:grid-cols-2">
         <div class="min-w-0 space-y-2">
           <div class="flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground">
             <ListTodo class="size-3.5" /> My tasks
             <span v-if="remaining" class="font-normal tabular-nums opacity-70">{{ remaining }}</span>
           </div>
           <ul v-if="todayTasks.length" class="divide-y divide-border/70 overflow-hidden rounded-lg border border-border">
-            <li v-for="issue in todayTasks" :key="issue.id" class="flex items-center gap-2 px-2.5 py-1.5 hover:bg-accent/50">
+            <li v-for="issue in todayTasks" :key="issue.id" class="flex items-start gap-2 px-2.5 py-2 hover:bg-accent/50">
               <Checkbox
+                class="mt-0.5"
                 :model-value="false"
                 :disabled="completingId === issue.id"
                 :aria-label="`Complete ${issue.key}`"
                 @update:model-value="(value) => value && complete(issue)"
               />
-              <button type="button" class="flex min-w-0 flex-1 items-center gap-2 text-left" @click="openIssue(issue)">
-                <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: issue.project?.color ?? 'var(--muted-foreground)' }" />
-                <span class="min-w-0 flex-1 truncate text-[13px] font-medium">{{ issue.key }} · {{ issue.title }}</span>
+              <button type="button" class="flex min-w-0 flex-1 items-start gap-2 text-left" @click="openIssue(issue)">
+                <span class="mt-1.5 size-2 shrink-0 rounded-full" :style="{ backgroundColor: issue.project?.color ?? 'var(--muted-foreground)' }" />
+                <span class="min-w-0 flex-1 text-[13px] font-medium text-pretty break-words">
+                  <span class="text-muted-foreground">{{ issue.key }}</span> · {{ issue.title }}
+                </span>
                 <span
-                  class="shrink-0 text-[11px]"
+                  class="shrink-0 pt-0.5 text-[11px]"
                   :class="bucketOf(issue) === 'overdue' ? 'font-medium text-destructive' : 'text-muted-foreground'"
                 >
                   {{ taskHint(issue) }}
@@ -203,15 +206,15 @@ async function complete(issue: Issue) {
             </div>
             <ul v-else-if="meetings.length || events.length" class="divide-y divide-border/70 overflow-hidden rounded-lg border border-border">
               <li v-for="item in [...meetings, ...events].slice(0, 4)" :key="item.id">
-                <RouterLink :to="item.to" class="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-accent/50">
-                  <span class="w-16 shrink-0 text-[11.5px] text-muted-foreground tabular-nums">
+                <RouterLink :to="item.to" class="flex items-start gap-2 px-3 py-2 transition-colors hover:bg-accent/50">
+                  <span class="w-16 shrink-0 pt-0.5 text-[11.5px] text-muted-foreground tabular-nums">
                     <template v-if="item.start">{{ item.start }}</template>
                     <template v-else>All day</template>
                   </span>
-                  <Video v-if="item.kind === 'meeting'" class="size-3.5 shrink-0 text-muted-foreground" />
-                  <CalendarDays v-else class="size-3.5 shrink-0 text-muted-foreground" />
-                  <span class="min-w-0 flex-1 truncate text-[13px] font-medium">{{ item.title }}</span>
-                  <span v-if="item.live" class="rounded-full bg-success px-2 py-0.5 text-[10px] font-semibold text-white">Live</span>
+                  <Video v-if="item.kind === 'meeting'" class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                  <CalendarDays v-else class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                  <span class="min-w-0 flex-1 text-[13px] font-medium text-pretty break-words">{{ item.title }}</span>
+                  <span v-if="item.live" class="shrink-0 rounded-full bg-success px-2 py-0.5 text-[10px] font-semibold text-white">Live</span>
                 </RouterLink>
               </li>
             </ul>

@@ -2,6 +2,8 @@
 import { AlertTriangle, FolderKanban, LayoutGrid, RefreshCw, Search } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
+import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -67,9 +69,9 @@ const totals = computed(() => {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4 lg:p-5">
-    <header class="flex shrink-0 flex-col gap-2 sm:gap-3">
-      <div class="flex items-start justify-between gap-2">
+  <PageFrame mode="stack" pad="compact" gap="compact" class="min-w-0">
+    <header class="flex flex-col gap-2 sm:gap-3">
+      <Toolbar variant="wrap" dense justify="between">
         <div class="min-w-0 space-y-0.5 sm:space-y-1">
           <h1 class="text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">Portfolio</h1>
           <p class="hidden text-sm text-muted-foreground sm:block">
@@ -80,9 +82,9 @@ const totals = computed(() => {
           </p>
         </div>
         <Button variant="outline" size="sm" :loading="loading" @click="load"><RefreshCw /></Button>
-      </div>
+      </Toolbar>
 
-      <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <Toolbar dense>
         <div class="relative min-w-0 flex-1 sm:max-w-xs">
           <Search class="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input v-model="search" class="pl-8" placeholder="Search projects…" aria-label="Search projects" />
@@ -130,10 +132,10 @@ const totals = computed(() => {
         >
           {{ includeArchived ? 'Hide archived' : 'Show archived' }}
         </Button>
-      </div>
+      </Toolbar>
     </header>
 
-    <section class="hidden shrink-0 gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+    <section class="hidden gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
       <article class="rounded-xl border bg-card p-3 shadow-soft lg:p-4">
         <p class="text-sm font-medium">Projects</p>
         <p class="mt-1 text-2xl font-semibold tabular-nums">{{ totals.projects }}</p>
@@ -157,7 +159,7 @@ const totals = computed(() => {
       </article>
     </section>
 
-    <div v-if="loading && !projects.length" class="grid min-h-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div v-if="loading && !projects.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       <Skeleton v-for="index in 6" :key="index" class="h-44 rounded-xl" />
     </div>
 
@@ -166,7 +168,7 @@ const totals = computed(() => {
       :icon="LayoutGrid"
       title="Portfolio did not load"
       :description="loadError"
-      class="min-h-0 flex-1"
+      class="py-16"
     >
       <Button @click="load">Try again</Button>
     </EmptyState>
@@ -176,21 +178,19 @@ const totals = computed(() => {
       :icon="FolderKanban"
       title="No projects match"
       description="Adjust filters, or create a project to see it on the portfolio."
-      class="min-h-0 flex-1"
+      class="py-16"
     />
 
-    <div v-else class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-      <div v-if="isPhone" class="space-y-2 pb-2">
-        <PortfolioProjectCard
-          v-for="project in rows"
-          :key="project.id"
-          :project="project"
-          compact
-        />
-      </div>
-      <div v-else class="grid gap-3 pb-2 sm:grid-cols-2 xl:grid-cols-3">
-        <PortfolioProjectCard v-for="project in rows" :key="project.id" :project="project" />
-      </div>
+    <div v-else-if="isPhone" class="space-y-2 pb-2">
+      <PortfolioProjectCard
+        v-for="project in rows"
+        :key="project.id"
+        :project="project"
+        compact
+      />
     </div>
-  </div>
+    <div v-else class="grid gap-3 pb-2 sm:grid-cols-2 xl:grid-cols-3">
+      <PortfolioProjectCard v-for="project in rows" :key="project.id" :project="project" />
+    </div>
+  </PageFrame>
 </template>

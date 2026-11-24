@@ -7,9 +7,17 @@ export interface DonutSegment {
   color: string
 }
 
-const props = withDefaults(defineProps<{ segments: DonutSegment[]; centerLabel?: string; centerValue?: string | number; size?: number }>(), {
-  size: 160,
-})
+const props = withDefaults(
+  defineProps<{
+    segments: DonutSegment[]
+    centerLabel?: string
+    centerValue?: string | number
+    size?: number
+    /** `stack` keeps chart above legend (tight cards). `row` places them side by side from `sm`. */
+    layout?: 'stack' | 'row'
+  }>(),
+  { size: 160, layout: 'row' },
+)
 
 const RADIUS = 42
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
@@ -30,7 +38,10 @@ const arcs = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
+  <div
+    class="flex flex-col items-center gap-4"
+    :class="layout === 'row' && 'sm:flex-row sm:items-center'"
+  >
     <svg :width="size" :height="size" viewBox="0 0 100 100" class="shrink-0 -rotate-90" role="img" :aria-label="centerLabel">
       <circle cx="50" cy="50" :r="RADIUS" fill="none" stroke="var(--muted)" stroke-width="12" />
       <circle
@@ -54,11 +65,11 @@ const arcs = computed(() => {
     </svg>
     <ul class="grid w-full gap-1.5 text-sm">
       <li v-for="segment in segments" :key="segment.label" class="flex items-center justify-between gap-3">
-        <span class="flex items-center gap-2">
-          <span class="size-2.5" :style="{ backgroundColor: segment.color }" />
-          {{ segment.label }}
+        <span class="flex min-w-0 items-center gap-2">
+          <span class="size-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: segment.color }" />
+          <span class="truncate">{{ segment.label }}</span>
         </span>
-        <span class="tabular-nums text-muted-foreground">{{ segment.value }}</span>
+        <span class="shrink-0 tabular-nums text-muted-foreground">{{ segment.value }}</span>
       </li>
     </ul>
   </div>
