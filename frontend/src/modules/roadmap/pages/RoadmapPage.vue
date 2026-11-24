@@ -3,6 +3,7 @@ import { CalendarRange, ChevronDown, ChevronUp, GitBranch, RefreshCw } from 'luc
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDevice } from '@/composables/useDevice'
@@ -153,7 +154,7 @@ async function onReschedule(issue: Issue, changes: { startDate?: string; dueDate
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4 lg:p-5">
+  <PageFrame mode="bare" pad="compact" class="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden sm:gap-4">
     <header class="flex shrink-0 flex-col gap-2 sm:gap-3">
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0 space-y-0.5 sm:space-y-1">
@@ -297,5 +298,5 @@ async function onReschedule(issue: Issue, changes: { startDate?: string; dueDate
       @open="openIssue"
       @reschedule="onReschedule"
     />
-  </div>
+  </PageFrame>
 </template>

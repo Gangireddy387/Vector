@@ -32,6 +32,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageFrame from '@/components/common/PageFrame.vue'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import SplitPane from '@/components/common/SplitPane.vue'
 import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -376,23 +377,16 @@ async function leaveChannel(conversation: ConversationSummary) {
         <div class="shrink-0 px-3 pb-2"><PushPrompt context="messages" /></div>
 
         <div v-if="canDirect && canGroup" class="shrink-0 px-3 pb-2">
-          <div class="grid grid-cols-2 rounded-md bg-muted p-0.5" role="tablist">
-            <button
-              v-for="item in [{ value: 'chat', label: 'Chat', unread: chatUnread }, { value: 'teams', label: 'Teams', unread: teamsUnread }] as const"
-              :key="item.value"
-              type="button"
-              role="tab"
-              class="inline-flex h-7 items-center justify-center gap-1.5 rounded-[5px] text-xs font-medium transition-colors"
-              :class="tab === item.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
-              :aria-selected="tab === item.value"
-              @click="tab = item.value"
-            >
-              {{ item.label }}
-              <span v-if="item.unread" class="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground tabular-nums">
-                {{ item.unread > 99 ? '99+' : item.unread }}
-              </span>
-            </button>
-          </div>
+          <SegmentedControl
+            v-model="tab"
+            size="sm"
+            grow
+            aria-label="Message folders"
+            :options="[
+              { value: 'chat', label: 'Chat', count: chatUnread > 99 ? '99+' : chatUnread, badge: true },
+              { value: 'teams', label: 'Teams', count: teamsUnread > 99 ? '99+' : teamsUnread, badge: true },
+            ]"
+          />
         </div>
 
         <div class="shrink-0 px-3 pb-2">
@@ -416,8 +410,9 @@ async function leaveChannel(conversation: ConversationSummary) {
             <Button variant="outline" @click="loadConversations">Try again</Button>
           </EmptyState>
 
+          <Transition v-else name="fade-soft" mode="out-in">
           <!-- Chat: direct messages -->
-          <template v-else-if="tab === 'chat'">
+          <div v-if="tab === 'chat'" key="chat-list">
             <div v-if="!directChats.length" class="flex flex-col items-center gap-3 px-6 py-12 text-center">
               <span class="flex size-12 items-center justify-center bg-primary/10 text-primary"><MessagesSquare class="size-6" /></span>
               <p class="text-sm font-medium">{{ search ? `No chats match “${search}”` : 'No chats yet' }}</p>
@@ -445,7 +440,7 @@ async function leaveChannel(conversation: ConversationSummary) {
               </span>
               <span class="min-w-0 flex-1">
                 <span class="flex items-baseline gap-2">
-                  <span class="min-w-0 flex-1 truncate text-[13.5px]" :class="conversation.unread ? 'font-semibold' : 'font-medium'">{{ conversation.title }}</span>
+                  <span class="min-w-0 flex-1 truncate text-[13.5px]" :class="conversation.unread ? 'font-semibold' : 'font-medium'" :title="conversation.title">{{ conversation.title }}</span>
                   <span class="shrink-0 text-[11px]" :class="conversation.unread ? 'font-semibold text-primary' : 'text-muted-foreground'">
                     {{ conversation.lastMessage ? listTime(conversation.lastMessage.createdAt) : '' }}
                   </span>
@@ -458,10 +453,10 @@ async function leaveChannel(conversation: ConversationSummary) {
                 </span>
               </span>
             </button>
-          </template>
+          </div>
 
           <!-- Teams: each team with its channels, then department chats -->
-          <template v-else>
+          <div v-else key="teams-list">
             <div v-if="!teamGroups.length && !departmentChats.length" class="flex flex-col items-center gap-3 px-6 py-12 text-center">
               <span class="flex size-12 items-center justify-center bg-primary/10 text-primary"><UsersRound class="size-6" /></span>
               <p class="text-sm font-medium">{{ search ? `Nothing matches “${search}”` : 'No teams yet' }}</p>
@@ -480,7 +475,7 @@ async function leaveChannel(conversation: ConversationSummary) {
                 <button type="button" class="flex min-w-0 flex-1 items-center gap-2.5 px-2 py-2 text-left" :aria-expanded="!collapsed.has(group.team.id)" @click="toggleTeam(group.team.id)">
                   <ChevronDown class="size-3.5 shrink-0 text-muted-foreground transition-transform" :class="collapsed.has(group.team.id) && '-rotate-90'" />
                   <span class="flex size-7 shrink-0 items-center justify-center rounded-md bg-sky-500 text-xs font-semibold text-white">{{ group.team.name.slice(0, 2).toUpperCase() }}</span>
-                  <span class="min-w-0 flex-1 truncate text-[13.5px]" :class="group.unread && collapsed.has(group.team.id) ? 'font-semibold' : 'font-medium'">{{ group.team.name }}</span>
+                  <span class="min-w-0 flex-1 truncate text-[13.5px]" :class="group.unread && collapsed.has(group.team.id) ? 'font-semibold' : 'font-medium'" :title="group.team.name">{{ group.team.name }}</span>
                   <span v-if="group.unread && collapsed.has(group.team.id)" class="size-2 shrink-0 rounded-full bg-primary" aria-label="Unread messages" />
                 </button>
                 <DropdownMenu>
@@ -488,7 +483,7 @@ async function leaveChannel(conversation: ConversationSummary) {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      class="opacity-0 group-hover/team:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                      class="opacity-100 sm:opacity-0 sm:group-hover/team:opacity-100 sm:focus-visible:opacity-100 data-[state=open]:opacity-100"
                       :aria-label="`${group.team.name} options`"
                       title="More options"
                     >
@@ -520,6 +515,7 @@ async function leaveChannel(conversation: ConversationSummary) {
                   <span
                     class="min-w-0 flex-1 truncate text-[13px]"
                     :class="notifyLevelOf(conversation) !== 'all' ? 'text-muted-foreground' : conversation.unread ? 'font-semibold text-foreground' : 'text-foreground/85'"
+                    :title="headerTitle(conversation)"
                   >
                     {{ headerTitle(conversation) }}
                   </span>
@@ -551,13 +547,14 @@ async function leaveChannel(conversation: ConversationSummary) {
                 @click="open(conversation)"
               >
                 <span class="flex size-7 shrink-0 items-center justify-center rounded-md bg-violet-500 text-white"><Building2 class="size-4" /></span>
-                <span class="min-w-0 flex-1 truncate text-[13.5px]" :class="conversation.unread ? 'font-semibold' : 'font-medium'">{{ conversation.title }}</span>
+                <span class="min-w-0 flex-1 truncate text-[13.5px]" :class="conversation.unread ? 'font-semibold' : 'font-medium'" :title="conversation.title">{{ conversation.title }}</span>
                 <span v-if="conversation.unread" class="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1.5 text-[10.5px] font-semibold text-primary-foreground tabular-nums">
                   {{ conversation.unread > 99 ? '99+' : conversation.unread }}
                 </span>
               </button>
             </section>
-          </template>
+          </div>
+          </Transition>
         </div>
       </template>
 
@@ -566,7 +563,7 @@ async function leaveChannel(conversation: ConversationSummary) {
         <Toolbar
           variant="wrap"
           dense
-          class="h-12 shrink-0 border-b border-border bg-background px-2 sm:gap-3 sm:px-4"
+          class="min-h-12 shrink-0 border-b border-border bg-background px-2 py-1.5 sm:gap-2 sm:px-4"
         >
           <Button v-if="!isWide" variant="ghost" size="icon-sm" class="shrink-0" aria-label="Back to the list" @click="router.push({ name: 'messages' })"><ArrowLeft /></Button>
           <UserAvatar v-if="selected.kind === 'direct'" :user="selected.person" size="md" class="size-8 shrink-0" />
@@ -575,8 +572,8 @@ async function leaveChannel(conversation: ConversationSummary) {
             <Lock v-if="selected.channel?.privacy === 'private'" class="size-4" />
             <Hash v-else class="size-4" />
           </span>
-          <span class="min-w-0" :class="selected.kind === 'direct' || !isDesktop ? 'flex-1' : 'max-w-[40%] shrink'">
-            <span class="flex items-center gap-1.5 truncate text-[13.5px] font-semibold">
+          <span class="min-w-0 flex-1 basis-[8rem] sm:max-w-[12rem] xl:max-w-[16rem]">
+            <span class="flex items-center gap-1.5 truncate text-[13.5px] font-semibold" :title="headerTitle(selected)">
               {{ headerTitle(selected) }}
               <component
                 :is="notifyIcon(selected)"
@@ -599,15 +596,15 @@ async function leaveChannel(conversation: ConversationSummary) {
               <button type="button" class="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label="Close search" @click="closeSearch"><X class="size-4" /></button>
             </div>
             <nav
-              v-else-if="isDesktop"
-              class="ml-1 flex h-full min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto scrollbar-none"
+              v-else-if="isWide"
+              class="ml-1 flex h-8 min-w-0 flex-1 items-stretch gap-0.5 overflow-x-auto scrollbar-none"
               aria-label="Channel tabs"
             >
               <button
                 v-for="item in channelTabs"
                 :key="item.value"
                 type="button"
-                class="relative shrink-0 px-2.5 text-[13px] font-medium transition-colors"
+                class="relative shrink-0 rounded-md px-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 :class="view === item.value ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'"
                 :aria-current="view === item.value ? 'page' : undefined"
                 @click="view = item.value"
@@ -617,7 +614,7 @@ async function leaveChannel(conversation: ConversationSummary) {
               </button>
             </nav>
             <Button
-              v-if="!isSearching && view === 'posts' && isDesktop"
+              v-if="!isSearching && view === 'posts' && isWide"
               variant="ghost"
               size="icon-sm"
               class="shrink-0"
@@ -629,9 +626,9 @@ async function leaveChannel(conversation: ConversationSummary) {
             </Button>
           </template>
 
-          <MeetButton v-if="meetPreset && conversationPeople.length" :key="selected.id" :preset="meetPreset" :compact="!isWide" />
-          <Button v-if="selected.kind === 'channel' && isDesktop" variant="ghost" size="sm" class="shrink-0" title="People in this channel" @click="membersOpen = true">
-            <UsersRound /> {{ selected.memberCount ?? 0 }}
+          <MeetButton v-if="meetPreset && conversationPeople.length" :key="selected.id" :preset="meetPreset" :compact="true" />
+          <Button v-if="selected.kind === 'channel' && isWide" variant="ghost" size="icon-sm" class="shrink-0" title="People in this channel" aria-label="People in this channel" @click="membersOpen = true">
+            <UsersRound />
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
@@ -666,20 +663,22 @@ async function leaveChannel(conversation: ConversationSummary) {
             </DropdownMenuContent>
           </DropdownMenu>
         </Toolbar>
-        <ConversationThread v-if="selected.kind === 'direct'" ref="thread" :key="selected.id" :conversation="selected" class="min-h-0 flex-1" />
-        <ChannelFiles v-else-if="view === 'files'" :key="`files-${selected.id}`" :conversation-id="selected.id" class="min-h-0 flex-1" @open-post="openPost" />
-        <ChannelDocs v-else-if="view === 'docs'" :key="`docs-${selected.id}`" :conversation-id="selected.id" class="min-h-0 flex-1" />
-        <ChannelBoard v-else-if="view === 'board'" :key="`board-${selected.id}`" :conversation="selected" class="min-h-0 flex-1" />
-        <ChannelThread
-          v-else
-          :key="selected.id"
-          :conversation="selected"
-          :focus-post-id="focusPostId"
-          :people="conversationPeople"
-          :search="channelSearch"
-          :can-attach="canAttach"
-          class="min-h-0 flex-1"
-        />
+        <Transition name="fade-soft" mode="out-in">
+          <ConversationThread v-if="selected.kind === 'direct'" ref="thread" :key="`dm-${selected.id}`" :conversation="selected" class="min-h-0 flex-1" />
+          <ChannelFiles v-else-if="view === 'files'" :key="`files-${selected.id}`" :conversation-id="selected.id" class="min-h-0 flex-1" @open-post="openPost" />
+          <ChannelDocs v-else-if="view === 'docs'" :key="`docs-${selected.id}`" :conversation-id="selected.id" class="min-h-0 flex-1" />
+          <ChannelBoard v-else-if="view === 'board'" :key="`board-${selected.id}`" :conversation="selected" class="min-h-0 flex-1" />
+          <ChannelThread
+            v-else
+            :key="`posts-${selected.id}`"
+            :conversation="selected"
+            :focus-post-id="focusPostId"
+            :people="conversationPeople"
+            :search="channelSearch"
+            :can-attach="canAttach"
+            class="min-h-0 flex-1"
+          />
+        </Transition>
         </template>
       </template>
 

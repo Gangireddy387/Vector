@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PriorityIcon from '@/components/common/PriorityIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
@@ -64,7 +65,7 @@ function nodeById(id: string): DependencyNode | undefined {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-4 overflow-auto p-3 sm:p-4 lg:p-5">
+  <PageFrame mode="bare" pad="compact" class="flex h-full min-h-0 flex-col gap-4 overflow-auto">
     <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div class="min-w-0 space-y-1">
         <h1 class="text-xl font-semibold tracking-tight sm:text-2xl">Dependencies</h1>
@@ -184,5 +185,5 @@ function nodeById(id: string): DependencyNode | undefined {
         </section>
       </template>
     </template>
-  </div>
+  </PageFrame>
 </template>

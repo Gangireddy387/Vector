@@ -316,7 +316,7 @@ function signOut() {
 </script>
 
 <template>
-  <!-- Same frame as the app: navigation on the left, the selected section on the right. -->
+  <!-- Intentional bare shell (not PageFrame): platform ops chrome, outside org workspace layout. -->
   <div class="flex h-dvh overflow-hidden bg-app">
     <!-- Organization admins can call the Vector team: their call rings here. -->
     <IncomingCall />

@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { DateField } from '@/components/forms'
 import { Button } from '@/components/ui/button'
@@ -83,7 +84,7 @@ function periodLabel(goal: Goal) {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4 lg:p-5">
+  <PageFrame mode="bare" pad="compact" class="flex h-full min-h-0 flex-col gap-3 overflow-hidden sm:gap-4">
     <header class="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div class="min-w-0 space-y-1">
         <h1 class="text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">Goals & OKRs</h1>
@@ -211,5 +212,5 @@ function periodLabel(goal: Goal) {
         </form>
       </DialogContent>
     </Dialog>
-  </div>
+  </PageFrame>
 </template>

@@ -93,7 +93,7 @@ const isSelected = (day: Date) => toDateInput(day) === props.selected
           <button
             v-if="!isPast(day)"
             type="button"
-            class="hidden size-5 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 xl:flex"
+            class="flex size-5 items-center justify-center rounded text-muted-foreground opacity-100 transition-opacity hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
             :aria-label="`Add an event on ${format(day, 'd MMMM')}`"
             @click.stop="emit('create', toDateInput(day))"
           >

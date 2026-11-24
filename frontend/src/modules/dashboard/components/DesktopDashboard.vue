@@ -22,6 +22,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageFrame from '@/components/common/PageFrame.vue'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import Toolbar from '@/components/common/Toolbar.vue'
 import { Button } from '@/components/ui/button'
@@ -241,23 +242,16 @@ const daysLeft = (endDate: string | null) => {
           <section v-if="show('myWork')" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
             <header class="flex min-h-12 flex-wrap items-center gap-2 border-b border-border px-4 py-2 sm:gap-3 sm:py-0">
               <h2 class="text-sm font-semibold">My work</h2>
-              <div class="flex h-7 shrink-0 items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="My work">
-                <button
-                  v-for="tab in [
-                    { value: 'open', label: 'Open', count: count(openGroups) },
-                    { value: 'done', label: 'Done this week', count: count(doneGroups) },
-                  ] as const"
-                  :key="tab.value"
-                  type="button"
-                  role="tab"
-                  :aria-selected="workTab === tab.value"
-                  class="flex h-6 items-center gap-1.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors"
-                  :class="workTab === tab.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
-                  @click="workTab = tab.value"
-                >
-                  {{ tab.label }} <span class="tabular-nums opacity-70">{{ tab.count }}</span>
-                </button>
-              </div>
+              <SegmentedControl
+                v-model="workTab"
+                size="sm"
+                class="shrink-0"
+                aria-label="My work"
+                :options="[
+                  { value: 'open', label: 'Open', count: count(openGroups) },
+                  { value: 'done', label: 'Done this week', count: count(doneGroups) },
+                ]"
+              />
               <Button variant="ghost" size="sm" class="ml-auto text-muted-foreground" as-child>
                 <RouterLink :to="{ name: 'issues', query: { assigneeId: 'me', sort: 'dueDate' } }">View all <ArrowRight /></RouterLink>
               </Button>
@@ -287,7 +281,7 @@ const daysLeft = (endDate: string | null) => {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      class="opacity-0 group-hover:opacity-100"
+                      class="opacity-100 focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                       :aria-label="`Complete ${issue.key}`"
                       title="Mark done"
                       @click.stop="completeIssue(issue)"
@@ -309,41 +303,41 @@ const daysLeft = (endDate: string | null) => {
                 <RouterLink :to="{ name: 'projects' }">All projects <ArrowRight /></RouterLink>
               </Button>
             </header>
-            <div class="hidden grid-cols-[minmax(0,1.4fr)_4.5rem_minmax(0,1fr)_4.5rem_minmax(6rem,1fr)_auto] gap-3 border-b border-border/70 bg-muted/40 px-4 py-1.5 text-[11px] font-medium text-muted-foreground lg:grid">
+            <div class="hidden grid-cols-[minmax(0,1.4fr)_4.5rem_minmax(0,1fr)_4.5rem_minmax(6rem,1fr)_auto] gap-3 border-b border-border/70 bg-muted/40 px-4 py-1.5 text-[11px] font-medium text-muted-foreground xl:grid">
               <span>Project</span><span class="text-right">Open</span><span>Sprint</span><span>People</span><span>Progress</span><span class="text-right">Continue</span>
             </div>
             <div
               v-for="project in data.projects"
               :key="project.id"
-              class="flex flex-col gap-2 border-b border-border/60 px-4 py-3 last:border-0 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 lg:grid lg:grid-cols-[minmax(0,1.4fr)_4.5rem_minmax(0,1fr)_4.5rem_minmax(6rem,1fr)_auto] lg:items-center lg:gap-3 lg:py-2.5"
+              class="flex flex-col gap-2 border-b border-border/60 px-4 py-3 last:border-0 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 sm:gap-y-2 xl:grid xl:grid-cols-[minmax(0,1.4fr)_4.5rem_minmax(0,1fr)_4.5rem_minmax(6rem,1fr)_auto] xl:items-center xl:gap-3 xl:py-2.5"
             >
-              <RouterLink :to="{ name: 'project-board', params: { projectId: project.id } }" class="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-90 lg:flex-none">
+              <RouterLink :to="{ name: 'project-board', params: { projectId: project.id } }" class="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-90 xl:flex-none">
                 <span class="flex size-7 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white" :style="{ backgroundColor: project.color }">
                   {{ project.key.slice(0, 3) }}
                 </span>
                 <span class="min-w-0">
                   <span class="block truncate text-[13px] font-medium">{{ project.name }}</span>
-                  <span class="block truncate text-[11.5px] text-muted-foreground lg:hidden">
+                  <span class="block truncate text-[11.5px] text-muted-foreground xl:hidden">
                     {{ project.team?.name ?? (project.type === 'scrum' ? 'Scrum' : 'Kanban') }}
                     · {{ project.issueSummary?.open ?? 0 }} open
                     <template v-if="project.activeSprint"> · {{ project.activeSprint.name }}</template>
                   </span>
-                  <span class="hidden truncate text-[11.5px] text-muted-foreground lg:block">
+                  <span class="hidden truncate text-[11.5px] text-muted-foreground xl:block">
                     {{ project.team?.name ?? (project.type === 'scrum' ? 'Scrum' : 'Kanban') }}
                   </span>
                 </span>
               </RouterLink>
-              <span class="hidden text-right text-[13px] tabular-nums lg:block">{{ project.issueSummary?.open ?? 0 }}</span>
-              <span class="hidden min-w-0 truncate text-[12.5px] text-muted-foreground lg:block">
+              <span class="hidden text-right text-[13px] tabular-nums xl:block">{{ project.issueSummary?.open ?? 0 }}</span>
+              <span class="hidden min-w-0 truncate text-[12.5px] text-muted-foreground xl:block">
                 <template v-if="project.activeSprint"><Rocket class="mr-1 inline size-3 text-primary" />{{ project.activeSprint.name }}</template>
                 <template v-else>—</template>
               </span>
-              <span class="hidden items-center gap-1 text-[12.5px] text-muted-foreground tabular-nums lg:flex"><UsersRound class="size-3.5" /> {{ project.memberCount ?? 0 }}</span>
-              <span class="flex min-w-[8rem] flex-1 items-center gap-2 lg:min-w-0">
+              <span class="hidden items-center gap-1 text-[12.5px] text-muted-foreground tabular-nums xl:flex"><UsersRound class="size-3.5" /> {{ project.memberCount ?? 0 }}</span>
+              <span class="flex min-w-[8rem] flex-1 items-center gap-2 xl:min-w-0">
                 <Progress :model-value="percent(project.issueSummary?.done, project.issueSummary?.total)" class="h-1.5 min-w-0 flex-1" indicator-class="bg-success" />
                 <span class="w-9 shrink-0 text-right text-[12px] text-muted-foreground tabular-nums">{{ percent(project.issueSummary?.done, project.issueSummary?.total) }}%</span>
               </span>
-              <div class="flex shrink-0 flex-wrap items-center gap-1.5 sm:ml-auto lg:ml-0 lg:justify-end">
+              <div class="flex shrink-0 flex-wrap items-center gap-1.5 sm:ml-auto xl:ml-0 xl:justify-end">
                 <Button v-if="pendingStandupIds.has(project.id)" size="sm" variant="outline" as-child>
                   <RouterLink :to="{ name: 'project-standup', params: { projectId: project.id } }">Standup</RouterLink>
                 </Button>
@@ -359,25 +353,15 @@ const daysLeft = (endDate: string | null) => {
           <!-- Sprints and activity share one card, one tab at a time -->
           <section v-if="show('projects')" class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
             <header class="flex h-12 items-center gap-3 border-b border-border px-4">
-              <div class="flex h-7 items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="Sprints and activity">
-                <button
-                  v-for="tab in [
-                    { value: 'sprints', label: 'Active sprints', icon: Rocket, count: data.activeSprints.length },
-                    { value: 'activity', label: 'Recent activity', icon: History, count: data.recentActivity.length },
-                  ] as const"
-                  :key="tab.value"
-                  type="button"
-                  role="tab"
-                  :aria-selected="sideTab === tab.value"
-                  class="flex h-6 items-center gap-1.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors"
-                  :class="sideTab === tab.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
-                  @click="sideTab = tab.value"
-                >
-                  <component :is="tab.icon" class="size-3.5" :class="sideTab === tab.value && 'text-primary'" />
-                  {{ tab.label }}
-                  <span v-if="tab.count" class="tabular-nums opacity-70">{{ tab.count }}</span>
-                </button>
-              </div>
+              <SegmentedControl
+                v-model="sideTab"
+                size="sm"
+                aria-label="Sprints and activity"
+                :options="[
+                  { value: 'sprints', label: 'Active sprints', icon: Rocket, count: data.activeSprints.length },
+                  { value: 'activity', label: 'Recent activity', icon: History, count: data.recentActivity.length },
+                ]"
+              />
             </header>
 
             <template v-if="sideTab === 'sprints'">

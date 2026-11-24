@@ -4,6 +4,7 @@ import { Copy, Download, Eye, FileArchive, FileImage, FileSpreadsheet, FileText,
 import { computed, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import FilePreviewLightbox from '@/components/common/FilePreviewLightbox.vue'
+import ResponsiveTable from '@/components/common/ResponsiveTable.vue'
 import Toolbar from '@/components/common/Toolbar.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
@@ -134,49 +135,74 @@ async function copyLink(file: SharedFile) {
         <p class="text-sm font-medium">{{ search ? `No files match “${search}”` : 'No files yet' }}</p>
         <p class="max-w-sm text-xs text-muted-foreground">Files shared in posts and replies show up here. Attach one with the paperclip, or paste or drop it into the box.</p>
       </div>
-      <table v-else class="w-full text-sm">
-        <thead class="sticky top-0 bg-background text-left text-xs text-muted-foreground">
-          <tr class="border-b border-border">
-            <th class="px-4 py-2 font-medium sm:pl-[5%]">Name</th>
-            <th class="hidden px-3 py-2 font-medium md:table-cell">Shared by</th>
-            <th class="hidden px-3 py-2 font-medium sm:table-cell">Date</th>
-            <th class="hidden px-3 py-2 text-right font-medium sm:table-cell">Size</th>
-            <th class="w-24 px-4 py-2 sm:pr-[5%]"><span class="sr-only">Actions</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="file in shown" :key="file.id" class="group border-b border-border/60 hover:bg-accent/40">
-            <td class="px-4 py-2 sm:pl-[5%]">
-              <button type="button" class="flex min-w-0 items-center gap-2.5 text-left" :title="isPreviewable(file.mimeType) ? `Preview ${file.fileName}` : `Open ${file.fileName}`" @click="open(file)">
-                <component :is="iconOf(file)" class="size-5 shrink-0 text-primary" />
-                <span class="truncate font-medium group-hover:underline">{{ file.fileName }}</span>
+      <ResponsiveTable v-else breakpoint="lg">
+        <template #list>
+          <ul class="divide-y divide-border/60">
+            <li v-for="file in shown" :key="file.id" class="group flex items-start gap-3 px-4 py-3">
+              <button type="button" class="flex min-w-0 flex-1 items-start gap-2.5 text-left" :title="isPreviewable(file.mimeType) ? `Preview ${file.fileName}` : `Open ${file.fileName}`" @click="open(file)">
+                <component :is="iconOf(file)" class="mt-0.5 size-5 shrink-0 text-primary" />
+                <span class="min-w-0">
+                  <span class="block truncate font-medium">{{ file.fileName }}</span>
+                  <span class="mt-0.5 block truncate text-xs text-muted-foreground">
+                    {{ file.uploader?.name ?? 'Someone' }} · {{ format(parseISO(file.createdAt), 'd MMM yyyy') }} · {{ formatBytes(file.size) }}
+                  </span>
+                </span>
               </button>
-            </td>
-            <td class="hidden px-3 py-2 md:table-cell">
-              <span class="flex items-center gap-2"><UserAvatar :user="file.uploader" size="xs" /> <span class="truncate">{{ file.uploader?.name ?? 'Someone' }}</span></span>
-            </td>
-            <td class="hidden px-3 py-2 whitespace-nowrap text-muted-foreground sm:table-cell">{{ format(parseISO(file.createdAt), 'd MMM yyyy') }}</td>
-            <td class="hidden px-3 py-2 text-right whitespace-nowrap text-muted-foreground tabular-nums sm:table-cell">{{ formatBytes(file.size) }}</td>
-            <td class="px-4 py-2 sm:pr-[5%]">
-              <span class="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              <span class="flex shrink-0 gap-0.5 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:focus-within:opacity-100">
                 <Button variant="ghost" size="icon-sm" :aria-label="`Show the post with ${file.fileName}`" title="Show in the conversation" @click="emit('openPost', file.postId)"><MessageSquareText /></Button>
                 <Button variant="ghost" size="icon-sm" :aria-label="`Copy link to ${file.fileName}`" title="Copy link" @click="copyLink(file)"><Copy /></Button>
-                <Button
-                  v-if="isPreviewable(file.mimeType)"
-                  variant="ghost"
-                  size="icon-sm"
-                  :aria-label="`Preview ${file.fileName}`"
-                  title="Preview"
-                  @click="open(file)"
-                >
-                  <Eye />
-                </Button>
+                <Button v-if="isPreviewable(file.mimeType)" variant="ghost" size="icon-sm" :aria-label="`Preview ${file.fileName}`" title="Preview" @click="open(file)"><Eye /></Button>
                 <Button variant="ghost" size="icon-sm" :aria-label="`Open ${file.fileName}`" title="Open" @click="open(file)"><Download /></Button>
               </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+            </li>
+          </ul>
+        </template>
+        <template #table>
+          <table class="w-full text-sm">
+            <thead class="sticky top-0 bg-background text-left text-xs text-muted-foreground">
+              <tr class="border-b border-border">
+                <th class="px-4 py-2 font-medium sm:pl-[5%]">Name</th>
+                <th class="px-3 py-2 font-medium">Shared by</th>
+                <th class="px-3 py-2 font-medium">Date</th>
+                <th class="px-3 py-2 text-right font-medium">Size</th>
+                <th class="w-24 px-4 py-2 sm:pr-[5%]"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="file in shown" :key="file.id" class="group border-b border-border/60 hover:bg-accent/40">
+                <td class="px-4 py-2 sm:pl-[5%]">
+                  <button type="button" class="flex min-w-0 items-center gap-2.5 text-left" :title="isPreviewable(file.mimeType) ? `Preview ${file.fileName}` : `Open ${file.fileName}`" @click="open(file)">
+                    <component :is="iconOf(file)" class="size-5 shrink-0 text-primary" />
+                    <span class="truncate font-medium group-hover:underline">{{ file.fileName }}</span>
+                  </button>
+                </td>
+                <td class="px-3 py-2">
+                  <span class="flex items-center gap-2"><UserAvatar :user="file.uploader" size="xs" /> <span class="truncate">{{ file.uploader?.name ?? 'Someone' }}</span></span>
+                </td>
+                <td class="px-3 py-2 whitespace-nowrap text-muted-foreground">{{ format(parseISO(file.createdAt), 'd MMM yyyy') }}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap text-muted-foreground tabular-nums">{{ formatBytes(file.size) }}</td>
+                <td class="px-4 py-2 sm:pr-[5%]">
+                  <span class="flex justify-end gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+                    <Button variant="ghost" size="icon-sm" :aria-label="`Show the post with ${file.fileName}`" title="Show in the conversation" @click="emit('openPost', file.postId)"><MessageSquareText /></Button>
+                    <Button variant="ghost" size="icon-sm" :aria-label="`Copy link to ${file.fileName}`" title="Copy link" @click="copyLink(file)"><Copy /></Button>
+                    <Button
+                      v-if="isPreviewable(file.mimeType)"
+                      variant="ghost"
+                      size="icon-sm"
+                      :aria-label="`Preview ${file.fileName}`"
+                      title="Preview"
+                      @click="open(file)"
+                    >
+                      <Eye />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" :aria-label="`Open ${file.fileName}`" title="Open" @click="open(file)"><Download /></Button>
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
+      </ResponsiveTable>
     </div>
 
     <FilePreviewLightbox

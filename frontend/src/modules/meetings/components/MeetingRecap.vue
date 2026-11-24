@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns'
 import { Captions, CircleCheck, ClipboardCheck, Download, FileText, Film, ListOrdered, MessageCircle, Phone, Play, Sparkles, Trash2 } from 'lucide-vue-next'
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import ResponsiveTable from '@/components/common/ResponsiveTable.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { useConfirm } from '@/composables/useConfirm'
@@ -337,36 +338,62 @@ function downloadTranscript() {
         <Button variant="outline" size="sm" @click="downloadAttendance"><Download /> Download CSV</Button>
       </div>
       <div class="min-h-0 flex-1 overflow-auto">
-        <table class="w-full text-sm">
-          <thead class="sticky top-0 bg-card text-left text-xs text-muted-foreground">
-            <tr>
-              <th class="px-4 py-2 font-medium">Name</th>
-              <th class="px-2 py-2 font-medium">Joined</th>
-              <th class="px-2 py-2 font-medium">Left</th>
-              <th class="px-2 py-2 text-right font-medium">Time in call</th>
-              <th class="px-4 py-2 text-right font-medium">Joins</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-border/60">
-            <tr v-for="entry in attendance" :key="entry.key">
-              <td class="max-w-[14rem] px-4 py-2">
-                <span class="flex items-center gap-1.5 truncate font-medium">
+        <ResponsiveTable breakpoint="lg">
+          <template #list>
+            <ul class="divide-y divide-border/60">
+              <li v-for="entry in attendance" :key="entry.key" class="space-y-1.5 px-4 py-3">
+                <span class="flex min-w-0 items-center gap-1.5 font-medium">
                   <Phone v-if="entry.kind === 'phone'" class="size-3.5 shrink-0 text-muted-foreground" />
-                  {{ entry.name }}
+                  <span class="min-w-0 truncate">{{ entry.name }}</span>
                   <span v-if="entry.kind !== 'member'" class="rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground">{{ KIND_LABELS[entry.kind] }}</span>
                 </span>
                 <span v-if="entry.email" class="block truncate text-xs text-muted-foreground">{{ entry.email }}</span>
-              </td>
-              <td class="px-2 py-2 text-muted-foreground tabular-nums">{{ format(parseISO(entry.firstJoinedAt), 'HH:mm') }}</td>
-              <td class="px-2 py-2 text-muted-foreground tabular-nums">
-                <span v-if="entry.inCall" class="text-emerald-600 dark:text-emerald-400">In the call</span>
-                <template v-else-if="entry.lastLeftAt">{{ format(parseISO(entry.lastLeftAt), 'HH:mm') }}</template>
-              </td>
-              <td class="px-2 py-2 text-right tabular-nums">{{ attendanceDuration(entry.seconds) }}</td>
-              <td class="px-4 py-2 text-right text-muted-foreground tabular-nums">{{ entry.sessions }}</td>
-            </tr>
-          </tbody>
-        </table>
+                <span class="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                  <span><span class="block text-muted-foreground">Joined</span><span class="font-medium tabular-nums">{{ format(parseISO(entry.firstJoinedAt), 'HH:mm') }}</span></span>
+                  <span>
+                    <span class="block text-muted-foreground">Left</span>
+                    <span v-if="entry.inCall" class="font-medium text-emerald-600 dark:text-emerald-400">In the call</span>
+                    <span v-else-if="entry.lastLeftAt" class="font-medium tabular-nums">{{ format(parseISO(entry.lastLeftAt), 'HH:mm') }}</span>
+                  </span>
+                  <span><span class="block text-muted-foreground">Time in call</span><span class="font-medium tabular-nums">{{ attendanceDuration(entry.seconds) }}</span></span>
+                  <span><span class="block text-muted-foreground">Joins</span><span class="font-medium tabular-nums">{{ entry.sessions }}</span></span>
+                </span>
+              </li>
+            </ul>
+          </template>
+          <template #table>
+            <table class="w-full text-sm">
+              <thead class="sticky top-0 bg-card text-left text-xs text-muted-foreground">
+                <tr>
+                  <th class="px-4 py-2 font-medium">Name</th>
+                  <th class="px-2 py-2 font-medium">Joined</th>
+                  <th class="px-2 py-2 font-medium">Left</th>
+                  <th class="px-2 py-2 text-right font-medium">Time in call</th>
+                  <th class="px-4 py-2 text-right font-medium">Joins</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border/60">
+                <tr v-for="entry in attendance" :key="entry.key">
+                  <td class="max-w-[14rem] px-4 py-2">
+                    <span class="flex items-center gap-1.5 truncate font-medium">
+                      <Phone v-if="entry.kind === 'phone'" class="size-3.5 shrink-0 text-muted-foreground" />
+                      {{ entry.name }}
+                      <span v-if="entry.kind !== 'member'" class="rounded bg-muted px-1 text-[10px] font-medium text-muted-foreground">{{ KIND_LABELS[entry.kind] }}</span>
+                    </span>
+                    <span v-if="entry.email" class="block truncate text-xs text-muted-foreground">{{ entry.email }}</span>
+                  </td>
+                  <td class="px-2 py-2 text-muted-foreground tabular-nums">{{ format(parseISO(entry.firstJoinedAt), 'HH:mm') }}</td>
+                  <td class="px-2 py-2 text-muted-foreground tabular-nums">
+                    <span v-if="entry.inCall" class="text-emerald-600 dark:text-emerald-400">In the call</span>
+                    <template v-else-if="entry.lastLeftAt">{{ format(parseISO(entry.lastLeftAt), 'HH:mm') }}</template>
+                  </td>
+                  <td class="px-2 py-2 text-right tabular-nums">{{ attendanceDuration(entry.seconds) }}</td>
+                  <td class="px-4 py-2 text-right text-muted-foreground tabular-nums">{{ entry.sessions }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </template>
+        </ResponsiveTable>
       </div>
     </div>
   </section>

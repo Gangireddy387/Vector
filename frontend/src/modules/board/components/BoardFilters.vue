@@ -113,21 +113,23 @@ function clearFilters() {
     <div>
       <p class="mb-2 text-xs font-medium text-muted-foreground">Quick filters</p>
       <div class="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none" role="group" aria-label="Quick filters">
-        <button
+        <Button
           v-for="option in QUICK_FILTERS"
           :key="option.value"
           type="button"
-          class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium whitespace-nowrap transition-colors"
+          variant="outline"
+          size="sm"
+          class="h-8 shrink-0 rounded-full px-3"
           :class="
             filters.quick?.includes(option.value)
-              ? 'border-primary/50 bg-primary/10 text-primary'
-              : 'border-border bg-background text-muted-foreground hover:border-input hover:text-foreground'
+              ? 'border-primary/50 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary'
+              : 'text-muted-foreground'
           "
           :aria-pressed="filters.quick?.includes(option.value) ?? false"
           @click="toggleQuick(option.value)"
         >
           <component :is="option.icon" class="size-3.5" /> {{ option.label }}
-        </button>
+        </Button>
       </div>
     </div>
 
@@ -189,21 +191,23 @@ function clearFilters() {
     <span class="mx-0.5 hidden h-5 w-px shrink-0 bg-border lg:block" />
 
     <div class="flex shrink-0 items-center gap-1.5" role="group" aria-label="Quick filters">
-      <button
+      <Button
         v-for="option in QUICK_FILTERS"
         :key="option.value"
         type="button"
-        class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium whitespace-nowrap transition-colors"
+        variant="outline"
+        size="sm"
+        class="h-8 shrink-0 rounded-full px-3"
         :class="
           filters.quick?.includes(option.value)
-            ? 'border-primary/50 bg-primary/10 text-primary'
-            : 'border-border bg-background text-muted-foreground hover:border-input hover:text-foreground'
+            ? 'border-primary/50 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary'
+            : 'text-muted-foreground'
         "
         :aria-pressed="filters.quick?.includes(option.value) ?? false"
         @click="toggleQuick(option.value)"
       >
         <component :is="option.icon" class="size-3.5" /> {{ option.label }}
-      </button>
+      </Button>
     </div>
 
     <div class="flex shrink-0 items-center gap-1.5">

@@ -2,6 +2,7 @@
 import { Shield } from 'lucide-vue-next'
 import { reactive, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import ResponsiveTable from '@/components/common/ResponsiveTable.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -85,33 +86,62 @@ async function save() {
       </CardDescription>
     </CardHeader>
     <CardContent class="space-y-4">
-      <div class="overflow-x-auto rounded-lg border">
-        <table class="w-full min-w-[36rem] text-left text-sm">
-          <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
-            <tr>
-              <th class="px-3 py-2 font-medium">Field</th>
-              <th v-for="group in ACTOR_GROUPS" :key="group.key" class="px-3 py-2 font-medium">
-                {{ group.label }}
-                <span class="mt-0.5 block font-normal opacity-80">
-                  {{ group.actors.map((actor) => TRANSITION_ACTOR_META[actor].hint).join(' · ') }}
-                </span>
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y">
-            <tr v-for="field in ISSUE_FIELD_ACL_KEYS" :key="field">
-              <td class="px-3 py-2.5 font-medium">{{ ISSUE_FIELD_ACL_LABELS[field] }}</td>
-              <td v-for="group in ACTOR_GROUPS" :key="`${field}-${group.key}`" class="px-3 py-2.5">
-                <Checkbox
-                  :model-value="groupChecked(field, group.actors)"
-                  :aria-label="`${ISSUE_FIELD_ACL_LABELS[field]} — ${group.label}`"
-                  @update:model-value="(value) => toggleGroup(field, group.actors, value === true)"
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <ResponsiveTable breakpoint="lg" class="rounded-lg border">
+        <template #list>
+          <ul class="divide-y">
+            <li v-for="field in ISSUE_FIELD_ACL_KEYS" :key="field" class="space-y-2 px-3 py-3">
+              <p class="text-sm font-medium">{{ ISSUE_FIELD_ACL_LABELS[field] }}</p>
+              <div class="grid gap-2 sm:grid-cols-3">
+                <label
+                  v-for="group in ACTOR_GROUPS"
+                  :key="`${field}-${group.key}`"
+                  class="flex items-start gap-2 rounded-md border border-border/70 px-2.5 py-2 text-xs"
+                >
+                  <Checkbox
+                    class="mt-0.5"
+                    :model-value="groupChecked(field, group.actors)"
+                    :aria-label="`${ISSUE_FIELD_ACL_LABELS[field]} — ${group.label}`"
+                    @update:model-value="(value) => toggleGroup(field, group.actors, value === true)"
+                  />
+                  <span class="min-w-0">
+                    <span class="block font-medium">{{ group.label }}</span>
+                    <span class="block text-muted-foreground">
+                      {{ group.actors.map((actor) => TRANSITION_ACTOR_META[actor].hint).join(' · ') }}
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </li>
+          </ul>
+        </template>
+        <template #table>
+          <table class="w-full text-left text-sm">
+            <thead class="border-b bg-muted/40 text-xs text-muted-foreground">
+              <tr>
+                <th class="px-3 py-2 font-medium">Field</th>
+                <th v-for="group in ACTOR_GROUPS" :key="group.key" class="px-3 py-2 font-medium">
+                  {{ group.label }}
+                  <span class="mt-0.5 block font-normal opacity-80">
+                    {{ group.actors.map((actor) => TRANSITION_ACTOR_META[actor].hint).join(' · ') }}
+                  </span>
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y">
+              <tr v-for="field in ISSUE_FIELD_ACL_KEYS" :key="field">
+                <td class="px-3 py-2.5 font-medium">{{ ISSUE_FIELD_ACL_LABELS[field] }}</td>
+                <td v-for="group in ACTOR_GROUPS" :key="`${field}-${group.key}`" class="px-3 py-2.5">
+                  <Checkbox
+                    :model-value="groupChecked(field, group.actors)"
+                    :aria-label="`${ISSUE_FIELD_ACL_LABELS[field]} — ${group.label}`"
+                    @update:model-value="(value) => toggleGroup(field, group.actors, value === true)"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </template>
+      </ResponsiveTable>
       <p class="text-xs text-muted-foreground">
         Checking a box means that actor may edit the field. If any boxes are checked on a row, only those actors may
         change it. Uncheck all to restore the default (any editor).

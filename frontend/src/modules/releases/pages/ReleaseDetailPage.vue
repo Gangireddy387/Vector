@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import { DateField } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -161,7 +162,7 @@ async function reopenNow() {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4 lg:p-5">
+  <PageFrame mode="bare" pad="compact" class="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden sm:gap-4">
     <header class="flex shrink-0 flex-wrap items-start justify-between gap-2">
       <div class="min-w-0 space-y-1">
         <Button
@@ -267,5 +268,5 @@ async function reopenNow() {
         />
       </section>
     </div>
-  </div>
+  </PageFrame>
 </template>

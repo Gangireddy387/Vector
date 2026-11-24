@@ -171,7 +171,7 @@ defineExpose({ load, filters })
             {{ summarize(filter.criteria).join(' · ') }}
           </span>
         </span>
-        <span class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
+        <span class="flex shrink-0 items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
           <button type="button" class="rounded p-1 hover:bg-muted" :aria-label="filter.isDefault ? 'Clear default' : 'Set as default'" @click.stop="toggleDefault(filter)">
             <Star class="size-3.5" :class="filter.isDefault && 'fill-amber-400 text-amber-500'" />
           </button>

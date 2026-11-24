@@ -3,6 +3,7 @@ import { Check, Gem, Minus } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import PageFrame from '@/components/common/PageFrame.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -55,7 +56,7 @@ const isEnterprise = computed(() => String(planName.value).toLowerCase() === 'en
 </script>
 
 <template>
-  <div class="w-full space-y-4 p-3 sm:space-y-5 sm:p-5 lg:p-6">
+  <PageFrame mode="stack">
     <PageHeader
       title="Plan"
       :description="`${auth.organization?.name ?? 'Your organization'} is on ${planName}.`"
@@ -175,5 +176,5 @@ const isEnterprise = computed(() => String(planName.value).toLowerCase() === 'en
         <EmailEntitlementsCard bare :features="overview?.entitlements.features ?? null" />
       </CardContent>
     </Card>
-  </div>
+  </PageFrame>
 </template>

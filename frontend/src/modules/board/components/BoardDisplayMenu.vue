@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Flag, Layers, Rows3, RotateCcw, SlidersHorizontal, SquareStack, UserRound, Zap } from 'lucide-vue-next'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
@@ -54,14 +55,14 @@ const FIELDS: Array<{ key: keyof BoardCardFields; label: string }> = [
     <PopoverContent align="end" class="w-[min(20rem,calc(100vw-1.5rem))] p-0">
       <section class="space-y-2 border-b border-border p-3">
         <p class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Layers class="size-3.5" /> Swimlanes</p>
-        <div class="grid grid-cols-5 gap-1" role="radiogroup" aria-label="Group the board into swimlanes by">
+        <div class="grid grid-cols-3 gap-1 sm:grid-cols-5" role="radiogroup" aria-label="Group the board into swimlanes by">
           <button
             v-for="option in GROUPS"
             :key="option.value"
             type="button"
             role="radio"
             :aria-checked="view.groupBy === option.value"
-            class="flex flex-col items-center gap-1 rounded-md border px-1 py-2 text-[11px] font-medium transition-colors"
+            class="flex flex-col items-center gap-1 rounded-md border px-1 py-2 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             :class="view.groupBy === option.value ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-input hover:text-foreground'"
             @click="emit('groupBy', option.value)"
           >
@@ -73,20 +74,14 @@ const FIELDS: Array<{ key: keyof BoardCardFields; label: string }> = [
 
       <section class="space-y-2 border-b border-border p-3">
         <p class="text-xs font-medium text-muted-foreground">Card size</p>
-        <div class="grid grid-cols-2 rounded-md bg-muted p-0.5" role="radiogroup" aria-label="Card size">
-          <button
-            v-for="option in DENSITIES"
-            :key="option.value"
-            type="button"
-            role="radio"
-            :aria-checked="view.density === option.value"
-            class="h-7 rounded-[5px] text-xs font-medium transition-colors"
-            :class="view.density === option.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
-            @click="emit('density', option.value)"
-          >
-            {{ option.label }}
-          </button>
-        </div>
+        <SegmentedControl
+          grow
+          size="sm"
+          aria-label="Card size"
+          :model-value="view.density"
+          :options="DENSITIES"
+          @update:model-value="(value) => emit('density', value as BoardDensity)"
+        />
       </section>
 
       <section class="space-y-1 p-3">

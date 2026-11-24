@@ -30,10 +30,15 @@ import type { AppNotification } from '@/types/models'
 const { isDesktop, isWide } = useDevice()
 const route = useRoute()
 const router = useRouter()
-/** Full-height panes (chat, board on desktop) skip enter animation so the flex height chain stays intact. */
-const pageTransition = computed(() =>
-  route.name !== 'project-board' && route.matched.some((record) => record.meta.fillHeight) ? undefined : 'page',
-)
+/**
+ * Board keeps no enter animation (flex height chain). Other fillHeight routes use a light
+ * opacity fade so navigation isn’t a hard cut without risking layout jump.
+ */
+const pageTransition = computed(() => {
+  if (route.name === 'project-board') return undefined
+  if (route.matched.some((record) => record.meta.fillHeight)) return 'fade-soft'
+  return 'page'
+})
 const ui = useUiStore()
 
 /** String defaults only — same filter as `openCreateIssue` when falling back to the create route. */

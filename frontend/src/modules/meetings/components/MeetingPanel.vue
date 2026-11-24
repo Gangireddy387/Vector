@@ -203,7 +203,7 @@ const RESPONSE_LOOK: Record<MeetingResponse, { label: string; tone: string }> = 
               <button
                 v-if="canDelete(update)"
                 type="button"
-                class="ml-auto rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100"
+                class="ml-auto rounded p-0.5 text-muted-foreground opacity-100 transition-opacity hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
                 aria-label="Delete update"
                 @click="remove(update)"
               >

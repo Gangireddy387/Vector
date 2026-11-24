@@ -6,6 +6,7 @@ import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
 import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -188,7 +189,7 @@ async function removeRecurring(task: RecurringTask) {
 </script>
 
 <template>
-  <div class="w-full space-y-4 sm:space-y-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+  <PageFrame mode="stack" class="space-y-4 sm:space-y-5">
     <div v-if="isLoading" class="space-y-3" aria-busy="true" aria-label="Loading automation">
       <Skeleton class="h-10 w-full max-w-md" />
       <Skeleton v-for="index in 4" :key="index" class="h-20 w-full rounded-xl" />
@@ -414,5 +415,5 @@ async function removeRecurring(task: RecurringTask) {
       <TemplateEditorDialog v-model:open="isTemplateDialogOpen" :project="project" :template="editingTemplate" @saved="load" />
       <RecurringTaskDialog v-model:open="isRecurringDialogOpen" :project="project" :task="editingTask" @saved="load" />
     </template>
-  </div>
+  </PageFrame>
 </template>

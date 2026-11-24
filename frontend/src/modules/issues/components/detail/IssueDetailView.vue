@@ -274,7 +274,7 @@ function startCodeLinking() {
       <Button v-if="mode === 'panel'" variant="ghost" size="icon-sm" aria-label="Close" @click="emit('close')"><X /></Button>
     </Toolbar>
 
-    <div class="min-h-0 flex-1" :class="isWide ? 'grid grid-cols-[minmax(0,1fr)_minmax(15rem,18rem)] overflow-hidden xl:grid-cols-[minmax(0,1fr)_340px]' : ''">
+    <div class="min-h-0 flex-1" :class="isWide ? 'grid grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(20rem,22rem)] 2xl:grid-cols-[minmax(0,1fr)_340px]' : ''">
       <!-- Main column -->
       <div class="overflow-y-auto" :class="isWide ? 'px-6 py-5 xl:px-8 xl:py-6' : 'p-4 pb-8 sm:p-5'">
         <div class="mx-auto max-w-3xl space-y-6">

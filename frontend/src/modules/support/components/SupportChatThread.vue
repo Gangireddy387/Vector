@@ -500,7 +500,7 @@ const senderName = (message: SupportMessage) => (message.fromPortal ? `${message
           <!-- Actions beside the bubble on hover (or tap on touch screens): copy, edit, delete -->
           <div
             class="flex shrink-0 items-center gap-0.5 rounded-full bg-popover p-0.5 shadow-elevated ring-1 ring-border transition-opacity duration-150"
-            :class="activeId === message.id ? 'opacity-100' : 'pointer-events-none opacity-0 group-hover/row:pointer-events-auto group-hover/row:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100'"
+            :class="activeId === message.id ? 'opacity-100' : 'opacity-100 sm:pointer-events-none sm:opacity-0 sm:group-hover/row:pointer-events-auto sm:group-hover/row:opacity-100 sm:focus-within:pointer-events-auto sm:focus-within:opacity-100'"
             role="toolbar"
             aria-label="Message actions"
           >

@@ -549,7 +549,7 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
           >
             <FileText class="mt-0.5 size-4 shrink-0 text-primary" />
             <span class="min-w-0 flex-1">
-              <span class="block truncate text-[13px] font-medium">{{ page.title }}</span>
+              <span class="block truncate text-[13px] font-medium" :title="page.title">{{ page.title }}</span>
               <span v-if="page.excerpt" class="mt-0.5 line-clamp-2 block text-[11px] text-muted-foreground">{{ page.excerpt }}</span>
             </span>
           </button>
@@ -608,6 +608,20 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
     </template>
 
     <template #detail>
+        <div
+          v-if="selectedId && !selected"
+          class="flex min-h-0 flex-1 flex-col gap-3 p-4"
+          aria-busy="true"
+          aria-label="Loading page"
+        >
+          <Skeleton class="h-9 w-[66%] max-w-md" />
+          <Skeleton class="h-4 w-40" />
+          <Skeleton class="mt-2 h-4 w-full" />
+          <Skeleton class="h-4 w-full" />
+          <Skeleton class="h-4 w-[83%]" />
+          <Skeleton class="mt-4 min-h-[12rem] w-full flex-1 rounded-xl" />
+        </div>
+        <div v-else-if="selected" class="flex min-h-0 min-w-0 flex-1 flex-col">
         <Toolbar variant="wrap" dense class="border-b border-border bg-background px-3 py-2.5 sm:px-5">
           <Button v-if="!isWide" variant="ghost" size="icon-sm" class="shrink-0" aria-label="Back to wiki" @click="closeEditor"><ArrowLeft /></Button>
           <Button
@@ -764,8 +778,9 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
             </div>
             <WritingAssistBar ref="assistRef" v-model="body" surface="wiki" @update:model-value="markDirty" @applied="markDirty" />
           </div>
-          <div class="grid min-h-0 flex-1 gap-0 lg:grid-cols-2">
-            <div class="flex min-h-0 min-w-0 flex-col border-border lg:border-r">
+          <!-- Side-by-side edit/preview only from xl — inside SplitPane, lg dual-cols are too skinny at 1024. -->
+          <div class="grid min-h-0 flex-1 gap-0 xl:grid-cols-2">
+            <div class="flex min-h-0 min-w-0 flex-col border-border xl:border-r">
               <textarea
                 ref="bodyEl"
                 :value="body"
@@ -776,7 +791,7 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
                 @keydown="onBodyKeydown"
               />
             </div>
-            <div class="min-h-0 space-y-3 overflow-y-auto p-3 scrollbar-thin sm:p-4">
+            <div class="hidden min-h-0 space-y-3 overflow-y-auto p-3 scrollbar-thin sm:p-4 xl:block">
               <WikiFillGuide v-if="looksUnfinished" :body="body" :textarea="bodyEl" />
               <div>
                 <p class="mb-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Preview</p>
@@ -792,6 +807,7 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
             </div>
           </div>
         </template>
+        </div>
     </template>
   </SplitPane>
 

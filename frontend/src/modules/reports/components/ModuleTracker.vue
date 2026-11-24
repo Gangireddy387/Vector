@@ -90,7 +90,7 @@ const width = (part: number, whole: number) => `${whole ? (part / whole) * 100 :
           <div
             role="button"
             tabindex="0"
-            class="grid gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-accent/40 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto] lg:items-center"
+            class="grid gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-accent/40 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto] xl:items-center"
             :aria-expanded="expanded.has(module.id)"
             @click="toggle(module.id)"
             @keydown.enter.prevent="toggle(module.id)"
@@ -164,7 +164,7 @@ const width = (part: number, whole: number) => `${whole ? (part / whole) * 100 :
           <div
             role="button"
             tabindex="0"
-            class="grid gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-accent/40 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto] lg:items-center"
+            class="grid gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-accent/40 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto] xl:items-center"
             :aria-expanded="expanded.has('unplanned')"
             @click="toggle('unplanned')"
             @keydown.enter.prevent="toggle('unplanned')"

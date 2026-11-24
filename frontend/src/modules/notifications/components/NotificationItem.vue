@@ -57,7 +57,7 @@ const when = computed(() => {
     <span class="relative z-10 flex shrink-0 flex-col items-end justify-between gap-1">
       <span v-if="isUnread" class="mt-1.5 size-2.5 rounded-full bg-brand" aria-label="Unread" />
       <span v-else class="mt-1.5 size-2.5" />
-      <span class="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      <span class="flex gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
         <button
           v-if="isUnread"
           type="button"

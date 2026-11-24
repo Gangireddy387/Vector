@@ -33,7 +33,7 @@ const emit = defineEmits<{
         <ChevronRight v-else class="size-3.5 shrink-0 text-muted-foreground" />
         <FolderOpen v-if="expanded.has(node.id)" class="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
         <Folder v-else class="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-        <span class="min-w-0 flex-1 truncate text-[13px] font-medium">{{ node.title }}</span>
+        <span class="min-w-0 flex-1 truncate text-[13px] font-medium" :title="node.title">{{ node.title }}</span>
       </button>
       <WikiTreeList
         v-if="node.kind === 'folder' && expanded.has(node.id)"
@@ -56,7 +56,7 @@ const emit = defineEmits<{
       >
         <FileText class="mt-0.5 size-4 shrink-0 text-primary" />
         <span class="min-w-0 flex-1">
-          <span class="block truncate text-[13px] font-medium">{{ node.title }}</span>
+          <span class="block truncate text-[13px] font-medium" :title="node.title">{{ node.title }}</span>
           <span v-if="node.excerpt" class="mt-0.5 line-clamp-2 block text-[11px] text-muted-foreground">{{ node.excerpt }}</span>
         </span>
       </button>

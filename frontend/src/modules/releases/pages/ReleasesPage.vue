@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import { DateField } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -92,7 +93,7 @@ function statusClass(status: VersionStatus) {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4 lg:p-5">
+  <PageFrame mode="bare" pad="compact" class="flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-hidden sm:gap-4">
     <header class="flex shrink-0 flex-wrap items-start justify-between gap-2">
       <div class="min-w-0 space-y-0.5">
         <h1 class="text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl">Releases</h1>
@@ -208,5 +209,5 @@ function statusClass(status: VersionStatus) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  </div>
+  </PageFrame>
 </template>

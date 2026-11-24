@@ -76,7 +76,7 @@ async function unsave(item: SavedItem) {
               </span>
             </span>
           </button>
-          <Button variant="ghost" size="icon-sm" class="opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label="Remove from Saved" title="Remove from Saved" @click="unsave(item)">
+          <Button variant="ghost" size="icon-sm" class="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100" aria-label="Remove from Saved" title="Remove from Saved" @click="unsave(item)">
             <BookmarkX />
           </Button>
         </div>

@@ -44,7 +44,7 @@ const limitLabel = computed(() => (props.status.wipLimit !== null ? `${props.cou
     </span>
     <span v-if="points" class="text-[11px] text-muted-foreground tabular-nums" title="Story points">{{ points }} pts</span>
 
-    <span class="ml-auto flex items-center opacity-60 transition-opacity group-hover/header:opacity-100 focus-within:opacity-100">
+    <span class="ml-auto flex items-center opacity-100 transition-opacity sm:opacity-60 sm:group-hover/header:opacity-100 sm:focus-within:opacity-100">
       <Button v-if="editable" variant="ghost" size="icon-sm" class="size-7" :aria-label="`Add a task to ${status.name}`" title="Add a task" @click="emit('add')"><Plus /></Button>
       <DropdownMenu>
         <DropdownMenuTrigger as-child>

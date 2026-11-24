@@ -34,13 +34,13 @@ defineProps<{
     </div>
 
     <template v-if="variant !== 'mobile'">
-      <!-- Stats strip -->
-      <div class="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <!-- Stats strip — matches DesktopDashboard (5 cols from xl) -->
+      <div class="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Skeleton v-for="index in 5" :key="index" class="h-[86px] rounded-xl" />
       </div>
 
-      <!-- My work + side -->
-      <div class="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
+      <!-- My work + side — stacked until 2xl like the live layout -->
+      <div class="flex flex-col gap-5 2xl:grid 2xl:grid-cols-[minmax(0,1fr)_minmax(22rem,28rem)] 2xl:items-start">
         <div class="overflow-hidden rounded-xl border border-border bg-card shadow-soft">
           <div class="flex h-12 items-center gap-3 border-b border-border px-4">
             <Skeleton class="h-4 w-20" />

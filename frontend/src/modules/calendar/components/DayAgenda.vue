@@ -106,7 +106,7 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
         />
         <span class="mt-0.5 h-10 w-1 shrink-0" :style="{ backgroundColor: categoryInfo(event.category).color }" />
         <div class="min-w-0 flex-1 space-y-1">
-          <p class="truncate text-sm font-medium" :class="event.status !== 'planned' && 'text-muted-foreground line-through'">{{ event.title }}</p>
+          <p class="truncate text-sm font-medium" :class="event.status !== 'planned' && 'text-muted-foreground line-through'" :title="event.title">{{ event.title }}</p>
           <p class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
             <span class="font-medium tabular-nums">{{ timeLabel(event) }}</span>
             <span class="inline-flex items-center gap-1">
@@ -144,7 +144,7 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
               @click="emit('openTask', task.key)"
             >
               <span class="font-mono text-[11px] text-muted-foreground">{{ task.key }}</span>
-              <span class="min-w-0 flex-1 truncate" :class="task.status.category === 'done' && 'text-muted-foreground line-through'">{{ task.title }}</span>
+              <span class="min-w-0 flex-1 truncate" :class="task.status.category === 'done' && 'text-muted-foreground line-through'" :title="task.title">{{ task.title }}</span>
               <span class="size-2 shrink-0" :style="{ backgroundColor: task.status.color }" :title="task.status.name" />
             </button>
           </li>

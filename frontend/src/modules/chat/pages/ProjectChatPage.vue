@@ -5,6 +5,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
@@ -340,7 +341,7 @@ const discussedTasks = computed(() => {
 </script>
 
 <template>
-  <div class="flex min-h-0 w-full flex-1 flex-col lg:flex-row">
+  <PageFrame mode="bare" pad="none" gap="none" class="flex min-h-0 w-full flex-1 flex-col lg:flex-row">
     <section class="flex min-w-0 flex-1 flex-col">
       <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto pb-3">
         <!-- Stick the thread to the bottom so a short chat sits above the composer, not under a tall empty gap. -->
@@ -533,5 +534,5 @@ const discussedTasks = computed(() => {
         </ul>
       </section>
     </aside>
-  </div>
+  </PageFrame>
 </template>

@@ -70,7 +70,7 @@ const describe = (day: { date: string; count: number; done: number; tasks: numbe
             @click="emit('openMonth', month.key)"
           >
             {{ month.name }}
-            <ChevronRight class="size-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+            <ChevronRight class="size-3.5 opacity-100 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-visible:opacity-100" />
           </button>
           <span class="text-[11px] text-muted-foreground tabular-nums">
             {{ month.planned ? `${month.planned} event${month.planned === 1 ? '' : 's'} · ${month.percent}% done` : 'No events' }}

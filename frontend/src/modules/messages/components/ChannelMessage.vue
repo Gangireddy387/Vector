@@ -172,7 +172,7 @@ const hoverButton = 'flex size-7 items-center justify-center rounded text-muted-
       :class="[
         reply ? 'top-1' : 'top-1.5',
         isDesktop
-          ? 'opacity-0 group-hover/msg:opacity-100 focus-within:opacity-100 has-[[data-state=open]]:opacity-100'
+          ? 'opacity-100 sm:opacity-0 sm:group-hover/msg:opacity-100 sm:focus-within:opacity-100 sm:has-[[data-state=open]]:opacity-100'
           : revealed
             ? 'opacity-100'
             : 'pointer-events-none opacity-0',

@@ -269,7 +269,10 @@ const shownLanes = computed(() => lanes.value.filter((lane) => view.value.groupB
 const columnIssues = (statusId: string) => filteredIssues.value.filter((issue) => issue.statusId === statusId)
 const columnPoints = (statusId: string) => columnIssues(statusId).reduce((total, issue) => total + (issue.storyPoints ?? 0), 0)
 const isCollapsed = (statusId: string) => view.value.collapsedColumns.includes(statusId)
-const gridTemplate = computed(() => statuses.value.map((status) => (isCollapsed(status.id) ? '2.75rem' : 'minmax(16rem, 1fr)')).join(' '))
+/** Narrower min on laptop so 4+ columns fit beside the sidebar without forcing a huge H-scroll. */
+const gridTemplate = computed(() =>
+  statuses.value.map((status) => (isCollapsed(status.id) ? '2.75rem' : 'minmax(13.5rem, 1fr)')).join(' '),
+)
 
 /** A task added in a cell gets its status and its swimlane's assignee, priority, type or epic. */
 function cellDefaults(lane: Lane, status: Status): Partial<CreateIssueInput> {
@@ -442,8 +445,18 @@ function moveOnMobile(issue: Issue, status: Status) {
     :class="isPhone ? 'overflow-visible' : 'h-full min-h-0 overflow-x-clip'"
   >
     <p class="sr-only" aria-live="polite">{{ liveMessage }}</p>
-    <div v-if="isLoading" class="flex gap-3 overflow-x-auto p-3 sm:p-4" aria-busy="true" aria-label="Loading board">
-      <Skeleton v-for="index in 4" :key="index" class="h-96 w-64 shrink-0 rounded-xl sm:min-w-64 sm:flex-1" />
+    <div
+      v-if="isLoading"
+      class="grid min-h-0 flex-1 auto-cols-[minmax(13.5rem,1fr)] grid-flow-col gap-3 overflow-x-auto p-3 sm:p-4"
+      aria-busy="true"
+      aria-label="Loading board"
+    >
+      <div v-for="index in 4" :key="index" class="flex min-w-[13.5rem] flex-col gap-2">
+        <Skeleton class="h-8 w-full rounded-lg" />
+        <Skeleton class="h-20 w-full rounded-xl" />
+        <Skeleton class="h-20 w-full rounded-xl" />
+        <Skeleton class="h-16 w-full rounded-xl" />
+      </div>
     </div>
 
     <EmptyState v-else-if="loadError" :icon="Columns3" title="The board did not load" :description="loadError" class="px-3 py-20">
@@ -513,7 +526,7 @@ function moveOnMobile(issue: Issue, status: Status) {
               >
                 {{ isHistorical ? 'Completed' : viewedSprint.state === 'planned' ? 'Planned' : 'Active' }}
               </span>
-              <div v-if="viewedSprint" class="hidden xl:block"><SprintProgress :sprint="viewedSprint" :stats="sprintStats" inline /></div>
+              <div v-if="viewedSprint" class="hidden min-w-0 lg:block"><SprintProgress :sprint="viewedSprint" :stats="sprintStats" inline /></div>
               <Button
                 v-if="canManageSprints && viewedSprint?.state === 'active'"
                 variant="outline"

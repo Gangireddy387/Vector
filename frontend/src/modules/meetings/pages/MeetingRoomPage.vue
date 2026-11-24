@@ -385,8 +385,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
     <div
       v-if="isLoading"
       key="loading"
-      class="flex w-full flex-col gap-4 sm:gap-5"
-      :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'"
+      class="flex w-full flex-col gap-4 p-3 sm:gap-5 md:p-5 lg:p-6"
       aria-busy="true"
       aria-label="Loading meeting"
     >
@@ -450,7 +449,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
 
     <!-- Lobby, or the summary of a meeting that is over -->
     <div v-else-if="meeting" key="lobby" class="min-h-0 flex-1 overflow-y-auto rise-in">
-      <div class="flex w-full flex-col gap-4 sm:gap-5" :class="isDesktop ? 'p-4 sm:p-5 lg:p-6' : 'p-3'">
+      <div class="flex w-full flex-col gap-4 p-3 sm:gap-5 md:p-5 lg:p-6">
         <!-- Back link above the split so both columns share one top edge. -->
         <button type="button" class="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" @click="router.push({ name: 'meetings' })">
           <ArrowLeft class="size-4" /> All meetings

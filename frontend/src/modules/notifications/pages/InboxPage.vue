@@ -30,7 +30,7 @@ const ProjectChatPage = defineAsyncComponent(() => import('@/modules/chat/pages/
 const notifications = useNotificationsStore()
 const auth = useAuthStore()
 const router = useRouter()
-const { isDesktop, isWide } = useDevice()
+const { isDesktop, isWide, isTable } = useDevice()
 const isOnline = useOnline()
 const filter = ref<InboxFilter>('all')
 const supportChat = useTemplateRef<InstanceType<typeof SupportChatThread>>('supportChat')
@@ -175,8 +175,11 @@ const listTime = (notification: AppNotification) => {
   return isToday(date) ? format(date, 'HH:mm') : format(date, 'd MMM')
 }
 
-/** Folder rail beside the list on workspace shells; hides when tablet is reading a notification. */
-const showFolderRail = computed(() => isDesktop.value && (isWide.value || !selected.value))
+/**
+ * Folder rail: always when browsing (no selection) on desktop/tablet.
+ * While reading, only from xl — at ~1024 the rail + list steal the detail pane.
+ */
+const showFolderRail = computed(() => isDesktop.value && (!selected.value || isTable.value))
 /** Reading pane only on desktop/tablet shells — phones navigate out. */
 const reading = computed(() => (isDesktop.value ? selected.value : null))
 
@@ -229,7 +232,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
       <!-- Desktop/tablet: vertical folders -->
       <nav
         v-if="showFolderRail"
-        class="flex w-[11.5rem] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border bg-muted/20 px-2 py-3 scrollbar-thin xl:w-[12.5rem]"
+        class="flex w-40 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border bg-muted/20 px-2 py-3 scrollbar-thin xl:w-[12.5rem]"
         aria-label="Inbox folders"
       >
         <p class="mb-1.5 px-2.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Folders</p>
@@ -264,7 +267,7 @@ const EMPTY: Record<InboxFilter, { title: string; description: string }> = {
       <SplitPane
         require-selection
         :selected="Boolean(reading)"
-        master-class="w-[min(24rem,34%)] shrink-0 xl:w-[26rem]"
+        master-class="w-[min(20rem,36%)] shrink-0 xl:w-[min(24rem,34%)] 2xl:w-[26rem]"
         class="min-h-0 flex-1"
       >
         <template #master>

@@ -39,7 +39,8 @@ const props = withDefaults(
     requireSelection: false,
     collapsed: false,
     /** Matches Messages / Inbox list density on laptop. */
-    masterClass: 'w-[min(22rem,36%)] shrink-0 xl:w-[26rem]',
+    /** Cap master so detail keeps room at 1024; widen only from xl. */
+    masterClass: 'w-[min(18rem,32%)] shrink-0 xl:w-[min(24rem,36%)] 2xl:w-[26rem]',
   },
 )
 

@@ -107,7 +107,7 @@ function reset() {
       :model-value="filters.projectId ?? null"
       :options="projectOptions"
       size="sm"
-      class="w-full min-w-0 sm:w-52"
+      class="w-full min-w-0 sm:max-w-[11rem] sm:flex-1 lg:max-w-[13rem]"
       aria-label="Project"
       @update:model-value="(value) => set('projectId', value ?? undefined)"
     />
@@ -115,7 +115,7 @@ function reset() {
       :model-value="periodValue"
       :options="PERIOD_OPTIONS"
       size="sm"
-      class="w-full min-w-0 sm:w-44"
+      class="w-full min-w-0 sm:max-w-[9.5rem] sm:flex-1"
       aria-label="Period"
       @update:model-value="setPeriod"
     />
@@ -123,16 +123,16 @@ function reset() {
       <DatePicker
         :model-value="filters.from!"
         size="sm"
-        class="w-full min-w-0 sm:w-40"
+        class="w-full min-w-0 sm:max-w-[9rem] sm:flex-1"
         :clearable="false"
         aria-label="From"
         @update:model-value="(value) => value && setCustomDate('from', value)"
       />
-      <span class="hidden text-xs text-muted-foreground sm:inline">to</span>
+      <span class="hidden text-xs text-muted-foreground lg:inline">to</span>
       <DatePicker
         :model-value="filters.to!"
         size="sm"
-        class="w-full min-w-0 sm:w-40"
+        class="w-full min-w-0 sm:max-w-[9rem] sm:flex-1"
         :clearable="false"
         aria-label="To"
         @update:model-value="(value) => value && setCustomDate('to', value)"
@@ -142,7 +142,7 @@ function reset() {
       :model-value="filters.assigneeId ?? null"
       :options="assigneeOptions"
       size="sm"
-      class="w-full min-w-0 sm:w-48"
+      class="w-full min-w-0 sm:max-w-[10.5rem] sm:flex-1"
       aria-label="Assignee"
       @update:model-value="(value) => set('assigneeId', value ?? undefined)"
     />
@@ -151,7 +151,7 @@ function reset() {
       :model-value="filters.type ?? null"
       :options="typeOptions"
       size="sm"
-      class="w-full min-w-0 sm:w-36"
+      class="w-full min-w-0 sm:max-w-[8rem] sm:flex-1"
       aria-label="Task type"
       @update:model-value="(value) => set('type', value ?? undefined)"
     />
@@ -160,7 +160,7 @@ function reset() {
       :model-value="filters.priority ?? null"
       :options="priorityOptions"
       size="sm"
-      class="w-full min-w-0 sm:w-40"
+      class="w-full min-w-0 sm:max-w-[9rem] sm:flex-1"
       aria-label="Priority"
       @update:model-value="(value) => set('priority', value ?? undefined)"
     />

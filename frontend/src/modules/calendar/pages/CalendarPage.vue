@@ -22,6 +22,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import MobileSectionSelect from '@/components/common/MobileSectionSelect.vue'
 import PageFrame from '@/components/common/PageFrame.vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import StatCard from '@/components/common/StatCard.vue'
 import Toolbar from '@/components/common/Toolbar.vue'
 import { SelectField, type SelectFieldOption } from '@/components/forms'
@@ -48,7 +49,7 @@ import YearView from '../components/YearView.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { isWide } = useDevice()
+const { isDesktop, isWide } = useDevice()
 const auth = useAuthStore()
 const tick = useNow({ scheduler: (callback) => useIntervalFn(callback, 30_000) })
 const now = computed(() => clockIn(auth.user?.timezone, tick.value))
@@ -416,7 +417,7 @@ useHotkeys({
       <RouterLink :to="{ name: 'issues', query: { assigneeId: 'me' } }" class="font-medium underline-offset-2 hover:underline">My tasks</RouterLink>.
     </p>
 
-    <div class="grid shrink-0 grid-cols-2 gap-2 sm:gap-2.5 xl:grid-cols-4">
+    <div class="grid shrink-0 grid-cols-2 gap-2 sm:gap-2.5 lg:grid-cols-4">
       <StatCard variant="card" label="Events" :value="stats.planned" :icon="CalendarDays" :hint="periodLabel" />
       <StatCard variant="card" label="Completed" :value="`${stats.percent}%`" :icon="CalendarCheck2" tone="success" :hint="`${stats.done} of ${stats.planned} done`">
         <Progress :model-value="stats.percent" class="mt-2 h-1.5" indicator-class="bg-success" />
@@ -432,17 +433,26 @@ useHotkeys({
       />
     </div>
 
-    <!-- Agenda beside the grid only from xl. min-h keeps the month usable and enables page scroll when short. -->
-    <div class="grid min-h-[36rem] flex-1 grid-rows-[minmax(0,1fr)_auto] gap-3 sm:min-h-[40rem] sm:gap-4 xl:min-h-0 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] xl:grid-rows-1 xl:gap-4">
-      <section class="relative flex min-h-[24rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft sm:min-h-[28rem] xl:h-full xl:min-h-0">
+    <!-- Agenda beside month from lg; stacked below on phone. min-h keeps the month usable when short. -->
+    <div class="grid min-h-[36rem] flex-1 grid-rows-[minmax(0,1fr)_auto] gap-3 sm:min-h-[40rem] sm:gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] lg:grid-rows-1 lg:gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
+      <section class="relative flex min-h-[24rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft sm:min-h-[28rem] lg:h-full lg:min-h-0">
         <div v-if="isLoading" class="loading-shimmer-bar absolute inset-x-0 top-0 z-30" aria-hidden="true" />
         <div
           v-if="isLoading && !events.length"
-          class="absolute inset-0 z-20 flex flex-col gap-3 bg-card/80 p-4 backdrop-blur-[1px]"
-          aria-hidden="true"
+          class="absolute inset-0 z-20 flex flex-col gap-3 bg-card/80 p-3 backdrop-blur-[1px] sm:p-4"
+          aria-busy="true"
+          aria-label="Loading calendar"
         >
-          <Skeleton class="h-8 w-48" />
-          <Skeleton class="min-h-0 flex-1 w-full" />
+          <div class="flex items-center gap-2">
+            <Skeleton class="h-8 w-24 rounded-md" />
+            <Skeleton class="h-8 w-16 rounded-md" />
+            <Skeleton class="h-8 w-40 rounded-md" />
+            <Skeleton class="ml-auto h-8 w-36 rounded-md" />
+          </div>
+          <div class="grid min-h-0 flex-1 grid-cols-7 gap-1">
+            <Skeleton v-for="index in 7" :key="`h-${index}`" class="h-6 w-full rounded-sm" />
+            <Skeleton v-for="index in 35" :key="`c-${index}`" class="min-h-[3.25rem] w-full rounded-md sm:min-h-[4rem]" />
+          </div>
         </div>
 
         <EmptyState
@@ -456,28 +466,15 @@ useHotkeys({
 
         <Toolbar variant="wrap" dense justify="between" class="shrink-0 border-b border-border px-3 py-2">
           <template #start>
-            <div class="inline-flex h-8 items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="Calendar scope">
-              <button
-                type="button"
-                role="tab"
-                class="flex h-7 items-center rounded-[5px] px-3 text-xs font-medium transition-colors"
-                :class="!isTeam ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
-                :aria-selected="!isTeam"
-                @click="setScope('me')"
-              >
-                Me
-              </button>
-              <button
-                type="button"
-                role="tab"
-                class="flex h-7 items-center gap-1 rounded-[5px] px-3 text-xs font-medium transition-colors"
-                :class="isTeam ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
-                :aria-selected="isTeam"
-                @click="setScope('team')"
-              >
-                <UsersRound class="size-3.5" /> Team
-              </button>
-            </div>
+            <SegmentedControl
+              :model-value="isTeam ? 'team' : 'me'"
+              aria-label="Calendar scope"
+              :options="[
+                { value: 'me', label: 'Me' },
+                { value: 'team', label: 'Team', icon: UsersRound },
+              ]"
+              @update:model-value="(value) => setScope(value === 'team' ? 'team' : 'me')"
+            />
             <Button variant="outline" size="sm" title="Today (T)" @click="goToday">Today</Button>
             <div class="flex">
               <Button variant="ghost" size="icon-sm" :aria-label="`Previous ${stepLabel}`" :title="`Previous ${stepLabel} (←)`" @click="shift(-1)"><ChevronLeft /></Button>
@@ -516,27 +513,19 @@ useHotkeys({
               aria-label="Calendar view"
               @update:model-value="onViewSelect"
             />
-            <div v-else class="inline-flex flex-wrap items-center rounded-md bg-muted p-0.5" role="tablist" aria-label="Calendar view">
-              <button
-                v-for="option in VIEWS"
-                :key="option.value"
-                type="button"
-                role="tab"
-                class="flex h-7 items-center justify-center gap-1.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors sm:px-3"
-                :class="view === option.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
-                :aria-selected="view === option.value"
-                :title="`${option.label} view (${option.key})`"
-                @click="setView(option.value)"
-              >
-                <component :is="option.icon" class="size-3.5" />
-                <span class="hidden sm:inline">{{ option.label }}</span>
-              </button>
-            </div>
+            <SegmentedControl
+              v-else
+              :model-value="view"
+              class="flex-wrap"
+              aria-label="Calendar view"
+              :options="VIEWS.map((option) => ({ value: option.value, label: option.label, icon: option.icon, labelClass: 'hidden sm:inline' }))"
+              @update:model-value="(value) => setView(value as CalendarView)"
+            />
           </template>
         </Toolbar>
 
         <TimeGrid
-          v-if="view === 'day' || (view === 'week' && isWide)"
+          v-if="view === 'day' || (view === 'week' && isDesktop)"
           class="min-h-0 flex-1"
           :days="days"
           :selected="selected"
@@ -590,7 +579,7 @@ useHotkeys({
       </section>
 
       <DayAgenda
-        class="min-h-[14rem] shrink-0 xl:h-full xl:min-h-0 xl:shrink"
+        class="min-h-[14rem] shrink-0 lg:h-full lg:min-h-0 lg:shrink"
         :date="selected"
         :events="eventsByDay.get(selected) ?? []"
         :tasks="tasksByDay.get(selected) ?? []"

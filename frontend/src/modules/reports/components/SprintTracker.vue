@@ -120,7 +120,7 @@ const completionTone = (value: number) => (value >= 85 ? 'text-success' : value 
             <div
               role="button"
               tabindex="0"
-              class="grid gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-accent/40 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_auto_auto] lg:items-center"
+              class="grid gap-x-4 gap-y-2 px-4 py-3 transition-colors hover:bg-accent/40 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_auto_auto] xl:items-center"
               :aria-expanded="expanded.has(sprint.id)"
               @click="toggle(sprint.id)"
               @keydown.enter.prevent="toggle(sprint.id)"

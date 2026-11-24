@@ -19,7 +19,7 @@ import { type ConversationDoc, messagesApi } from '../messages.api'
 const props = defineProps<{ conversationId: string }>()
 const auth = useAuthStore()
 const confirm = useConfirm()
-const { isWide } = useDevice()
+const { isWide, isTable } = useDevice()
 
 const docs = ref<ConversationDoc[] | null>(null)
 const selectedId = ref<string | null>(null)
@@ -183,21 +183,22 @@ const canDelete = (doc: ConversationDoc) => doc.createdById === auth.user?.id ||
           </span>
         </template>
         <template #end>
-          <Button v-if="!isWide" size="sm" variant="ghost" @click="showPreview = !showPreview">{{ showPreview ? 'Edit' : 'Preview' }}</Button>
+          <Button v-if="!isTable" size="sm" variant="ghost" @click="showPreview = !showPreview">{{ showPreview ? 'Edit' : 'Preview' }}</Button>
           <Button size="sm" :disabled="!dirty || saving" :loading="saving" @click="save">Save</Button>
           <Button v-if="selected && canDelete(selected)" size="icon-sm" variant="ghost" title="Delete doc" @click="removeDoc(selected)"><Trash2 /></Button>
         </template>
       </Toolbar>
-      <div class="grid min-h-0 flex-1 gap-0 lg:grid-cols-2">
+      <!-- Edit/preview side-by-side only from xl; toggle on narrower panes. -->
+      <div class="grid min-h-0 flex-1 gap-0 xl:grid-cols-2">
         <textarea
-          v-show="isWide || !showPreview"
+          v-show="isTable || !showPreview"
           v-model="body"
-          class="min-h-[12rem] w-full flex-1 resize-none border-border bg-background p-3 text-[14px] leading-6 outline-none sm:min-h-0 sm:p-4 lg:border-r"
+          class="min-h-[12rem] w-full flex-1 resize-none border-border bg-background p-3 text-[14px] leading-6 outline-none sm:min-h-0 sm:p-4 xl:border-r"
           placeholder="Write in markdown…"
           aria-label="Doc body"
           @input="dirty = true"
         />
-        <div v-show="isWide || showPreview" class="min-h-0 overflow-y-auto p-3 scrollbar-thin sm:p-4">
+        <div v-show="isTable || showPreview" class="min-h-0 overflow-y-auto p-3 scrollbar-thin sm:p-4">
           <p class="mb-2 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Preview</p>
           <MarkdownContent v-if="body.trim()" :source="body" class="text-[14px]" />
           <p v-else class="text-sm text-muted-foreground italic">Nothing to preview yet.</p>

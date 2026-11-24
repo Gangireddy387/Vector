@@ -158,12 +158,26 @@ const burnupTooltips = computed(
 
     <template v-else-if="view === 'modules'">
       <ModuleTracker v-if="modules" :report="modules" />
-      <Skeleton v-else-if="!errorMessage" class="h-96 w-full" />
+      <div v-else-if="!errorMessage" class="space-y-4" aria-busy="true" aria-label="Loading modules">
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Skeleton v-for="index in 4" :key="index" class="h-24 w-full rounded-xl" />
+        </div>
+        <div class="overflow-hidden rounded-xl border border-border">
+          <Skeleton v-for="index in 5" :key="index" class="h-16 w-full rounded-none border-b border-border/60 last:border-0" />
+        </div>
+      </div>
     </template>
 
     <template v-else-if="view === 'sprints'">
       <SprintTracker v-if="sprints" :report="sprints" />
-      <Skeleton v-else-if="!errorMessage" class="h-96 w-full" />
+      <div v-else-if="!errorMessage" class="space-y-4" aria-busy="true" aria-label="Loading sprints">
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Skeleton v-for="index in 4" :key="index" class="h-24 w-full rounded-xl" />
+        </div>
+        <div class="overflow-hidden rounded-xl border border-border">
+          <Skeleton v-for="index in 5" :key="index" class="h-16 w-full rounded-none border-b border-border/60 last:border-0" />
+        </div>
+      </div>
     </template>
 
     <TeamPerformance v-else-if="view === 'team'" :locked-project-id="projectId" />

@@ -117,7 +117,7 @@ async function onPick(event: Event) {
         :disabled="uploading"
         @click="fileInput?.click()"
       >
-        <LoaderCircle v-if="uploading" class="size-3.5 animate-spin" />
+        <LoaderCircle v-if="uploading" class="size-4 animate-spin text-muted-foreground" />
         <ImagePlus v-else class="size-3.5" />
       </Button>
       <input ref="fileInput" type="file" class="hidden" @change="onPick" />

@@ -5,6 +5,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
+import PageFrame from '@/components/common/PageFrame.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { DateField } from '@/components/forms'
 import { useConfirm } from '@/composables/useConfirm'
@@ -165,7 +166,7 @@ function metricLabel(type: KeyResultMetricType) {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-3 sm:gap-4 sm:p-4 lg:p-5">
+  <PageFrame mode="bare" pad="compact" class="flex h-full min-h-0 flex-col gap-3 overflow-hidden sm:gap-4">
     <div v-if="loading && !goal" class="space-y-3">
       <Skeleton class="h-10 w-2/3 rounded-xl" />
       <Skeleton class="h-24 w-full rounded-xl" />
@@ -414,5 +415,5 @@ function metricLabel(type: KeyResultMetricType) {
         </div>
       </div>
     </template>
-  </div>
+  </PageFrame>
 </template>
