@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { ArrowRight } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { ArrowRight, Play } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import BrandOrbitShell from '@/components/layout/BrandOrbitShell.vue'
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import ShareProductTour from '@/modules/shares/components/ShareProductTour.vue'
 
 /** Public marketing home — same rich orbit stage as sign-in. */
 const auth = useAuthStore()
+const tourOpen = ref(false)
 
 const primaryCta = computed(() => {
   if (auth.isAuthenticated) return { name: 'home' as const, query: { startDay: '1' } }
@@ -25,6 +27,16 @@ const primaryLabel = computed(() => (auth.isAuthenticated ? 'Open workspace' : '
     header-hint="Work management for every team"
   >
     <template #header-actions>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        class="hidden gap-1.5 text-inherit hover:bg-white/10 sm:inline-flex lg:text-white lg:hover:bg-white/10"
+        @click="tourOpen = true"
+      >
+        <Play class="size-3.5 fill-current" />
+        Product tour
+      </Button>
       <Button variant="ghost" size="sm" class="hidden text-inherit hover:bg-white/10 sm:inline-flex lg:text-white lg:hover:bg-white/10" as-child>
         <RouterLink :to="{ name: 'pricing' }">Pricing</RouterLink>
       </Button>
@@ -43,6 +55,7 @@ const primaryLabel = computed(() => (auth.isAuthenticated ? 'Open workspace' : '
         <Button variant="brand" size="lg" class="w-full" as-child>
           <RouterLink :to="primaryCta">{{ primaryLabel }} <ArrowRight /></RouterLink>
         </Button>
+        <ShareProductTour v-model="tourOpen" block from="landing-tour" />
         <Button variant="outline" size="lg" class="w-full" as-child>
           <RouterLink :to="{ name: 'pricing' }">See pricing</RouterLink>
         </Button>

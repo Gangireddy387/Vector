@@ -25,6 +25,16 @@ import ShareTourProjectMock, { type TourProjectView } from './ShareTourProjectMo
 
 const open = defineModel<boolean>({ default: false })
 
+const props = withDefaults(
+  defineProps<{
+    /** Register / analytics source for tour CTAs. */
+    from?: string
+    /** Full-width trigger for landing-style CTA stacks. */
+    block?: boolean
+  }>(),
+  { from: 'product-tour', block: false },
+)
+
 interface TourStep {
   id: string
   label: string
@@ -230,25 +240,38 @@ onBeforeUnmount(stop)
 
 <template>
   <Button
+    v-if="props.block"
     type="button"
     variant="outline"
-    size="sm"
-    class="hidden h-9 gap-1.5 rounded-full border-border/80 bg-card/90 px-3 text-xs font-semibold shadow-soft sm:inline-flex"
+    size="lg"
+    class="w-full gap-2"
     @click="open = true"
   >
-    <Play class="size-3.5 fill-current" />
+    <Play class="size-4 fill-current" />
     Product tour
   </Button>
-  <Button
-    type="button"
-    variant="outline"
-    size="icon"
-    class="size-9 shrink-0 rounded-full border-border/80 bg-card/90 shadow-soft sm:hidden"
-    aria-label="Open product tour"
-    @click="open = true"
-  >
-    <Play class="size-3.5 fill-current" />
-  </Button>
+  <template v-else>
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      class="hidden h-9 gap-1.5 rounded-full border-border/80 bg-card/90 px-3 text-xs font-semibold shadow-soft sm:inline-flex"
+      @click="open = true"
+    >
+      <Play class="size-3.5 fill-current" />
+      Product tour
+    </Button>
+    <Button
+      type="button"
+      variant="outline"
+      size="icon"
+      class="size-9 shrink-0 rounded-full border-border/80 bg-card/90 shadow-soft sm:hidden"
+      aria-label="Open product tour"
+      @click="open = true"
+    >
+      <Play class="size-3.5 fill-current" />
+    </Button>
+  </template>
 
   <Dialog v-model:open="open">
     <DialogContent class="flex max-h-[min(94dvh,56rem)] flex-col gap-0 overflow-hidden border-border/60 p-0 sm:max-w-6xl" hide-close>
@@ -313,7 +336,7 @@ onBeforeUnmount(stop)
 
             <WorkdayLoopDemo
               v-if="step.interactive"
-              :cta-to="{ name: 'register', query: { from: 'share-tour' } }"
+              :cta-to="{ name: 'register', query: { from: props.from } }"
               cta-label="Start free workspace"
             />
           </div>
