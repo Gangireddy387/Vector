@@ -7,7 +7,8 @@ export const appUrl = (path = '/') => `${config.clientUrl.split(',')[0].replace(
 /** Where a newly invited person sets up their account; also shown to admins when the plan leaves invitation emails out. */
 export const inviteLinkFor = (token) => appUrl(`/accept-invite?token=${token}`);
 /** Public workday / invite preview — see the loop without accepting yet. */
-export const workdayPreviewLinkFor = (slug) => (slug ? appUrl(`/invite/${slug}`) : appUrl('/workday'));
+export const workdayPreviewLinkFor = (slug) =>
+  slug ? appUrl(`/workday?org=${encodeURIComponent(slug)}`) : appUrl('/workday');
 
 /** Mail clients fetch images through their own servers, so images on a local address would show as broken. */
 const canLoadImages = () => !/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(appUrl());

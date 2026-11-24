@@ -55,7 +55,14 @@ export const setUnauthorizedHandler = (handler: UnauthorizedHandler) => {
 
 /** Public guest endpoints — a 401 there is a bad password / unlock failure, not a signed-out session. */
 const isPublicGuestRoute = (url?: string) =>
-  Boolean(url && (/^\/share-links\//.test(url) || /^\/intake-forms\//.test(url)))
+  Boolean(
+    url &&
+      (/^\/share-links\//.test(url) ||
+        /^\/intake-forms\//.test(url) ||
+        /^\/organizations\/by-slug\//.test(url) ||
+        /^\/pricing/.test(url) ||
+        /^\/legal/.test(url)),
+  )
 
 http.interceptors.response.use(
   (response) => response,

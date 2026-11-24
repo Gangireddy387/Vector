@@ -24,10 +24,9 @@ export const marketingRoutes: RouteRecordRaw[] = [
     path: '/preview',
     redirect: { name: 'workday-preview' },
   },
+  /** Old viral invite URLs → public workday preview (membership still needs a real invite). */
   {
     path: '/invite/:slug',
-    name: 'invite-preview',
-    component: () => import('./pages/InvitePreviewPage.vue'),
-    meta: { title: 'Join workspace' },
+    redirect: (to) => ({ name: 'workday-preview', query: { org: String(to.params.slug ?? '') } }),
   },
 ]

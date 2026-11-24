@@ -56,7 +56,7 @@ async function invite() {
     if (member.inviteLink) {
       const slug = auth.organization?.slug
       await shareInviteLink(member.email, member.inviteLink, {
-        previewUrl: slug ? `${window.location.origin}/invite/${slug}` : `${window.location.origin}/workday`,
+        previewUrl: slug ? `${window.location.origin}/workday?org=${encodeURIComponent(slug)}` : `${window.location.origin}/workday`,
       })
     }
     else toast.success(member.invited ? `Invitation sent to ${member.email}` : `${member.name} added to the project`)

@@ -1,12 +1,12 @@
 import { toast } from 'vue-sonner'
 
-/** Branded invite preview (preferred) or generic workday loop. */
+/** Public workday loop page (optional org slug for signup context). */
 export function workdayShareUrl(slug?: string | null) {
   const origin = window.location.origin
-  return slug ? `${origin}/invite/${slug}` : `${origin}/workday`
+  return slug ? `${origin}/workday?org=${encodeURIComponent(slug)}` : `${origin}/workday`
 }
 
-/** One-click copy for Home / admin — viral surface without full signup. */
+/** One-click copy for Home / admin — show the workday loop without full signup. */
 export async function copyShareWorkday(slug?: string | null) {
   const url = workdayShareUrl(slug)
   const ok = await navigator.clipboard.writeText(url).then(
@@ -15,9 +15,7 @@ export async function copyShareWorkday(slug?: string | null) {
   )
   if (ok) {
     toast.success('Workday link copied', {
-      description: slug
-        ? 'Share this to show your team’s loop. People still need a real invite to join.'
-        : 'Share this to show Vector’s standup → tasks → meetings → messages loop.',
+      description: 'Share Vector’s standup → tasks → meetings → messages loop. People still need a real invite to join your workspace.',
     })
   } else {
     toast.error('Could not copy the link', { description: url })
