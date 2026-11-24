@@ -53,7 +53,7 @@ async function removeLink(linkId: string) {
 </script>
 
 <template>
-  <section v-if="issue.links.length || isAdding" class="space-y-3">
+  <section v-if="issue.links.length || isAdding" class="space-y-2.5">
     <div class="flex items-center justify-between gap-2">
       <h2 class="text-sm font-semibold">Linked tasks</h2>
       <RouterLink
@@ -64,7 +64,7 @@ async function removeLink(linkId: string) {
         Dependency graph
       </RouterLink>
     </div>
-    <ul v-if="issue.links.length" class="divide-y overflow-hidden border">
+    <ul v-if="issue.links.length" class="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70">
       <li v-for="link in issue.links" :key="link.id" class="flex items-center gap-2 bg-card px-3 py-2 text-sm">
         <span class="w-28 shrink-0 text-xs text-muted-foreground">{{ link.label }}</span>
         <IssueTypeIcon :type="link.issue.type" />

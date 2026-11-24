@@ -148,7 +148,7 @@ defineExpose({ openPicker })
 </script>
 
 <template>
-  <section class="space-y-3" @dragover.prevent="isDragging = editable" @dragleave="isDragging = false" @drop.prevent="onDrop">
+  <section class="space-y-2.5" @dragover.prevent="isDragging = editable" @dragleave="isDragging = false" @drop.prevent="onDrop">
     <div class="flex items-center justify-between">
       <h2 class="text-sm font-semibold">
         Attachments <span v-if="attachments.length" class="font-normal text-muted-foreground">{{ attachments.length }}</span>
@@ -161,13 +161,13 @@ defineExpose({ openPicker })
 
     <div
       v-if="isDragging"
-      class="flex h-24 items-center justify-center border-2 border-dashed border-primary bg-primary/5 text-sm text-primary"
+      class="flex h-20 items-center justify-center rounded-xl border-2 border-dashed border-primary bg-primary/5 text-sm text-primary"
     >
       Drop files to attach
     </div>
 
     <ul v-if="attachments.length" class="grid gap-2 sm:grid-cols-2">
-      <li v-for="attachment in attachments" :key="attachment.id" class="group flex items-center gap-3 border bg-card p-2.5">
+      <li v-for="attachment in attachments" :key="attachment.id" class="group flex items-center gap-3 rounded-xl border border-border/70 bg-card p-2.5">
         <button
           type="button"
           class="flex size-12 shrink-0 items-center justify-center overflow-hidden bg-muted text-muted-foreground"
@@ -213,7 +213,7 @@ defineExpose({ openPicker })
     <button
       v-else-if="editable && !isDragging"
       type="button"
-      class="flex w-full items-center justify-center gap-2 border border-dashed py-4 text-sm text-muted-foreground hover:bg-muted/40"
+      class="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border/80 py-3 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:bg-muted/30 hover:text-foreground"
       @click="openPicker"
     >
       <Upload class="size-4" /> Drop files here or browse

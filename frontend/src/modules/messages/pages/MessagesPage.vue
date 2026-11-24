@@ -361,32 +361,45 @@ async function leaveChannel(conversation: ConversationSummary) {
   <PageFrame mode="bare" gap="none" pad="none" class="flex min-h-0 w-full flex-1 flex-col">
     <SplitPane :selected="Boolean(selected)" class="bg-background">
       <template #master>
-        <Toolbar variant="wrap" dense class="h-12 shrink-0 px-4">
-          <h1 class="min-w-0 flex-1 text-[15px] font-semibold">{{ tab === 'chat' ? 'Chat' : 'Teams' }}</h1>
-          <Button variant="ghost" size="icon-sm" title="Search messages" aria-label="Search messages" @click="searchOpen = true"><Search /></Button>
-          <Button variant="ghost" size="icon-sm" title="Saved messages" aria-label="Saved messages" @click="savedOpen = true"><Bookmark /></Button>
-          <Button v-if="tab === 'chat' && canDirect" variant="ghost" size="icon-sm" title="New chat" aria-label="New chat" @click="openPicker"><MessageCirclePlus /></Button>
-          <Button v-else-if="tab === 'teams' && teamsForChannels.length" variant="ghost" size="icon-sm" title="Add a channel" aria-label="Add a channel" @click="addChannel()">
-            <Plus />
-          </Button>
-        </Toolbar>
-
-        <p class="shrink-0 px-4 pb-2 text-[11.5px] leading-snug text-muted-foreground">
-          Last step in your workday loop — people and teams. Project talk stays in <span class="font-medium text-foreground/80">Work chat</span>.
-        </p>
-        <div class="shrink-0 px-3 pb-2"><PushPrompt context="messages" /></div>
-
-        <div v-if="canDirect && canGroup" class="shrink-0 px-3 pb-2">
+        <div class="flex shrink-0 flex-col gap-1.5 px-3 py-2 sm:px-4">
           <SegmentedControl
+            v-if="canDirect && canGroup"
             v-model="tab"
             size="sm"
             grow
+            class="w-full"
             aria-label="Message folders"
             :options="[
               { value: 'chat', label: 'Chat', count: chatUnread > 99 ? '99+' : chatUnread, badge: true },
               { value: 'teams', label: 'Teams', count: teamsUnread > 99 ? '99+' : teamsUnread, badge: true },
             ]"
           />
+          <h1 v-else class="min-w-0 text-[15px] font-semibold">{{ tab === 'chat' ? 'Chat' : 'Teams' }}</h1>
+          <div class="flex w-full items-center justify-evenly gap-0.5">
+            <PushPrompt context="messages" class="w-9 justify-center" />
+            <Button variant="ghost" size="icon-sm" title="Search messages" aria-label="Search messages" @click="searchOpen = true"><Search /></Button>
+            <Button variant="ghost" size="icon-sm" title="Saved messages" aria-label="Saved messages" @click="savedOpen = true"><Bookmark /></Button>
+            <Button
+              v-if="tab === 'chat' && canDirect"
+              variant="ghost"
+              size="icon-sm"
+              title="New chat"
+              aria-label="New chat"
+              @click="openPicker"
+            >
+              <MessageCirclePlus />
+            </Button>
+            <Button
+              v-else-if="tab === 'teams' && teamsForChannels.length"
+              variant="ghost"
+              size="icon-sm"
+              title="Add a channel"
+              aria-label="Add a channel"
+              @click="addChannel"
+            >
+              <Plus />
+            </Button>
+          </div>
         </div>
 
         <div class="shrink-0 px-3 pb-2">
@@ -688,14 +701,24 @@ async function leaveChannel(conversation: ConversationSummary) {
             <MessagesSquare v-if="tab === 'chat'" class="size-6" />
             <UsersRound v-else class="size-6" />
           </span>
-          <p class="text-sm font-medium">{{ tab === 'chat' ? 'Chat' : 'Teams' }}</p>
-          <p class="max-w-sm text-sm text-muted-foreground">
-            {{
-              tab === 'chat'
-                ? 'Pick a chat on the left, or start a new one with anyone in your organization.'
-                : 'Pick a team’s General chat or one of its channels. Add channels to keep conversations organized by topic; private channels include only the people you add.'
-            }}
-          </p>
+          <div class="max-w-sm space-y-1.5">
+            <p class="text-sm font-medium">
+              {{ tab === 'chat' ? 'Pick a chat on the left' : 'Pick a team or channel' }}
+            </p>
+            <p class="text-sm leading-relaxed text-muted-foreground">
+              <template v-if="tab === 'chat'">
+                Private one-to-one chats with anyone in your organization. Project talk stays in
+                <span class="font-medium text-foreground/80">Work chat</span>.
+              </template>
+              <template v-else>
+                Open a team’s General chat or a channel. Project talk stays in
+                <span class="font-medium text-foreground/80">Work chat</span>.
+              </template>
+            </p>
+          </div>
+          <Button v-if="tab === 'chat' && canDirect" variant="brand" size="sm" class="mt-1" @click="openPicker">
+            <MessageCirclePlus /> Start a new chat
+          </Button>
         </div>
       </template>
     </SplitPane>

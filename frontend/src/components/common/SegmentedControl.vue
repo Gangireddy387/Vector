@@ -50,8 +50,8 @@ const model = defineModel<string>({ required: true })
       :aria-selected="model === option.value"
       :class="
         cn(
-          'flex items-center justify-center gap-1.5 rounded-[5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
-          size === 'sm' ? 'h-6 px-2.5 text-xs' : 'h-7 px-2.5 text-xs sm:px-3',
+          'inline-flex h-full min-w-0 items-center justify-center gap-1.5 rounded-[5px] font-medium leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+          size === 'sm' ? 'px-2.5 text-xs' : 'px-2.5 text-xs sm:px-3',
           model === option.value
             ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]'
             : 'text-muted-foreground hover:text-foreground',

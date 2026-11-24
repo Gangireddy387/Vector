@@ -387,12 +387,12 @@ useHotkeys({
 </script>
 
 <template>
-  <!-- fillHeight shell clips main; this page owns scroll. min-h on the pane forces scroll when short. -->
+  <!-- fillHeight shell clips main; this page owns scroll. Pad matches topbar so edges line up. -->
   <PageFrame
     mode="bare"
     gap="none"
-    pad="default"
-    class="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto sm:gap-4"
+    pad="none"
+    class="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto px-3 pt-3 pb-5 sm:gap-4 sm:px-3 sm:pt-4 sm:pb-6 lg:px-4"
   >
     <PageHeader
       title="Calendar"
@@ -433,9 +433,12 @@ useHotkeys({
       />
     </div>
 
-    <!-- Agenda beside month from lg; stacked below on phone. min-h keeps the month usable when short. -->
-    <div class="grid min-h-[36rem] flex-1 grid-rows-[minmax(0,1fr)_auto] gap-3 sm:min-h-[40rem] sm:gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] lg:grid-rows-1 lg:gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]">
-      <section class="relative flex min-h-[24rem] min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft sm:min-h-[28rem] lg:h-full lg:min-h-0">
+    <!--
+      Stacked (<xl): fixed month height + natural agenda height so page scroll never clips mid-text.
+      Side-by-side (xl+): both panes fill leftover viewport height.
+    -->
+    <div class="grid w-full grid-rows-[auto_auto] gap-3 sm:gap-3.5 xl:min-h-0 xl:flex-1 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] xl:grid-rows-1 xl:gap-4">
+      <section class="relative flex h-[min(26rem,48dvh)] min-h-[18rem] min-w-0 w-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-soft sm:h-[min(30rem,52dvh)] xl:h-full xl:min-h-0">
         <div v-if="isLoading" class="loading-shimmer-bar absolute inset-x-0 top-0 z-30" aria-hidden="true" />
         <div
           v-if="isLoading && !events.length"
@@ -464,65 +467,81 @@ useHotkeys({
           <Button variant="outline" @click="load">Try again</Button>
         </EmptyState>
 
-        <Toolbar variant="wrap" dense justify="between" class="shrink-0 border-b border-border px-3 py-2">
-          <template #start>
-            <SegmentedControl
-              :model-value="isTeam ? 'team' : 'me'"
-              aria-label="Calendar scope"
-              :options="[
-                { value: 'me', label: 'Me' },
-                { value: 'team', label: 'Team', icon: UsersRound },
-              ]"
-              @update:model-value="(value) => setScope(value === 'team' ? 'team' : 'me')"
-            />
-            <Button variant="outline" size="sm" title="Today (T)" @click="goToday">Today</Button>
-            <div class="flex">
-              <Button variant="ghost" size="icon-sm" :aria-label="`Previous ${stepLabel}`" :title="`Previous ${stepLabel} (←)`" @click="shift(-1)"><ChevronLeft /></Button>
-              <Button variant="ghost" size="icon-sm" :aria-label="`Next ${stepLabel}`" :title="`Next ${stepLabel} (→)`" @click="shift(1)"><ChevronRight /></Button>
-            </div>
-            <h2 class="shrink-0 whitespace-nowrap text-base font-semibold tracking-tight" aria-live="polite">{{ heading }}</h2>
-          </template>
-          <template #end>
-            <template v-if="isTeam">
-              <SelectField
-                v-model="teamId"
-                :options="teamOptions"
-                placeholder="Choose team…"
-                size="sm"
-                class="w-full max-w-40 sm:w-40"
-                aria-label="Team"
+        <div class="shrink-0 space-y-2 border-b border-border px-3 py-2">
+          <Toolbar variant="wrap" dense justify="between" class="w-full">
+            <template #start>
+              <SegmentedControl
+                :model-value="isTeam ? 'team' : 'me'"
+                aria-label="Calendar scope"
+                :options="[
+                  { value: 'me', label: 'Me' },
+                  { value: 'team', label: 'Team', icon: UsersRound },
+                ]"
+                @update:model-value="(value) => setScope(value === 'team' ? 'team' : 'me')"
               />
-              <SelectField
-                v-if="teamProjects.length"
-                v-model="projectId"
-                :options="[{ value: '', label: 'All projects' }, ...teamProjects]"
-                placeholder="All projects"
-                size="sm"
-                class="w-full max-w-44 sm:w-44"
-                aria-label="Project filter"
-              />
-              <label class="flex items-center gap-1.5 text-xs text-muted-foreground"><Switch v-model="showMeetings" /> Meetings</label>
-              <label class="flex items-center gap-1.5 text-xs text-muted-foreground"><Switch v-model="showDue" /> Due dates</label>
-              <label class="flex items-center gap-1.5 text-xs text-muted-foreground"><Switch v-model="showOther" /> Other</label>
+              <Button variant="outline" size="sm" title="Today (T)" @click="goToday">Today</Button>
+              <div class="flex items-center">
+                <Button variant="ghost" size="icon-sm" :aria-label="`Previous ${stepLabel}`" :title="`Previous ${stepLabel} (←)`" @click="shift(-1)"><ChevronLeft /></Button>
+                <Button variant="ghost" size="icon-sm" :aria-label="`Next ${stepLabel}`" :title="`Next ${stepLabel} (→)`" @click="shift(1)"><ChevronRight /></Button>
+              </div>
+              <h2 class="shrink-0 whitespace-nowrap text-base font-semibold tracking-tight" aria-live="polite">{{ heading }}</h2>
             </template>
-            <label v-else class="flex items-center gap-2 text-xs text-muted-foreground"><Switch v-model="showTasks" aria-label="Show my tasks due" /> My tasks</label>
-            <MobileSectionSelect
-              v-if="!isWide"
-              :model-value="view"
-              :options="VIEWS"
-              aria-label="Calendar view"
-              @update:model-value="onViewSelect"
+            <template #end>
+              <label v-if="!isTeam" class="flex h-7 items-center gap-2 text-xs text-muted-foreground">
+                <Switch v-model="showTasks" aria-label="Show my tasks due" /> My tasks
+              </label>
+              <MobileSectionSelect
+                v-if="!isWide"
+                :model-value="view"
+                :options="VIEWS"
+                aria-label="Calendar view"
+                @update:model-value="onViewSelect"
+              />
+              <SegmentedControl
+                v-else
+                :model-value="view"
+                class="flex-wrap"
+                aria-label="Calendar view"
+                :options="VIEWS.map((option) => ({ value: option.value, label: option.label, icon: option.icon, labelClass: 'hidden sm:inline' }))"
+                @update:model-value="(value) => setView(value as CalendarView)"
+              />
+            </template>
+          </Toolbar>
+
+          <div
+            v-if="isTeam"
+            class="flex flex-wrap items-center gap-x-2 gap-y-1.5"
+            role="group"
+            aria-label="Team calendar filters"
+          >
+            <SelectField
+              v-model="teamId"
+              :options="teamOptions"
+              placeholder="Choose team…"
+              size="sm"
+              class="w-40 shrink-0"
+              aria-label="Team"
             />
-            <SegmentedControl
-              v-else
-              :model-value="view"
-              class="flex-wrap"
-              aria-label="Calendar view"
-              :options="VIEWS.map((option) => ({ value: option.value, label: option.label, icon: option.icon, labelClass: 'hidden sm:inline' }))"
-              @update:model-value="(value) => setView(value as CalendarView)"
+            <SelectField
+              v-if="teamProjects.length"
+              v-model="projectId"
+              :options="[{ value: '', label: 'All projects' }, ...teamProjects]"
+              placeholder="All projects"
+              size="sm"
+              class="w-44 shrink-0"
+              aria-label="Project filter"
             />
-          </template>
-        </Toolbar>
+            <label class="flex h-8 items-center gap-1.5 text-xs text-muted-foreground">
+              <Switch v-model="showMeetings" /> Meetings
+            </label>
+            <label class="flex h-8 items-center gap-1.5 text-xs text-muted-foreground">
+              <Switch v-model="showDue" /> Due dates
+            </label>
+            <label class="flex h-8 items-center gap-1.5 text-xs text-muted-foreground">
+              <Switch v-model="showOther" /> Other
+            </label>
+          </div>
+        </div>
 
         <TimeGrid
           v-if="view === 'day' || (view === 'week' && isDesktop)"
@@ -579,7 +598,7 @@ useHotkeys({
       </section>
 
       <DayAgenda
-        class="min-h-[14rem] shrink-0 lg:h-full lg:min-h-0 lg:shrink"
+        class="w-full xl:h-full xl:min-h-0 xl:overflow-hidden"
         :date="selected"
         :events="eventsByDay.get(selected) ?? []"
         :tasks="tasksByDay.get(selected) ?? []"

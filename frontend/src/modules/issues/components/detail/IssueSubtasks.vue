@@ -80,7 +80,7 @@ async function createSuggestions() {
 </script>
 
 <template>
-  <section v-if="canHaveSubtasks" class="space-y-3">
+  <section v-if="canHaveSubtasks" class="space-y-2.5">
     <div class="flex items-center justify-between gap-2">
       <h2 class="text-sm font-semibold">
         Sub-tasks
@@ -92,7 +92,7 @@ async function createSuggestions() {
     </div>
     <Progress v-if="issue.subtasks.length" :model-value="progress" class="h-1.5" indicator-class="bg-success" />
 
-    <ul v-if="issue.subtasks.length" class="divide-y overflow-hidden border">
+    <ul v-if="issue.subtasks.length" class="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70">
       <li v-for="subtask in issue.subtasks" :key="subtask.id" class="flex items-center gap-3 bg-card px-3 py-2">
         <button
           type="button"
@@ -117,7 +117,7 @@ async function createSuggestions() {
       </li>
     </ul>
 
-    <div v-if="suggestions.length" class="space-y-2 border border-primary/30 bg-primary/5 p-3">
+    <div v-if="suggestions.length" class="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
       <p class="text-xs font-medium text-primary">Suggested sub-tasks — pick the ones you want</p>
       <label v-for="title in suggestions" :key="title" class="flex items-center gap-2 text-sm">
         <Checkbox :model-value="selectedSuggestions.includes(title)" @update:model-value="toggleSuggestion(title)" />

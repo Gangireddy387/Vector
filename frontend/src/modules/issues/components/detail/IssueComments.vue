@@ -203,9 +203,9 @@ function canManage(comment: Comment) {
 </script>
 
 <template>
-  <div class="space-y-5">
-    <div v-if="editable" class="flex gap-3">
-      <UserAvatar :user="auth.user" size="md" class="hidden sm:flex" />
+  <div class="space-y-4">
+    <div v-if="editable" class="flex items-start gap-3">
+      <UserAvatar :user="auth.user" size="sm" class="mt-3 hidden shrink-0 sm:flex" />
       <div class="min-w-0 flex-1">
         <CommentComposer ref="composer" :members="members" @submit="create" />
       </div>
@@ -216,7 +216,7 @@ function canManage(comment: Comment) {
       :icon="MessageSquare"
       title="No comments yet"
       description="Start the conversation — reply in threads and react with emoji. Mention teammates with @."
-      class="py-6"
+      class="py-8"
     />
 
     <ol class="space-y-5">

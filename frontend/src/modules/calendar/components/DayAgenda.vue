@@ -50,16 +50,16 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
 
 <template>
   <section
-    :class="cn('flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft', props.class)"
+    :class="cn('flex min-h-0 flex-col rounded-xl border border-border/80 bg-card shadow-soft', props.class)"
     aria-live="polite"
   >
-    <header class="shrink-0 space-y-3 border-b border-border/70 p-4">
+    <header class="shrink-0 space-y-2 border-b border-border/70 p-4">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="text-xs font-medium" :class="isToday(day) ? 'text-brand' : 'text-muted-foreground'">
             {{ isToday(day) ? 'Today' : format(day, 'EEEE') }}
           </p>
-          <h2 class="truncate text-lg font-semibold tracking-tight">{{ format(day, 'EEEE, d MMMM') }}</h2>
+          <h2 class="truncate text-lg font-semibold tracking-tight">{{ format(day, 'd MMMM') }}</h2>
         </div>
         <Button v-if="!isOver && !readOnly" variant="soft" size="sm" @click="emit('create')"><Plus /> Add</Button>
       </div>
@@ -73,8 +73,8 @@ const isLink = (value: string) => /^https?:\/\//i.test(value)
       </div>
     </header>
 
-    <div class="min-h-0 flex-1 divide-y divide-border/60 overflow-y-auto scrollbar-thin">
-      <div v-if="!events.length && !tasks.length" class="flex flex-col items-center gap-3 px-4 py-10 text-center">
+    <div class="min-h-0 flex-1 divide-y divide-border/60 xl:overflow-y-auto xl:scrollbar-thin">
+      <div v-if="!events.length && !tasks.length" class="flex flex-col items-center gap-3 px-4 py-8 text-center">
         <span class="flex size-11 items-center justify-center bg-primary/10 text-primary"><CalendarCheck2 class="size-5" /></span>
         <div class="space-y-1">
           <p class="text-sm font-medium">{{ isOver ? 'Nothing was planned' : 'Nothing planned' }}</p>

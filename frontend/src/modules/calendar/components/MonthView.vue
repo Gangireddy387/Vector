@@ -31,8 +31,8 @@ const maxInCell = computed(() => {
   if (!rowHeight) return 2
   return Math.max(0, Math.min(6, Math.floor((rowHeight - DAY_NUMBER_PX - MORE_PX) / CHIP_PX)))
 })
-/** Narrow cells (laptop split / tablet): dots only; wider cells get title chips. */
-const showChips = computed(() => width.value / 7 >= 96)
+/** Narrow cells (split pane): dots only; from ~80px wide cells get title chips. */
+const showChips = computed(() => width.value / 7 >= 80)
 const visibleCount = (day: Date) => {
   const total = eventsOn(day).length + tasksOn(day).length
   if (!showChips.value) return 0

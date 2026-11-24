@@ -3,6 +3,7 @@ import { useStorage } from '@vueuse/core'
 import { Crown, Ellipsis, FolderKanban, LayoutGrid, List, MailPlus, MessageCircle, Search, ShieldCheck, UserCheck, UserMinus, UserPlus, UserRound, UserX } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import SegmentedControl from '@/components/common/SegmentedControl.vue'
 import Toolbar from '@/components/common/Toolbar.vue'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { toast } from 'vue-sonner'
@@ -309,11 +310,12 @@ async function sendInvite() {
           <p class="min-w-0 flex-1 text-xs text-amber-900 dark:text-amber-200">People limit reached. Buy more seats or ask the portal admin.</p>
           <RequestUpgradeButton target="seats" size="sm" variant="outline" :member-count="members?.length || 1" />
         </div>
-        <form class="flex flex-col gap-2 sm:flex-row sm:items-start" @submit.prevent="sendInvite">
-          <div class="flex-1 space-y-1">
+        <form class="space-y-3" @submit.prevent="sendInvite">
+          <div class="space-y-1">
             <Textarea
               v-model="invite.emails"
               rows="3"
+              class="min-h-[5.5rem] w-full"
               placeholder="colleague@company.com&#10;or paste several, separated by commas or new lines"
               aria-label="Email addresses"
               autocomplete="off"
@@ -324,19 +326,21 @@ async function sendInvite() {
             </p>
             <p v-if="inviteError" class="text-xs text-destructive" role="alert">{{ inviteError }}</p>
           </div>
-          <SelectField v-model="invite.role" :options="ROLE_OPTIONS" class="w-full sm:w-36" content-class="w-72" align="end" aria-label="Role" />
-          <SelectField
-            v-if="canUseCustomRoles && invite.role === 'member' && customRoles.length"
-            v-model="invite.customRoleId"
-            :options="customRoleOptions"
-            class="w-full sm:w-44"
-            content-class="w-80"
-            align="end"
-            aria-label="Custom role"
-          />
-          <Button type="submit" class="max-sm:w-full" :loading="isInviting" :disabled="!inviteEmails.length">
-            <UserPlus /> {{ inviteEmails.length > 1 ? `Invite ${inviteEmails.length}` : 'Invite' }}
-          </Button>
+          <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <SelectField v-model="invite.role" :options="ROLE_OPTIONS" class="w-full sm:w-40" content-class="w-72" align="start" aria-label="Role" />
+            <SelectField
+              v-if="canUseCustomRoles && invite.role === 'member' && customRoles.length"
+              v-model="invite.customRoleId"
+              :options="customRoleOptions"
+              class="w-full sm:w-44"
+              content-class="w-80"
+              align="start"
+              aria-label="Custom role"
+            />
+            <Button type="submit" class="w-full sm:ml-auto sm:w-auto" :loading="isInviting" :disabled="!inviteEmails.length">
+              <UserPlus /> {{ inviteEmails.length > 1 ? `Invite ${inviteEmails.length}` : 'Invite' }}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>
@@ -350,60 +354,69 @@ async function sendInvite() {
         </CardDescription>
       </CardHeader>
       <CardContent class="space-y-4">
-        <Toolbar variant="wrap" dense>
-          <div class="relative w-full sm:max-w-xs sm:flex-1">
+        <div class="space-y-3">
+          <div class="relative w-full min-w-0 sm:max-w-xs">
             <Search class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input v-model="search" placeholder="Search by name, title or email" class="pl-9" aria-label="Search people" />
           </div>
-          <div class="flex flex-wrap gap-1.5" role="group" aria-label="Filter people">
-            <button
-              v-for="option in FILTERS"
-              :key="option.value"
-              type="button"
-              class="inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-colors"
-              :class="filter === option.value ? 'bg-accent text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'"
-              :aria-pressed="filter === option.value"
-              @click="filter = option.value"
-            >
-              {{ option.label }}
-              <span class="tabular-nums opacity-70">{{ option.count }}</span>
-            </button>
-          </div>
-          <div class="ml-auto flex h-8 items-center rounded-md bg-muted p-0.5" role="group" aria-label="Layout">
-            <button
-              v-for="option in [{ value: 'cards', icon: LayoutGrid, label: 'Cards' }, { value: 'list', icon: List, label: 'List' }] as const"
-              :key="option.value"
-              type="button"
-              class="flex h-7 items-center gap-1.5 rounded-[5px] px-2.5 text-xs font-medium transition-colors"
-              :class="layout === option.value ? 'bg-card text-foreground shadow-[0_0_0_1px_var(--border)]' : 'text-muted-foreground hover:text-foreground'"
-              :aria-pressed="layout === option.value"
-              @click="layout = option.value"
-            >
-              <component :is="option.icon" class="size-3.5" /> {{ option.label }}
-            </button>
-          </div>
-        </Toolbar>
+          <Toolbar variant="wrap" dense justify="between" class="w-full">
+            <template #start>
+              <div class="flex flex-wrap gap-1.5" role="group" aria-label="Filter people">
+                <Button
+                  v-for="option in FILTERS"
+                  :key="option.value"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  class="h-7 rounded-full px-2.5"
+                  :class="
+                    filter === option.value
+                      ? 'border-primary/50 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary'
+                      : 'text-muted-foreground'
+                  "
+                  :aria-pressed="filter === option.value"
+                  @click="filter = option.value"
+                >
+                  {{ option.label }}
+                  <span class="tabular-nums opacity-70">{{ option.count }}</span>
+                </Button>
+              </div>
+            </template>
+            <template #end>
+              <SegmentedControl
+                v-model="layout"
+                class="h-7 shrink-0 self-center"
+                size="sm"
+                aria-label="Layout"
+                :options="[
+                  { value: 'cards', label: 'Cards', icon: LayoutGrid },
+                  { value: 'list', label: 'List', icon: List },
+                ]"
+              />
+            </template>
+          </Toolbar>
+        </div>
 
-        <div v-if="!members" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          <Skeleton v-for="index in 8" :key="index" class="h-64 w-full" />
+        <div v-if="!members" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <Skeleton v-for="index in 6" :key="index" class="h-64 w-full rounded-xl" />
         </div>
 
         <EmptyState v-else-if="!filtered.length" :icon="Search" title="Nobody matches" description="Try another name or filter." class="border border-dashed py-12" />
 
-        <div v-else-if="layout === 'cards'" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div v-else-if="layout === 'cards'" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <article
             v-for="member in filtered"
             :key="member.id"
-            class="group relative flex flex-col overflow-hidden border border-border/80 bg-card shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+            class="group relative flex flex-col overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
             :class="member.status === 'disabled' && 'opacity-70'"
           >
-            <div class="h-20" :style="profileCoverStyle(member.avatarColor)" />
+            <div class="h-16" :style="profileCoverStyle(member.avatarColor)" />
 
             <DropdownMenu v-if="member.id !== auth.user?.id">
               <DropdownMenuTrigger as-child>
                 <button
                   type="button"
-                  class="absolute top-2 right-2 flex size-7 items-center justify-center rounded-md bg-black/20 text-white backdrop-blur-sm transition-colors hover:bg-black/35"
+                  class="absolute top-2.5 right-2.5 flex size-7 items-center justify-center rounded-lg bg-black/25 text-white backdrop-blur-sm transition-colors hover:bg-black/40"
                   :aria-label="`Actions for ${member.name}`"
                 >
                   <Ellipsis class="size-4" />
@@ -424,24 +437,28 @@ async function sendInvite() {
 
             <RouterLink
               :to="{ name: 'member-profile', params: { userId: member.id } }"
-              class="-mt-10 flex flex-1 flex-col items-center px-4 pb-4 text-center"
+              class="-mt-9 flex flex-1 flex-col items-center px-4 pt-0 pb-4 text-center"
               :title="`View ${member.name}'s profile`"
             >
-              <span class="relative">
-                <UserAvatar :user="member" size="xl" class="ring-4 ring-card shadow-md" />
+              <span class="relative shrink-0">
+                <UserAvatar :user="member" size="xl" class="ring-[3px] ring-card shadow-md" />
                 <PresenceBadge
                   v-if="member.status === 'active' && presence.statusOf(member.id)"
                   :status="presence.statusOf(member.id)!"
                   size="lg"
-                  class="absolute right-1 bottom-1"
+                  class="absolute right-0.5 bottom-0.5"
                 />
               </span>
-              <span class="mt-2 flex items-center gap-1.5">
-                <span class="text-base font-semibold tracking-tight transition-colors group-hover:text-primary">{{ member.name }}</span>
-                <Badge v-if="member.id === auth.user?.id" variant="soft" class="px-1.5 py-0 text-[10px]">You</Badge>
-              </span>
-              <span class="line-clamp-2 min-h-10 text-sm text-muted-foreground">{{ member.title || 'No job title yet' }}</span>
-              <span class="mt-2 flex flex-wrap justify-center gap-1.5">
+
+              <div class="mt-3 flex w-full min-w-0 flex-col items-center gap-1">
+                <span class="line-clamp-2 w-full text-[15px] leading-snug font-semibold tracking-tight transition-colors group-hover:text-primary">
+                  {{ member.name }}
+                </span>
+                <Badge v-if="member.id === auth.user?.id" variant="soft" class="h-5 px-1.5 text-[10px] leading-none">You</Badge>
+                <span class="line-clamp-1 w-full text-sm text-muted-foreground">{{ member.title || 'No job title yet' }}</span>
+              </div>
+
+              <div class="mt-3 flex flex-wrap items-center justify-center gap-1.5">
                 <Badge :variant="member.workspaceRole === 'admin' ? 'default' : 'secondary'">
                   <Crown v-if="member.workspaceRole === 'admin'" />
                   {{
@@ -453,14 +470,19 @@ async function sendInvite() {
                   }}
                 </Badge>
                 <Badge :variant="STATUS_BADGE[member.status]">{{ STATUS_LABEL[member.status] }}</Badge>
-              </span>
-              <span class="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-                <span class="inline-flex items-center gap-1"><FolderKanban class="size-3.5" /> {{ member.projectCount }} project{{ member.projectCount === 1 ? '' : 's' }}</span>
-                <span>{{ activity(member) }}</span>
-              </span>
+              </div>
+
+              <div class="mt-3 flex w-full items-center justify-center gap-2 text-xs text-muted-foreground">
+                <span class="inline-flex items-center gap-1 tabular-nums">
+                  <FolderKanban class="size-3.5 shrink-0" />
+                  {{ member.projectCount }} project{{ member.projectCount === 1 ? '' : 's' }}
+                </span>
+                <span class="size-0.5 shrink-0 rounded-full bg-muted-foreground/50" aria-hidden="true" />
+                <span class="truncate">{{ activity(member) }}</span>
+              </div>
             </RouterLink>
 
-            <div class="flex items-center gap-1.5 border-t border-border p-2.5">
+            <div class="mt-auto flex items-center gap-1.5 border-t border-border/70 bg-muted/20 px-2.5 py-2">
               <Button variant="outline" size="sm" class="min-w-0 flex-1" as-child>
                 <RouterLink :to="{ name: 'member-profile', params: { userId: member.id } }"><UserRound /> Profile</RouterLink>
               </Button>
@@ -491,72 +513,108 @@ async function sendInvite() {
           </article>
         </div>
 
-        <ul v-else class="divide-y divide-border/60 overflow-hidden border border-border/70">
-          <li v-for="member in filtered" :key="member.id" class="flex flex-wrap items-center gap-3 p-3 transition-colors hover:bg-accent/30">
+        <ul v-else class="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/80 bg-card shadow-soft">
+          <li
+            v-for="member in filtered"
+            :key="member.id"
+            class="flex flex-col gap-3 p-3.5 transition-colors hover:bg-accent/25 sm:flex-row sm:items-center sm:gap-4"
+            :class="member.status === 'disabled' && 'opacity-70'"
+          >
             <RouterLink
               :to="{ name: 'member-profile', params: { userId: member.id } }"
-              class="group flex min-w-0 flex-1 items-center gap-3"
+              class="group flex min-w-0 flex-1 items-start gap-3"
               :title="`View ${member.name}'s profile`"
             >
-              <UserAvatar :user="member" size="md" :presence="member.status === 'active'" />
-              <div class="min-w-0 flex-1">
-                <p class="flex flex-wrap items-center gap-2 text-sm font-medium">
-                  <span class="transition-colors group-hover:text-primary">{{ member.name }}</span>
-                  <Badge v-if="member.id === auth.user?.id" variant="soft">You</Badge>
+              <UserAvatar :user="member" size="md" class="mt-0.5 shrink-0" :presence="member.status === 'active'" />
+              <div class="min-w-0 flex-1 space-y-1.5">
+                <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <span class="truncate text-[15px] leading-snug font-semibold tracking-tight transition-colors group-hover:text-primary">
+                    {{ member.name }}
+                  </span>
+                  <Badge v-if="member.id === auth.user?.id" variant="soft" class="h-5 shrink-0 px-1.5 text-[10px] leading-none">You</Badge>
+                </div>
+                <p class="truncate text-sm text-muted-foreground">
+                  {{ member.title || 'No job title yet' }}
+                  <span class="text-muted-foreground/50"> · </span>
+                  {{ member.email }}
+                </p>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <Badge :variant="member.workspaceRole === 'admin' ? 'default' : 'secondary'">
+                    <Crown v-if="member.workspaceRole === 'admin'" />
+                    {{
+                      member.workspaceRole === 'admin'
+                        ? 'Admin'
+                        : member.customRole?.name
+                          ? member.customRole.name
+                          : 'Member'
+                    }}
+                  </Badge>
                   <Badge :variant="STATUS_BADGE[member.status]">{{ STATUS_LABEL[member.status] }}</Badge>
-                </p>
-                <p class="truncate text-xs text-muted-foreground">
-                  <template v-if="member.title">{{ member.title }} · </template>{{ member.email }} · {{ member.projectCount }} project{{ member.projectCount === 1 ? '' : 's' }}
-                  <template v-if="member.lastSeenAt || presence.statusOf(member.id)"> · {{ activity(member) }}</template>
-                </p>
+                  <span class="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
+                    <FolderKanban class="size-3.5 shrink-0" />
+                    {{ member.projectCount }} project{{ member.projectCount === 1 ? '' : 's' }}
+                  </span>
+                  <span class="size-0.5 shrink-0 rounded-full bg-muted-foreground/50" aria-hidden="true" />
+                  <span class="truncate text-xs text-muted-foreground">{{ activity(member) }}</span>
+                </div>
               </div>
             </RouterLink>
-            <SelectField
-              :model-value="member.workspaceRole"
-              :options="ROLE_OPTIONS"
-              :disabled="member.id === auth.user?.id"
-              size="sm"
-              class="w-full sm:w-36"
-              content-class="w-[min(18rem,calc(100vw-1.5rem))]"
-              align="end"
-              :aria-label="`Organization role of ${member.name}`"
-              @update:model-value="(value) => value && value !== member.workspaceRole && changeRole(member, value as WorkspaceRole)"
-            />
-            <SelectField
-              v-if="canUseCustomRoles && member.workspaceRole === 'member' && customRoles.length"
-              :model-value="member.customRoleId ?? ''"
-              :options="customRoleOptions"
-              :disabled="member.id === auth.user?.id"
-              size="sm"
-              class="w-full sm:w-44"
-              content-class="w-[min(20rem,calc(100vw-1.5rem))]"
-              align="end"
-              :aria-label="`Custom role of ${member.name}`"
-              @update:model-value="(value) => value !== (member.customRoleId ?? '') && changeCustomRole(member, String(value ?? ''))"
-            />
-            <Button
-              v-if="member.status !== 'invited'"
-              variant="ghost"
-              size="sm"
-              :class="member.status === 'active' && 'text-destructive hover:text-destructive'"
-              :disabled="member.id === auth.user?.id"
-              @click="toggleStatus(member)"
-            >
-              {{ member.status === 'active' ? 'Deactivate' : 'Reactivate' }}
-            </Button>
-            <Button v-else variant="ghost" size="sm" :loading="resendingId === member.id" :title="`Send ${member.email} a new invitation`" @click="resend(member)">
-              <MailPlus /> Resend invitation
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              class="text-muted-foreground hover:text-destructive"
-              :disabled="member.id === auth.user?.id"
-              :aria-label="`Remove ${member.name} from the organization`"
-              @click="remove(member)"
-            >
-              <UserMinus />
-            </Button>
+
+            <div class="flex shrink-0 flex-wrap items-center gap-1.5 sm:justify-end">
+              <SelectField
+                :model-value="member.workspaceRole"
+                :options="ROLE_OPTIONS"
+                :disabled="member.id === auth.user?.id"
+                size="sm"
+                class="w-full sm:w-36"
+                content-class="w-[min(18rem,calc(100vw-1.5rem))]"
+                align="end"
+                :aria-label="`Organization role of ${member.name}`"
+                @update:model-value="(value) => value && value !== member.workspaceRole && changeRole(member, value as WorkspaceRole)"
+              />
+              <SelectField
+                v-if="canUseCustomRoles && member.workspaceRole === 'member' && customRoles.length"
+                :model-value="member.customRoleId ?? ''"
+                :options="customRoleOptions"
+                :disabled="member.id === auth.user?.id"
+                size="sm"
+                class="w-full sm:w-44"
+                content-class="w-[min(20rem,calc(100vw-1.5rem))]"
+                align="end"
+                :aria-label="`Custom role of ${member.name}`"
+                @update:model-value="(value) => value !== (member.customRoleId ?? '') && changeCustomRole(member, String(value ?? ''))"
+              />
+              <Button
+                v-if="member.status !== 'invited'"
+                variant="ghost"
+                size="sm"
+                :class="member.status === 'active' && 'text-destructive hover:text-destructive'"
+                :disabled="member.id === auth.user?.id"
+                @click="toggleStatus(member)"
+              >
+                {{ member.status === 'active' ? 'Deactivate' : 'Reactivate' }}
+              </Button>
+              <Button
+                v-else
+                variant="ghost"
+                size="sm"
+                :loading="resendingId === member.id"
+                :title="`Send ${member.email} a new invitation`"
+                @click="resend(member)"
+              >
+                <MailPlus /> Resend
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                class="text-muted-foreground hover:text-destructive"
+                :disabled="member.id === auth.user?.id"
+                :aria-label="`Remove ${member.name} from the organization`"
+                @click="remove(member)"
+              >
+                <UserMinus />
+              </Button>
+            </div>
           </li>
         </ul>
       </CardContent>

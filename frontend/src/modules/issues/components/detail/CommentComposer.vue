@@ -5,8 +5,12 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { formatBytes } from '@/lib/utils'
+import { useAuthStore } from '@/modules/auth/auth.store'
 import WritingAssistBar from '@/modules/ai/components/WritingAssistBar.vue'
 import type { UserSummary } from '@/types/models'
+
+const auth = useAuthStore()
+const canUseAi = computed(() => auth.hasFeature('aiAssistant'))
 
 const props = withDefaults(
   defineProps<{
@@ -137,8 +141,11 @@ defineExpose({ reset, done: () => (isSubmitting.value = false) })
 </script>
 
 <template>
-  <div class="relative space-y-2">
-    <WritingAssistBar ref="assistRef" v-model="text" surface="comment" compact :auto-suggest="false" />
+  <div class="relative overflow-hidden rounded-xl border border-border/70 bg-card shadow-soft">
+    <div v-if="canUseAi" class="border-b border-border/60 px-3 py-2 sm:px-3.5">
+      <WritingAssistBar ref="assistRef" v-model="text" surface="comment" compact :auto-suggest="false" />
+    </div>
+
     <Textarea
       ref="textareaRef"
       v-model="text"
@@ -146,15 +153,21 @@ defineExpose({ reset, done: () => (isSubmitting.value = false) })
       :placeholder="placeholder"
       :autofocus="autofocus"
       aria-label="Comment"
+      class="min-h-[5rem] resize-y rounded-none border-0 bg-transparent px-3 py-3 shadow-none focus-visible:ring-0 sm:px-3.5"
       @input="detectMention"
       @click="detectMention"
       @keydown="onKeydown"
     />
-    <ul v-if="suggestions.length" class="absolute top-full left-0 z-20 mt-1 w-[min(16rem,calc(100%-0.5rem))] overflow-hidden border bg-popover p-1 shadow-md" role="listbox">
+
+    <ul
+      v-if="suggestions.length"
+      class="absolute top-[calc(100%-0.25rem)] left-0 z-20 mt-1 w-[min(16rem,calc(100%-0.5rem))] overflow-hidden rounded-lg border border-border/70 bg-popover p-1 shadow-md"
+      role="listbox"
+    >
       <li v-for="(member, index) in suggestions" :key="member.id">
         <button
           type="button"
-          class="flex w-full items-center gap-2 px-2 py-1.5 text-sm"
+          class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm"
           :class="index === highlighted && 'bg-accent text-accent-foreground'"
           role="option"
           :aria-selected="index === highlighted"
@@ -164,11 +177,12 @@ defineExpose({ reset, done: () => (isSubmitting.value = false) })
         </button>
       </li>
     </ul>
-    <ul v-if="pendingFiles.length" class="flex flex-wrap gap-1.5">
+
+    <ul v-if="pendingFiles.length" class="flex flex-wrap gap-1.5 border-t border-border/60 px-3 py-2.5 sm:px-3.5">
       <li
         v-for="(file, index) in pendingFiles"
         :key="`${file.name}-${index}`"
-        class="inline-flex max-w-full items-center gap-1.5 border bg-muted/40 px-2 py-1 text-xs"
+        class="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/70 bg-muted/40 px-2 py-1 text-xs"
       >
         <span class="truncate" :title="file.name">{{ file.name }}</span>
         <span class="shrink-0 text-muted-foreground">{{ formatBytes(file.size) }}</span>
@@ -177,7 +191,8 @@ defineExpose({ reset, done: () => (isSubmitting.value = false) })
         </button>
       </li>
     </ul>
-    <div class="flex items-center gap-2">
+
+    <div class="flex flex-wrap items-center gap-2 border-t border-border/60 px-3 py-2.5 sm:px-3.5">
       <Button size="sm" :disabled="!text.trim() && !pendingFiles.length" :loading="isSubmitting" @click="submit">{{ submitLabel }}</Button>
       <Button v-if="initialValue || cancellable" size="sm" variant="ghost" @click="emit('cancel')">Cancel</Button>
       <template v-if="allowFiles">
@@ -186,7 +201,7 @@ defineExpose({ reset, done: () => (isSubmitting.value = false) })
         </Button>
         <input ref="fileInput" type="file" multiple class="hidden" @change="onPickFiles" />
       </template>
-      <span class="ml-auto hidden text-xs text-muted-foreground sm:inline">Ctrl + Enter to send</span>
+      <span class="ml-auto hidden text-[11px] text-muted-foreground sm:inline">Ctrl + Enter to send</span>
     </div>
   </div>
 </template>

@@ -199,23 +199,58 @@ defineExpose({
 
 <template>
   <div v-if="!locked" class="space-y-1.5">
-    <div class="flex flex-wrap items-center gap-1">
+    <!-- Comment composer: one AI control so the box stays clean. Full bars keep quick actions visible. -->
+    <div v-if="compact" class="flex items-center gap-1.5">
+      <DropdownMenu>
+        <DropdownMenuTrigger as-child>
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            class="h-7 gap-1 px-2.5 leading-none text-muted-foreground hover:text-foreground"
+            :disabled="busy"
+            :loading="busy"
+            title="AI writing help for this comment"
+          >
+            <Sparkles class="size-3.5 text-primary" /> Write with AI
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" class="w-56">
+          <DropdownMenuLabel>Help with this comment</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            v-for="action in ACTIONS.filter((row) => ['complete', 'grammar', 'polish'].includes(row.mode))"
+            :key="action.mode"
+            @select="run(action.mode)"
+          >
+            <span class="flex flex-col gap-0.5">
+              <span>{{ action.label }}</span>
+              <span class="text-[11px] text-muted-foreground">{{ action.hint }}</span>
+            </span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <span class="hidden text-[11px] text-muted-foreground sm:inline">Optional — only if you want help writing</span>
+    </div>
+
+    <div v-else class="flex flex-wrap items-center gap-1">
       <Button
         type="button"
         size="xs"
         variant="secondary"
-        class="gap-1"
+        class="h-7 gap-1 px-2.5 leading-none"
         :disabled="busy"
         :loading="busy && activeMode === 'complete'"
         title="Suggest next words when you want them (Ctrl+Space)"
         @click="run('complete')"
       >
-        <Sparkles class="size-3.5 text-primary" /> Continue
+        <Sparkles class="size-3 text-primary" /> Continue
       </Button>
       <Button
         type="button"
         size="xs"
         variant="ghost"
+        class="h-7 px-2.5 leading-none"
         :disabled="busy"
         :loading="busy && activeMode === 'grammar'"
         title="Fix grammar (Ctrl+Shift+G)"
@@ -223,10 +258,18 @@ defineExpose({
       >
         Fix grammar
       </Button>
-      <Button type="button" size="xs" variant="ghost" :disabled="busy" :loading="busy && activeMode === 'polish'" @click="run('polish')">
+      <Button
+        type="button"
+        size="xs"
+        variant="ghost"
+        class="h-7 px-2.5 leading-none"
+        :disabled="busy"
+        :loading="busy && activeMode === 'polish'"
+        @click="run('polish')"
+      >
         Polish
       </Button>
-      <DropdownMenu v-if="!compact">
+      <DropdownMenu>
         <DropdownMenuTrigger as-child>
           <Button type="button" size="xs" variant="ghost" :disabled="busy">More</Button>
         </DropdownMenuTrigger>
@@ -246,7 +289,7 @@ defineExpose({
 
     <div
       v-if="ghost"
-      class="flex flex-col gap-2 border border-primary/20 bg-primary/5 px-2.5 py-2 text-sm sm:flex-row sm:items-start"
+      class="flex flex-col gap-2 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-2 text-sm sm:flex-row sm:items-start"
       role="status"
     >
       <div class="min-w-0 flex-1">

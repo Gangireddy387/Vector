@@ -24,7 +24,8 @@ const mobileOptions = computed(() =>
 </script>
 
 <template>
-  <div :class="isWide ? 'grid grid-cols-[11.5rem_minmax(0,1fr)] items-start gap-3' : 'space-y-3'">
+  <!-- Narrower section rail at lg (1024) so People / General panels keep room to align. -->
+  <div :class="isWide ? 'grid grid-cols-[9.75rem_minmax(0,1fr)] items-start gap-4 xl:grid-cols-[11.5rem_minmax(0,1fr)]' : 'space-y-3'">
     <nav v-if="isWide" role="tablist" :aria-label="ariaLabel ?? 'Settings sections'" aria-orientation="vertical" class="sticky top-0 flex flex-col gap-0.5">
       <button
         v-for="section in sections"
@@ -33,7 +34,7 @@ const mobileOptions = computed(() =>
         role="tab"
         :aria-selected="active === section.value"
         :class="[
-          'flex h-9 items-center gap-2 rounded-r-md border-l-2 px-2.5 text-left text-sm font-medium transition-colors',
+          'flex h-9 items-center gap-2 rounded-r-md border-l-2 px-2 text-left text-sm font-medium transition-colors xl:px-2.5',
           active === section.value
             ? 'border-primary bg-card text-foreground shadow-soft'
             : 'border-transparent text-muted-foreground hover:bg-card/60 hover:text-foreground',

@@ -195,8 +195,9 @@ async function setStatus(statusId: string) {
 </script>
 
 <template>
-  <div class="divide-y">
-    <div class="pb-2">
+  <div class="space-y-3">
+    <section class="space-y-0.5">
+      <p class="px-0.5 pb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Details</p>
       <IssueFieldRow v-if="showStatus" label="Status" for="field-status">
         <StatusSelect
           id="field-status"
@@ -291,9 +292,10 @@ async function setStatus(statusId: string) {
           />
         </IssueFieldRow>
       </template>
-    </div>
+    </section>
 
-    <div v-if="customFields.length" class="py-2">
+    <section v-if="customFields.length" class="space-y-0.5 border-t border-border/60 pt-3">
+      <p class="px-0.5 pb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Custom</p>
       <IssueFieldRow
         v-for="field in customFields"
         :key="field.id"
@@ -308,9 +310,10 @@ async function setStatus(statusId: string) {
           @update:value="(value) => setCustomField(field.id, value)"
         />
       </IssueFieldRow>
-    </div>
+    </section>
 
-    <div class="py-2">
+    <section class="space-y-0.5 border-t border-border/60 pt-3">
+      <p class="px-0.5 pb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">Planning</p>
       <IssueFieldRow label="Story points" for="field-points">
         <NumberField
           id="field-points"
@@ -365,9 +368,10 @@ async function setStatus(statusId: string) {
           </p>
         </div>
       </IssueFieldRow>
-    </div>
+    </section>
 
-    <div class="pt-2">
+    <section class="space-y-0.5 border-t border-border/60 pt-3">
+      <p class="px-0.5 pb-1 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">People & activity</p>
       <IssueFieldRow label="Watchers" :readonly="!editable">
         <div class="w-full space-y-2">
           <ul v-if="issue.watchers.length" class="flex flex-wrap gap-1.5">
@@ -411,6 +415,6 @@ async function setStatus(statusId: string) {
       <IssueFieldRow v-if="issue.completedAt" label="Resolved" readonly>
         <span class="text-xs text-muted-foreground">{{ formatDateTime(issue.completedAt) }}</span>
       </IssueFieldRow>
-    </div>
+    </section>
   </div>
 </template>

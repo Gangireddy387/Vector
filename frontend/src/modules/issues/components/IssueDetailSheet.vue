@@ -34,7 +34,7 @@ function focusPanel(event: Event) {
   <Sheet v-model:open="isOpen">
     <SheetContent
       side="right"
-      class="w-full gap-0 p-0 outline-none sm:max-w-4xl"
+      class="w-full gap-0 p-0 outline-none sm:max-w-[min(100vw-1.5rem,72rem)]"
       tabindex="-1"
       hide-close
       clear-backdrop

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ArrowLeft,
   Check,
   ChevronRight,
   Ellipsis,
@@ -216,9 +217,20 @@ function startCodeLinking() {
     <Toolbar
       variant="wrap"
       dense
-      class="h-12 shrink-0 border-b border-border px-4"
+      class="h-12 shrink-0 border-b border-border px-3 sm:px-4"
       :class="!isDesktop && 'bg-background'"
     >
+      <Button
+        v-if="mode === 'panel'"
+        variant="ghost"
+        size="icon-sm"
+        class="shrink-0"
+        aria-label="Back to tasks"
+        title="Back to tasks"
+        @click="emit('close')"
+      >
+        <ArrowLeft />
+      </Button>
       <nav class="flex min-w-0 flex-1 items-center gap-1 text-[13px] text-muted-foreground" aria-label="Breadcrumb">
         <RouterLink :to="{ name: 'project-board', params: { projectId: project.id } }" class="hidden truncate hover:text-foreground sm:inline">
           {{ project.name }}
@@ -274,11 +286,18 @@ function startCodeLinking() {
       <Button v-if="mode === 'panel'" variant="ghost" size="icon-sm" aria-label="Close" @click="emit('close')"><X /></Button>
     </Toolbar>
 
-    <div class="min-h-0 flex-1" :class="isWide ? 'grid grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(20rem,22rem)] 2xl:grid-cols-[minmax(0,1fr)_340px]' : ''">
-      <!-- Main column -->
-      <div class="overflow-y-auto" :class="isWide ? 'px-6 py-5 xl:px-8 xl:py-6' : 'p-4 pb-8 sm:p-5'">
-        <div class="mx-auto max-w-3xl space-y-6">
-        <div class="space-y-3">
+    <div
+      class="min-h-0 flex-1"
+      :class="
+        isWide
+          ? 'grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] overflow-hidden'
+          : ''
+      "
+    >
+      <!-- Main column (60%) · details rail (40%) -->
+      <div class="overflow-y-auto" :class="isWide ? (mode === 'panel' ? 'px-4 py-4 xl:px-5 xl:py-5' : 'px-5 py-5 xl:px-8 xl:py-6') : 'p-4 pb-8 sm:p-5'">
+        <div class="space-y-4 xl:space-y-5">
+        <div class="space-y-2.5">
           <IssueTitleEditor :title="issue.title" :editable="canEditTitle" :done="isDone" @save="(title) => update({ title })" />
 
           <div
@@ -303,7 +322,7 @@ function startCodeLinking() {
             </p>
           </div>
 
-          <!-- Task-focused quick actions (primary when there is no side rail) -->
+          <!-- Primary actions stay visible; Attach / Link / Code live in the header ··· menu. -->
           <Toolbar variant="wrap" dense>
             <StatusSelect
               v-if="!isWide"
@@ -316,7 +335,7 @@ function startCodeLinking() {
               class="w-auto min-w-36"
               @update:model-value="(statusId) => statusId && update({ statusId })"
             />
-            <Button v-if="canEdit" :variant="isDone ? 'outline' : 'default'" size="sm" @click="toggleDone">
+            <Button v-if="canEdit" :variant="isDone ? 'outline' : 'brand'" size="sm" @click="toggleDone">
               <RotateCcw v-if="isDone" /> <Check v-else />
               {{ isDone ? 'Reopen' : 'Mark done' }}
             </Button>
@@ -328,21 +347,29 @@ function startCodeLinking() {
             >
               <UserPlus /> Assign to me
             </Button>
-            <Button v-if="canUseAi" variant="outline" size="sm" @click="summaryRef?.generate()"><Sparkles class="text-primary" /> Summarize</Button>
-            <Button v-if="canAttach" variant="outline" size="sm" @click="attachmentsRef?.openPicker()"><Paperclip /> Attach</Button>
-            <Button v-if="canEdit" variant="outline" size="sm" @click="startLinking"><Link2 /> Link</Button>
-            <Button v-if="canLinkCode" variant="outline" size="sm" @click="startCodeLinking"><GitBranch /> Code</Button>
+            <Button v-if="canUseAi" variant="ghost" size="sm" @click="summaryRef?.generate()">
+              <Sparkles class="text-primary" /> Summarize
+            </Button>
+            <Button v-if="canAttach" variant="ghost" size="sm" class="max-sm:hidden" @click="attachmentsRef?.openPicker()">
+              <Paperclip /> Attach
+            </Button>
+            <Button v-if="canEdit" variant="ghost" size="sm" class="max-sm:hidden" @click="startLinking">
+              <Link2 /> Link
+            </Button>
+            <Button v-if="canLinkCode" variant="ghost" size="sm" class="max-sm:hidden" @click="startCodeLinking">
+              <GitBranch /> Code
+            </Button>
           </Toolbar>
         </div>
 
         <IssueAiSummary v-if="canUseAi" ref="summaryRef" :issue-id="issue.id" />
 
         <!-- Phone and tablet: key fields before long-form content (side rail only on wide screens) -->
-        <details v-if="!isWide" class="group border bg-card" open>
-          <summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold">
+        <details v-if="!isWide" class="group overflow-hidden rounded-xl border border-border/70 bg-card" open>
+          <summary class="flex cursor-pointer list-none items-center justify-between px-3.5 py-2.5 text-sm font-semibold">
             Details <ChevronRight class="size-4 transition-transform group-open:rotate-90" />
           </summary>
-          <div class="px-4 pb-3">
+          <div class="border-t border-border/60 px-3.5 pb-3 pt-1">
             <IssueFieldsPanel
               :issue="issue"
               :project="project"
@@ -371,12 +398,12 @@ function startCodeLinking() {
         />
         <IssueAttachments ref="attachmentsRef" :issue-id="issue.id" :editable="canAttach" :refresh-key="refreshKey" />
 
-        <Tabs v-model="activeTab" class="gap-4">
-          <TabsList class="w-full sm:w-auto">
-            <TabsTrigger value="comments">Comments</TabsTrigger>
-            <TabsTrigger v-if="auth.hasFeature('chat')" value="followups">Follow-ups</TabsTrigger>
-            <TabsTrigger value="activity">History</TabsTrigger>
-            <TabsTrigger v-if="auth.hasFeature('timeTracking')" value="work">Work log</TabsTrigger>
+        <Tabs v-model="activeTab" class="gap-4 border-t border-border/60 pt-5">
+          <TabsList class="h-auto min-h-10 w-full max-w-full flex-wrap justify-start gap-1.5 p-1.5 sm:w-auto">
+            <TabsTrigger value="comments" class="h-8 px-3.5">Comments</TabsTrigger>
+            <TabsTrigger v-if="auth.hasFeature('chat')" value="followups" class="h-8 px-3.5">Follow-ups</TabsTrigger>
+            <TabsTrigger value="activity" class="h-8 px-3.5">History</TabsTrigger>
+            <TabsTrigger v-if="auth.hasFeature('timeTracking')" value="work" class="h-8 px-3.5">Work log</TabsTrigger>
           </TabsList>
           <TabsContent value="comments">
             <IssueComments
@@ -401,7 +428,10 @@ function startCodeLinking() {
       </div>
 
       <!-- Wide screens: side panel with every field visible at once -->
-      <aside v-if="isWide" class="ghost-fields overflow-y-auto border-l border-border bg-sidebar/40 px-4 py-4 dark:bg-sidebar/50">
+      <aside
+        v-if="isWide"
+        class="ghost-fields min-w-0 overflow-y-auto border-l border-border/70 bg-muted/20 px-3.5 py-3.5 xl:px-5 xl:py-4 dark:bg-sidebar/40"
+      >
         <IssueFieldsPanel
           :issue="issue"
           :project="project"

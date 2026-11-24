@@ -52,47 +52,64 @@ const FIELDS: Array<{ key: keyof BoardCardFields; label: string }> = [
         <span class="hidden sm:inline">Display</span>
       </Button>
     </PopoverTrigger>
-    <PopoverContent align="end" class="w-[min(20rem,calc(100vw-1.5rem))] p-0">
-      <section class="space-y-2 border-b border-border p-3">
-        <p class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Layers class="size-3.5" /> Swimlanes</p>
-        <div class="grid grid-cols-3 gap-1 sm:grid-cols-5" role="radiogroup" aria-label="Group the board into swimlanes by">
-          <button
-            v-for="option in GROUPS"
-            :key="option.value"
-            type="button"
-            role="radio"
-            :aria-checked="view.groupBy === option.value"
-            class="flex flex-col items-center gap-1 rounded-md border px-1 py-2 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            :class="view.groupBy === option.value ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-input hover:text-foreground'"
-            @click="emit('groupBy', option.value)"
+    <PopoverContent
+      align="end"
+      side="bottom"
+      :side-offset="6"
+      :collision-padding="12"
+      class="flex w-[min(20rem,calc(100vw-1.5rem))] max-h-[min(70dvh,var(--reka-popover-content-available-height,28rem))] flex-col overflow-hidden p-0"
+    >
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-thin">
+        <section class="space-y-2 border-b border-border/70 p-3">
+          <p class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Layers class="size-3.5" /> Swimlanes</p>
+          <div class="grid grid-cols-3 gap-1 sm:grid-cols-5" role="radiogroup" aria-label="Group the board into swimlanes by">
+            <button
+              v-for="option in GROUPS"
+              :key="option.value"
+              type="button"
+              role="radio"
+              :aria-checked="view.groupBy === option.value"
+              class="flex flex-col items-center gap-1 rounded-md border px-1 py-1.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              :class="view.groupBy === option.value ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:border-input hover:text-foreground'"
+              @click="emit('groupBy', option.value)"
+            >
+              <component :is="option.icon" class="size-4" />
+              {{ option.label }}
+            </button>
+          </div>
+        </section>
+
+        <section class="space-y-2 border-b border-border/70 p-3">
+          <p class="text-xs font-medium text-muted-foreground">Card size</p>
+          <SegmentedControl
+            grow
+            size="sm"
+            aria-label="Card size"
+            :model-value="view.density"
+            :options="DENSITIES"
+            @update:model-value="(value) => emit('density', value as BoardDensity)"
+          />
+        </section>
+
+        <section class="space-y-0.5 p-3">
+          <p class="pb-1.5 text-xs font-medium text-muted-foreground">Show on cards</p>
+          <label
+            v-for="field in FIELDS"
+            :key="field.key"
+            class="flex cursor-pointer items-center justify-between gap-3 rounded-md px-1 py-1.5 text-[13px] hover:bg-accent/50"
           >
-            <component :is="option.icon" class="size-4" />
-            {{ option.label }}
-          </button>
-        </div>
-      </section>
+            <span class="min-w-0 leading-snug">{{ field.label }}</span>
+            <Switch
+              class="shrink-0"
+              :model-value="view.fields[field.key]"
+              :aria-label="`Show ${field.label.toLowerCase()}`"
+              @update:model-value="(value: boolean) => emit('field', field.key, value)"
+            />
+          </label>
+        </section>
+      </div>
 
-      <section class="space-y-2 border-b border-border p-3">
-        <p class="text-xs font-medium text-muted-foreground">Card size</p>
-        <SegmentedControl
-          grow
-          size="sm"
-          aria-label="Card size"
-          :model-value="view.density"
-          :options="DENSITIES"
-          @update:model-value="(value) => emit('density', value as BoardDensity)"
-        />
-      </section>
-
-      <section class="space-y-1 p-3">
-        <p class="pb-1 text-xs font-medium text-muted-foreground">Show on cards</p>
-        <label v-for="field in FIELDS" :key="field.key" class="flex cursor-pointer items-center justify-between rounded-md px-1 py-1 text-[13px] hover:bg-accent/50">
-          {{ field.label }}
-          <Switch :model-value="view.fields[field.key]" :aria-label="`Show ${field.label.toLowerCase()}`" @update:model-value="(value: boolean) => emit('field', field.key, value)" />
-        </label>
-      </section>
-
-      <div v-if="customized" class="border-t border-border p-2">
+      <div v-if="customized" class="shrink-0 border-t border-border/70 bg-popover p-2">
         <Button variant="ghost" size="sm" class="w-full" @click="emit('reset')"><RotateCcw /> Reset to default</Button>
       </div>
     </PopoverContent>

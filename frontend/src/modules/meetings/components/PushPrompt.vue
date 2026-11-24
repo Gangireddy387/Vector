@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { BellRing, BellOff, Smartphone } from 'lucide-vue-next'
+import { BellOff, BellRing, Smartphone } from 'lucide-vue-next'
+import type { HTMLAttributes } from 'vue'
 import { computed, onMounted } from 'vue'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 import { usePushNotifications } from '../call/usePushNotifications'
 
 const props = withDefaults(
   defineProps<{
     /** Where this prompt is shown — changes the copy. */
     context?: 'calls' | 'messages' | 'settings'
+    class?: HTMLAttributes['class']
   }>(),
   { context: 'calls' },
 )
@@ -20,7 +24,7 @@ onMounted(() => void push.refresh())
 const copy = computed(() => {
   if (props.context === 'messages') {
     return {
-      on: 'Messages alert this device',
+      on: 'Alerts on',
       off: 'Alert me for DMs & mentions',
       subscribed: 'DMs, @mentions and standup reminders reach this device when Vector is closed.',
       idle: 'Get DMs, @mentions and standup nudges here when Vector is closed.',
@@ -48,6 +52,38 @@ const copy = computed(() => {
   }
 })
 
+const hint = computed(() => {
+  if (push.state.needsInstall) {
+    return 'On iPhone and iPad, add Vector to your Home Screen first (Share → Add to Home Screen), then turn this on from the app.'
+  }
+  if (push.state.permission === 'denied') {
+    return 'Notifications are blocked for Vector. Allow them in the browser’s site settings.'
+  }
+  return push.state.subscribed ? copy.value.subscribed : copy.value.idle
+})
+
+const messagesLabel = computed(() =>
+  push.state.subscribed ? 'Turn off message alerts on this device' : 'Turn on alerts for DMs and @mentions',
+)
+
+const messagesTooltipTitle = computed(() =>
+  push.state.permission === 'denied'
+    ? 'Notifications blocked'
+    : push.state.subscribed
+      ? 'Message alerts on'
+      : 'Get alerts on this device',
+)
+
+const messagesTooltipBody = computed(() => {
+  if (push.state.permission === 'denied') {
+    return 'Allow notifications for Vector in your browser site settings, then turn this back on.'
+  }
+  if (push.state.subscribed) {
+    return 'DMs, @mentions and standup nudges reach this device when Vector is closed. Click to turn off.'
+  }
+  return 'Turn on to get DMs, @mentions and standup nudges here even when Vector is closed.'
+})
+
 async function toggle() {
   try {
     if (push.state.subscribed) {
@@ -64,33 +100,48 @@ async function toggle() {
 </script>
 
 <template>
-  <!-- Messages list pane is narrow — keep stacked. Wider surfaces (calls/settings) can sit in a row. -->
+  <!-- Messages header: one bell that matches Search / Saved. -->
+  <Tooltip v-if="(push.state.supported || push.state.needsInstall) && context === 'messages' && !push.state.needsInstall">
+    <TooltipTrigger as-child>
+      <Button
+        :variant="push.state.subscribed ? 'soft' : 'ghost'"
+        size="icon-sm"
+        :class="cn(props.class)"
+        :loading="push.state.busy"
+        :disabled="push.state.permission === 'denied'"
+        :aria-label="messagesLabel"
+        :aria-pressed="push.state.subscribed"
+        @click="toggle"
+      >
+        <BellRing v-if="push.state.subscribed" class="text-primary" />
+        <BellOff v-else />
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent side="bottom" class="max-w-[16rem] space-y-0.5 text-left font-normal">
+      <p class="font-medium">{{ messagesTooltipTitle }}</p>
+      <p class="text-[11px] leading-snug text-muted-foreground">{{ messagesTooltipBody }}</p>
+    </TooltipContent>
+  </Tooltip>
+
   <section
-    v-if="push.state.supported || push.state.needsInstall"
-    class="flex gap-3 rounded-xl border border-border/70 bg-card p-3 shadow-soft"
-    :class="context === 'messages' ? 'flex-col' : 'flex-col sm:flex-row sm:items-center'"
+    v-else-if="push.state.supported || push.state.needsInstall"
+    class="flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-3 shadow-soft sm:flex-row sm:items-center"
   >
-    <div class="flex min-w-0 flex-1 items-start gap-3">
-      <span class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+    <div class="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+      <span class="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary sm:mt-0">
         <BellRing v-if="push.state.subscribed" class="size-4" />
         <Smartphone v-else class="size-4" />
       </span>
       <div class="min-w-0 flex-1 space-y-1">
         <p class="text-sm font-semibold leading-snug text-balance">{{ push.state.subscribed ? copy.on : copy.off }}</p>
-        <p class="text-xs leading-relaxed text-pretty text-muted-foreground">
-          <template v-if="push.state.needsInstall">On iPhone and iPad, add Vector to your Home Screen first (Share → Add to Home Screen), then turn this on from the app.</template>
-          <template v-else-if="push.state.permission === 'denied'">Notifications are blocked for Vector. Allow them in the browser’s site settings.</template>
-          <template v-else-if="push.state.subscribed">{{ copy.subscribed }}</template>
-          <template v-else>{{ copy.idle }}</template>
-        </p>
+        <p class="text-xs leading-relaxed text-pretty text-muted-foreground">{{ hint }}</p>
       </div>
     </div>
     <Button
       v-if="!push.state.needsInstall"
       :variant="push.state.subscribed ? 'ghost' : 'brand'"
       size="sm"
-      class="shrink-0 self-stretch sm:self-start"
-      :class="context !== 'messages' && 'sm:self-center'"
+      class="shrink-0"
       :loading="push.state.busy"
       :disabled="push.state.permission === 'denied'"
       @click="toggle"
