@@ -202,7 +202,7 @@ function eventLabel(value: string) {
               <Checkbox
                 class="mt-0.5"
                 :checked="formEvents.includes(option.value)"
-                @update:checked="(value) => toggleEvent(option.value, value)"
+                @update:checked="(value: boolean | 'indeterminate') => toggleEvent(option.value, value)"
               />
               <span>{{ option.label }}</span>
             </label>

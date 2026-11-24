@@ -345,7 +345,7 @@ async function remove(scope: 'one' | 'following') {
             <DatePicker id="event-until" v-model="form.until" :clearable="false" :presets="false" :min="form.date" />
           </FormField>
         </div>
-        <p v-else-if="editing.seriesId" class="border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <p v-else-if="editing?.seriesId" class="border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
           This event repeats. Changes here apply to this day only.
         </p>
         <p v-if="editing && isPastDay(editing.date, now)" class="border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-amber-700 dark:text-warning">

@@ -134,7 +134,7 @@ async function saveRetention() {
   try {
     const retention = Object.fromEntries(
       RETENTION_FIELDS.map(({ key }) => [key, Math.max(0, Math.min(3650, Math.floor(Number(retentionForm.value[key]) || 0)))]),
-    ) as OrganizationRetention
+    ) as unknown as OrganizationRetention
     await workspace.update({ retention })
     retentionForm.value = { ...retention }
     toast.success('Data retention saved', { description: 'A nightly job removes older data. 0 keeps everything.' })

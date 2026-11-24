@@ -25,7 +25,7 @@ import { formatDateTime, timeAgo } from '@/lib/format'
 import { getErrorMessage } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
 import { useProjectsStore } from '@/modules/projects/projects.store'
-import type { AutomationRule, IssueTemplate, RecurringTask } from '@/types/models'
+import type { AutomationRule, IssueTemplate, ProjectDetail, RecurringTask } from '@/types/models'
 import { automationApi, recurringTasksApi, type RuleInput, templatesApi } from '../automation.api'
 import { AUTOMATION_RECIPES, type AutomationRecipe, describeRule } from '../automation.constants'
 import RecurringTaskDialog from '../components/RecurringTaskDialog.vue'
@@ -44,9 +44,12 @@ const project = computed(() => projects.details[projectId.value])
 const isAdmin = computed(() => projects.isAdmin(projectId.value))
 const canEdit = computed(() => projects.canEdit(projectId.value))
 const visibleRecipes = computed(() =>
-  AUTOMATION_RECIPES.filter(
-    (recipe) => auth.hasFeature('emailAutomations') || !recipe.actions.some((action) => action.type === 'send_email'),
-  ),
+  AUTOMATION_RECIPES.filter((recipe) => {
+    if (auth.hasFeature('emailAutomations')) return true
+    // Stub project is enough to inspect action types for the email feature gate.
+    const stub = { statuses: [] } as unknown as ProjectDetail
+    return !recipe.build(stub).actions.some((action) => action.type === 'send_email')
+  }),
 )
 
 const rules = ref<AutomationRule[]>([])

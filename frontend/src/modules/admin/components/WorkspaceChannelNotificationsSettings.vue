@@ -80,6 +80,8 @@ async function save() {
       channelNotifications: {
         enabled: form.value.enabled,
         events: { ...form.value.events },
+        slackConfigured: current.value.slackConfigured,
+        teamsConfigured: current.value.teamsConfigured,
         slackWebhookUrl: form.value.clearSlack
           ? null
           : form.value.slackWebhookUrl.trim()

@@ -5,7 +5,7 @@ import { RouterLink } from 'vue-router'
 import { useAuthStore } from '@/modules/auth/auth.store'
 
 /** One map of Vector collab — Free includes these; the guide still shows what’s on vs off. */
-const props = withDefaults(
+withDefaults(
   defineProps<{
     /** Compact strip (Home / Messages) vs fuller list (locked page). */
     dense?: boolean

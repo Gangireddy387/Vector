@@ -94,6 +94,7 @@ export const useProjectsStore = defineStore('projects', () => {
 
   return {
     projects,
+    isLoaded,
     activeProjects,
     joinedProjects,
     details,

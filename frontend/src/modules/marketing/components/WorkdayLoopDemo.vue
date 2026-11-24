@@ -4,7 +4,7 @@ import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Button } from '@/components/ui/button'
 
-const props = defineProps<{
+defineProps<{
   ctaTo: Record<string, unknown>
   ctaLabel: string
   /** Optional brand tint for invite pages. */

@@ -12,7 +12,7 @@ interface Section {
 }
 
 const PLACEHOLDER = /_(?:[^_\n]{2,80})_|> \*\*Tip:\*\*/
-const EMPTYISH = /^[\s|\-\[\]xX.#*]*$/
+const EMPTYISH = /^[\s|\-[\]xX.#*]*$/
 
 function sectionFilled(chunk: string) {
   const lines = chunk

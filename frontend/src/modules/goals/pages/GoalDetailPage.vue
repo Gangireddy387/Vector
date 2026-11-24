@@ -77,6 +77,16 @@ async function setParent(raw: string) {
   await run(() => goalsApi.update(goal.value!.id, { parentGoalId: raw || null }))
 }
 
+async function setPeriodStart(value: string) {
+  if (!goal.value) return
+  await run(() => goalsApi.update(goal.value!.id, { periodStart: value || null }))
+}
+
+async function setPeriodEnd(value: string) {
+  if (!goal.value) return
+  await run(() => goalsApi.update(goal.value!.id, { periodEnd: value || null }))
+}
+
 async function addKeyResult() {
   if (!goal.value || !krTitle.value.trim()) return
   await run(() => goalsApi.createKeyResult(goal.value!.id, { title: krTitle.value.trim(), metricType: krType.value }))
@@ -202,7 +212,7 @@ function metricLabel(type: KeyResultMetricType) {
                 :presets="false"
                 period-presets
                 :max="goal.periodEnd ?? undefined"
-                @update:model-value="(value) => run(() => goalsApi.update(goal!.id, { periodStart: value || null }))"
+                @update:model-value="setPeriodStart"
               />
               <DateField
                 :model-value="goal.periodEnd ?? ''"
@@ -212,7 +222,7 @@ function metricLabel(type: KeyResultMetricType) {
                 :presets="false"
                 period-presets
                 :min="goal.periodStart ?? undefined"
-                @update:model-value="(value) => run(() => goalsApi.update(goal!.id, { periodEnd: value || null }))"
+                @update:model-value="setPeriodEnd"
               />
             </div>
             <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">

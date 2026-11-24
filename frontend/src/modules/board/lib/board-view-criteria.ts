@@ -63,32 +63,36 @@ export function criteriaToBoardDisplay(criteria: BoardViewCriteria): {
   return { groupBy, density }
 }
 
-export function summarizeBoardCriteria(criteria: BoardViewCriteria): string[] {
+export function summarizeBoardCriteria(criteria: BoardViewCriteria | Record<string, unknown>): string[] {
+  const view = sanitizeBoardCriteria(criteria)
   const chips: string[] = []
-  if (criteria.search) chips.push(`“${criteria.search}”`)
-  if (criteria.assigneeIds) {
-    const count = criteria.assigneeIds.split(',').filter(Boolean).length
+  if (view.search) chips.push(`“${view.search}”`)
+  if (view.assigneeIds) {
+    const count = view.assigneeIds.split(',').filter(Boolean).length
     chips.push(count === 1 ? '1 assignee' : `${count} assignees`)
   }
-  if (criteria.types) chips.push('Type')
-  if (criteria.priorities) chips.push('Priority')
-  if (criteria.labelIds) chips.push('Label')
-  if (criteria.quick) {
-    for (const part of criteria.quick.split(',')) {
+  if (view.types) chips.push('Type')
+  if (view.priorities) chips.push('Priority')
+  if (view.labelIds) chips.push('Label')
+  if (view.quick) {
+    for (const part of view.quick.split(',')) {
       if (part === 'mine') chips.push('My tasks')
       else if (part === 'dueSoon') chips.push('Due this week')
       else if (part === 'overdue') chips.push('Overdue')
       else if (part === 'recent') chips.push('Updated today')
     }
   }
-  if (criteria.groupBy && criteria.groupBy !== 'none') {
-    chips.push(`Group: ${criteria.groupBy}`)
+  if (view.groupBy && view.groupBy !== 'none') {
+    chips.push(`Group: ${view.groupBy}`)
   }
-  if (criteria.density === 'compact') chips.push('Compact')
+  if (view.density === 'compact') chips.push('Compact')
   return chips
 }
 
-export function boardCriteriaEqual(a: BoardViewCriteria, b: BoardViewCriteria): boolean {
+export function boardCriteriaEqual(
+  a: BoardViewCriteria | Record<string, unknown>,
+  b: BoardViewCriteria | Record<string, unknown>,
+): boolean {
   const left = sanitizeBoardCriteria(a)
   const right = sanitizeBoardCriteria(b)
   const keys = new Set([...Object.keys(left), ...Object.keys(right)])

@@ -152,7 +152,7 @@ function openSetup(key: SetupKey) {
 }
 
 function backToHub() {
-  const query = { ...route.query, tab: 'integrations' }
+  const query = { ...route.query, tab: 'integrations' } as Record<string, string | string[] | null | undefined>
   delete query.setup
   router.replace({ query })
 }

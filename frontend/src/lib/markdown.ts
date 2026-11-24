@@ -98,7 +98,7 @@ export function renderMarkdown(source?: string | null) {
 const ISSUE_KEY_PATTERN = /(^|[^A-Za-z0-9/>-])#?([A-Za-z][A-Za-z0-9]{0,9}-\d{1,6})(?![A-Za-z0-9-])/g
 
 const WIKI_BRACKET_PATTERN =
-  /\[\[([^\[\]|#]+)(?:\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?\]\]/gi
+  /\[\[([^[\]|#]+)(?:\|([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?\]\]/gi
 
 export type WikiLinkTarget = { id: string; title: string }
 

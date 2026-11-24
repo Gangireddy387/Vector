@@ -192,7 +192,7 @@ async function submitComment() {
                 </div>
                 <div class="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
                   <DueDateBadge v-if="issue.dueDate" :due-date="issue.dueDate" :done="issue.status?.category === 'done'" compact />
-                  <UserAvatar v-if="issue.assignee" class="ml-auto" :user="issue.assignee" size="sm" show-tooltip />
+                  <UserAvatar v-if="issue.assignee" class="ml-auto" :user="{ ...issue.assignee, email: '' }" size="sm" show-tooltip />
                 </div>
               </article>
               <p v-if="!column.issues.length" class="px-2 py-6 text-center text-xs text-muted-foreground">No tasks</p>
@@ -217,7 +217,7 @@ async function submitComment() {
           <h1 class="text-2xl font-semibold tracking-tight text-balance">{{ data.issue.title }}</h1>
           <div class="flex flex-wrap gap-4 text-sm text-muted-foreground">
             <span v-if="data.issue.assignee" class="inline-flex items-center gap-2">
-              <UserAvatar :user="data.issue.assignee" size="sm" />
+              <UserAvatar :user="{ ...data.issue.assignee, email: '' }" size="sm" />
               {{ data.issue.assignee.name }}
             </span>
             <DueDateBadge v-if="data.issue.dueDate" :due-date="data.issue.dueDate" :done="data.issue.status?.category === 'done'" />

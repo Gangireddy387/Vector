@@ -55,6 +55,10 @@ function toggleGroup(field: IssueFieldAclKey, actors: TransitionActor[], on: boo
   drafts[field] = [...set]
 }
 
+function actorHints(actors: TransitionActor[]) {
+  return actors.map((actor) => TRANSITION_ACTOR_META[actor].hint).join(' · ')
+}
+
 async function save() {
   isSaving.value = true
   try {
@@ -105,9 +109,7 @@ async function save() {
                   />
                   <span class="min-w-0">
                     <span class="block font-medium">{{ group.label }}</span>
-                    <span class="block text-muted-foreground">
-                      {{ group.actors.map((actor) => TRANSITION_ACTOR_META[actor].hint).join(' · ') }}
-                    </span>
+                    <span class="block text-muted-foreground">{{ actorHints(group.actors) }}</span>
                   </span>
                 </label>
               </div>
@@ -121,9 +123,7 @@ async function save() {
                 <th class="px-3 py-2 font-medium">Field</th>
                 <th v-for="group in ACTOR_GROUPS" :key="group.key" class="px-3 py-2 font-medium">
                   {{ group.label }}
-                  <span class="mt-0.5 block font-normal opacity-80">
-                    {{ group.actors.map((actor) => TRANSITION_ACTOR_META[actor].hint).join(' · ') }}
-                  </span>
+                  <span class="mt-0.5 block font-normal opacity-80">{{ actorHints(group.actors) }}</span>
                 </th>
               </tr>
             </thead>

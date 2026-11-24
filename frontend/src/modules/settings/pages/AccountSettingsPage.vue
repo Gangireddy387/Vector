@@ -83,7 +83,10 @@ const activeSection = computed({
     return SECTIONS.some((section) => section.value === route.query.tab) ? String(route.query.tab) : 'profile'
   },
   set: (tab: string) => {
-    const query = { ...route.query, tab: tab === 'profile' ? undefined : tab }
+    const query = { ...route.query, tab: tab === 'profile' ? undefined : tab } as Record<
+      string,
+      string | string[] | null | undefined
+    >
     if (tab !== 'calendar') delete query.calendar
     void router.replace({ query })
   },

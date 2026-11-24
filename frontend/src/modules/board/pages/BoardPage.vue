@@ -470,7 +470,7 @@ function moveOnMobile(issue: Issue, status: Status) {
       description="Start a sprint in the backlog, or complete one first so you can revisit it here."
       class="px-3 py-20"
     >
-      <Toolbar variant="actions" justify="center" class="justify-center">
+      <Toolbar variant="actions" class="justify-center">
         <Button as-child>
           <RouterLink :to="{ name: 'project-backlog', params: { projectId } }">Go to backlog</RouterLink>
         </Button>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { toDateInput } from '@/lib/format'
 import type { Issue } from '@/types/models'
 import { bucketOf, groupMyWork } from './my-work'
 
@@ -27,9 +28,10 @@ describe('bucketOf', () => {
 
 describe('groupMyWork', () => {
   it('orders buckets and prefers in-progress inside a bucket', () => {
+    const today = toDateInput(new Date())
     const groups = groupMyWork([
-      issue({ id: 'a', dueDate: '2026-11-17', category: 'todo' }),
-      issue({ id: 'b', dueDate: '2026-11-17', category: 'in_progress' }),
+      issue({ id: 'a', dueDate: today, category: 'todo' }),
+      issue({ id: 'b', dueDate: today, category: 'in_progress' }),
       issue({ id: 'c', dueDate: '2020-01-01' }),
     ])
     expect(groups.map((group) => group.bucket)).toEqual(['overdue', 'today'])

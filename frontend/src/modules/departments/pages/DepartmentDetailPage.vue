@@ -181,7 +181,7 @@ async function remove() {
           class="pointer-events-none absolute inset-0 opacity-80"
           style="background: radial-gradient(40rem 14rem at 0% 0%, color-mix(in oklch, var(--brand-from) 12%, transparent), transparent 70%)"
         />
-        <div class="relative space-y-4 p-4 sm:p-5 lg:p-6">
+        <div class="relative space-y-4 p-4 md:p-5">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
             <div class="flex min-w-0 flex-1 items-start gap-3 sm:gap-4">
               <span class="flex size-11 shrink-0 items-center justify-center bg-brand text-white shadow-glow sm:size-14"><Building2 class="size-5 sm:size-6" /></span>

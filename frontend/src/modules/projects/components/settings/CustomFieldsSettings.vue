@@ -134,7 +134,7 @@ function typeLabel(value: CustomFieldType) {
                 :model-value="field.name"
                 class="h-8 font-medium"
                 :aria-label="`Rename ${field.name}`"
-                @blur="(event) => rename(field, (event.target as HTMLInputElement).value)"
+                @blur="(event: FocusEvent) => rename(field, (event.target as HTMLInputElement).value)"
               />
               <p class="text-xs text-muted-foreground">
                 {{ typeLabel(field.type) }}

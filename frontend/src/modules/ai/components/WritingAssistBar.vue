@@ -129,11 +129,11 @@ function scheduleAutoSuggest() {
   if (!props.autoSuggest || locked.value) return
   if (suggestTimer) clearTimeout(suggestTimer)
   suggestTimer = setTimeout(() => {
-    void autoSuggest()
+    void runAutoSuggest()
   }, 1400)
 }
 
-async function autoSuggest() {
+async function runAutoSuggest() {
   if (locked.value || busy.value) return
   const text = props.modelValue
   if (text.trim().length < 24) {

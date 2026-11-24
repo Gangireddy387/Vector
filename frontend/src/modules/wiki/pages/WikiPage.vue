@@ -122,10 +122,6 @@ const wikiLinkTargets = computed(() => {
   return [...byId.values()]
 })
 
-function isExpanded(folderId: string) {
-  return expandedFolders.value.has(folderId)
-}
-
 function toggleFolder(folderId: string) {
   const next = new Set(expandedFolders.value)
   if (next.has(folderId)) next.delete(folderId)
@@ -664,7 +660,7 @@ const canDelete = (page: WikiPage) => page.createdById === auth.user?.id || auth
             >
               <option value="">Root</option>
               <option
-                v-for="folder in folderChoices.filter((item) => item.id !== selected.id)"
+                v-for="folder in folderChoices.filter((item) => item.id !== selected?.id)"
                 :key="folder.id"
                 :value="folder.id"
               >

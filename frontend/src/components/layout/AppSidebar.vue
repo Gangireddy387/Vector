@@ -147,8 +147,11 @@ const workspaceLinks = computed(() => [
 
 const messagesLink = computed(() =>
   messages.isAvailable
-    ? { to: { name: 'messages' } as const, locked: false }
-    : { to: { name: 'feature-locked', query: { feature: ['directMessages', 'teamChat'] } } as const, locked: true },
+    ? { to: { name: 'messages' as const }, locked: false }
+    : {
+        to: { name: 'feature-locked' as const, query: { feature: ['directMessages', 'teamChat'] as string[] } },
+        locked: true,
+      },
 )
 
 const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.value ?? undefined })

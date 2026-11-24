@@ -26,6 +26,7 @@ import {
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
+import PageFrame from '@/components/common/PageFrame.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import UserAvatarStack from '@/components/common/UserAvatarStack.vue'
 import { Button } from '@/components/ui/button'
@@ -377,15 +378,21 @@ async function focusCreateTasks() {
 }
 
 const previewButton = 'flex size-11 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25'
+
+function scrollToActionItems() {
+  document.getElementById('meeting-action-items')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col">
+  <PageFrame mode="bare" pad="none" gap="none" class="flex h-full min-h-0 flex-col">
     <Transition name="fade-soft" mode="out-in">
-    <div
+    <PageFrame
       v-if="isLoading"
       key="loading"
-      class="flex w-full flex-col gap-4 p-3 sm:gap-5 md:p-5 lg:p-6"
+      mode="bare"
+      gap="default"
+      class="flex w-full flex-col"
       aria-busy="true"
       aria-label="Loading meeting"
     >
@@ -419,7 +426,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
           </div>
         </div>
       </div>
-    </div>
+    </PageFrame>
 
     <CallView
       v-else-if="meeting && inThisCall"
@@ -449,7 +456,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
 
     <!-- Lobby, or the summary of a meeting that is over -->
     <div v-else-if="meeting" key="lobby" class="min-h-0 flex-1 overflow-y-auto rise-in">
-      <div class="flex w-full flex-col gap-4 p-3 sm:gap-5 md:p-5 lg:p-6">
+      <PageFrame mode="bare" gap="default" class="flex w-full flex-col">
         <!-- Back link above the split so both columns share one top edge. -->
         <button type="button" class="inline-flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" @click="router.push({ name: 'meetings' })">
           <ArrowLeft class="size-4" /> All meetings
@@ -604,7 +611,7 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
                 variant="outline"
                 size="lg"
                 class="sm:flex-1"
-                @click="document.getElementById('meeting-action-items')?.scrollIntoView({ behavior: 'smooth', block: 'start' })"
+                @click="scrollToActionItems"
               >
                 <ListTodo /> Open recap
               </Button>
@@ -678,8 +685,8 @@ const previewButton = 'flex size-11 items-center justify-center rounded-full bg-
           </section>
         </div>
         </div>
-      </div>
+      </PageFrame>
     </div>
     </Transition>
-  </div>
+  </PageFrame>
 </template>

@@ -38,5 +38,9 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
-      # Type-checks and builds the production bundle.
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      # Preview the built app at 1024×768 (auth redirects + optional E2E_* login).
+      - run: npm run test:e2e
+        env:
+          CI: true

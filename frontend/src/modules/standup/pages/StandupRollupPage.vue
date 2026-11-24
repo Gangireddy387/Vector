@@ -157,11 +157,11 @@ const percent = (row: StandupRollupItem) => (row.expected ? Math.round((row.post
         </div>
         <div class="rounded-xl border border-border bg-card px-3 py-2.5 shadow-soft">
           <p class="text-[11px] text-muted-foreground">Missing</p>
-          <p class="text-lg font-semibold tabular-nums" :class="totals.missing && 'text-amber-700 dark:text-amber-300'">{{ totals.missing }}</p>
+          <p class="text-lg font-semibold tabular-nums" :class="totals.missing ? 'text-amber-700 dark:text-amber-300' : undefined">{{ totals.missing }}</p>
         </div>
         <div class="rounded-xl border border-border bg-card px-3 py-2.5 shadow-soft">
           <p class="text-[11px] text-muted-foreground">Blockers</p>
-          <p class="text-lg font-semibold tabular-nums" :class="totals.blockers && 'text-destructive'">{{ totals.blockers }}</p>
+          <p class="text-lg font-semibold tabular-nums" :class="totals.blockers ? 'text-destructive' : undefined">{{ totals.blockers }}</p>
         </div>
       </div>
 

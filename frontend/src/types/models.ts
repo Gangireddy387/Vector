@@ -109,6 +109,10 @@ export interface OrganizationChannelNotifications {
   }
   slackConfigured: boolean
   teamsConfigured: boolean
+  /** Write-only on update: set a new URL, `''` leaves unchanged, `null` clears. */
+  slackWebhookUrl?: string | null
+  /** Write-only on update: set a new URL, `''` leaves unchanged, `null` clears. */
+  teamsWebhookUrl?: string | null
 }
 
 /** Org data retention in days (`0` = keep forever). Applied by the nightly purge job. */

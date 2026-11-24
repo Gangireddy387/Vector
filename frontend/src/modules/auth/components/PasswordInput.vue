@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 
 defineOptions({ inheritAttrs: false })
 
-const props = withDefaults(defineProps<{ showStrength?: boolean }>(), { showStrength: false })
+withDefaults(defineProps<{ showStrength?: boolean }>(), { showStrength: false })
 const model = defineModel<string>({ required: true })
 const isVisible = ref(false)
 
