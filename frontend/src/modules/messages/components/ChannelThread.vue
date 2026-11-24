@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useConfirm } from '@/composables/useConfirm'
 import { getErrorMessage } from '@/lib/http'
 import { toPlainText } from '@/lib/markdown'
+import { playSendEffect, sendEffectForBody } from '@/lib/send-effect'
 import { getSocket } from '@/lib/realtime'
 import { useSocketEvents } from '@/lib/socket-events'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -408,7 +409,10 @@ const respondApproval = (message: ChatMessage, decision: 'approved' | 'rejected'
 }
 
 const sendSticker = (token: string) =>
-  void attempt(async () => onMessage(await messagesApi.send(props.conversation.id, token)))
+  void attempt(async () => {
+    onMessage(await messagesApi.send(props.conversation.id, token))
+    playSendEffect(sendEffectForBody(token))
+  })
 
 const messageEvents = (message: ChatMessage) => ({
   react: (emoji: string) => react(message, emoji),

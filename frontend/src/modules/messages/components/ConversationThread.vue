@@ -5,6 +5,7 @@ import { Ban, Check, CheckCheck, Copy, Lock, Pencil, SendHorizontal, Trash2, X }
 import { computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import EmojiStickerPicker from '@/components/common/EmojiStickerPicker.vue'
+import JumboEmoji from '@/components/common/JumboEmoji.vue'
 import StickerBubble from '@/components/common/StickerBubble.vue'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -12,8 +13,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useConfirm } from '@/composables/useConfirm'
 import { useDevice } from '@/composables/useDevice'
-import { isStickerMessage } from '@/lib/emoji-stickers'
+import { isJumboEmojiMessage, isStickerMessage } from '@/lib/emoji-stickers'
 import { getErrorMessage } from '@/lib/http'
+import { playSendEffect, sendEffectForBody } from '@/lib/send-effect'
 import { getSocket } from '@/lib/realtime'
 import { useSocketEvents } from '@/lib/socket-events'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -203,6 +205,7 @@ async function submit() {
       cancelEdit()
     } else {
       const message = await messagesApi.send(props.conversation.id, body)
+      playSendEffect(sendEffectForBody(body))
       draft.value = ''
       await nextTick()
       autosize()
@@ -237,6 +240,7 @@ async function onSticker(token: string) {
   isSending.value = true
   try {
     const message = await messagesApi.send(props.conversation.id, token)
+    playSendEffect(sendEffectForBody(token))
     onMessage(message)
   } catch (error) {
     toast.error(getErrorMessage(error))
@@ -435,6 +439,9 @@ const notice = computed(() =>
             </p>
             <div v-else-if="isStickerMessage(message.body)" class="relative py-1 pr-14">
               <StickerBubble :body="message.body" />
+            </div>
+            <div v-else-if="isJumboEmojiMessage(message.body)" class="relative py-1 pr-14">
+              <JumboEmoji :body="message.body" />
             </div>
             <p v-else class="whitespace-pre-wrap break-words">
               {{ message.body }}<span class="inline-block" :class="isMine(message) ? (message.editedAt ? 'w-[7.25rem]' : 'w-[4.25rem]') : message.editedAt ? 'w-[5.75rem]' : 'w-12'" />

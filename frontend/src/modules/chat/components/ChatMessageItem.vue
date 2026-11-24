@@ -4,10 +4,11 @@ import { Bot, Copy, MessageSquareReply, Pencil, Quote, Trash2 } from 'lucide-vue
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import EmojiStickerPicker from '@/components/common/EmojiStickerPicker.vue'
+import JumboEmoji from '@/components/common/JumboEmoji.vue'
 import RichText from '@/components/common/RichText.vue'
 import StickerBubble from '@/components/common/StickerBubble.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
-import { isStickerMessage } from '@/lib/emoji-stickers'
+import { isJumboEmojiMessage, isStickerMessage } from '@/lib/emoji-stickers'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -115,6 +116,7 @@ function saveEdit() {
       </div>
       <template v-else>
         <StickerBubble v-if="body && isStickerMessage(body)" class="mt-0.5" :body="body" />
+        <JumboEmoji v-else-if="body && isJumboEmojiMessage(body)" :body="body" :compact="reply" />
         <RichText v-else-if="body" :source="body" :issue-keys="issueKeys" compact />
         <span v-if="message.editedAt" class="text-[11px] text-muted-foreground">(edited)</span>
         <div v-if="isBot && message.meta" class="mt-2 max-w-2xl">

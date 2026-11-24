@@ -13,6 +13,7 @@ import { useDevice } from '@/composables/useDevice'
 import { useProjectRealtime } from '@/composables/useProjectRealtime'
 import { getErrorMessage } from '@/lib/http'
 import { toPlainText } from '@/lib/markdown'
+import { playSendEffect, sendEffectForBody } from '@/lib/send-effect'
 import { useSocketEvents } from '@/lib/socket-events'
 import { playSound } from '@/lib/sounds'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -264,6 +265,7 @@ async function sendSticker(token: string) {
   isSending.value = true
   try {
     const { message, reply } = await chatApi.send(projectId.value, { body: token, fileIds: [] })
+    playSendEffect(sendEffectForBody(token))
     upsert(message)
     if (reply) upsert(reply)
     await scrollToBottom(true)

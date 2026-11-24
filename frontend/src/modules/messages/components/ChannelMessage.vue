@@ -3,11 +3,12 @@ import { format, isToday, parseISO } from 'date-fns'
 import { Ban, Bookmark, BookmarkCheck, CircleAlert, Copy, Ellipsis, EyeOff, Forward, History, Link2, ListTodo, Pencil, Pin, PinOff, Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import EmojiStickerPicker from '@/components/common/EmojiStickerPicker.vue'
+import JumboEmoji from '@/components/common/JumboEmoji.vue'
 import MarkdownContent from '@/components/common/MarkdownContent.vue'
 import PersonCard from '@/components/common/PersonCard.vue'
 import StickerBubble from '@/components/common/StickerBubble.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
-import { isStickerMessage } from '@/lib/emoji-stickers'
+import { isJumboEmojiMessage, isStickerMessage } from '@/lib/emoji-stickers'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useDevice } from '@/composables/useDevice'
@@ -118,6 +119,7 @@ const hoverButton =
         <p v-if="message.important" class="mt-1 flex items-center gap-1 text-[11px] font-bold tracking-wide text-red-600 uppercase dark:text-red-400"><CircleAlert class="size-3.5" /> Important!</p>
         <h3 v-if="message.subject" class="mt-1 text-[15.5px] leading-snug font-semibold">{{ message.subject }}</h3>
         <StickerBubble v-if="message.body && !message.poll && isStickerMessage(message.body)" class="mt-1" :body="message.body" />
+        <JumboEmoji v-else-if="message.body && !message.poll && isJumboEmojiMessage(message.body)" :body="message.body" :compact="reply" />
         <MarkdownContent v-else-if="message.body && !message.poll" :source="message.body" class="compact mt-0.5 break-words" :class="reply ? 'text-[13.5px]' : 'text-[14px]'" />
         <MarkdownContent v-else-if="message.body && message.poll && message.body !== message.poll.question" :source="message.body" class="compact mt-0.5 break-words" :class="reply ? 'text-[13.5px]' : 'text-[14px]'" />
         <MessagePollCard v-if="message.poll && !message.deletedAt" :poll="message.poll" @vote="emit('votePoll', $event)" @close="emit('closePoll')" />

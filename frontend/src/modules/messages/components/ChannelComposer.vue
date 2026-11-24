@@ -5,6 +5,7 @@ import { toast } from 'vue-sonner'
 import EmojiStickerPicker from '@/components/common/EmojiStickerPicker.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { getErrorMessage } from '@/lib/http'
+import { playSendEffect, sendEffectForBody } from '@/lib/send-effect'
 import { formatBytes } from '@/lib/utils'
 import type { UserSummary } from '@/types/models'
 import { type ComposerExtras, type ConversationFile, EVERYONE_ID, messagesApi } from '../messages.api'
@@ -103,7 +104,8 @@ async function onSticker(token: string) {
   if (isSending.value || isUploading.value) return
   isSending.value = true
   try {
-    await props.send(token, { subject: null, important: false, fileIds: [] })
+    const ok = await props.send(token, { subject: null, important: false, fileIds: [] })
+    if (ok !== false) playSendEffect(sendEffectForBody(token))
   } finally {
     isSending.value = false
     input.value?.focus()
@@ -227,7 +229,9 @@ async function submit() {
       important: props.allowImportant && important.value,
       fileIds: pending.value.flatMap((item) => (item.uploaded ? [item.uploaded.id] : [])),
     }
-    if (await props.send(serialize(draft.value.trim()), extras)) {
+    const body = serialize(draft.value.trim())
+    if (await props.send(body, extras)) {
+      playSendEffect(sendEffectForBody(body))
       draft.value = ''
       subject.value = ''
       showSubject.value = false

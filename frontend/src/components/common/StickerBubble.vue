@@ -20,16 +20,16 @@ const props = withDefaults(
 const item = computed(() => props.sticker ?? parseSticker(props.body))
 
 const sizeClass = computed(() => {
-  if (props.size === 'sm') return { card: 'size-[4.5rem]', emoji: 'text-3xl', label: 'text-[9px]' }
-  if (props.size === 'lg') return { card: 'size-[7.5rem]', emoji: 'text-6xl', label: 'text-[11px]' }
-  return { card: 'size-[6.25rem]', emoji: 'text-5xl', label: 'text-[10px]' }
+  if (props.size === 'sm') return { card: 'size-[3.5rem]', emoji: 'text-xl', label: 'text-[8px]' }
+  if (props.size === 'lg') return { card: 'size-[5.5rem]', emoji: 'text-4xl', label: 'text-[10px]' }
+  return { card: 'size-[4.25rem]', emoji: 'text-3xl', label: 'text-[9px]' }
 })
 </script>
 
 <template>
   <div
     v-if="item"
-    class="sticker-bubble inline-flex flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-br p-2 shadow-soft ring-1 ring-black/5 dark:ring-white/10"
+    class="sticker-bubble inline-flex flex-col items-center justify-center gap-0.5 rounded-xl bg-gradient-to-br p-1.5 shadow-soft ring-1 ring-black/5 dark:ring-white/10"
     :class="cn(STICKER_TONE_CLASS[item.tone], sizeClass.card, enter && 'sticker-enter')"
     role="img"
     :aria-label="`${item.label} sticker`"
@@ -56,7 +56,9 @@ const sizeClass = computed(() => {
   .sticker-motion-wiggle,
   .sticker-motion-pop,
   .sticker-motion-heartbeat,
-  .sticker-motion-flicker {
+  .sticker-motion-flicker,
+  .sticker-motion-blast,
+  .sticker-motion-ring {
     animation: none !important;
   }
 }
@@ -104,6 +106,15 @@ const sizeClass = computed(() => {
 
 .sticker-motion-flicker {
   animation: sticker-flicker 1.3s ease-in-out infinite;
+}
+
+.sticker-motion-blast {
+  animation: sticker-blast 1.15s ease-in-out infinite;
+}
+
+.sticker-motion-ring {
+  animation: sticker-ring 1s ease-in-out infinite;
+  transform-origin: top center;
 }
 
 @keyframes sticker-enter {
@@ -257,6 +268,47 @@ const sizeClass = computed(() => {
   75% {
     transform: scale(1.1) translateY(-3px);
     filter: brightness(1.2);
+  }
+}
+
+@keyframes sticker-blast {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  20% {
+    transform: scale(1.28) rotate(-6deg);
+  }
+  40% {
+    transform: scale(0.92) rotate(5deg);
+  }
+  60% {
+    transform: scale(1.18) rotate(-3deg);
+  }
+  80% {
+    transform: scale(1.05) rotate(2deg);
+  }
+}
+
+@keyframes sticker-ring {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  15% {
+    transform: rotate(18deg);
+  }
+  30% {
+    transform: rotate(-16deg);
+  }
+  45% {
+    transform: rotate(12deg);
+  }
+  60% {
+    transform: rotate(-8deg);
+  }
+  75% {
+    transform: rotate(4deg);
   }
 }
 </style>

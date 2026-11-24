@@ -3,7 +3,7 @@ import { Smile, Sticker } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import StickerBubble from '@/components/common/StickerBubble.vue'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
-import { EMOJI_CATEGORIES, STICKERS, encodeSticker } from '@/lib/emoji-stickers'
+import { EMOJI_CATEGORIES, STICKER_PACKS, encodeSticker, stickersInPack } from '@/lib/emoji-stickers'
 import { cn } from '@/lib/utils'
 
 const props = withDefaults(
@@ -80,7 +80,7 @@ const btn = computed(() =>
       </div>
     </PopoverAnchor>
 
-    <PopoverContent :side="side" :align="align" class="w-[19.5rem] p-0 sm:w-[22rem]">
+    <PopoverContent :side="side" :align="align" class="w-[20rem] p-0 sm:w-[23rem]">
       <div class="flex border-b border-border">
         <button
           type="button"
@@ -128,20 +128,26 @@ const btn = computed(() =>
       </div>
 
       <div v-else class="max-h-72 overflow-y-auto bg-muted/30 p-2.5">
-        <p class="mb-2.5 px-0.5 text-[11px] text-muted-foreground">Animated sticker cards — tap to send with motion.</p>
-        <div class="grid grid-cols-4 gap-2">
-          <button
-            v-for="item in STICKERS"
-            :key="item.id"
-            type="button"
-            class="rounded-2xl transition-transform hover:scale-[1.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            :aria-label="`Send ${item.label} sticker`"
-            :title="item.label"
-            @click="pickSticker(item.id)"
-          >
-            <StickerBubble :sticker="item" size="sm" :enter="false" class="pointer-events-none mx-auto" />
-          </button>
-        </div>
+        <p class="mb-2 px-0.5 text-[11px] text-muted-foreground">Packs for celebrations, announcements, and work — tap to send.</p>
+        <section v-for="pack in STICKER_PACKS" :key="pack.id" class="mb-3 last:mb-0">
+          <div class="mb-1.5 px-0.5">
+            <p class="text-[10px] font-semibold tracking-wide text-foreground uppercase">{{ pack.label }}</p>
+            <p class="text-[10px] text-muted-foreground">{{ pack.hint }}</p>
+          </div>
+          <div class="grid grid-cols-4 gap-2">
+            <button
+              v-for="item in stickersInPack(pack.id)"
+              :key="item.id"
+              type="button"
+              class="rounded-2xl transition-transform hover:scale-[1.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              :aria-label="`Send ${item.label} sticker`"
+              :title="item.label"
+              @click="pickSticker(item.id)"
+            >
+              <StickerBubble :sticker="item" size="sm" :enter="false" class="pointer-events-none mx-auto" />
+            </button>
+          </div>
+        </section>
       </div>
     </PopoverContent>
   </Popover>

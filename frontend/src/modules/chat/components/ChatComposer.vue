@@ -9,6 +9,7 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import { Button } from '@/components/ui/button'
 import { getErrorMessage } from '@/lib/http'
 import { toPlainText } from '@/lib/markdown'
+import { playSendEffect, sendEffectForBody } from '@/lib/send-effect'
 import { formatBytes } from '@/lib/utils'
 import { issuesApi } from '@/modules/issues/api/issues.api'
 import type { Issue, UserSummary } from '@/types/models'
@@ -135,6 +136,7 @@ async function insertAtCaret(value: string) {
 /** Stickers always send as their own card message (never mixed into typed text). */
 function onSticker(token: string) {
   if (props.disabled || isUploading.value) return
+  playSendEffect(sendEffectForBody(token))
   emit('submit', { body: token, fileIds: [] })
 }
 
@@ -187,8 +189,10 @@ function serialize() {
 
 function submit() {
   if (!canSend.value) return
+  const body = serialize()
+  playSendEffect(sendEffectForBody(body))
   emit('submit', {
-    body: serialize(),
+    body,
     fileIds: pending.value.flatMap((item) => (item.uploaded ? [item.uploaded.id] : [])),
   })
   text.value = ''
