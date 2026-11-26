@@ -86,6 +86,8 @@ export interface ProjectProgress {
     averageLeadTimeDays: number | null
   }
   burnup: Array<{ date: string; bucket: 'day' | 'week'; scope: number; completed: number; scopePoints: number; completedPoints: number }>
+  /** Cumulative flow: issues in each status category at each bucket end. */
+  cfd: Array<{ date: string; bucket: 'day' | 'week'; todo: number; inProgress: number; done: number; total: number }>
   stages: Array<{
     id: string
     name: string

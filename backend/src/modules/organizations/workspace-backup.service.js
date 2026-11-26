@@ -3,6 +3,7 @@ import {
   Attachment,
   AutomationRule,
   Comment,
+  Component,
   Department,
   Issue,
   IssueLink,
@@ -212,9 +213,10 @@ async function serializeAttachment(file, embedBudget) {
 }
 
 async function backupProject(project, embedBudget) {
-  const [statuses, labels, members, sprints, issues, templates, recurringTasks, automationRules] = await Promise.all([
+  const [statuses, labels, components, members, sprints, issues, templates, recurringTasks, automationRules] = await Promise.all([
     Status.findAll({ where: { projectId: project.id }, order: [['position', 'ASC']] }),
     Label.findAll({ where: { projectId: project.id }, order: [['name', 'ASC']] }),
+    Component.findAll({ where: { projectId: project.id }, order: [['name', 'ASC']] }),
     ProjectMember.findAll({
       where: { projectId: project.id },
       include: [{ model: User, as: 'user', attributes: USER_SUMMARY_ATTRIBUTES }],
@@ -224,6 +226,7 @@ async function backupProject(project, embedBudget) {
       where: { projectId: project.id },
       include: [
         { model: Label, as: 'labels', attributes: ['id', 'name', 'color'], through: { attributes: [] } },
+        { model: Component, as: 'component', attributes: ['id', 'name', 'color', 'description'] },
         { model: User, as: 'assignee', attributes: USER_SUMMARY_ATTRIBUTES },
         { model: User, as: 'reporter', attributes: USER_SUMMARY_ATTRIBUTES },
         { model: User, as: 'watchers', attributes: USER_SUMMARY_ATTRIBUTES, through: { attributes: [] } },
@@ -284,6 +287,12 @@ async function backupProject(project, embedBudget) {
       wipLimit: status.wipLimit ?? null,
     })),
     labels: labels.map((label) => ({ id: label.id, name: label.name, color: label.color })),
+    components: components.map((component) => ({
+      id: component.id,
+      name: component.name,
+      description: component.description,
+      color: component.color,
+    })),
     members: members.map((member) => ({
       userId: member.userId,
       role: member.role,
@@ -341,6 +350,10 @@ async function backupProject(project, embedBudget) {
         createdAt: issue.createdAt,
         updatedAt: issue.updatedAt,
         labels: (issue.labels ?? []).map((label) => ({ id: label.id, name: label.name, color: label.color })),
+        componentId: issue.componentId ?? null,
+        component: issue.component
+          ? { id: issue.component.id, name: issue.component.name, color: issue.component.color, description: issue.component.description }
+          : null,
         watchers: (issue.watchers ?? []).map(userBrief),
         comments: (issue.comments ?? []).map((comment) => ({
           id: comment.id,

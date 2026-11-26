@@ -12,6 +12,7 @@ import { ProjectMember } from '../modules/projects/project-member.model.js';
 import { Status } from '../modules/statuses/status.model.js';
 import { WorkflowTransitionRule } from '../modules/workflow-transitions/workflow-transition.model.js';
 import { Label } from '../modules/labels/label.model.js';
+import { Component } from '../modules/components/component.model.js';
 import { CustomField, IssueCustomFieldValue } from '../modules/custom-fields/custom-field.model.js';
 import { Issue } from '../modules/issues/issue.model.js';
 import { IssueExternalLink } from '../modules/issues/issue-external-link.model.js';
@@ -143,6 +144,8 @@ WorkflowTransitionRule.belongsTo(Project, { as: 'project', foreignKey: 'projectI
 WorkflowTransitionRule.belongsTo(Status, { as: 'fromStatus', foreignKey: 'fromStatusId', ...cascade });
 Project.hasMany(Label, { as: 'labels', foreignKey: 'projectId', ...cascade });
 Label.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
+Project.hasMany(Component, { as: 'components', foreignKey: 'projectId', ...cascade });
+Component.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 Project.hasMany(Version, { as: 'versions', foreignKey: 'projectId', ...cascade });
 Version.belongsTo(Project, { as: 'project', foreignKey: 'projectId' });
 Project.hasMany(CustomField, { as: 'customFields', foreignKey: 'projectId', ...cascade });
@@ -163,6 +166,8 @@ Issue.belongsTo(Status, { as: 'status', foreignKey: 'statusId' });
 Status.hasMany(Issue, { as: 'issues', foreignKey: 'statusId' });
 Issue.belongsTo(Sprint, { as: 'sprint', foreignKey: 'sprintId', onDelete: 'SET NULL' });
 Sprint.hasMany(Issue, { as: 'issues', foreignKey: 'sprintId' });
+Issue.belongsTo(Component, { as: 'component', foreignKey: 'componentId', onDelete: 'SET NULL' });
+Component.hasMany(Issue, { as: 'issues', foreignKey: 'componentId' });
 Issue.belongsTo(User, { as: 'assignee', foreignKey: 'assigneeId', onDelete: 'SET NULL' });
 Issue.belongsTo(User, { as: 'reporter', foreignKey: 'reporterId', onDelete: 'SET NULL' });
 Issue.belongsTo(Issue, { as: 'parent', foreignKey: 'parentId', ...cascade });
@@ -406,6 +411,7 @@ export {
   Status,
   WorkflowTransitionRule,
   Label,
+  Component,
   Version,
   IssueFixVersion,
   IssueAffectedVersion,

@@ -386,6 +386,55 @@ export async function getCapacityReport(userId, organization, filters = {}) {
 
 const COMPLETION_MILESTONES = [25, 50, 75, 100];
 
+/**
+ * Cumulative flow: count of issues in each status category at each bucket end.
+ * Rebuilt from create time + status-change Activity (fromValue/toValue are status names).
+ */
+export function buildCfd(statuses, issues, statusChanges, startedAt, now, bucketDays) {
+  const statusById = new Map(statuses.map((status) => [status.id, status]));
+  const statusByName = new Map(statuses.map((status) => [status.name, status]));
+  const changesByIssue = new Map();
+  for (const change of statusChanges) {
+    if (!changesByIssue.has(change.issueId)) changesByIssue.set(change.issueId, []);
+    changesByIssue.get(change.issueId).push(change);
+  }
+
+  const categoryAt = (issue, at) => {
+    if (issue.createdAt >= at) return null;
+    const changes = changesByIssue.get(issue.id) ?? [];
+    const before = changes.filter((change) => change.createdAt < at);
+    if (before.length) {
+      const name = before.at(-1).toValue;
+      return statusByName.get(name)?.category ?? null;
+    }
+    if (changes[0]?.fromValue) {
+      return statusByName.get(changes[0].fromValue)?.category ?? statusById.get(issue.statusId)?.category ?? null;
+    }
+    return statusById.get(issue.statusId)?.category ?? null;
+  };
+
+  const firstDay = startOfDay(startedAt);
+  const ageDays = Math.max(0, Math.floor((startOfDay(now) - firstDay) / DAY_MS));
+  const bucketCount = Math.floor(ageDays / bucketDays) + 1;
+
+  return Array.from({ length: bucketCount }, (_, index) => {
+    const end = index === bucketCount - 1 ? addDays(startOfDay(now), 1) : addDays(firstDay, (index + 1) * bucketDays);
+    const counts = { todo: 0, in_progress: 0, done: 0 };
+    for (const issue of issues) {
+      const category = categoryAt(issue, end);
+      if (category && counts[category] !== undefined) counts[category] += 1;
+    }
+    return {
+      date: toDateOnly(addDays(firstDay, index * bucketDays)),
+      bucket: bucketDays === 7 ? 'week' : 'day',
+      todo: counts.todo,
+      inProgress: counts.in_progress,
+      done: counts.done,
+      total: counts.todo + counts.in_progress + counts.done,
+    };
+  });
+}
+
 /** Average days each issue spent in a status, rebuilt from the status-change history. */
 function measureStages(statuses, issues, statusChanges, isDone) {
   const issueById = new Map(issues.map((issue) => [issue.id, issue]));
@@ -571,6 +620,7 @@ export async function getProjectProgress(projectId) {
     ageDays,
     totals,
     burnup,
+    cfd: buildCfd(statuses, issues, statusChanges, startedAt, now, bucketDays),
     stages: measureStages(statuses, issues, statusChanges, isDone),
     forecast,
     milestones: milestones.map((milestone) => ({ ...milestone, date: milestone.date.toISOString() })),

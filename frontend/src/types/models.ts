@@ -325,6 +325,14 @@ export interface Label {
   color: string
 }
 
+/** Project area / subsystem work belongs to (one per issue). */
+export interface Component {
+  id: string
+  name: string
+  description?: string | null
+  color: string
+}
+
 export type CustomFieldType = 'text' | 'number' | 'date' | 'select' | 'multi_select' | 'checkbox' | 'url'
 
 export interface CustomField {
@@ -358,6 +366,7 @@ export type IssueFieldAclKey =
   | 'type'
   | 'parentId'
   | 'sprintId'
+  | 'componentId'
   | 'labelIds'
   | 'fixVersionIds'
   | 'affectedVersionIds'
@@ -460,6 +469,7 @@ export interface WorkflowTransitionRule {
 export interface ProjectDetail extends Project {
   statuses: Status[]
   labels: Label[]
+  components: Component[]
   customFields: CustomField[]
   workflowTransitions: WorkflowTransitionRule[]
   members: ProjectMember[]
@@ -496,6 +506,8 @@ export interface Issue {
   sprint: { id: string; name: string; state: SprintState } | null
   project: ProjectReference
   labels: Label[]
+  componentId?: string | null
+  component?: Component | null
   fixVersions?: Version[]
   affectedVersions?: Version[]
   storyPoints: number | null

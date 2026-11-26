@@ -1,5 +1,5 @@
 import multer from 'multer';
-import { Label, Project, ProjectMember, Status, User } from '../../database/models.js';
+import { Component, Label, Project, ProjectMember, Status, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { ISSUE_PRIORITIES, ISSUE_TYPES } from './issue.model.js';
@@ -34,7 +34,8 @@ const HEADER_ALIASES = {
   assignee: ['assignee', 'assignee name', 'assignee email'],
   dueDate: ['duedate', 'due date', 'due'],
   storyPoints: ['storypoints', 'story points', 'story point estimate'],
-  labels: ['labels', 'label', 'components', 'component'],
+  labels: ['labels', 'label'],
+  component: ['components', 'component', 'component name'],
   project: ['project', 'project key', 'projectkey'],
 };
 
@@ -212,6 +213,22 @@ async function resolveLabelIds(projectId, names, cache) {
   return ids;
 }
 
+/** Match or create a project component by name (first token if CSV lists several). */
+async function resolveComponentId(projectId, raw, cache) {
+  const name = splitLabels(raw)[0];
+  if (!name) return null;
+  const key = name.toLowerCase();
+  if (cache.has(key)) return cache.get(key);
+  let component = await Component.findOne({ where: { projectId, name } });
+  if (!component) {
+    const existing = [...cache.entries()].find(([cached]) => cached === key);
+    if (existing) return existing[1];
+    component = await Component.create({ projectId, name: name.slice(0, 80), color: '#64748b' });
+  }
+  cache.set(key, component.id);
+  return component.id;
+}
+
 /**
  * Import tasks from a Vector or Jira-style CSV into one project.
  * Keys from the file are ignored — Vector always assigns new keys.
@@ -254,6 +271,9 @@ export async function importIssuesCsv({ projectId, buffer, actor }) {
   const labelCache = new Map(
     (await Label.findAll({ where: { projectId } })).map((label) => [label.name.toLowerCase(), label.id]),
   );
+  const componentCache = new Map(
+    (await Component.findAll({ where: { projectId } })).map((component) => [component.name.toLowerCase(), component.id]),
+  );
 
   const created = [];
   const errors = [];
@@ -282,6 +302,7 @@ export async function importIssuesCsv({ projectId, buffer, actor }) {
       const assigneeRaw = String(record.assignee ?? '').trim();
       const resolvedAssignee = assigneeRaw ? findAssignee(assigneeRaw) : undefined;
       const labelIds = await resolveLabelIds(projectId, splitLabels(record.labels), labelCache);
+      const componentId = record.component ? await resolveComponentId(projectId, record.component, componentCache) : null;
       const issue = await createIssue(
         {
           projectId,
@@ -295,6 +316,7 @@ export async function importIssuesCsv({ projectId, buffer, actor }) {
           dueDate,
           storyPoints,
           labelIds,
+          ...(componentId ? { componentId } : {}),
         },
         actor,
         { source: 'csv_import' },

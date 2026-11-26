@@ -14,6 +14,7 @@ const editableFields = {
   assigneeId: uuid.nullable(),
   parentId: uuid.nullable(),
   sprintId: uuid.nullable(),
+  componentId: uuid.nullable(),
   storyPoints: z.number().int().min(0).max(100).nullable(),
   estimateMinutes: z.number().int().min(0).max(100000).nullable(),
   startDate: dateOnly.nullable(),
@@ -82,6 +83,7 @@ export const listIssuesQuery = z.object({
   type: z.string().optional(),
   priority: z.string().optional(),
   labelId: z.string().optional(),
+  componentId: z.string().optional(),
   fixVersionId: z.string().optional(),
   affectedVersionId: z.string().optional(),
   /** One custom-field constraint (AND with other filters). */

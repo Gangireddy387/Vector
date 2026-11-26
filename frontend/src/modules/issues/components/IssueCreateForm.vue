@@ -19,6 +19,7 @@ import type { CreateIssueDefaults } from '@/stores/ui.store'
 import type { IssueDetail, IssuePriority, IssueTemplate, IssueType, Sprint } from '@/types/models'
 import { aiApi } from '../api/ai.api'
 import { type CreateIssueInput, issuesApi } from '../api/issues.api'
+import ComponentSelect from './pickers/ComponentSelect.vue'
 import IssueTypeSelect from './pickers/IssueTypeSelect.vue'
 import LabelMultiSelect from './pickers/LabelMultiSelect.vue'
 import MemberSelect from './pickers/MemberSelect.vue'
@@ -55,6 +56,7 @@ const form = reactive({
   assigneeId: (props.defaults.assigneeId ?? null) as string | null,
   parentId: (props.defaults.parentId ?? null) as string | null,
   sprintId: (props.defaults.sprintId ?? null) as string | null,
+  componentId: (props.defaults.componentId ?? null) as string | null,
   dueDate: props.defaults.dueDate ?? '',
   storyPoints: props.defaults.storyPoints?.toString() ?? '',
   labelIds: [...(props.defaults.labelIds ?? [])],
@@ -118,6 +120,7 @@ watch(projectId, (id, previous) => {
     form.assigneeId = null
     form.parentId = props.defaults.parentId ?? null
     form.sprintId = null
+    form.componentId = null
     selectedTemplateId.value = ''
   }
   void loadProjectContext(id)
@@ -202,6 +205,7 @@ function buildPayload(): CreateIssueInput {
     subtaskTitles: subtasks.value,
   }
   if (project.value?.type === 'scrum') payload.sprintId = form.sprintId
+  if (form.componentId) payload.componentId = form.componentId
   if (form.type !== 'epic' && form.parentId) payload.parentId = form.parentId
   if (result.assigneeId !== undefined) payload.assigneeId = result.assigneeId
   else if (assigneeTouched.value || form.assigneeId) payload.assigneeId = form.assigneeId
@@ -377,6 +381,9 @@ defineExpose({ createAnother })
               <NumberField id="create-points" v-model="form.storyPoints" :min="0" :max="100" placeholder="–" />
             </FormField>
           </div>
+          <FormField v-if="project?.components?.length" label="Component" for="create-component" :class="compact && 'sm:col-span-2'">
+            <ComponentSelect id="create-component" v-model="form.componentId" :components="project.components" />
+          </FormField>
           <FormField label="Labels" :class="compact && 'sm:col-span-2'">
             <LabelMultiSelect v-model="form.labelIds" :labels="project?.labels ?? []" :project-id="projectId" />
           </FormField>

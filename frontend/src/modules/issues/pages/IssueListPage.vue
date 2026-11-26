@@ -45,6 +45,7 @@ const FILTER_KEYS: FilterKey[] = [
   'type',
   'priority',
   'labelId',
+  'componentId',
   'sprintId',
   'parentId',
   'overdue',
@@ -281,6 +282,7 @@ useHotkeys({
         v-model="filters"
         :members="members"
         :labels="project?.labels"
+        :components="project?.components"
         :sprints="sprints"
         :epics="epics"
         :custom-fields="project?.customFields"
@@ -504,6 +506,7 @@ useHotkeys({
             v-model="filters"
             :members="members"
             :labels="project?.labels"
+            :components="project?.components"
             :sprints="sprints"
             :epics="epics"
             :custom-fields="project?.customFields"

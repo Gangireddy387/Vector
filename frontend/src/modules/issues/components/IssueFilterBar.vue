@@ -14,7 +14,7 @@ import {
   VALUELESS_OPERATORS,
   type ValueKind,
 } from '@/modules/automation/automation.constants'
-import type { ConditionOperator, CustomField, Label, Sprint, StatusCategory, UserSummary } from '@/types/models'
+import type { Component, ConditionOperator, CustomField, Label, Sprint, StatusCategory, UserSummary } from '@/types/models'
 import type { IssueFilters } from '../api/issues.api'
 
 export type FilterKey =
@@ -24,6 +24,7 @@ export type FilterKey =
   | 'type'
   | 'priority'
   | 'labelId'
+  | 'componentId'
   | 'sprintId'
   | 'parentId'
   | 'overdue'
@@ -35,6 +36,7 @@ const props = withDefaults(
   defineProps<{
     members: UserSummary[]
     labels?: Label[]
+    components?: Component[]
     sprints?: Sprint[]
     epics?: Array<{ id: string; key: string; title: string }>
     customFields?: CustomField[]
@@ -44,6 +46,7 @@ const props = withDefaults(
   }>(),
   {
     labels: () => [],
+    components: () => [],
     sprints: () => [],
     epics: () => [],
     customFields: () => [],
@@ -70,6 +73,10 @@ const categoryOptions = (Object.keys(STATUS_CATEGORY_META) as StatusCategory[]).
 const typeOptions = ISSUE_TYPES.map((type) => ({ value: type, label: ISSUE_TYPE_META[type].label, color: ISSUE_TYPE_META[type].color }))
 const priorityOptions = PRIORITIES.map((priority) => ({ value: priority, label: PRIORITY_META[priority].label, color: PRIORITY_META[priority].color }))
 const labelOptions = computed(() => props.labels.map((label) => ({ value: label.id, label: label.name, color: label.color })))
+const componentOptions = computed(() => [
+  { value: 'none', label: 'No component' },
+  ...props.components.map((component) => ({ value: component.id, label: component.name, color: component.color })),
+])
 const sprintOptions = computed(() => [
   { value: 'active', label: 'Active sprint' },
   { value: 'backlog', label: 'Backlog' },
@@ -169,6 +176,13 @@ const hasFilters = computed(() => Object.values(filters.value).some(Boolean))
         label="Label"
         :options="labelOptions"
         @update:model-value="(value) => set('labelId', value)"
+      />
+      <FilterDropdown
+        v-if="componentOptions.length > 1"
+        :model-value="filters.componentId"
+        label="Component"
+        :options="componentOptions"
+        @update:model-value="(value) => set('componentId', value)"
       />
       <FilterDropdown v-if="showSprint" :model-value="filters.sprintId" label="Sprint" :options="sprintOptions" @update:model-value="(value) => set('sprintId', value)" />
       <FilterDropdown

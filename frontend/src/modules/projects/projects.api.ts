@@ -1,6 +1,7 @@
 import { http } from '@/lib/http'
 import type {
   Activity,
+  Component,
   CustomField,
   CustomFieldType,
   Label,
@@ -79,6 +80,18 @@ export const projectsApi = {
   updateLabel: (projectId: string, labelId: string, changes: { name?: string; color?: string }) =>
     http.patch<{ label: Label }>(`/projects/${projectId}/labels/${labelId}`, changes).then((r) => r.data.label),
   removeLabel: (projectId: string, labelId: string) => http.delete(`/projects/${projectId}/labels/${labelId}`),
+
+  createComponent: (projectId: string, input: { name: string; description?: string | null; color?: string }) =>
+    http.post<{ component: Component }>(`/projects/${projectId}/components`, input).then((r) => r.data.component),
+  updateComponent: (
+    projectId: string,
+    componentId: string,
+    changes: { name?: string; description?: string | null; color?: string },
+  ) =>
+    http
+      .patch<{ component: Component }>(`/projects/${projectId}/components/${componentId}`, changes)
+      .then((r) => r.data.component),
+  removeComponent: (projectId: string, componentId: string) => http.delete(`/projects/${projectId}/components/${componentId}`),
 
   createCustomField: (
     projectId: string,

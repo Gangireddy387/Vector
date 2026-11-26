@@ -104,7 +104,7 @@ export const authApi = {
   createApiToken: (payload: { name: string; expiresInDays?: number | null }) =>
     http.post<ApiTokenInfo & { token: string }>('/auth/me/tokens', payload).then((r) => r.data),
   revokeApiToken: (tokenId: string) => http.delete(`/auth/me/tokens/${tokenId}`),
-  /** Downloads a JSON export of profile, memberships, preferences and issue keys. */
+  /** Downloads a JSON portable copy of profile, authored content, uploads and related account data. */
   exportAccount: async () => {
     const response = await http.get<Blob>('/auth/me/export', { responseType: 'blob' })
     const url = URL.createObjectURL(response.data)

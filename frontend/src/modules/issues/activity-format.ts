@@ -13,6 +13,7 @@ const FIELD_NAMES: Record<string, string> = {
   startDate: 'start date',
   sprint: 'sprint',
   parent: 'parent',
+  component: 'component',
   labels: 'labels',
 }
 

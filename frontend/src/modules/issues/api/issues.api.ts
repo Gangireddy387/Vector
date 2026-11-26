@@ -10,6 +10,7 @@ export interface IssueFilters {
   type?: string
   priority?: string
   labelId?: string
+  componentId?: string
   sprintId?: string
   parentId?: string
   /** One custom-field constraint (AND with other filters). */
@@ -35,6 +36,7 @@ export interface IssueFields {
   assigneeId: string | null
   parentId: string | null
   sprintId: string | null
+  componentId: string | null
   storyPoints: number | null
   estimateMinutes: number | null
   startDate: string | null

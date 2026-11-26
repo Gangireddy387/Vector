@@ -19,6 +19,7 @@ import { releasesApi } from '@/modules/releases/releases.api'
 import type { CustomField, CustomFieldValue, IssueDetail, IssueFieldAclKey, ProjectDetail, Sprint, Version } from '@/types/models'
 import { type UpdateIssueInput, issuesApi } from '../../api/issues.api'
 import IssueTypeSelect from '../pickers/IssueTypeSelect.vue'
+import ComponentSelect from '../pickers/ComponentSelect.vue'
 import LabelMultiSelect from '../pickers/LabelMultiSelect.vue'
 import MemberSelect from '../pickers/MemberSelect.vue'
 import ParentEpicSelect from '../pickers/ParentEpicSelect.vue'
@@ -261,6 +262,16 @@ async function setStatus(statusId: string) {
           size="sm"
           :disabled="!fieldEditable('sprintId')"
           @update:model-value="(value) => setField('sprintId', value)"
+        />
+      </IssueFieldRow>
+      <IssueFieldRow v-if="project.components?.length" label="Component" for="field-component">
+        <ComponentSelect
+          id="field-component"
+          :model-value="issue.componentId ?? null"
+          :components="project.components"
+          size="sm"
+          :disabled="!fieldEditable('componentId')"
+          @update:model-value="(value) => setField('componentId', value)"
         />
       </IssueFieldRow>
       <IssueFieldRow label="Labels">

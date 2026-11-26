@@ -1,6 +1,7 @@
 import { Op, literal } from 'sequelize';
 import {
   Attachment,
+  Component,
   CustomField,
   Issue,
   IssueExternalLink,
@@ -54,7 +55,7 @@ import {
 const POSITION_GAP = 1024;
 const TRACKED_FIELDS = [
   'title', 'description', 'type', 'priority', 'statusId', 'assigneeId', 'parentId',
-  'sprintId', 'storyPoints', 'estimateMinutes', 'startDate', 'dueDate', 'position',
+  'sprintId', 'componentId', 'storyPoints', 'estimateMinutes', 'startDate', 'dueDate', 'position',
 ];
 const SILENT_FIELDS = new Set(['position']);
 const FIELD_LABELS = {
@@ -62,6 +63,7 @@ const FIELD_LABELS = {
   assigneeId: 'assignee',
   parentId: 'parent',
   sprintId: 'sprint',
+  componentId: 'component',
   fixVersions: 'fix versions',
   affectedVersions: 'affected versions',
 };
@@ -101,6 +103,8 @@ async function describeValue(field, value) {
       return (await Sprint.findByPk(value, { attributes: ['name'] }))?.name ?? null;
     case 'parentId':
       return (await Issue.findByPk(value, { attributes: ['key'] }))?.key ?? null;
+    case 'componentId':
+      return (await Component.findByPk(value, { attributes: ['name'] }))?.name ?? null;
     case 'description':
       return null;
     default:
@@ -144,6 +148,10 @@ async function assertRelations(projectId, data, currentIssueId = null) {
     if (!parent) throw ApiError.badRequest('Parent task does not belong to this project');
     if (parent.type === 'subtask') throw ApiError.badRequest('Sub-tasks cannot have their own sub-tasks');
     if (currentIssueId) await assertNotAncestor(currentIssueId, parent);
+  }
+  if (data.componentId) {
+    const component = await Component.findOne({ where: { id: data.componentId, projectId } });
+    if (!component) throw ApiError.badRequest('Component does not belong to this project');
   }
   if (data.labelIds?.length) {
     const unique = [...new Set(data.labelIds)];
@@ -241,6 +249,12 @@ async function buildListWhere(userId, filters) {
   if (labelIds.length) {
     const tagged = await IssueLabel.findAll({ where: { labelId: labelIds }, attributes: ['issueId'], raw: true });
     where.id = [...new Set(tagged.map((row) => row.issueId))];
+  }
+
+  const componentFilter = toList(filters.componentId);
+  if (componentFilter.length) {
+    const ids = componentFilter.filter((value) => value !== 'none');
+    where.componentId = matchIdsOrNull(ids, componentFilter.includes('none'));
   }
 
   const fixVersionIds = toList(filters.fixVersionId);
@@ -375,7 +389,7 @@ export async function exportIssuesCsv(userId, filters) {
     const text = value == null ? '' : String(value);
     return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   };
-  const header = ['key', 'title', 'type', 'status', 'priority', 'assignee', 'dueDate', 'storyPoints', 'labels', 'project', 'updatedAt'];
+  const header = ['key', 'title', 'type', 'status', 'priority', 'assignee', 'dueDate', 'storyPoints', 'labels', 'component', 'project', 'updatedAt'];
   const lines = [
     header.join(','),
     ...issues.map((issue) =>
@@ -389,6 +403,7 @@ export async function exportIssuesCsv(userId, filters) {
         issue.dueDate ?? '',
         issue.storyPoints ?? '',
         (issue.labels ?? []).map((label) => label.name).join('; '),
+        issue.component?.name ?? '',
         issue.project?.key ?? '',
         issue.updatedAt ?? '',
       ]
@@ -520,6 +535,7 @@ export async function createIssue(rawInput, actor, context = {}) {
         reporterId: actor?.id ?? null,
         parentId: input.parentId ?? null,
         sprintId: input.sprintId ?? null,
+        componentId: input.componentId ?? null,
         storyPoints: input.storyPoints ?? null,
         estimateMinutes: input.estimateMinutes ?? null,
         startDate: input.startDate ?? null,
@@ -579,7 +595,9 @@ export async function updateIssue(issueId, changes, actor, context = {}) {
   if (nextType === 'subtask' && !nextParentId) throw ApiError.badRequest('Sub-tasks need a parent task');
 
   const relationChanges = Object.fromEntries(
-    ['statusId', 'assigneeId', 'sprintId', 'parentId'].filter((field) => diff[field]).map((field) => [field, changes[field]]),
+    ['statusId', 'assigneeId', 'sprintId', 'parentId', 'componentId']
+      .filter((field) => diff[field])
+      .map((field) => [field, changes[field]]),
   );
   if (changes.labelIds) relationChanges.labelIds = changes.labelIds;
   if (changes.fixVersionIds) relationChanges.fixVersionIds = changes.fixVersionIds;

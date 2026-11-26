@@ -1,15 +1,17 @@
 import { col, fn } from 'sequelize';
-import { Attachment, Comment, Issue, Label, Project, Sprint, Status, User, Version } from '../../database/models.js';
+import { Attachment, Comment, Component, Issue, Label, Project, Sprint, Status, User, Version } from '../../database/models.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 
 export const STATUS_SUMMARY_ATTRIBUTES = ['id', 'name', 'category', 'color'];
 export const ISSUE_REFERENCE_ATTRIBUTES = ['id', 'key', 'title', 'type', 'priority'];
 export const VERSION_SUMMARY_ATTRIBUTES = ['id', 'name', 'status', 'releaseDate'];
+export const COMPONENT_SUMMARY_ATTRIBUTES = ['id', 'name', 'color', 'description'];
 
 export const issueListInclude = () => [
   { model: User, as: 'assignee', attributes: USER_SUMMARY_ATTRIBUTES },
   { model: Status, as: 'status', attributes: STATUS_SUMMARY_ATTRIBUTES },
   { model: Label, as: 'labels', attributes: ['id', 'name', 'color'], through: { attributes: [] } },
+  { model: Component, as: 'component', attributes: COMPONENT_SUMMARY_ATTRIBUTES },
   { model: Version, as: 'fixVersions', attributes: VERSION_SUMMARY_ATTRIBUTES, through: { attributes: [] } },
   { model: Version, as: 'affectedVersions', attributes: VERSION_SUMMARY_ATTRIBUTES, through: { attributes: [] } },
   { model: Issue, as: 'parent', attributes: ISSUE_REFERENCE_ATTRIBUTES },

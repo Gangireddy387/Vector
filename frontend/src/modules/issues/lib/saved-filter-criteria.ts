@@ -28,6 +28,8 @@ export function summarizeCriteria(criteria: SavedCriteria): string[] {
     chips.push(PRIORITY_META[criteria.priority as IssuePriority].label)
   } else if (criteria.priority) chips.push(String(criteria.priority))
   if (criteria.labelId) chips.push('Label')
+  if (criteria.componentId === 'none') chips.push('No component')
+  else if (criteria.componentId) chips.push('Component')
   if (criteria.sprintId === 'active') chips.push('Active sprint')
   else if (criteria.sprintId === 'backlog') chips.push('Backlog')
   else if (criteria.sprintId) chips.push('Sprint')
@@ -69,6 +71,7 @@ export function sanitizeCriteria(criteria: SavedCriteria): Record<string, string
     'type',
     'priority',
     'labelId',
+    'componentId',
     'sprintId',
     'parentId',
     'customFieldId',

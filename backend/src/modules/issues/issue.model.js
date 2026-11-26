@@ -23,6 +23,8 @@ Issue.init(
     reporterId: { type: DataTypes.UUID, allowNull: true },
     parentId: { type: DataTypes.UUID, allowNull: true },
     sprintId: { type: DataTypes.UUID, allowNull: true },
+    /** Project component this work belongs to (optional). */
+    componentId: { type: DataTypes.UUID, allowNull: true },
     storyPoints: { type: DataTypes.INTEGER, allowNull: true },
     estimateMinutes: { type: DataTypes.INTEGER, allowNull: true },
     startDate: { type: DataTypes.DATEONLY, allowNull: true },
@@ -42,6 +44,7 @@ Issue.init(
       { fields: ['status_id'] },
       { fields: ['assignee_id'] },
       { fields: ['sprint_id'] },
+      { fields: ['component_id'] },
       { fields: ['parent_id'] },
     ],
   },

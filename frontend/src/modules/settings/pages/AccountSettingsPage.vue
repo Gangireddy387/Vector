@@ -521,7 +521,9 @@ function preferenceValue(key: (typeof NOTIFICATION_PREFS)[number]['key']) {
               <Toolbar variant="wrap" dense justify="between" class="rounded-xl border border-border/70 bg-muted/20 px-3.5 py-3">
                 <div class="min-w-0">
                   <p class="text-sm font-medium">Export data</p>
-                  <p class="mt-0.5 text-xs text-muted-foreground">JSON with your profile, memberships, preferences and assigned task keys.</p>
+                  <p class="mt-0.5 text-xs text-muted-foreground">
+                    JSON portable copy: profile, tasks, comments, chat and DMs, files you uploaded, work logs, standups, meetings, calendar, wiki and more.
+                  </p>
                 </div>
                 <Button variant="outline" :loading="isExporting" @click="exportData"><Download /> Export data</Button>
               </Toolbar>

@@ -2,11 +2,12 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { Op } from 'sequelize';
 import { config } from '../../config/index.js';
-import { Comment, Issue, Organization, OrganizationMember, Project, User } from '../../database/models.js';
+import { Organization, OrganizationMember, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { disconnectUser } from '../../shared/realtime/socket.js';
 import { sendEmail } from '../../shared/services/email.service.js';
 import { accountReadyEmail, passwordResetEmail } from '../../shared/services/email-templates.js';
+import { buildAccountExport } from './account-export.service.js';
 import {
   consumeRecoveryCode,
   createRecoveryCodes,
@@ -334,85 +335,11 @@ export async function revokeOtherSessions(user, auditMeta = {}) {
 }
 
 /**
- * JSON export of the signed-in person's profile, memberships, preferences, assigned/reported/watched issues, and comment count.
+ * Portable JSON copy of the signed-in person's data (GDPR / UK GDPR subject-access style).
+ * See account-export.service.js for the v2 payload (comments, chat, files, meetings, etc.).
  */
 export async function exportAccount(user) {
-  const memberships = await OrganizationMember.findAll({
-    where: { userId: user.id },
-    include: [{ model: Organization, as: 'organization', attributes: ['id', 'name', 'slug', 'status'] }],
-  });
-  const issueAttrs = ['key', 'title', 'projectId', 'updatedAt'];
-  const issueInclude = [{ model: Project, as: 'project', attributes: ['key', 'name'] }];
-  const mapIssue = (issue) => ({
-    key: issue.key,
-    title: issue.title,
-    projectKey: issue.project?.key ?? null,
-    projectName: issue.project?.name ?? null,
-    updatedAt: issue.updatedAt,
-  });
-  const [assigned, reported, watched, commentsAuthored] = await Promise.all([
-    Issue.findAll({
-      where: { assigneeId: user.id },
-      attributes: issueAttrs,
-      include: issueInclude,
-      order: [['updatedAt', 'DESC']],
-      limit: 2000,
-    }),
-    Issue.findAll({
-      where: { reporterId: user.id },
-      attributes: issueAttrs,
-      include: issueInclude,
-      order: [['updatedAt', 'DESC']],
-      limit: 2000,
-    }),
-    user.getWatchedIssues({
-      attributes: issueAttrs,
-      include: issueInclude,
-      order: [['updatedAt', 'DESC']],
-      limit: 2000,
-      joinTableAttributes: [],
-    }),
-    Comment.count({ where: { authorId: user.id } }),
-  ]);
-  return {
-    exportedAt: new Date().toISOString(),
-    profile: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      title: user.title,
-      timezone: user.timezone,
-      about: user.about,
-      location: user.location,
-      phone: user.phone,
-      skills: user.skills ?? [],
-      avatarColor: user.avatarColor,
-      avatarUrl: user.avatarUrl ?? null,
-      status: user.status,
-      mfaEnabled: Boolean(user.mfaEnabled),
-      createdAt: user.createdAt,
-      lastSeenAt: user.lastSeenAt,
-    },
-    preferences: user.preferences ?? {},
-    memberships: memberships.map((membership) => ({
-      organizationId: membership.organizationId,
-      role: membership.role,
-      status: membership.status,
-      joinedAt: membership.createdAt,
-      organization: membership.organization
-        ? {
-            id: membership.organization.id,
-            name: membership.organization.name,
-            slug: membership.organization.slug,
-            status: membership.organization.status,
-          }
-        : null,
-    })),
-    assignedIssues: assigned.map(mapIssue),
-    reportedIssues: reported.map(mapIssue),
-    watchedIssues: watched.map(mapIssue),
-    commentsAuthored,
-  };
+  return buildAccountExport(user);
 }
 
 /**

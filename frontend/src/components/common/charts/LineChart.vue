@@ -5,6 +5,8 @@ export interface LineSeries {
   name: string
   color: string
   values: Array<number | null>
+  /** When set (e.g. stacked CFD), shown in the hover tooltip instead of `values`. */
+  tooltipValues?: Array<number | null>
   dashed?: boolean
   area?: boolean
 }
@@ -115,7 +117,7 @@ const hoverLeftPercent = computed(() => (hoverIndex.value === null ? 0 : (x(hove
         <p class="mb-1 font-semibold">{{ tooltipLabels?.[hoverIndex] ?? labels[hoverIndex] }}</p>
         <p v-for="serie in series" :key="serie.name" class="flex items-center justify-between gap-4">
           <span class="flex items-center gap-1.5 text-muted-foreground"><span class="size-2" :style="{ backgroundColor: serie.color }" />{{ serie.name }}</span>
-          <span class="font-medium tabular-nums">{{ serie.values[hoverIndex] ?? '—' }}</span>
+          <span class="font-medium tabular-nums">{{ serie.tooltipValues?.[hoverIndex] ?? serie.values[hoverIndex] ?? '—' }}</span>
         </p>
       </div>
     </div>

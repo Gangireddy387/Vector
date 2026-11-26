@@ -116,6 +116,7 @@ const ADDED_COLUMNS = [
   { table: 'wiki_pages', column: 'position', definition: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 } },
   { table: 'attachments', column: 'comment_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'attachments', column: 'thumb_storage_key', definition: { type: DataTypes.STRING(255), allowNull: true } },
+  { table: 'issues', column: 'component_id', definition: { type: DataTypes.UUID, allowNull: true } },
 ];
 
 /** Single-column unique constraints that became scoped to an organization. */
@@ -153,6 +154,7 @@ const INDEXES = [
   { name: 'comments_created_at', table: 'comments', columns: ['created_at'] },
   { name: 'issue_watchers_user', table: 'issue_watchers', columns: ['user_id'] },
   { name: 'issue_labels_label', table: 'issue_labels', columns: ['label_id'] },
+  { name: 'issues_component', table: 'issues', columns: ['component_id'] },
   { name: 'conversation_messages_conversation_created', table: 'conversation_messages', columns: ['conversation_id', 'created_at'] },
 ];
 

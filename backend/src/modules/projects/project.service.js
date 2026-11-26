@@ -1,5 +1,6 @@
 import { Op, fn, col } from 'sequelize';
 import {
+  Component,
   CustomField,
   Issue,
   IssueWatcher,
@@ -194,6 +195,7 @@ export async function getProject(projectId, userId) {
       { model: User, as: 'lead', attributes: USER_SUMMARY_ATTRIBUTES },
       { model: Status, as: 'statuses' },
       { model: Label, as: 'labels' },
+      { model: Component, as: 'components' },
       { model: CustomField, as: 'customFields' },
       { model: WorkflowTransitionRule, as: 'workflowTransitions' },
       {
@@ -205,6 +207,7 @@ export async function getProject(projectId, userId) {
     order: [
       [{ model: Status, as: 'statuses' }, 'position', 'ASC'],
       [{ model: Label, as: 'labels' }, 'name', 'ASC'],
+      [{ model: Component, as: 'components' }, 'name', 'ASC'],
       [{ model: CustomField, as: 'customFields' }, 'position', 'ASC'],
     ],
   });

@@ -86,6 +86,38 @@ const burnupLabels = computed(() => progress.value?.burnup.map((point) => format
 const burnupTooltips = computed(
   () => progress.value?.burnup.map((point) => (point.bucket === 'week' ? `Week of ${formatDate(point.date, 'd MMM')}` : formatDate(point.date, 'EEE, d MMM'))) ?? [],
 )
+
+/** Stacked CFD: plot cumulative heights; tooltip shows the band (category) counts. */
+const cfdSeries = computed(() => {
+  const points = progress.value?.cfd ?? []
+  return [
+    {
+      name: 'Done',
+      color: 'var(--success)',
+      values: points.map((point) => point.todo + point.inProgress + point.done),
+      tooltipValues: points.map((point) => point.done),
+      area: true,
+    },
+    {
+      name: 'In progress',
+      color: 'var(--warning)',
+      values: points.map((point) => point.todo + point.inProgress),
+      tooltipValues: points.map((point) => point.inProgress),
+      area: true,
+    },
+    {
+      name: 'To do',
+      color: 'var(--muted-foreground)',
+      values: points.map((point) => point.todo),
+      tooltipValues: points.map((point) => point.todo),
+      area: true,
+    },
+  ]
+})
+const cfdLabels = computed(() => progress.value?.cfd.map((point) => formatDate(point.date, 'd MMM')) ?? [])
+const cfdTooltips = computed(
+  () => progress.value?.cfd.map((point) => (point.bucket === 'week' ? `Week of ${formatDate(point.date, 'd MMM')}` : formatDate(point.date, 'EEE, d MMM'))) ?? [],
+)
 </script>
 
 <template>
@@ -150,6 +182,24 @@ const burnupTooltips = computed(
             </Card>
             <MilestoneTimeline :milestones="progress.milestones" />
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Cumulative flow</CardTitle>
+              <CardDescription>
+                How work sits across To do, In progress and Done over time. A healthy flow grows Done while In progress stays steady.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <EmptyState
+                v-if="!progress.cfd?.length || !progress.totals.issues"
+                title="Flow appears as work moves"
+                description="Move tasks through statuses and this chart will show how work accumulates in each stage."
+                class="border-0 py-10 shadow-none"
+              />
+              <LineChart v-else :labels="cfdLabels" :tooltip-labels="cfdTooltips" :series="cfdSeries" :height="240" />
+            </CardContent>
+          </Card>
 
           <StagePipeline :stages="progress.stages" :total="progress.totals.issues" />
         </template>
