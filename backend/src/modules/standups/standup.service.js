@@ -1,7 +1,7 @@
 import { col, fn, Op } from 'sequelize';
-import { Activity, Issue, IssueLink, Project, ProjectMember, StandupUpdate, Status, User } from '../../database/models.js';
+import { Activity, ChatMessage, Issue, IssueLink, Project, ProjectMember, StandupUpdate, Status, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
-import { emitToProject } from '../../shared/realtime/socket.js';
+import { emitToProject, emitToUser } from '../../shared/realtime/socket.js';
 import { resolveIssueRefs } from '../../shared/utils/issue-refs.js';
 import { addDaysToDate } from '../../shared/utils/timezone.js';
 import { toDateOnly } from '../../shared/utils/query.js';
@@ -137,6 +137,91 @@ export async function getStandupDay(projectId, date, { days = 30 } = {}) {
 
 const clean = (value) => (typeof value === 'string' && value.trim() ? value.trim() : null);
 
+async function hasStandupAnnouncement(projectId, userId, date) {
+  const rows = await ChatMessage.findAll({
+    where: { projectId, authorId: userId, kind: 'user' },
+    attributes: ['id', 'meta'],
+    order: [['createdAt', 'DESC']],
+    limit: 80,
+  });
+  return rows.some((row) => row.meta?.type === 'standup_posted' && String(row.meta?.date) === String(date));
+}
+
+const dateKey = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string') return value.slice(0, 10);
+  return toDateOnly(new Date(value));
+};
+
+/** After post, remove private `/standup` drafts so the review form does not linger in Work chat. */
+async function dismissPrivateStandupDrafts(projectId, userId, date) {
+  const want = dateKey(date);
+  const rows = await ChatMessage.findAll({
+    where: { projectId },
+    attributes: ['id', 'kind', 'authorId', 'meta'],
+    order: [['createdAt', 'DESC']],
+    limit: 120,
+  });
+  const removeIds = rows
+    .filter((row) => {
+      const meta = row.meta ?? {};
+      if (meta.type === 'standup_draft' && meta.forUserId === userId && dateKey(meta.date) === want) return true;
+      if (meta.type === 'assistant_request' && meta.command === 'standup' && (meta.forUserId === userId || row.authorId === userId))
+        return true;
+      return false;
+    })
+    .map((row) => row.id);
+  if (!removeIds.length) return;
+  await ChatMessage.destroy({ where: { id: removeIds } });
+  for (const id of removeIds) {
+    emitToUser(userId, 'chat:deleted', { id, projectId });
+    emitToProject(projectId, 'chat:deleted', { id });
+  }
+}
+
+/** Short team-chat notice so others see that this person actually posted (not only a private bot draft). */
+async function announceStandupInChat(projectId, user, date, values) {
+  const dateOnly = typeof date === 'string' ? date : toDateOnly(new Date(date));
+  const sections = [
+    values.today ? `**Today**\n${values.today}` : null,
+    values.blockers ? `**Blockers**\n${values.blockers}` : null,
+    !values.today && values.yesterday ? `**Since last standup**\n${values.yesterday}` : null,
+  ].filter(Boolean);
+  const body = [`Posted my standup for ${shortDate(dateOnly)}.`, ...sections].join('\n\n');
+  const message = await ChatMessage.create({
+    projectId,
+    authorId: user.id,
+    kind: 'user',
+    body,
+    meta: { type: 'standup_posted', date: dateOnly, source: 'standup_save' },
+  });
+  const refs = await resolveIssueRefs(user.id, values.yesterday, values.today, values.blockers);
+  if (refs.length) await message.setIssues(refs);
+  emitToProject(projectId, 'chat:message', {
+    ...message.toJSON(),
+    author: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarColor: user.avatarColor,
+      avatarUrl: user.avatarUrl ?? null,
+      title: user.title ?? null,
+    },
+    issues: refs.map((issue) => ({
+      id: issue.id,
+      key: issue.key,
+      title: issue.title,
+      type: issue.type,
+      priority: issue.priority,
+      projectId: issue.projectId,
+      assigneeId: issue.assigneeId,
+      status: null,
+    })),
+    reactions: [],
+    files: [],
+  });
+}
+
 export async function saveStandup(projectId, user, { date, yesterday, today, blockers, skipped = false }) {
   assertStandupDate(date);
   const existing = await StandupUpdate.findOne({ where: { projectId, userId: user.id, date } });
@@ -156,6 +241,18 @@ export async function saveStandup(projectId, user, { date, yesterday, today, blo
   const issueIds = refs.map((issue) => issue.id);
   const previousBlockers = existing?.blockers ?? null;
   const update = existing ? await existing.update({ ...values, issueIds }) : await StandupUpdate.create({ projectId, userId: user.id, date, ...values, issueIds });
+
+  // Announce once per person per day in Work chat (also covers saves where an earlier announce failed).
+  if (!(await hasStandupAnnouncement(projectId, user.id, date))) {
+    await announceStandupInChat(projectId, user, date, values).catch((error) =>
+      console.warn(`[standup] chat announce failed: ${error.message}`),
+    );
+  }
+
+  // Drop the private review draft — the public "Posted my standup" message is what stays in chat.
+  await dismissPrivateStandupDrafts(projectId, user.id, date).catch((error) =>
+    console.warn(`[standup] draft dismiss failed: ${error.message}`),
+  );
 
   if (values.blockers && values.blockers !== previousBlockers) {
     const [project, admins] = await Promise.all([
@@ -189,7 +286,7 @@ const bullet = (lines) => lines.map((line) => `- ${line}`).join('\n');
  * Drafts a standup from what the tracker recorded since the previous working day:
  * finished, moved and discussed tasks; what is in progress or due next; and what is blocked or overdue.
  */
-export async function draftStandup(projectId, user, date = toDateOnly(new Date())) {
+export async function draftStandup(projectId, user, date = toDateOnly(new Date()), { polishWithAi = true } = {}) {
   const previousDate = previousWorkday(date);
   const since = startOf(previousDate);
   const { byId: statusById, idsIn } = await loadStatuses(projectId);
@@ -248,7 +345,7 @@ export async function draftStandup(projectId, user, date = toDateOnly(new Date()
 
   let draft = heuristic;
   let source = 'heuristic';
-  if (isAiEnabled() && (yesterdayLines.length || todayLines.length)) {
+  if (polishWithAi && isAiEnabled() && (yesterdayLines.length || todayLines.length)) {
     const ai = await completeJson({
       system: 'You write short, clear daily standup updates for software teams. Respond with JSON only.',
       user: `Rewrite these facts as a first-person standup update. Keep every task key (like ABC-12) exactly as written, use short markdown bullet points, no filler.

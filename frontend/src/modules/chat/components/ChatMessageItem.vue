@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import ChatAttachment from '@/modules/meetings/components/ChatAttachment.vue'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import type { UserSummary } from '@/types/models'
 import { type AssistantCommand, type ChatMessage, REACTIONS, chatApi } from '../chat.api'
 import AssistantCard from './AssistantCard.vue'
@@ -42,11 +43,42 @@ const emit = defineEmits<{
   reply: []
   react: [emoji: string]
   sticker: [token: string]
+  draftPosted: []
 }>()
 
 const auth = useAuthStore()
+const openIssue = useOpenIssue()
 const isBot = computed(() => props.message.kind === 'bot')
-const issueKeys = computed(() => props.message.issues.map((issue) => issue.key))
+/** /status, /mytasks, /blockers — show what was asked + who, not "Vector Assistant Bot". */
+const isRequestedReply = computed(() => {
+  const meta = props.message.meta
+  if (!isBot.value || !meta?.requestedBy) return false
+  return meta.type === 'blockers' || meta.type === 'issue_status' || meta.type === 'issue_list'
+})
+/** e.g. "Asked for status of DEMO-6", "Asked for my tasks", "Asked for blockers". */
+const requestLabel = computed(() => {
+  const meta = props.message.meta
+  if (!meta || !isRequestedReply.value) return null
+  if (meta.type === 'blockers') return 'Asked for blockers'
+  if (meta.type === 'issue_list') return 'Asked for my tasks'
+  if (meta.type === 'issue_status') {
+    const keys = meta.issues.map((issue) => issue.key).filter(Boolean)
+    if (keys.length === 1) return `Asked for status of ${keys[0]}`
+    if (keys.length > 1) return `Asked for status of ${keys.join(', ')}`
+    return 'Asked for status'
+  }
+  return 'Asked for'
+})
+const headerName = computed(() => {
+  if (isRequestedReply.value && requestLabel.value) return requestLabel.value
+  if (isBot.value) return 'Vector Assistant'
+  return props.message.author?.name ?? 'Former member'
+})
+const issueKeys = computed(() => (props.message.issues ?? []).map((issue) => issue.key))
+/** Standup posts already list keys in the body — skip the extra chip strip. */
+const showIssueChips = computed(
+  () => (props.message.issues ?? []).length > 0 && props.message.meta?.type !== 'standup_posted',
+)
 const time = computed(() => {
   const date = parseISO(props.message.createdAt)
   return isValid(date) ? format(date, 'HH:mm') : ''
@@ -101,9 +133,12 @@ function saveEdit() {
 
     <div class="min-w-0 flex-1">
       <p v-if="!grouped || reply" class="flex flex-wrap items-baseline gap-x-2">
-        <span class="font-semibold" :class="reply ? 'text-xs' : 'text-sm'">{{ isBot ? 'Vector Assistant' : message.author?.name ?? 'Former member' }}</span>
-        <span v-if="isBot" class="bg-primary/10 px-1 text-[10px] font-semibold tracking-wide text-primary uppercase">Bot</span>
-        <span v-if="isBot && message.meta?.requestedBy" class="text-xs text-muted-foreground">for {{ message.meta.requestedBy.name }}</span>
+        <span class="font-semibold" :class="reply ? 'text-xs' : 'text-sm'">{{ headerName }}</span>
+        <span v-if="isBot && !isRequestedReply" class="bg-primary/10 px-1 text-[10px] font-semibold tracking-wide text-primary uppercase">Bot</span>
+        <span v-if="isBot && message.meta?.private" class="rounded bg-amber-500/15 px-1 text-[10px] font-semibold tracking-wide text-amber-700 uppercase dark:text-amber-400">Only you · review</span>
+        <span v-else-if="message.meta?.type === 'standup_posted'" class="rounded bg-emerald-500/15 px-1 text-[10px] font-semibold tracking-wide text-emerald-700 uppercase dark:text-emerald-400">Posted to team</span>
+        <span v-else-if="isRequestedReply && message.meta?.requestedBy" class="text-xs text-muted-foreground">{{ message.meta.requestedBy.name }}</span>
+        <span v-else-if="isBot && message.meta?.requestedBy" class="text-xs text-muted-foreground">for {{ message.meta.requestedBy.name }}</span>
         <span class="text-xs text-muted-foreground tabular-nums">{{ time }}</span>
       </p>
 
@@ -120,20 +155,27 @@ function saveEdit() {
         <RichText v-else-if="body" :source="body" :issue-keys="issueKeys" compact />
         <span v-if="message.editedAt" class="text-[11px] text-muted-foreground">(edited)</span>
         <div v-if="isBot && message.meta" class="mt-2 max-w-2xl">
-          <AssistantCard :meta="message.meta" :project-id="projectId" :issue-keys="issueKeys" @use-command="(command) => emit('useCommand', command)" />
+          <AssistantCard
+            :meta="message.meta"
+            :project-id="projectId"
+            :issue-keys="issueKeys"
+            @use-command="(command) => emit('useCommand', command)"
+            @draft-posted="emit('draftPosted')"
+          />
         </div>
-        <div v-else-if="message.issues.length" class="mt-1.5 flex flex-wrap gap-1.5">
-          <RouterLink
+        <div v-else-if="showIssueChips" class="mt-1.5 flex flex-wrap gap-1.5">
+          <button
             v-for="issue in message.issues"
             :key="issue.id"
-            :to="{ name: 'issue', params: { issueKey: issue.key } }"
-            class="inline-flex max-w-72 items-center gap-1.5 border bg-card px-2 py-1 text-xs transition-colors hover:border-primary/40 hover:bg-accent/40"
-            :title="`${issue.key} ${issue.title} · ${issue.status?.name ?? ''} · recorded on the task`"
+            type="button"
+            class="inline-flex max-w-72 items-center gap-1.5 border bg-card px-2 py-1 text-left text-xs transition-colors hover:border-primary/40 hover:bg-accent/40"
+            :title="`${issue.key} ${issue.title} · ${issue.status?.name ?? ''} · opens beside chat`"
+            @click="openIssue(issue)"
           >
             <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: issue.status?.color ?? 'var(--muted-foreground)' }" />
             <span class="font-mono font-semibold">{{ issue.key }}</span>
             <span class="truncate text-muted-foreground">{{ issue.title }}</span>
-          </RouterLink>
+          </button>
         </div>
         <div v-if="message.files?.length" class="mt-1.5 flex flex-wrap gap-2">
           <ChatAttachment v-for="file in message.files" :key="file.id" :file="file" :resolve="resolveFile" />

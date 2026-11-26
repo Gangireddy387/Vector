@@ -14,7 +14,7 @@ const TRIGGER = /^\s*(?:\/([a-z-]+)|@(?:vector|assistant|bot)\b)\s*/i;
 const PRIORITY_RANK = { highest: 0, high: 1, medium: 2, low: 3, lowest: 4 };
 
 export const COMMANDS = [
-  { name: 'standup', usage: '/standup', description: 'Draft your standup from what you worked on' },
+  { name: 'standup', usage: '/standup', description: 'Private draft to review and edit, then post to the team' },
   { name: 'status', usage: '/status VEC-12', description: 'Where a task stands and its latest follow-ups' },
   { name: 'mytasks', usage: '/mytasks', description: 'Your open tasks in this project, most urgent first' },
   { name: 'blockers', usage: '/blockers', description: "Today's blockers, blocked tasks and overdue work" },
@@ -63,14 +63,23 @@ const helpReply = (prefix = '') => ({
 });
 
 async function standupReply(project, user) {
-  const draft = await draftStandup(project.id, user, todayFor(user));
+  // Heuristic only in chat so the private draft returns in the same request (AI polish can wait ~30s).
+  const draft = await draftStandup(project.id, user, todayFor(user), { polishWithAi: false });
   const { facts } = draft;
   const summary = facts.completed || facts.moved || facts.discussed
     ? `Since your last working day you completed ${facts.completed}, moved ${facts.moved} and discussed ${facts.discussed} task${facts.discussed === 1 ? '' : 's'}.`
     : 'I did not find tracked activity since your last working day, so the draft is short.';
   return {
-    body: `Here is a draft standup for ${user.name}. ${summary} Review it and save it to today's standup.\n\n**Yesterday**\n${draft.yesterday}\n\n**Today**\n${draft.today}${draft.blockers ? `\n\n**Blockers**\n${draft.blockers}` : ''}`,
-    meta: { type: 'standup_draft', forUserId: user.id, date: draft.date, draft: { yesterday: draft.yesterday, today: draft.today, blockers: draft.blockers }, source: draft.source },
+    body: `Here is a private draft of your standup. ${summary} Review and edit it below, then post — only you see this until you send it to the team.`,
+    meta: {
+      type: 'standup_draft',
+      /** Visible only to this person in Work chat until they save. */
+      private: true,
+      forUserId: user.id,
+      date: draft.date,
+      draft: { yesterday: draft.yesterday, today: draft.today, blockers: draft.blockers },
+      source: draft.source,
+    },
   };
 }
 

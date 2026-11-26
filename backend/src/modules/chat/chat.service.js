@@ -1,13 +1,13 @@
 import { Op } from 'sequelize';
-import { ChatFile, ChatMessage, ChatReaction, Issue, Project, ProjectMember, StandupUpdate, Status, User } from '../../database/models.js';
+import { ChatFile, ChatMessage, ChatMessageIssue, ChatReaction, Issue, Project, ProjectMember, StandupUpdate, Status, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
-import { emitToProject } from '../../shared/realtime/socket.js';
+import { emitToProject, emitToUser } from '../../shared/realtime/socket.js';
 import { resolveIssueRefs } from '../../shared/utils/issue-refs.js';
 import { extractMentionIds } from '../comments/comment.service.js';
 import { notifyUsers } from '../notifications/notification.service.js';
 import { assertProjectRole } from '../projects/project-access.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
-import { buildAssistantReply } from './chat.assistant.js';
+import { buildAssistantReply, parseAssistantRequest } from './chat.assistant.js';
 import { CHAT_REACTION_EMOJIS } from './chat.model.js';
 import { chatFileView } from './chat.files.js';
 
@@ -23,6 +23,17 @@ const messageInclude = [
 ];
 
 const plain = (body) => body.replace(/@\[([^\]]+)\]\([0-9a-f-]{36}\)/gi, '@$1').replace(/\s+/g, ' ').trim().slice(0, 240);
+
+/** Standup drafts / the `/standup` request itself stay with the requester until they save. */
+export function isPrivateChatMessage(message) {
+  return Boolean(message?.meta?.private);
+}
+
+export function canViewChatMessage(message, viewerId) {
+  if (!isPrivateChatMessage(message)) return true;
+  const ownerId = message.meta?.forUserId ?? message.authorId ?? message.meta?.requestedBy?.id ?? null;
+  return Boolean(viewerId && ownerId && ownerId === viewerId);
+}
 
 async function reactionsFor(messageIds) {
   if (!messageIds.length) return new Map();
@@ -62,11 +73,36 @@ const loadMessage = async (id) => {
   return (await decorate([message]))[0];
 };
 
-export async function listMessages(projectId, { before, limit = 50 }) {
+export async function listMessages(projectId, viewerId, { before, limit = 50 } = {}) {
   const where = { projectId, parentId: null };
   if (before) where.createdAt = { [Op.lt]: new Date(before) };
-  const rows = await ChatMessage.findAll({ where, include: messageInclude, order: [['createdAt', 'DESC']], limit: limit + 1 });
-  const posts = rows.slice(0, limit).reverse();
+  // Over-fetch a little so private drafts hidden from others do not thin the page too much.
+  const rows = await ChatMessage.findAll({
+    where,
+    include: messageInclude,
+    order: [['createdAt', 'DESC']],
+    limit: limit + 20,
+  });
+  // Hide leftover private standup drafts after that person already posted for that day.
+  const postedDates = new Set(
+    (
+      await StandupUpdate.findAll({
+        where: { projectId, userId: viewerId },
+        attributes: ['date'],
+        raw: true,
+      })
+    ).map((row) => String(row.date).slice(0, 10)),
+  );
+  const keep = (message) => {
+    const plainMessage = message.toJSON ? message.toJSON() : message;
+    if (!canViewChatMessage(plainMessage, viewerId)) return false;
+    if (plainMessage.kind === 'bot' && plainMessage.meta?.type === 'standup_draft' && plainMessage.meta.forUserId === viewerId) {
+      return !postedDates.has(String(plainMessage.meta.date ?? '').slice(0, 10));
+    }
+    return true;
+  };
+  const visiblePosts = rows.filter((row) => keep(row)).slice(0, limit + 1);
+  const posts = visiblePosts.slice(0, limit).reverse();
   const postIds = posts.map((row) => row.id);
   const replies = postIds.length
     ? await ChatMessage.findAll({
@@ -76,11 +112,12 @@ export async function listMessages(projectId, { before, limit = 50 }) {
       })
     : [];
   const decorated = await decorate([...posts, ...replies]);
-  const byId = new Map(decorated.map((message) => [message.id, message]));
+  const visible = decorated.filter((message) => keep(message));
+  const byId = new Map(visible.map((message) => [message.id, message]));
   return {
     messages: posts.map((post) => byId.get(post.id)).filter(Boolean),
     replies: replies.map((reply) => byId.get(reply.id)).filter(Boolean),
-    hasMore: rows.length > limit,
+    hasMore: visiblePosts.length > limit,
   };
 }
 
@@ -120,11 +157,15 @@ export async function postMessage(projectId, author, { body, parentId = null, fi
   }
 
   const issues = body?.trim() ? await resolveIssueRefs(author.id, body) : [];
+  // `/standup` is a private request — teammates should not see the bare command as if they posted.
+  const assistantRequest = !parent ? parseAssistantRequest(body || '') : null;
+  const privateRequest = assistantRequest?.command === 'standup';
   const message = await ChatMessage.create({
     projectId,
     authorId: author.id,
     parentId: parent?.id ?? null,
     body: body?.trim() || (fileIds.length ? 'Shared a file' : ''),
+    meta: privateRequest ? { private: true, forUserId: author.id, type: 'assistant_request', command: 'standup' } : null,
   });
   if (issues.length) await message.setIssues(issues);
 
@@ -135,24 +176,32 @@ export async function postMessage(projectId, author, { body, parentId = null, fi
   }
 
   const full = await loadMessage(message.id);
-  emitToProject(projectId, 'chat:message', full);
-  await notifyAudience(project, author, { ...message.toJSON(), parentId: message.parentId }, issues);
+  if (privateRequest) emitToUser(author.id, 'chat:message', full);
+  else emitToProject(projectId, 'chat:message', full);
+  if (!privateRequest) await notifyAudience(project, author, { ...message.toJSON(), parentId: message.parentId }, issues);
 
   let reply = null;
   if (!parent) {
-    const assistant = await buildAssistantReply(projectId, author, body || '');
-    if (assistant) {
-      const botMessage = await ChatMessage.create({
-        projectId,
-        authorId: null,
-        kind: 'bot',
-        body: assistant.body,
-        meta: { ...assistant.meta, replyTo: message.id, requestedBy: { id: author.id, name: author.name } },
-      });
-      const botIssues = (assistant.meta.issues ?? []).map((issue) => issue.id).filter(Boolean);
-      if (botIssues.length) await botMessage.setIssues(botIssues);
-      reply = await loadMessage(botMessage.id);
-      emitToProject(projectId, 'chat:message', reply);
+    try {
+      const assistant = await buildAssistantReply(projectId, author, body || '');
+      if (assistant) {
+        const botMessage = await ChatMessage.create({
+          projectId,
+          authorId: null,
+          kind: 'bot',
+          body: assistant.body,
+          meta: { ...assistant.meta, replyTo: message.id, requestedBy: { id: author.id, name: author.name } },
+        });
+        const botIssues = (assistant.meta.issues ?? []).map((issue) => issue.id).filter(Boolean);
+        if (botIssues.length) await botMessage.setIssues(botIssues);
+        reply = await loadMessage(botMessage.id);
+        // Project room is what Work chat is already in; clients hide private drafts from others.
+        // Also nudge the requester's user room in case they have chat open in another tab.
+        emitToProject(projectId, 'chat:message', reply);
+        if (assistant.meta?.private) emitToUser(author.id, 'chat:message', reply);
+      }
+    } catch (error) {
+      console.warn('[chat] assistant reply failed:', error?.message ?? error);
     }
   }
   return { message: full, reply };
@@ -184,6 +233,22 @@ export async function deleteMessage(messageId, user) {
   await ChatMessage.destroy({ where: { parentId: message.id } });
   await message.destroy();
   emitToProject(message.projectId, 'chat:deleted', { id: message.id, projectId: message.projectId });
+}
+
+/** Project admins can wipe the whole Work chat thread for everyone. */
+export async function clearProjectChat(projectId, userId) {
+  await assertProjectRole(projectId, userId, 'admin');
+  const ids = (await ChatMessage.findAll({ where: { projectId }, attributes: ['id'], raw: true })).map((row) => row.id);
+  if (ids.length) {
+    await ChatReaction.destroy({ where: { messageId: ids } });
+    await ChatFile.destroy({ where: { messageId: ids } });
+    await ChatMessageIssue.destroy({ where: { messageId: ids } });
+    await ChatMessage.destroy({ where: { projectId } });
+  }
+  // Orphan uploads that never got attached.
+  await ChatFile.destroy({ where: { projectId } });
+  emitToProject(projectId, 'chat:cleared', { projectId, clearedBy: userId });
+  return { cleared: ids.length };
 }
 
 export async function toggleReaction(user, messageId, emoji) {

@@ -19,6 +19,8 @@ router.use(chatFileRoutes);
 router.get(base, requireProjectRole(), validate({ query: listMessagesQuery }), controller.list);
 /** Posting is for members+; viewers can still read the thread. */
 router.post(base, chatLimiter, requireProjectRole('member'), validate({ body: messageBodySchema }), controller.create);
+/** Project admins can wipe the whole Work chat for everyone. */
+router.delete(base, requireProjectRole('admin'), controller.clear);
 router.patch('/chat/messages/:messageId', validate({ params: chatMessageParams, body: editBodySchema }), controller.update);
 router.delete('/chat/messages/:messageId', validate({ params: chatMessageParams }), controller.remove);
 router.post('/chat/messages/:messageId/reactions', validate({ params: chatMessageParams, body: reactionSchema }), controller.react);

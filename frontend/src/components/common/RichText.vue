@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { renderRichText, type WikiLinkTarget } from '@/lib/markdown'
+import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 
 /** Markdown with @mention chips, clickable task keys, and optional wiki [[Title]] links. */
 const props = withDefaults(
@@ -15,6 +16,7 @@ const props = withDefaults(
 )
 
 const router = useRouter()
+const openIssue = useOpenIssue()
 const html = computed(() => renderRichText(props.source, props.issueKeys, props.wikiPages))
 
 function onClick(event: MouseEvent) {
@@ -26,9 +28,7 @@ function onClick(event: MouseEvent) {
     void router.push({ name: 'wiki-page', params: { pageId: target.dataset.wikiId } })
     return
   }
-  if (target.dataset.issueKey) {
-    void router.push({ name: 'issue', params: { issueKey: target.dataset.issueKey } })
-  }
+  if (target.dataset.issueKey) openIssue({ key: target.dataset.issueKey })
 }
 </script>
 

@@ -44,7 +44,8 @@ export interface StandupDraftSections {
 
 export type AssistantMeta = { replyTo?: string; requestedBy?: { id: string; name: string }; source?: string } & (
   | { type: 'help'; commands: AssistantCommand[] }
-  | { type: 'standup_draft'; forUserId: string; date: string; draft: StandupDraftSections }
+  | { type: 'standup_draft'; forUserId: string; date: string; draft: StandupDraftSections; private?: boolean }
+  | { type: 'standup_posted'; date: string; source?: string }
   | { type: 'issue_status'; issues: AssistantIssueCard[] }
   | { type: 'issue_list'; title: string; issues: AssistantIssueCard[]; total: number }
   | { type: 'answer'; issues: AssistantIssueCard[] }
@@ -132,6 +133,8 @@ export const chatApi = {
       .then((r) => r.data),
   edit: (messageId: string, body: string) => http.patch<{ message: ChatMessage }>(`/chat/messages/${messageId}`, { body }).then((r) => r.data.message),
   remove: (messageId: string) => http.delete(`/chat/messages/${messageId}`),
+  /** Project admins: delete every message in this project's Work chat. */
+  clear: (projectId: string) => http.delete<{ cleared: number }>(`/projects/${projectId}/chat/messages`).then((r) => r.data),
   /** Adds your reaction, or takes it back. */
   react: (messageId: string, emoji: string) =>
     http.post<{ messageId: string; reactions: ChatReaction[] }>(`/chat/messages/${messageId}/reactions`, { emoji }).then((r) => r.data),

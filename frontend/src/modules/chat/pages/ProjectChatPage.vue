@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { format, isToday, isYesterday } from 'date-fns'
-import { ArrowRight, Bot, ClipboardList, Hash, MessageCircle } from 'lucide-vue-next'
+import { ArrowRight, Bot, ClipboardList, Eraser, Hash, MessageCircle } from 'lucide-vue-next'
 import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -17,6 +17,7 @@ import { playSendEffect, sendEffectForBody } from '@/lib/send-effect'
 import { useSocketEvents } from '@/lib/socket-events'
 import { playSound } from '@/lib/sounds'
 import { useAuthStore } from '@/modules/auth/auth.store'
+import { useOpenIssue } from '@/modules/issues/composables/useOpenIssue'
 import { usersApi } from '@/modules/projects/projects.api'
 import { useProjectsStore } from '@/modules/projects/projects.store'
 import type { UserSummary } from '@/types/models'
@@ -31,6 +32,7 @@ const route = useRoute()
 const auth = useAuthStore()
 const projects = useProjectsStore()
 const confirm = useConfirm()
+const openIssue = useOpenIssue()
 const { isDesktop } = useDevice()
 
 const projectId = computed(() => props.projectId ?? (route.params.projectId as string))
@@ -49,6 +51,7 @@ const isLoading = ref(true)
 const loadError = ref<string | null>(null)
 const isLoadingOlder = ref(false)
 const isSending = ref(false)
+const isClearing = ref(false)
 const failedSend = ref<ChatSendPayload | null>(null)
 const threadSearch = ref('')
 const replyTo = ref<ChatMessage | null>(null)
@@ -178,6 +181,12 @@ async function send(payload: { body: string; fileIds: string[] }) {
     const { message, reply } = await chatApi.send(projectId.value, request)
     upsert(message)
     if (reply) upsert(reply)
+    // Slash commands always get a bot reply; if the socket/HTTP race dropped it, merge from list.
+    else if (!request.parentId && /^\s*\//.test(request.body)) {
+      const page = await chatApi.list(projectId.value)
+      mergePage(page, 'replace')
+      hasMore.value = page.hasMore
+    }
     replyTo.value = null
     await scrollToBottom(true)
   } catch (error) {
@@ -281,13 +290,53 @@ const useCommand = (command: AssistantCommand) => {
   composer.value?.setText(command.name === 'status' ? '/status ' : `/${command.name}`)
 }
 
+/** After posting, drop the private review draft (and bare `/standup`) from this view right away. */
+function dismissStandupDraft() {
+  const myId = auth.user?.id
+  messages.value = messages.value.filter((message) => {
+    if (message.kind === 'bot' && message.meta?.type === 'standup_draft' && message.meta.forUserId === myId) return false
+    if (message.authorId === myId && /^\s*\/standup\s*$/i.test(message.body ?? '')) return false
+    return true
+  })
+}
+
+async function clearChat() {
+  if (!isAdmin.value || !posts.value.length || isClearing.value) return
+  const ok = await confirm({
+    title: 'Clear entire Work chat?',
+    description: 'Every message in this project’s Work chat will be deleted for everyone. Standups and tasks are not affected. This cannot be undone.',
+    confirmLabel: 'Clear Work chat',
+    destructive: true,
+  })
+  if (!ok) return
+  isClearing.value = true
+  try {
+    await chatApi.clear(projectId.value)
+    messages.value = []
+    hasMore.value = false
+    replyTo.value = null
+    failedSend.value = null
+    toast.success('Work chat cleared')
+  } catch (error) {
+    toast.error(getErrorMessage(error))
+  } finally {
+    isClearing.value = false
+  }
+}
+
 // Realtime: teammates' messages arrive without refreshing.
 useProjectRealtime(projectId, () => {})
 const onIncoming = async (message: ChatMessage) => {
+  // Private drafts / `/standup` requests are for the requester only (server also filters list + socket).
+  const myId = auth.user?.id
+  if (message.meta?.private) {
+    const ownerId = message.meta.forUserId ?? message.authorId ?? message.meta.requestedBy?.id
+    if (!myId || ownerId !== myId) return
+  }
   const stick = nearBottom()
   const isNew = !messages.value.some((item) => item.id === message.id)
   upsert(message)
-  if (isNew && message.kind === 'user' && message.authorId !== auth.user?.id) playSound('message', { id: message.id, quiet: true })
+  if (isNew && message.kind === 'user' && message.authorId !== myId) playSound('message', { id: message.id, quiet: true })
   if (stick) await scrollToBottom(true)
 }
 const onDeleted = ({ id }: { id: string; projectId?: string }) => {
@@ -296,6 +345,12 @@ const onDeleted = ({ id }: { id: string; projectId?: string }) => {
 }
 const onReactions = (payload: { messageId: string; projectId?: string; reactions: ChatReaction[] }) => {
   applyReactions(payload.messageId, payload.reactions)
+}
+const onCleared = () => {
+  messages.value = []
+  hasMore.value = false
+  replyTo.value = null
+  failedSend.value = null
 }
 /** Only this project's chat (the browser can follow several projects at once). */
 const here = <T extends { projectId?: string }>(handler: (payload: T) => unknown) => (payload: T) => {
@@ -306,6 +361,7 @@ useSocketEvents({
   'chat:updated': here(upsert),
   'chat:deleted': here(onDeleted),
   'chat:reactions': here(onReactions),
+  'chat:cleared': here(onCleared),
 })
 
 // Day separators and consecutive-message grouping for top-level posts only.
@@ -345,7 +401,7 @@ const discussedTasks = computed(() => {
   const tasks = new Map<string, { issue: ChatIssueRef; count: number; lastAt: string }>()
   for (const message of messages.value) {
     if (message.kind !== 'user') continue
-    for (const issue of message.issues) {
+    for (const issue of message.issues ?? []) {
       const entry = tasks.get(issue.id) ?? { issue, count: 0, lastAt: message.createdAt }
       entry.count += 1
       entry.lastAt = message.createdAt
@@ -404,14 +460,26 @@ const discussedTasks = computed(() => {
           </EmptyState>
 
           <template v-else>
-            <div v-if="!embedded" class="sticky top-0 z-10 border-b border-border/70 bg-background/95 px-4 py-2 backdrop-blur">
+            <div v-if="!embedded" class="sticky top-0 z-10 flex items-center gap-2 border-b border-border/70 bg-background/95 px-4 py-2 backdrop-blur">
               <input
                 v-model="threadSearch"
                 type="search"
-                class="h-8 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                class="h-8 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 placeholder="Search in this chat"
                 aria-label="Search in this chat"
               />
+              <Button
+                v-if="isAdmin"
+                size="sm"
+                variant="ghost"
+                class="shrink-0 text-muted-foreground hover:text-destructive"
+                :loading="isClearing"
+                :disabled="!posts.length"
+                title="Clear entire Work chat"
+                @click="clearChat"
+              >
+                <Eraser /> Clear chat
+              </Button>
             </div>
             <div class="flex justify-center py-3">
               <Button v-if="hasMore && !threadSearch" variant="ghost" size="sm" :loading="isLoadingOlder" @click="loadOlder">Load earlier messages</Button>
@@ -441,6 +509,7 @@ const discussedTasks = computed(() => {
                 @reply="startReply(row.message)"
                 @react="(emoji) => react(row.message, emoji)"
                 @sticker="sendSticker"
+                @draft-posted="dismissStandupDraft"
               />
               <div v-if="row.replies.length" class="border-l border-border/70 ml-8 sm:ml-12">
                 <ChatMessageItem
@@ -462,6 +531,7 @@ const discussedTasks = computed(() => {
                   @copy-link="copyMessageLink(reply)"
                   @react="(emoji) => react(reply, emoji)"
                   @sticker="sendSticker"
+                  @draft-posted="dismissStandupDraft"
                 />
               </div>
             </template>
@@ -478,15 +548,17 @@ const discussedTasks = computed(() => {
           >
             <ClipboardList class="size-3.5" /> Standup
           </RouterLink>
-          <RouterLink
+          <button
             v-for="entry in discussedTasks.slice(0, isDesktop ? 6 : 4)"
             :key="entry.issue.id"
-            :to="{ name: 'issue', params: { issueKey: entry.issue.key } }"
+            type="button"
             class="inline-flex h-7 max-w-[9rem] items-center gap-1 rounded-md border border-border px-2 text-[11.5px] font-medium hover:bg-accent"
+            :title="`${entry.issue.key} ${entry.issue.title}`"
+            @click="openIssue(entry.issue)"
           >
             <span class="size-1.5 shrink-0 rounded-full" :style="{ backgroundColor: entry.issue.status?.color ?? 'var(--muted-foreground)' }" />
             <span class="truncate font-mono">{{ entry.issue.key }}</span>
-          </RouterLink>
+          </button>
         </div>
         <div v-if="failedSend" class="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           <span class="min-w-0 flex-1">Last message didn’t send.</span>
@@ -530,12 +602,16 @@ const discussedTasks = computed(() => {
         <h2 class="mb-2 text-xs font-medium text-muted-foreground">Tasks in this conversation</h2>
         <ul v-if="discussedTasks.length" class="space-y-1">
           <li v-for="entry in discussedTasks" :key="entry.issue.id">
-            <RouterLink :to="{ name: 'issue', params: { issueKey: entry.issue.key } }" class="flex items-center gap-2 px-2 py-1.5 text-sm transition-colors hover:bg-accent/60">
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent/60"
+              @click="openIssue(entry.issue)"
+            >
               <span class="size-2 shrink-0 rounded-full" :style="{ backgroundColor: entry.issue.status?.color ?? 'var(--muted-foreground)' }" :title="entry.issue.status?.name" />
               <span class="shrink-0 font-mono text-xs font-semibold">{{ entry.issue.key }}</span>
               <span class="min-w-0 flex-1 truncate text-muted-foreground">{{ entry.issue.title }}</span>
               <span class="shrink-0 text-[11px] text-muted-foreground tabular-nums" :title="`${entry.count} messages`">{{ entry.count }}</span>
-            </RouterLink>
+            </button>
           </li>
         </ul>
         <p v-else class="text-xs leading-relaxed text-muted-foreground">Mention a task key in a message and it shows up here, and on the task's Follow-ups tab.</p>

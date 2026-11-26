@@ -1,7 +1,8 @@
 import { COMMANDS } from './chat.assistant.js';
 import * as chatService from './chat.service.js';
 
-export const list = async (req, res) => res.json({ ...(await chatService.listMessages(req.params.projectId, req.filters)), commands: COMMANDS });
+export const list = async (req, res) =>
+  res.json({ ...(await chatService.listMessages(req.params.projectId, req.user.id, req.filters)), commands: COMMANDS });
 
 export const create = async (req, res) =>
   res.status(201).json(await chatService.postMessage(req.params.projectId, req.user, req.body));
@@ -12,6 +13,8 @@ export const remove = async (req, res) => {
   await chatService.deleteMessage(req.params.messageId, req.user);
   res.status(204).end();
 };
+
+export const clear = async (req, res) => res.json(await chatService.clearProjectChat(req.params.projectId, req.user.id));
 
 export const react = async (req, res) => res.json(await chatService.toggleReaction(req.user, req.params.messageId, req.body.emoji));
 
