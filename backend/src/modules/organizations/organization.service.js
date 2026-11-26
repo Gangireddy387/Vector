@@ -77,6 +77,7 @@ export const toPublicOrganization = (organization) => ({
   defaultMode: organization.defaultMode,
   logoUrl: organization.logoUrl ?? null,
   brandColor: organization.brandColor ?? null,
+  brandBrightness: organization.brandBrightness ?? null,
   requireMfa: Boolean(organization.requireMfa),
   sso: ssoSettingsFor(organization),
   channelNotifications: channelNotifySettingsFor(organization),
@@ -195,6 +196,7 @@ export async function getPublicOrganization(slug) {
     slug: organization.slug,
     defaultMode: organization.defaultMode,
     brandColor: organization.brandColor ?? null,
+    brandBrightness: organization.brandBrightness ?? null,
     logoUrl: organization.logoUrl ?? null,
     sso: available
       ? {
@@ -245,6 +247,7 @@ export async function updateOrganization(organization, actor, changes) {
     slug: organization.slug,
     defaultMode: organization.defaultMode,
     brandColor: organization.brandColor ?? null,
+    brandBrightness: organization.brandBrightness ?? null,
     requireMfa: Boolean(organization.requireMfa),
     sso: publicSso(organization, { includeTenant: true, includeOidc: true }),
     channelNotifications: publicChannelNotifications(organization),
@@ -255,7 +258,7 @@ export async function updateOrganization(organization, actor, changes) {
   };
   await organization.update(updates);
   const changed = Object.keys(changes).filter((key) =>
-    ['name', 'slug', 'defaultMode', 'brandColor', 'requireMfa', 'sso', 'channelNotifications', 'retention', 'invitePolicy', 'capacity', 'aiGrounding'].includes(key),
+    ['name', 'slug', 'defaultMode', 'brandColor', 'brandBrightness', 'requireMfa', 'sso', 'channelNotifications', 'retention', 'invitePolicy', 'capacity', 'aiGrounding'].includes(key),
   );
   if (changed.length) {
     await logWorkspaceAction({
@@ -272,6 +275,7 @@ export async function updateOrganization(organization, actor, changes) {
           slug: organization.slug,
           defaultMode: organization.defaultMode,
           brandColor: organization.brandColor ?? null,
+          brandBrightness: organization.brandBrightness ?? null,
           requireMfa: Boolean(organization.requireMfa),
           sso: publicSso(organization, { includeTenant: true, includeOidc: true }),
           channelNotifications: publicChannelNotifications(organization),

@@ -5,6 +5,18 @@
 /* Laptop-height windows (browser chrome included), used to keep full-screen layouts scroll-free. */
 @custom-variant short (@media (max-height: 760px));
 
+/* Brand surface strength — registered so brightness / tint changes ease instead of snapping. */
+@property --tint-c {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0.016;
+}
+@property --brand-brightness {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0.4;
+}
+
 /* ---------------------------------------------------------------------------
  * Design tokens (shadcn-vue naming), light and dark mode.
  *
@@ -35,26 +47,28 @@
   --tint-h: var(--brand-h);
   /* Org brand tint — surfaces lean toward --brand-h so ownership is visible. */
   --tint-c: 0.016;
+  /* 0–1 surface wash strength (lib/brand-theme.ts); soft default keeps the sidebar calm. */
+  --brand-brightness: 0.4;
   --primary: oklch(var(--brand-l) var(--brand-c) var(--brand-h));
   --primary-foreground: var(--brand-fg);
   --brand-from: oklch(calc(var(--brand-l) + 0.02) calc(var(--brand-c) * 1.12) var(--brand-h));
   --brand-to: oklch(calc(var(--brand-l) + 0.07) calc(var(--brand-c) * 1.1) calc(var(--brand-h) + var(--brand-shift)));
 
-  --background: oklch(0.985 calc(var(--tint-c) * 0.9) var(--tint-h));
-  --foreground: oklch(0.2 calc(var(--tint-c) * 2.2) var(--tint-h));
-  --sidebar: oklch(0.955 calc(var(--tint-c) * 2.4) var(--tint-h));
-  --card: oklch(0.998 calc(var(--tint-c) * 0.2) var(--tint-h));
+  --background: oklch(0.985 calc(var(--tint-c) * 0.7) var(--tint-h));
+  --foreground: oklch(0.2 calc(var(--tint-c) * 1.8) var(--tint-h));
+  --sidebar: oklch(0.968 calc(var(--tint-c) * 1.35) var(--tint-h));
+  --card: oklch(0.998 calc(var(--tint-c) * 0.15) var(--tint-h));
   --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
   --popover-foreground: var(--foreground);
-  --muted: oklch(0.955 calc(var(--tint-c) * 1.6) var(--tint-h));
-  --muted-foreground: oklch(0.48 calc(var(--tint-c) * 2.8) var(--tint-h));
-  --secondary: oklch(0.94 calc(var(--tint-c) * 1.8) var(--tint-h));
-  --secondary-foreground: oklch(0.26 calc(var(--tint-c) * 2.2) var(--tint-h));
-  --accent: oklch(0.945 calc(var(--tint-c) * 2.4) var(--tint-h));
+  --muted: oklch(0.955 calc(var(--tint-c) * 1.2) var(--tint-h));
+  --muted-foreground: oklch(0.48 calc(var(--tint-c) * 2.2) var(--tint-h));
+  --secondary: oklch(0.94 calc(var(--tint-c) * 1.35) var(--tint-h));
+  --secondary-foreground: oklch(0.26 calc(var(--tint-c) * 1.8) var(--tint-h));
+  --accent: oklch(0.945 calc(var(--tint-c) * 1.6) var(--tint-h));
   --accent-foreground: var(--foreground);
-  --border: oklch(0.9 calc(var(--tint-c) * 1.8) var(--tint-h));
-  --input: oklch(0.875 calc(var(--tint-c) * 2) var(--tint-h));
+  --border: oklch(0.9 calc(var(--tint-c) * 1.35) var(--tint-h));
+  --input: oklch(0.875 calc(var(--tint-c) * 1.5) var(--tint-h));
   --ring: var(--primary);
   --destructive: oklch(0.58 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
@@ -63,7 +77,7 @@
   --info: oklch(0.58 0.18 250);
 
   --sidebar-foreground: var(--foreground);
-  --sidebar-accent: oklch(0.915 calc(var(--tint-c) * 3.2) var(--tint-h));
+  --sidebar-accent: oklch(0.93 calc(var(--tint-c) * 1.9) var(--tint-h));
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
 
@@ -72,18 +86,18 @@
 
   /*
    * Soft brand mesh behind the app canvas — same language as the marketing orbit stage,
-   * quieter so signed-in content stays readable. Org theme flows through --brand-* / --tint-*.
+   * quieter so signed-in content stays readable. Strength follows --brand-brightness.
    */
   --app-backdrop:
-    radial-gradient(130% 90% at -5% -15%, color-mix(in oklch, var(--primary) 22%, transparent), transparent 52%),
-    radial-gradient(100% 80% at 105% -5%, color-mix(in oklch, var(--brand-to) 16%, transparent), transparent 48%),
-    radial-gradient(80% 55% at 50% 110%, color-mix(in oklch, var(--primary) 10%, transparent), transparent 55%),
-    linear-gradient(180deg, color-mix(in oklch, var(--sidebar) 88%, var(--primary)), var(--sidebar));
+    radial-gradient(130% 90% at -5% -15%, color-mix(in oklch, var(--primary) calc(var(--brand-brightness) * 28%), transparent), transparent 52%),
+    radial-gradient(100% 80% at 105% -5%, color-mix(in oklch, var(--brand-to) calc(var(--brand-brightness) * 20%), transparent), transparent 48%),
+    radial-gradient(80% 55% at 50% 110%, color-mix(in oklch, var(--primary) calc(var(--brand-brightness) * 12%), transparent), transparent 55%),
+    linear-gradient(180deg, color-mix(in oklch, var(--sidebar) calc(100% - var(--brand-brightness) * 18%), var(--primary)), var(--sidebar));
 
   /* Sidebar brand wash (top of nav) — pairs with marketing glass without competing. */
   --sidebar-brand-wash:
-    radial-gradient(120% 80% at 0% 0%, color-mix(in oklch, var(--primary) 18%, transparent), transparent 62%),
-    radial-gradient(90% 70% at 100% 0%, color-mix(in oklch, var(--brand-to) 12%, transparent), transparent 55%);
+    radial-gradient(120% 80% at 0% 0%, color-mix(in oklch, var(--primary) calc(var(--brand-brightness) * 22%), transparent), transparent 62%),
+    radial-gradient(90% 70% at 100% 0%, color-mix(in oklch, var(--brand-to) calc(var(--brand-brightness) * 14%), transparent), transparent 55%);
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
@@ -100,34 +114,34 @@
   --brand-from: oklch(calc(var(--brand-l-dark) - 0.04) calc(var(--brand-c-dark) * 1.12) var(--brand-h));
   --brand-to: oklch(calc(var(--brand-l-dark) - 0.01) calc(var(--brand-c-dark) * 1.18) calc(var(--brand-h) + var(--brand-shift)));
 
-  --background: oklch(0.168 calc(var(--tint-c) * 2) var(--tint-h));
-  --foreground: oklch(0.96 calc(var(--tint-c) * 0.7) var(--tint-h));
-  --sidebar: oklch(0.136 calc(var(--tint-c) * 2.6) var(--tint-h));
-  --card: oklch(0.205 calc(var(--tint-c) * 2.1) var(--tint-h));
-  --popover: oklch(0.22 calc(var(--tint-c) * 2.1) var(--tint-h));
-  --muted: oklch(0.22 calc(var(--tint-c) * 2.1) var(--tint-h));
-  --muted-foreground: oklch(0.72 calc(var(--tint-c) * 2.2) var(--tint-h));
-  --secondary: oklch(0.245 calc(var(--tint-c) * 2.1) var(--tint-h));
+  --background: oklch(0.168 calc(var(--tint-c) * 1.5) var(--tint-h));
+  --foreground: oklch(0.96 calc(var(--tint-c) * 0.55) var(--tint-h));
+  --sidebar: oklch(0.148 calc(var(--tint-c) * 1.6) var(--tint-h));
+  --card: oklch(0.205 calc(var(--tint-c) * 1.5) var(--tint-h));
+  --popover: oklch(0.22 calc(var(--tint-c) * 1.5) var(--tint-h));
+  --muted: oklch(0.22 calc(var(--tint-c) * 1.5) var(--tint-h));
+  --muted-foreground: oklch(0.72 calc(var(--tint-c) * 1.6) var(--tint-h));
+  --secondary: oklch(0.245 calc(var(--tint-c) * 1.5) var(--tint-h));
   --secondary-foreground: var(--foreground);
-  --accent: oklch(0.255 calc(var(--tint-c) * 2.8) var(--tint-h));
+  --accent: oklch(0.255 calc(var(--tint-c) * 1.9) var(--tint-h));
   --accent-foreground: var(--foreground);
-  --border: oklch(0.28 calc(var(--tint-c) * 2.4) var(--tint-h));
-  --input: oklch(0.315 calc(var(--tint-c) * 2.4) var(--tint-h));
+  --border: oklch(0.28 calc(var(--tint-c) * 1.7) var(--tint-h));
+  --input: oklch(0.315 calc(var(--tint-c) * 1.7) var(--tint-h));
   --destructive: oklch(0.68 0.19 22);
   --success: oklch(0.72 0.17 152);
   --warning: oklch(0.82 0.15 80);
   --info: oklch(0.7 0.14 250);
-  --sidebar-accent: oklch(0.225 calc(var(--tint-c) * 2.8) var(--tint-h));
+  --sidebar-accent: oklch(0.225 calc(var(--tint-c) * 1.9) var(--tint-h));
   --scrim: oklch(0 0 0 / 0.55);
   --app-backdrop:
-    radial-gradient(120% 90% at -5% -12%, color-mix(in oklch, var(--primary) 28%, transparent), transparent 52%),
-    radial-gradient(100% 80% at 105% 0%, color-mix(in oklch, var(--brand-to) 20%, transparent), transparent 48%),
-    radial-gradient(75% 55% at 50% 115%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 55%),
-    linear-gradient(180deg, color-mix(in oklch, var(--sidebar) 82%, var(--primary)), var(--sidebar));
+    radial-gradient(120% 90% at -5% -12%, color-mix(in oklch, var(--primary) calc(var(--brand-brightness) * 36%), transparent), transparent 52%),
+    radial-gradient(100% 80% at 105% 0%, color-mix(in oklch, var(--brand-to) calc(var(--brand-brightness) * 26%), transparent), transparent 48%),
+    radial-gradient(75% 55% at 50% 115%, color-mix(in oklch, var(--primary) calc(var(--brand-brightness) * 16%), transparent), transparent 55%),
+    linear-gradient(180deg, color-mix(in oklch, var(--sidebar) calc(100% - var(--brand-brightness) * 24%), var(--primary)), var(--sidebar));
 
   --sidebar-brand-wash:
-    radial-gradient(120% 80% at 0% 0%, color-mix(in oklch, var(--primary) 24%, transparent), transparent 62%),
-    radial-gradient(90% 70% at 100% 0%, color-mix(in oklch, var(--brand-to) 16%, transparent), transparent 55%);
+    radial-gradient(120% 80% at 0% 0%, color-mix(in oklch, var(--primary) calc(var(--brand-brightness) * 30%), transparent), transparent 62%),
+    radial-gradient(90% 70% at 100% 0%, color-mix(in oklch, var(--brand-to) calc(var(--brand-brightness) * 20%), transparent), transparent 55%);
 }
 
 /*
@@ -217,6 +231,9 @@
   html {
     -webkit-tap-highlight-color: transparent;
     color-scheme: light;
+    transition:
+      --tint-c var(--motion-slow) var(--ease-out-soft),
+      --brand-brightness var(--motion-slow) var(--ease-out-soft);
   }
   html.dark {
     color-scheme: dark;
@@ -373,6 +390,7 @@
   background-color: var(--sidebar);
   background-image: var(--app-backdrop);
   background-attachment: fixed;
+  transition: background-color var(--motion-slow) var(--ease-out-soft);
 }
 
 @utility sidebar-brand-wash {

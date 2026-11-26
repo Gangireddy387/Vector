@@ -148,6 +148,8 @@ export interface WorkspaceSettings {
   logoUrl?: string | null
   /** Theme colour for everyone in the organization: a named theme or a hex colour (null = Vector's own). */
   brandColor?: string | null
+  /** Sidebar / canvas brand tint strength (0–100). Null uses the soft default. */
+  brandBrightness?: number | null
   /** When true, members must enable two-factor authentication. */
   requireMfa?: boolean
   sso?: OrganizationSsoSettings
@@ -195,6 +197,7 @@ export interface OrganizationSummary {
   defaultMode: ColorMode
   logoUrl?: string | null
   brandColor?: string | null
+  brandBrightness?: number | null
   requireMfa?: boolean
   sso?: OrganizationSsoSettings
   channelNotifications?: OrganizationChannelNotifications

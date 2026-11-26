@@ -83,6 +83,7 @@ export async function buildOrganizationBackup(organization, actor) {
       status: organization.status,
       defaultMode: organization.defaultMode,
       brandColor: organization.brandColor,
+      brandBrightness: organization.brandBrightness ?? null,
       logoUrl: organization.logoUrl,
       requireMfa: organization.requireMfa,
       planId: organization.planId,

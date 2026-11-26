@@ -20,6 +20,8 @@ Organization.init(
     logoUrl: { type: DataTypes.STRING(255), allowNull: true },
     /** Theme colour everyone in the organization sees: a named theme (e.g. `ocean`) or a hex colour such as `#1a73e8` (null = Vector's own). */
     brandColor: { type: DataTypes.STRING(20), allowNull: true },
+    /** How strong the brand tint is on the sidebar and canvas (0 = subtle, 100 = bold). Null uses the soft default. */
+    brandBrightness: { type: DataTypes.INTEGER, allowNull: true },
     status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'pending', validate: { isIn: [ORGANIZATION_STATUSES] } },
     reviewedAt: { type: DataTypes.DATE, allowNull: true },
     reviewedById: { type: DataTypes.UUID, allowNull: true },

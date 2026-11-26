@@ -29,6 +29,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
           defaultMode: auth.organization.defaultMode,
           logoUrl: auth.organization.logoUrl ?? null,
           brandColor: auth.organization.brandColor ?? null,
+          brandBrightness: auth.organization.brandBrightness ?? null,
           requireMfa: Boolean(auth.organization.requireMfa),
           sso: auth.organization.sso,
           channelNotifications: auth.organization.channelNotifications,
@@ -67,7 +68,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   )
 
   /** Everyone sees the organization's theme colour; admin changes arrive live through `workspace:updated`. */
-  watch(() => auth.organization?.brandColor ?? null, (brandColor) => applyBrand(brandColor), { immediate: true })
+  watch(
+    () => ({
+      brandColor: auth.organization?.brandColor ?? null,
+      brandBrightness: auth.organization?.brandBrightness ?? null,
+    }),
+    ({ brandColor, brandBrightness }) => applyBrand(brandColor, { brightness: brandBrightness }),
+    { immediate: true },
+  )
 
   async function update(changes: Partial<Omit<WorkspaceSettings, 'updatedAt'>>) {
     const current = settings.value as unknown as Record<string, unknown>

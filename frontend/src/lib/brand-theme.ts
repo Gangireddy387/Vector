@@ -5,6 +5,10 @@
  */
 
 export const BRAND_STORAGE_KEY = 'vector.brand'
+/** Soft default so the sidebar reads as a light tint, not a loud wash. 0 = near-neutral, 100 = bold. */
+export const DEFAULT_BRAND_BRIGHTNESS = 40
+export const BRAND_BRIGHTNESS_MIN = 0
+export const BRAND_BRIGHTNESS_MAX = 100
 
 type Ink = 'light' | 'dark'
 
@@ -46,7 +50,8 @@ const tone = (h: number, c: number, l: number, cDark: number, lDark: number, ext
   ...extra,
 })
 
-export const BRAND_THEMES: BrandTheme[] = [
+/** Studio / named colourways that ship with Vector. */
+export const STUDIO_BRAND_THEMES: BrandTheme[] = [
   { id: 'vector', label: 'Vector', description: 'Electric indigo', tone: tone(275, 0.2, 0.55, 0.17, 0.67, { tint: 0.014 }) },
   { id: 'ocean', label: 'Ocean', description: 'Deep sea blue', tone: tone(250, 0.17, 0.53, 0.15, 0.69, { shift: -35 }) },
   { id: 'lagoon', label: 'Lagoon', description: 'Calm teal', tone: tone(200, 0.12, 0.54, 0.11, 0.74, { shift: -30, fgDark: 'dark' }) },
@@ -59,7 +64,29 @@ export const BRAND_THEMES: BrandTheme[] = [
   { id: 'graphite', label: 'Graphite', description: 'Monochrome', tone: tone(270, 0.012, 0.27, 0.01, 0.92, { shift: 0, fgDark: 'dark', tint: 0.004 }) },
 ]
 
-export const DEFAULT_BRAND = BRAND_THEMES[0]!
+/**
+ * Familiar brand-inspired palettes — one clear hue each (no near-duplicates like
+ * Google/Meta/LinkedIn blues or Netflix/YouTube reds).
+ */
+export const POPULAR_BRAND_THEMES: BrandTheme[] = [
+  // Google Blue #4285F4
+  { id: 'google', label: 'Google', description: 'Clear product blue', tone: tone(255, 0.17, 0.58, 0.15, 0.72, { shift: -28 }) },
+  // Instagram mid gradient #C13584
+  { id: 'instagram', label: 'Instagram', description: 'Gradient magenta', tone: tone(350, 0.2, 0.55, 0.17, 0.7, { shift: -45 }) },
+  // Amazon #FF9900
+  { id: 'amazon', label: 'Amazon', description: 'Marketplace orange', tone: tone(70, 0.17, 0.76, 0.15, 0.82, { shift: -18, fg: 'dark', fgDark: 'dark' }) },
+  // Spotify #1DB954
+  { id: 'spotify', label: 'Spotify', description: 'Audio green', tone: tone(150, 0.17, 0.64, 0.15, 0.76, { shift: -22, fgDark: 'dark' }) },
+  // Netflix #E50914
+  { id: 'netflix', label: 'Netflix', description: 'Streaming red', tone: tone(25, 0.22, 0.55, 0.19, 0.66, { shift: 12 }) },
+  // Slack aubergine #4A154B
+  { id: 'slack', label: 'Slack', description: 'Workspace aubergine', tone: tone(328, 0.14, 0.38, 0.12, 0.66, { shift: 25 }) },
+]
+
+/** All selectable named themes (popular brands first, then studio colourways). */
+export const BRAND_THEMES: BrandTheme[] = [...POPULAR_BRAND_THEMES, ...STUDIO_BRAND_THEMES]
+
+export const DEFAULT_BRAND = STUDIO_BRAND_THEMES[0]!
 
 const HEX = /^#[0-9a-f]{6}$/i
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
@@ -126,9 +153,51 @@ export function resolveBrand(value: string | null | undefined): BrandTone {
 /** A CSS colour for showing the accent itself, e.g. in swatches. */
 export const swatchColor = (t: BrandTone, dark = false) => (dark ? `oklch(${t.lDark} ${t.cDark} ${t.h})` : `oklch(${t.l} ${t.c} ${t.h})`)
 
+/** Tailwind-style shade steps for exploring a brand ramp. */
+export const PALETTE_STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const
+export type PaletteStep = (typeof PALETTE_STEPS)[number]
+
+export interface PaletteShade {
+  step: PaletteStep
+  color: string
+  ink: string
+}
+
+/** Build a 50→950 shade ramp from a brand tone for palette chips. */
+export function brandPalette(tone: BrandTone): PaletteShade[] {
+  const lights: Record<PaletteStep, number> = {
+    50: 0.97,
+    100: 0.93,
+    200: 0.87,
+    300: 0.78,
+    400: 0.68,
+    500: clamp(tone.l, 0.45, 0.62),
+    600: clamp(tone.l - 0.08, 0.4, 0.55),
+    700: 0.42,
+    800: 0.33,
+    900: 0.25,
+    950: 0.18,
+  }
+  return PALETTE_STEPS.map((step) => {
+    const l = lights[step]
+    const chromaScale = step <= 100 ? 0.35 : step <= 300 ? 0.65 : step <= 600 ? 1 : step <= 800 ? 0.85 : 0.55
+    const c = tone.c * chromaScale
+    const color = `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${tone.h.toFixed(1)})`
+    return { step, color, ink: l > 0.72 ? `oklch(0.22 0.03 ${tone.h.toFixed(1)})` : 'oklch(0.99 0 0)' }
+  })
+}
+
 const ink = (kind: Ink, h: number) => (kind === 'light' ? 'oklch(0.99 0 0)' : `oklch(0.2 0.03 ${h.toFixed(1)})`)
 
-function cssVariables(t: BrandTone): Record<string, string> {
+/** Normalize a saved brightness (null / undefined → soft default). */
+export function resolveBrandBrightness(value: number | null | undefined) {
+  if (value == null || Number.isNaN(value)) return DEFAULT_BRAND_BRIGHTNESS
+  return clamp(Math.round(value), BRAND_BRIGHTNESS_MIN, BRAND_BRIGHTNESS_MAX)
+}
+
+function cssVariables(t: BrandTone, brightness: number): Record<string, string> {
+  // Theme tint values were authored around mid-strength; scale by brightness / 50.
+  const strength = resolveBrandBrightness(brightness) / 50
   return {
     '--brand-h': t.h.toFixed(1),
     '--brand-c': t.c.toFixed(3),
@@ -138,17 +207,26 @@ function cssVariables(t: BrandTone): Record<string, string> {
     '--brand-l-dark': t.lDark.toFixed(3),
     '--brand-fg-dark': ink(t.fgDark, t.h),
     '--brand-shift': String(t.shift),
-    '--tint-c': String(t.tint),
+    '--tint-c': (t.tint * strength).toFixed(4),
+    '--brand-brightness': (resolveBrandBrightness(brightness) / 100).toFixed(3),
   }
 }
 
 /** Paints the app in an organization's theme colour (null = Vector's own) and remembers it for the next page load. */
-export function applyBrand(value: string | null | undefined, { remember = true } = {}) {
+export function applyBrand(
+  value: string | null | undefined,
+  { remember = true, brightness }: { remember?: boolean; brightness?: number | null } = {},
+) {
   const root = document.documentElement
-  const variables = cssVariables(resolveBrand(value))
-  const isDefault = !value || value === DEFAULT_BRAND.id
+  const resolvedBrightness = resolveBrandBrightness(brightness)
+  const variables = cssVariables(resolveBrand(value), resolvedBrightness)
+  const isDefaultColor = !value || value === DEFAULT_BRAND.id
+  const isDefaultBrightness = resolvedBrightness === DEFAULT_BRAND_BRIGHTNESS
+  const isDefault = isDefaultColor && isDefaultBrightness
+  // Always write tint / brightness so @property transitions can ease (removeProperty snaps).
+  const surfaceKeys = new Set(['--tint-c', '--brand-brightness'])
   for (const [name, css] of Object.entries(variables)) {
-    if (isDefault) root.style.removeProperty(name)
+    if (isDefault && !surfaceKeys.has(name)) root.style.removeProperty(name)
     else root.style.setProperty(name, css)
   }
   if (!remember) return

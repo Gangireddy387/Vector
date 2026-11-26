@@ -15,6 +15,9 @@ const brandColor = z
   .regex(/^(#[0-9a-f]{6}|[a-z]{3,16})$/, 'Pick a theme or a colour like #1a73e8')
   .nullable();
 
+/** Sidebar / canvas brand tint strength; null resets to the soft default. */
+const brandBrightness = z.coerce.number().int().min(0).max(100).nullable();
+
 const ssoSchema = z.object({
   enabled: z.boolean().optional(),
   enforce: z.boolean().optional(),
@@ -78,6 +81,7 @@ export const updateOrganizationSchema = z
     slug: organizationSlug,
     defaultMode: z.enum(COLOR_MODES),
     brandColor,
+    brandBrightness,
     requireMfa: z.boolean(),
     sso: ssoSchema,
     channelNotifications: channelNotificationsSchema,

@@ -211,6 +211,8 @@ export const useAuthStore = defineStore('auth', () => {
       defaultMode: settings.defaultMode,
       logoUrl: settings.logoUrl !== undefined ? settings.logoUrl : organization.value.logoUrl,
       brandColor: settings.brandColor !== undefined ? settings.brandColor : organization.value.brandColor,
+      brandBrightness:
+        settings.brandBrightness !== undefined ? settings.brandBrightness : organization.value.brandBrightness,
       requireMfa: settings.requireMfa !== undefined ? settings.requireMfa : organization.value.requireMfa,
       sso: settings.sso !== undefined ? settings.sso : organization.value.sso,
       channelNotifications:

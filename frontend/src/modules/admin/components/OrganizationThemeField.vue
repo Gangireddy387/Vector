@@ -4,13 +4,20 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Slider } from '@/components/ui/slider'
 import {
+  BRAND_BRIGHTNESS_MAX,
+  BRAND_BRIGHTNESS_MIN,
   BRAND_THEMES,
   DEFAULT_BRAND,
+  DEFAULT_BRAND_BRIGHTNESS,
+  POPULAR_BRAND_THEMES,
+  STUDIO_BRAND_THEMES,
   applyBrand,
   brandLabel,
   colorFromImage,
   resolveBrand,
+  resolveBrandBrightness,
   swatchColor,
   type BrandTone,
 } from '@/lib/brand-theme'
@@ -21,6 +28,7 @@ const workspace = useWorkspaceStore()
 const current = computed(() => workspace.settings.brandColor ?? DEFAULT_BRAND.id)
 const isHex = computed(() => current.value.startsWith('#'))
 const saving = ref<string | null>(null)
+const savingBrightness = ref(false)
 const previewing = ref(false)
 
 /** The colour read from the organization's logo, offered as a one-click theme. */
@@ -46,21 +54,48 @@ watch(current, (value) => {
 })
 const isValidHex = computed(() => /^#[0-9a-f]{6}$/i.test(custom.value))
 
+const savedBrightness = computed(() => resolveBrandBrightness(workspace.settings.brandBrightness))
+const brightness = ref(savedBrightness.value)
+watch(savedBrightness, (value) => {
+  if (!previewing.value && !savingBrightness.value) brightness.value = value
+})
+const brightnessModel = computed({
+  get: () => [brightness.value],
+  set: (value: number[]) => {
+    const next = resolveBrandBrightness(value[0])
+    brightness.value = next
+    previewBrightness(next)
+  },
+})
+
 /** Normalize saved / theme id for applyBrand (Vector default → null). */
 function toBrandValue(value: string | null) {
   if (!value || value === DEFAULT_BRAND.id) return null
   return value
 }
 
+function paint(value: string | null, nextBrightness = brightness.value, remember = false) {
+  applyBrand(toBrandValue(value), { remember, brightness: nextBrightness })
+}
+
 function preview(value: string | null) {
   previewing.value = true
-  applyBrand(toBrandValue(value), { remember: false })
+  paint(value, brightness.value, false)
+}
+
+function previewBrightness(next: number) {
+  previewing.value = true
+  paint(workspace.settings.brandColor ?? null, next, false)
 }
 
 function restoreSaved() {
-  if (saving.value) return
+  if (saving.value || savingBrightness.value) return
   previewing.value = false
-  applyBrand(workspace.settings.brandColor ?? null, { remember: false })
+  brightness.value = savedBrightness.value
+  applyBrand(workspace.settings.brandColor ?? null, {
+    remember: false,
+    brightness: workspace.settings.brandBrightness,
+  })
 }
 
 async function choose(value: string | null, label: string) {
@@ -71,15 +106,44 @@ async function choose(value: string | null, label: string) {
   }
   saving.value = value ?? DEFAULT_BRAND.id
   // Paint immediately so the shell updates before the network round-trip.
-  applyBrand(next, { remember: true })
+  paint(next, brightness.value, true)
   try {
     await workspace.update({ brandColor: next })
     toast.success(`Theme colour set to ${label}`)
   } catch (error) {
-    applyBrand(workspace.settings.brandColor ?? null, { remember: true })
+    applyBrand(workspace.settings.brandColor ?? null, {
+      remember: true,
+      brightness: workspace.settings.brandBrightness,
+    })
     toast.error(getErrorMessage(error))
   } finally {
     saving.value = null
+    previewing.value = false
+  }
+}
+
+async function commitBrightness() {
+  const next = resolveBrandBrightness(brightness.value)
+  // Soft default is stored as null so existing orgs keep the calm sidebar without a migration.
+  const persist = next === DEFAULT_BRAND_BRIGHTNESS ? null : next
+  if ((workspace.settings.brandBrightness ?? null) === persist) {
+    previewing.value = false
+    return
+  }
+  savingBrightness.value = true
+  paint(workspace.settings.brandColor ?? null, next, true)
+  try {
+    await workspace.update({ brandBrightness: persist })
+    toast.success(`Brand brightness set to ${next}%`)
+  } catch (error) {
+    brightness.value = savedBrightness.value
+    applyBrand(workspace.settings.brandColor ?? null, {
+      remember: true,
+      brightness: workspace.settings.brandBrightness,
+    })
+    toast.error(getErrorMessage(error))
+  } finally {
+    savingBrightness.value = false
     previewing.value = false
   }
 }
@@ -99,6 +163,9 @@ const customTone = computed(() => resolveBrand(isValidHex.value ? custom.value.t
 const activeTheme = computed(() => BRAND_THEMES.find((theme) => theme.id === current.value) ?? null)
 const usingLogo = computed(() => Boolean(isHex.value && logoColor.value && current.value === logoColor.value.toLowerCase()))
 const usingCustom = computed(() => Boolean(isHex.value && !usingLogo.value))
+const brightnessDirty = computed(
+  () => resolveBrandBrightness(brightness.value) !== resolveBrandBrightness(workspace.settings.brandBrightness),
+)
 </script>
 
 <template>
@@ -138,51 +205,100 @@ const usingCustom = computed(() => Boolean(isHex.value && !usingLogo.value))
       </p>
     </div>
 
-    <!-- Named themes -->
-    <div
-      class="grid grid-cols-5 gap-x-2 gap-y-3 sm:gap-x-3"
-      role="radiogroup"
-      aria-label="Theme colour"
-      @pointerleave="restoreSaved"
-    >
-      <button
-        v-for="theme in BRAND_THEMES"
-        :key="theme.id"
-        type="button"
-        role="radio"
-        :aria-checked="current === theme.id"
-        :aria-label="`${theme.label}: ${theme.description}`"
-        :title="`${theme.label} — ${theme.description}`"
-        class="group flex min-w-0 flex-col items-center gap-1.5 rounded-xl p-1.5 text-center outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40"
-        :disabled="saving !== null"
-        @pointerenter="preview(theme.id)"
-        @focus="preview(theme.id)"
-        @click="choose(theme.id, theme.label)"
-      >
-        <span
-          class="relative flex size-9 items-center justify-center rounded-full shadow-sm ring-2 ring-offset-2 ring-offset-background transition-[box-shadow,transform] sm:size-10"
-          :class="
-            current === theme.id
-              ? 'scale-[1.04] ring-primary'
-              : 'ring-transparent group-hover:ring-border group-hover:scale-[1.02]'
-          "
-          :style="{ background: gradient(theme.tone) }"
+    <div class="space-y-4" @pointerleave="restoreSaved">
+      <div class="space-y-2">
+        <div>
+          <p class="text-[13px] font-medium text-foreground">Popular brands</p>
+          <p class="text-[11.5px] text-muted-foreground">One clear hue each — Google, Instagram, Amazon, Spotify, Netflix, Slack.</p>
+        </div>
+        <div
+          class="grid grid-cols-5 gap-x-2 gap-y-3 sm:grid-cols-6 sm:gap-x-3"
+          role="radiogroup"
+          aria-label="Popular brand colours"
         >
-          <Check
-            v-if="current === theme.id"
-            class="size-4 drop-shadow-sm"
-            :class="theme.tone.fg === 'dark' ? 'text-black/80' : 'text-white'"
-          />
-        </span>
-        <span class="w-full min-w-0">
-          <span
-            class="block truncate text-[11px] font-medium leading-tight sm:text-xs"
-            :class="current === theme.id ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'"
+          <button
+            v-for="theme in POPULAR_BRAND_THEMES"
+            :key="theme.id"
+            type="button"
+            role="radio"
+            :aria-checked="current === theme.id"
+            :aria-label="`${theme.label}: ${theme.description}`"
+            :title="`${theme.label} — ${theme.description}`"
+            class="group flex min-w-0 flex-col items-center gap-1.5 rounded-xl p-1.5 text-center outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40"
+            :disabled="saving !== null"
+            @pointerenter="preview(theme.id)"
+            @focus="preview(theme.id)"
+            @click="choose(theme.id, theme.label)"
           >
-            {{ theme.label }}
-          </span>
-        </span>
-      </button>
+            <span
+              class="relative flex size-9 items-center justify-center rounded-full shadow-sm ring-2 ring-offset-2 ring-offset-background transition-[box-shadow,transform] sm:size-10"
+              :class="
+                current === theme.id
+                  ? 'scale-[1.04] ring-primary'
+                  : 'ring-transparent group-hover:ring-border group-hover:scale-[1.02]'
+              "
+              :style="{ background: gradient(theme.tone) }"
+            >
+              <Check
+                v-if="current === theme.id"
+                class="size-4 drop-shadow-sm"
+                :class="theme.tone.fg === 'dark' ? 'text-black/80' : 'text-white'"
+              />
+            </span>
+            <span
+              class="w-full min-w-0 truncate text-[11px] font-medium leading-tight sm:text-xs"
+              :class="current === theme.id ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'"
+            >
+              {{ theme.label }}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <div>
+          <p class="text-[13px] font-medium text-foreground">Studio themes</p>
+          <p class="text-[11.5px] text-muted-foreground">Vector’s own colourways for a calmer workspace look.</p>
+        </div>
+        <div class="grid grid-cols-5 gap-x-2 gap-y-3 sm:gap-x-3" role="radiogroup" aria-label="Studio theme colours">
+          <button
+            v-for="theme in STUDIO_BRAND_THEMES"
+            :key="theme.id"
+            type="button"
+            role="radio"
+            :aria-checked="current === theme.id"
+            :aria-label="`${theme.label}: ${theme.description}`"
+            :title="`${theme.label} — ${theme.description}`"
+            class="group flex min-w-0 flex-col items-center gap-1.5 rounded-xl p-1.5 text-center outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/40"
+            :disabled="saving !== null"
+            @pointerenter="preview(theme.id)"
+            @focus="preview(theme.id)"
+            @click="choose(theme.id, theme.label)"
+          >
+            <span
+              class="relative flex size-9 items-center justify-center rounded-full shadow-sm ring-2 ring-offset-2 ring-offset-background transition-[box-shadow,transform] sm:size-10"
+              :class="
+                current === theme.id
+                  ? 'scale-[1.04] ring-primary'
+                  : 'ring-transparent group-hover:ring-border group-hover:scale-[1.02]'
+              "
+              :style="{ background: gradient(theme.tone) }"
+            >
+              <Check
+                v-if="current === theme.id"
+                class="size-4 drop-shadow-sm"
+                :class="theme.tone.fg === 'dark' ? 'text-black/80' : 'text-white'"
+              />
+            </span>
+            <span
+              class="w-full min-w-0 truncate text-[11px] font-medium leading-tight sm:text-xs"
+              :class="current === theme.id ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'"
+            >
+              {{ theme.label }}
+            </span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <p v-if="activeTheme" class="text-xs text-muted-foreground">
@@ -286,6 +402,47 @@ const usingCustom = computed(() => Boolean(isHex.value && !usingLogo.value))
       </div>
     </div>
 
+    <div class="space-y-3 rounded-xl border border-border bg-card p-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-[13px] font-medium">Brand brightness</p>
+          <p class="mt-0.5 text-[11.5px] leading-snug text-muted-foreground">
+            How strong the colour feels on the sidebar and app canvas. Soft by default — raise it if you want a bolder tint.
+          </p>
+        </div>
+        <span class="shrink-0 text-xs font-medium tabular-nums text-foreground">{{ brightness }}%</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-[11px] text-muted-foreground">Soft</span>
+        <Slider
+          v-model="brightnessModel"
+          class="flex-1"
+          :min="BRAND_BRIGHTNESS_MIN"
+          :max="BRAND_BRIGHTNESS_MAX"
+          :step="1"
+          :disabled="saving !== null || savingBrightness"
+          thumb-label="Brand brightness"
+          @value-commit="commitBrightness"
+        />
+        <span class="text-[11px] text-muted-foreground">Bold</span>
+      </div>
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-[11px] text-muted-foreground">
+          {{ brightness <= 25 ? 'Nearly neutral sidebar' : brightness <= 50 ? 'Calm tint' : brightness <= 75 ? 'Clear brand presence' : 'Strong wash' }}
+        </p>
+        <Button
+          size="sm"
+          variant="outline"
+          class="shrink-0"
+          :disabled="!brightnessDirty || saving !== null || savingBrightness"
+          :loading="savingBrightness"
+          @click="commitBrightness"
+        >
+          Apply brightness
+        </Button>
+      </div>
+    </div>
+
     <div class="flex flex-col gap-2 border-t border-border/70 pt-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
       <p class="leading-relaxed">
         Hover a swatch to preview. Very light or dark colours are adjusted so text and buttons stay readable in light and dark mode.
@@ -295,7 +452,7 @@ const usingCustom = computed(() => Boolean(isHex.value && !usingLogo.value))
         variant="ghost"
         size="xs"
         class="shrink-0 self-start sm:self-auto"
-        :disabled="saving !== null"
+        :disabled="saving !== null || savingBrightness"
         @pointerenter="preview(null)"
         @pointerleave="restoreSaved"
         @click="choose(null, 'Vector')"
