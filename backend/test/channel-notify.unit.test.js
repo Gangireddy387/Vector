@@ -23,6 +23,8 @@ describe('organization-channel-notify', () => {
     assert.equal(published.teamsConfigured, false);
     assert.equal(published.events.assigned, false);
     assert.equal(published.events.commented, true);
+    assert.equal(published.events.status_changed, true);
+    assert.equal(published.events.sprint_completed, true);
     assert.equal(published.slackWebhookUrl, undefined);
   });
 

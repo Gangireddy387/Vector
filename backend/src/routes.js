@@ -8,6 +8,7 @@ import { publicAuthOAuthRoutes } from './modules/auth/auth-oauth.routes.js';
 import { billingRoutes } from './modules/billing/billing.routes.js';
 import { publicScimRoutes, scimAdminRoutes } from './modules/scim/scim.routes.js';
 import { githubAdminRoutes } from './modules/integrations/github/github.routes.js';
+import { gitlabAdminRoutes } from './modules/integrations/gitlab/gitlab.routes.js';
 import { webhookAdminRoutes } from './modules/webhooks/webhook.routes.js';
 import automationRoutes from './modules/automations/automation.routes.js';
 import calendarRoutes from './modules/calendar/calendar.routes.js';
@@ -97,6 +98,7 @@ export function createApiRouter() {
   router.use(scimAdminRoutes);
   router.use(webhookAdminRoutes);
   router.use(githubAdminRoutes);
+  router.use(gitlabAdminRoutes);
   router.use(superAdminRoutes);
   router.use(showcaseAdminRoutes);
   router.use(legalAdminRoutes);

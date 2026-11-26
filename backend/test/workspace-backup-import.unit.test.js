@@ -9,12 +9,16 @@ import {
 } from '../src/modules/organizations/workspace-backup-import.service.js';
 
 describe('parseOrganizationBackup', () => {
-  it('accepts a minimal v1 backup', () => {
-    const payload = parseOrganizationBackup(
+  it('accepts a minimal v1 or v2 backup', () => {
+    const v1 = parseOrganizationBackup(
       JSON.stringify({ format: 'vector-org-backup', version: 1, projects: [], departments: [], members: [] }),
     );
-    assert.equal(payload.format, 'vector-org-backup');
-    assert.equal(payload.projects.length, 0);
+    assert.equal(v1.format, 'vector-org-backup');
+    assert.equal(v1.projects.length, 0);
+    const v2 = parseOrganizationBackup(
+      JSON.stringify({ format: 'vector-org-backup', version: 2, projects: [], departments: [], members: [] }),
+    );
+    assert.equal(v2.version, 2);
   });
 
   it('rejects wrong format or version', () => {
@@ -29,14 +33,14 @@ describe('parseOrganizationBackup', () => {
 });
 
 describe('countBackupStats', () => {
-  it('tallies projects, issues, comments and attachment metadata', () => {
+  it('tallies projects, issues, comments and embedded vs skipped attachments', () => {
     const stats = countBackupStats({
       projects: [
         {
           key: 'A',
           issues: [
-            { comments: [{}, {}], attachments: [{}] },
-            { comments: [], attachments: [{}, {}] },
+            { comments: [{}, {}], attachments: [{ contentBase64: 'YWJj' }] },
+            { comments: [], attachments: [{}, { contentBase64: 'ZGVm' }] },
           ],
           automationRules: [{}],
           recurringTasks: [{}, {}],
@@ -51,6 +55,8 @@ describe('countBackupStats', () => {
       issues: 2,
       comments: 2,
       attachments: 3,
+      attachmentsEmbedded: 2,
+      attachmentsSkipped: 1,
       automations: 1,
       recurringTasks: 2,
       departments: 2,

@@ -105,7 +105,9 @@ export interface OrganizationChannelNotifications {
     assigned: boolean
     commented: boolean
     due_soon: boolean
+    status_changed: boolean
     sprint_started: boolean
+    sprint_completed: boolean
   }
   slackConfigured: boolean
   teamsConfigured: boolean

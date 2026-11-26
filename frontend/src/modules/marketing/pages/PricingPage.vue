@@ -34,11 +34,23 @@ const FALLBACK_PLANS: MarketingPlan[] = [
   {
     name: 'Free',
     price: 'Free',
-    description: 'Run the full workday loop before you pay.',
-    members: 'Up to 5 people',
-    projects: 'Up to 2 projects',
-    included: ['attachments', 'timeTracking', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar'],
-    always: ['Tasks, board & backlog', 'Standup, chat & messages', 'Meetings & calendar'],
+    description: 'Workday loop plus project basics before you pay.',
+    members: 'Up to 10 people',
+    projects: 'Up to 5 projects',
+    included: [
+      'attachments',
+      'timeTracking',
+      'chat',
+      'directMessages',
+      'teamChat',
+      'meetings',
+      'calendar',
+      'templates',
+      'recurringTasks',
+      'reports',
+      'emailInvitations',
+    ],
+    always: ['Tasks, board & backlog', 'Templates, recurring & reports', 'Invite emails, standup & meetings'],
   },
   {
     name: 'Pro',
@@ -47,8 +59,8 @@ const FALLBACK_PLANS: MarketingPlan[] = [
     highlight: true,
     members: 'Up to 25 people',
     projects: 'Up to 20 projects',
-    included: PLAN_FEATURES.map((feature) => feature.key),
-    always: ['Everything in Free', 'Automation, templates & recurring', 'Reports & AI'],
+    included: PLAN_FEATURES.map((feature) => feature.key).filter((key) => key !== 'sso' && key !== 'scim'),
+    always: ['Everything in Free', 'Automation & AI', 'Roadmap, goals, wiki & volume email'],
   },
   {
     name: 'Enterprise',
@@ -103,7 +115,7 @@ const appFeatures = PLAN_FEATURES.filter((feature) => feature.group === 'app')
 const freePlan = computed(() => plans.value.find((plan) => plan.name.toLowerCase() === 'free') ?? plans.value[0]!)
 
 function planHas(plan: MarketingPlan, key: PlanFeatureKey) {
-  if (plan.name.toLowerCase() === 'enterprise' || plan.name.toLowerCase() === 'pro') return true
+  if (plan.name.toLowerCase() === 'enterprise') return true
   return plan.included.includes(key)
 }
 </script>
@@ -112,7 +124,7 @@ function planHas(plan: MarketingPlan, key: PlanFeatureKey) {
   <div class="mx-auto w-full max-w-[90rem] space-y-8 p-4 sm:p-6 lg:p-8">
     <PageHeader
       title="Pricing"
-      description="Free includes the workday loop (standup, chat, messages, meetings). Automation, reports and AI unlock on Pro — with a free trial when card checkout is on."
+      description="Free includes the workday loop, templates, recurring tasks, reports and invitation emails. Automation, AI, advanced planning and volume email unlock on Pro — with a free trial when card checkout is on."
     >
       <template #actions>
         <Button variant="outline" as-child><RouterLink :to="{ name: 'landing' }">About</RouterLink></Button>

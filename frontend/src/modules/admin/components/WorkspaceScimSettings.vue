@@ -100,8 +100,8 @@ async function revoke(tokenId: string) {
       <CardTitle>SCIM provisioning</CardTitle>
       <CardDescription>
         <template v-if="available">
-          Sync people from Okta, Entra ID, or another SCIM 2.0 IdP. Create a bearer token and point the IdP at the Users
-          endpoint.
+          Sync people and groups from Okta, Entra ID, or another SCIM 2.0 IdP. Users map to organization members; Groups map
+          to Teams (created under a “SCIM” department).
         </template>
         <template v-else>Included on Enterprise (or when the portal turns SCIM on for this organization).</template>
       </CardDescription>
@@ -113,7 +113,7 @@ async function revoke(tokenId: string) {
       <div v-if="baseUrl" class="rounded-xl border border-border/70 px-3.5 py-3">
         <p class="text-sm font-medium">Tenant URL</p>
         <p class="mt-1 break-all font-mono text-xs text-muted-foreground">{{ baseUrl }}</p>
-        <p class="mt-1 text-xs text-muted-foreground">Users endpoint: {{ baseUrl }}/Users</p>
+        <p class="mt-1 text-xs text-muted-foreground">Users: {{ baseUrl }}/Users · Groups: {{ baseUrl }}/Groups</p>
         <Button type="button" variant="outline" size="sm" class="mt-2" @click="copyBaseUrl">
           <Copy class="size-3.5" />
           Copy base URL

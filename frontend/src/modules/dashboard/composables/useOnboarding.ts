@@ -94,7 +94,7 @@ export function useOnboarding(data: Ref<DashboardData | null>) {
           title: 'Post today’s standup',
           description: canStandup
             ? 'Share what you did, what’s next, and blockers — then clear tasks.'
-            : 'Standups unlock with Team chat on Pro — skip for now or upgrade.',
+            : 'Standups need Team chat on this plan — ask an admin if that seems wrong, or skip for now.',
           done: !canStandup || skippedIds.value.has('standup') || (hasProject.value && standupPending.length === 0),
           action:
             canStandup && firstProjectId.value

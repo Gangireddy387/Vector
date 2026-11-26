@@ -62,7 +62,7 @@ async function actorLabel(actorId) {
 
 /**
  * Posts a channel message for one org event. Fire-and-forget friendly (errors are logged).
- * @param {'assigned'|'commented'|'due_soon'|'sprint_started'} eventKey
+ * @param {'assigned'|'commented'|'due_soon'|'status_changed'|'sprint_started'|'sprint_completed'} eventKey
  */
 export async function deliverChannelNotification(organization, eventKey, message) {
   const config = channelNotifyDeliveryConfig(organization);

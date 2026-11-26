@@ -44,6 +44,8 @@ export interface GithubIntegrationSettings {
   secret?: string
 }
 
+export type GitlabIntegrationSettings = GithubIntegrationSettings
+
 /** Dry-run result from POST /workspace/backup/import/preview. */
 export interface BackupImportPreview {
   dryRun: true
@@ -52,12 +54,15 @@ export interface BackupImportPreview {
     slug: string | null
     name: string | null
     exportedAt: string | null
+    version?: number | null
   }
   stats: {
     projects: number
     issues: number
     comments: number
     attachments: number
+    attachmentsEmbedded?: number
+    attachmentsSkipped?: number
     automations: number
     recurringTasks: number
     departments: number
@@ -229,7 +234,12 @@ export const workspaceApi = {
     http.put<GithubIntegrationSettings>('/workspace/integrations/github', payload).then((r) => r.data),
   regenerateGithubSecret: () =>
     http.post<GithubIntegrationSettings>('/workspace/integrations/github/regenerate-secret').then((r) => r.data),
-  /** Full organization JSON backup (projects, issues, comments, attachment metadata). */
+  gitlabIntegration: () => http.get<GitlabIntegrationSettings>('/workspace/integrations/gitlab').then((r) => r.data),
+  updateGitlabIntegration: (payload: { enabled?: boolean; mergeClosesIssue?: boolean }) =>
+    http.put<GitlabIntegrationSettings>('/workspace/integrations/gitlab', payload).then((r) => r.data),
+  regenerateGitlabSecret: () =>
+    http.post<GitlabIntegrationSettings>('/workspace/integrations/gitlab/regenerate-secret').then((r) => r.data),
+  /** Full organization JSON backup (projects, issues, comments; attachment files embedded when under size limits). */
   exportBackup: async (slug?: string | null) => {
     const response = await http.get<Blob>('/workspace/backup', { responseType: 'blob' })
     const safe = String(slug || 'workspace').replace(/[^\w.-]+/g, '_')
@@ -243,7 +253,7 @@ export const workspaceApi = {
     form.append('file', file)
     return http.post<BackupImportPreview>('/workspace/backup/import/preview', form).then((r) => r.data)
   },
-  /** Merge-import a Vector org backup JSON (creates new projects; matches people by email). */
+  /** Merge-import a Vector org backup JSON (creates new projects; matches people by email; restores embedded files). */
   importBackup: (file: File) => {
     const form = new FormData()
     form.append('file', file)
@@ -253,6 +263,7 @@ export const workspaceApi = {
         issuesCreated: number
         departmentsCreated: number
         teamsCreated: number
+        attachmentsRestored: number
         remappedKeys: Array<{ from: string; to: string }>
         skipped: { attachments: number; unknownEmails: string[]; billing: boolean; users: boolean }
         warnings: string[]

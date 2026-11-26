@@ -8,8 +8,8 @@ import { type PlanFeatureKey } from '@/lib/plan-features'
 import RequestUpgradeButton from '@/modules/admin/components/RequestUpgradeButton.vue'
 import { useAuthStore } from '@/modules/auth/auth.store'
 
-/** Pro differentiators still locked on Free after the workday loop is included. */
-const CORE: PlanFeatureKey[] = ['aiAssistant', 'automations', 'recurringTasks', 'templates', 'reports']
+/** Pro differentiators still locked on Free after workday loop + project basics. */
+const CORE: PlanFeatureKey[] = ['aiAssistant', 'automations', 'roadmap', 'goals', 'wiki']
 
 const auth = useAuthStore()
 const lockedCore = computed(() => CORE.filter((key) => !auth.hasFeature(key)))
@@ -28,7 +28,7 @@ const show = computed(() => lockedCore.value.length >= 1)
     </header>
     <div class="space-y-3 px-4 py-3">
       <p class="text-[12.5px] text-muted-foreground">
-        Free already includes standup, chat, messages and meetings. Pro adds automation, AI, templates, recurring work and reports.
+        Free already includes the workday loop, templates, recurring tasks and reports. Pro adds automation, AI, roadmap, goals and wiki.
       </p>
       <CollabGuide dense />
       <div class="flex flex-wrap gap-2">

@@ -247,11 +247,14 @@ async function confirmImport() {
     const keyNote = result.remappedKeys.length
       ? ` Keys remapped: ${result.remappedKeys.map((row) => `${row.from}→${row.to}`).join(', ')}.`
       : ''
+    const attachmentNote = [
+      result.attachmentsRestored > 0 ? `${result.attachmentsRestored} file(s) restored` : null,
+      result.skipped.attachments > 0 ? `${result.skipped.attachments} attachment(s) skipped (no embedded bytes)` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
     toast.success(`Imported ${result.projectsCreated} project(s), ${result.issuesCreated} task(s).${keyNote}`, {
-      description:
-        result.skipped.attachments > 0
-          ? `${result.skipped.attachments} attachment metadata rows skipped (binaries are not in the JSON).`
-          : undefined,
+      description: attachmentNote || undefined,
     })
   } catch (error) {
     toast.error(getErrorMessage(error))
@@ -547,8 +550,8 @@ async function deleteOrganization() {
         <CardTitle>Backup &amp; restore</CardTitle>
         <CardDescription>
           Download a JSON backup of {{ workspace.settings.name }}: people, departments, projects, tasks, comments, links, automations and
-          attachment metadata. Restore merges into this organization — it creates new projects (keys get a suffix if taken) and matches
-          people by email. Binary files stay on the server — also copy the upload directory when you leave the host.
+          attachment files (embedded when under size limits). Restore merges into this organization — it creates new projects (keys get a
+          suffix if taken), matches people by email, and restores embedded files. It never creates login accounts or copies Stripe billing.
         </CardDescription>
       </CardHeader>
       <CardContent class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
@@ -567,8 +570,8 @@ async function deleteOrganization() {
         <DialogHeader>
           <DialogTitle>Restore backup?</DialogTitle>
           <DialogDescription>
-            Merge into {{ workspace.settings.name }} — creates new projects and tasks. Does not replace existing data, create users, or
-            restore file binaries.
+            Merge into {{ workspace.settings.name }} — creates new projects and tasks, and restores embedded attachment files. Does not
+            replace existing data, create login accounts, or copy Stripe billing.
             <span v-if="importFile" class="mt-2 block font-mono text-xs text-foreground">{{ importFile.name }}</span>
           </DialogDescription>
         </DialogHeader>
@@ -595,6 +598,12 @@ async function deleteOrganization() {
             <div>
               <dt class="text-xs text-muted-foreground">Automations</dt>
               <dd class="font-medium tabular-nums">{{ importPreview.stats.automations }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-muted-foreground">Files</dt>
+              <dd class="font-medium tabular-nums">
+                {{ importPreview.stats.attachmentsEmbedded ?? 0 }}/{{ importPreview.stats.attachments }} embedded
+              </dd>
             </div>
             <div>
               <dt class="text-xs text-muted-foreground">Plan after</dt>

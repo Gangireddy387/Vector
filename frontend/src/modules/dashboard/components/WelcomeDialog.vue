@@ -52,7 +52,7 @@ function fromScratch() {
         <DialogDescription class="mt-1 text-[13px]">
           First 10 minutes: project → invite → task.
           <template v-if="!auth.hasFeature('chat')"> Standup and chat look locked on this plan — ask an admin if that seems wrong.</template>
-          <template v-else> How would you like to start? Standup, chat and meetings are ready on Free.</template>
+          <template v-else> How would you like to start? Templates, reports, standup, chat and meetings are ready on Free.</template>
         </DialogDescription>
       </div>
 

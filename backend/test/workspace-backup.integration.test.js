@@ -67,17 +67,18 @@ describe('workspace backup', () => {
     const response = await asAlice('GET', '/workspace/backup');
     assert.equal(response.status, 200, JSON.stringify(response.body)?.slice?.(0, 500) ?? response.body);
     assert.equal(response.body.format, 'vector-org-backup');
-    assert.equal(response.body.version, 1);
+    assert.equal(response.body.version, 2);
     assert.equal(response.body.organization.id, alice.organizationId);
     assert.ok(response.body.stats.projects >= 1);
     assert.ok(response.body.stats.issues >= 1);
+    assert.equal(typeof response.body.stats.attachmentsEmbedded, 'number');
     const exported = response.body.projects.find((entry) => entry.id === project.id);
     assert.ok(exported);
     const exportedIssue = exported.issues.find((row) => row.id === issue.id);
     assert.ok(exportedIssue);
     assert.equal(exportedIssue.title, 'Export me');
     assert.ok(exportedIssue.comments.some((comment) => comment.body === 'Keep this comment'));
-    assert.match(String(response.body.notes.attachments), /UPLOAD_DIR|upload/i);
+    assert.match(String(response.body.notes.attachments), /embed|base64|Attachment/i);
   });
 
   it('keeps other organizations out of the backup', async () => {

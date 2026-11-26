@@ -9,6 +9,7 @@ import { useWorkspaceStore } from '@/stores/workspace.store'
 import { workspaceApi } from '../admin.api'
 import WorkspaceChannelNotificationsSettings from './WorkspaceChannelNotificationsSettings.vue'
 import WorkspaceGithubSettings from './WorkspaceGithubSettings.vue'
+import WorkspaceGitlabSettings from './WorkspaceGitlabSettings.vue'
 import WorkspaceScimSettings from './WorkspaceScimSettings.vue'
 import WorkspaceSsoSettings from './WorkspaceSsoSettings.vue'
 import WorkspaceWebhooksSettings from './WorkspaceWebhooksSettings.vue'
@@ -25,6 +26,7 @@ const router = useRouter()
 const webhookCount = ref(0)
 const scimTokenCount = ref(0)
 const githubEnabled = ref(false)
+const gitlabEnabled = ref(false)
 const statusLoaded = ref(false)
 
 const setup = computed<SetupKey | null>(() => {
@@ -39,7 +41,7 @@ const catalog = computed(() => {
     {
       key: 'slack' as const,
       title: 'Slack & Teams',
-      description: 'Post assignments, comments, due dates and sprint starts to a channel.',
+      description: 'Post assignments, comments, status changes, due dates and sprint updates to a channel.',
       icon: Webhook,
       available: Boolean(channel?.available),
       configured: Boolean(channel?.slackConfigured || channel?.teamsConfigured),
@@ -57,7 +59,7 @@ const catalog = computed(() => {
     {
       key: 'scim' as const,
       title: 'SCIM provisioning',
-      description: 'Sync people from Okta, Entra ID, or another SCIM 2.0 IdP.',
+      description: 'Sync people and groups (teams) from Okta, Entra ID, or another SCIM 2.0 IdP.',
       icon: KeyRound,
       available: auth.hasFeature('scim'),
       configured: scimTokenCount.value > 0,
@@ -75,10 +77,10 @@ const catalog = computed(() => {
     {
       key: 'vcs' as const,
       title: 'GitHub & GitLab',
-      description: 'Link PR/issue URLs on tasks and sync GitHub activity into Vector comments.',
+      description: 'Link PR/issue URLs on tasks and sync GitHub or GitLab activity into Vector comments.',
       icon: GitBranch,
       available: auth.hasFeature('vcsLinks'),
-      configured: githubEnabled.value,
+      configured: githubEnabled.value || gitlabEnabled.value,
       cta: 'Configure',
     },
   ]
@@ -127,9 +129,13 @@ async function loadStatus() {
         workspaceApi.githubIntegration().then((data) => {
           githubEnabled.value = Boolean(data.enabled)
         }),
+        workspaceApi.gitlabIntegration().then((data) => {
+          gitlabEnabled.value = Boolean(data.enabled)
+        }),
       )
     } else {
       githubEnabled.value = false
+      gitlabEnabled.value = false
     }
     await Promise.all(jobs)
   } catch {
@@ -172,7 +178,10 @@ function backToHub() {
       <WorkspaceWebhooksSettings v-else-if="setup === 'webhooks'" />
       <WorkspaceScimSettings v-else-if="setup === 'scim'" />
       <WorkspaceSsoSettings v-else-if="setup === 'sso'" />
-      <WorkspaceGithubSettings v-else-if="setup === 'vcs'" />
+      <div v-else-if="setup === 'vcs'" class="space-y-4">
+        <WorkspaceGithubSettings />
+        <WorkspaceGitlabSettings />
+      </div>
     </template>
 
     <template v-else>

@@ -50,7 +50,7 @@ const pending = computed(() => overview.value?.upgradeRequest ?? null)
 const isFreeLike = computed(() => {
   const features = overview.value?.entitlements.features
   if (!features) return false
-  return !features.automations || !features.aiAssistant || !features.reports
+  return !features.automations || !features.aiAssistant
 })
 const isEnterprise = computed(() => String(planName.value).toLowerCase() === 'enterprise')
 </script>
@@ -94,13 +94,13 @@ const isEnterprise = computed(() => String(planName.value).toLowerCase() === 'en
         >
           <div class="min-w-0 flex-1">
             <p class="text-sm font-medium">
-              {{ pending?.target === 'pro' ? 'Pro request pending' : 'Want automation, AI and reports?' }}
+              {{ pending?.target === 'pro' ? 'Pro request pending' : 'Want automation and AI?' }}
             </p>
             <p class="mt-0.5 text-xs text-muted-foreground">
               <template v-if="pending?.target === 'pro'">
                 Sent {{ pending.requestedByName ? `by ${pending.requestedByName}` : '' }} — waiting on the portal admin.
               </template>
-              <template v-else>Pro adds automation, AI, templates, recurring tasks and reports.</template>
+              <template v-else>Pro adds automation, AI, roadmap, goals and wiki.</template>
             </p>
           </div>
           <RequestUpgradeButton target="pro" :pending="pending" :member-count="overview.usage.members" @update="load" />

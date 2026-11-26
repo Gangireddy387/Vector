@@ -9,6 +9,7 @@ import { config, isProduction } from './config/index.js';
 import { sequelize } from './database/models.js';
 import { mountStripeWebhook } from './modules/billing/billing.routes.js';
 import { mountGithubWebhook } from './modules/integrations/github/github.routes.js';
+import { mountGitlabWebhook } from './modules/integrations/gitlab/gitlab.routes.js';
 import { createApiRouter } from './routes.js';
 import { runWithContext } from './shared/context/request-context.js';
 import { errorHandler, notFoundHandler } from './shared/middleware/error-handler.js';
@@ -51,9 +52,10 @@ export function createApp() {
     ),
   );
 
-  // Stripe / GitHub need the raw body for signature verification — mount before express.json.
+  // Stripe / GitHub / GitLab need the raw body for signature verification — mount before express.json.
   mountStripeWebhook(app);
   mountGithubWebhook(app);
+  mountGitlabWebhook(app);
 
   app.use(express.json({ limit: '2mb' }));
 

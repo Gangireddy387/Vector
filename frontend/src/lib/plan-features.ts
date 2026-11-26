@@ -171,14 +171,14 @@ export const PLAN_FEATURES: PlanFeature[] = [
   {
     key: 'channelNotifications',
     label: 'Slack & Teams notifications',
-    description: 'Post assignments, comments, due dates and sprint starts to Slack or Microsoft Teams',
+    description: 'Post assignments, comments, status changes, due dates and sprint updates to Slack or Microsoft Teams',
     icon: Webhook,
     group: 'app',
   },
   {
     key: 'vcsLinks',
     label: 'GitHub & GitLab links',
-    description: 'Link GitHub/GitLab URLs on tasks; sync PR opens, reviews, checks, comments, and merges via GitHub webhooks',
+    description: 'Link GitHub/GitLab URLs on tasks; sync activity via GitHub and GitLab inbound webhooks',
     icon: GitBranch,
     group: 'app',
   },

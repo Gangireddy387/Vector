@@ -32,10 +32,16 @@ before(async () => {
 
   const root = (await call('POST', '/auth/login', ADMIN)).body.token;
   assert.equal((await call('POST', `/super-admin/organizations/${owner.organizationId}/approve`, null, root)).status, 200);
+  // Return the invite link in the API response so the test can accept without reading mail.
+  assert.equal(
+    (await call('PUT', `/super-admin/organizations/${owner.organizationId}/features`, { features: { emailInvitations: false } }, root)).status,
+    200,
+  );
 
   const memberEmail = `member-depts-${stamp}@example.test`;
   const invited = await call('POST', '/workspace/invitations', { email: memberEmail, role: 'member' }, owner.token, owner.organizationId);
   assert.equal(invited.status, 201, JSON.stringify(invited.body));
+  assert.ok(invited.body.member.inviteLink, 'invite link is returned when invitation emails are off');
   const inviteToken = new URL(invited.body.member.inviteLink).searchParams.get('token');
   const accepted = await call('POST', '/auth/accept-invite/quick', { token: inviteToken });
   assert.equal(accepted.status, 200, JSON.stringify(accepted.body));

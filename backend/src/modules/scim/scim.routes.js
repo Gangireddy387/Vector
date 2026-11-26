@@ -77,7 +77,7 @@ publicScimRoutes.get('/scim/v2/ServiceProviderConfig', (_req, res) => {
 publicScimRoutes.get('/scim/v2/Schemas', (_req, res) => {
   scimJson(res, 200, {
     schemas: [SCIM_SCHEMAS.LIST_SCHEMA],
-    totalResults: 1,
+    totalResults: 2,
     Resources: [
       {
         id: SCIM_SCHEMAS.USER_SCHEMA,
@@ -89,6 +89,38 @@ publicScimRoutes.get('/scim/v2/Schemas', (_req, res) => {
           { name: 'active', type: 'boolean', required: false },
           { name: 'emails', type: 'complex', multiValued: true, required: false },
         ],
+      },
+      {
+        id: SCIM_SCHEMAS.GROUP_SCHEMA,
+        name: 'Group',
+        description: 'Team (organization structure)',
+        attributes: [
+          { name: 'displayName', type: 'string', required: true, uniqueness: 'none' },
+          { name: 'members', type: 'complex', multiValued: true, required: false },
+        ],
+      },
+    ],
+  });
+});
+
+publicScimRoutes.get('/scim/v2/ResourceTypes', (_req, res) => {
+  scimJson(res, 200, {
+    schemas: [SCIM_SCHEMAS.LIST_SCHEMA],
+    totalResults: 2,
+    Resources: [
+      {
+        schemas: ['urn:ietf:params:scim:schemas:core:2.0:ResourceType'],
+        id: 'User',
+        name: 'User',
+        endpoint: '/Users',
+        schema: SCIM_SCHEMAS.USER_SCHEMA,
+      },
+      {
+        schemas: ['urn:ietf:params:scim:schemas:core:2.0:ResourceType'],
+        id: 'Group',
+        name: 'Group',
+        endpoint: '/Groups',
+        schema: SCIM_SCHEMAS.GROUP_SCHEMA,
       },
     ],
   });
@@ -126,6 +158,41 @@ publicScimRoutes.patch('/scim/v2/Users/:id', async (req, res) => {
 
 publicScimRoutes.delete('/scim/v2/Users/:id', async (req, res) => {
   await scim.deleteScimUser(req.scimOrganization, req.params.id);
+  res.status(204).end();
+});
+
+publicScimRoutes.get('/scim/v2/Groups', async (req, res) => {
+  const list = await scim.listScimGroups(req.scimOrganization, {
+    filter: req.query.filter,
+    startIndex: req.query.startIndex,
+    count: req.query.count,
+  });
+  scimJson(res, 200, list);
+});
+
+publicScimRoutes.post('/scim/v2/Groups', async (req, res) => {
+  const { status, resource } = await scim.createScimGroup(req.scimOrganization, req.body);
+  res.set('Location', resource.meta.location);
+  scimJson(res, status, resource);
+});
+
+publicScimRoutes.get('/scim/v2/Groups/:id', async (req, res) => {
+  const resource = await scim.getScimGroup(req.scimOrganization, req.params.id);
+  scimJson(res, 200, resource);
+});
+
+publicScimRoutes.put('/scim/v2/Groups/:id', async (req, res) => {
+  const resource = await scim.replaceScimGroup(req.scimOrganization, req.params.id, req.body);
+  scimJson(res, 200, resource);
+});
+
+publicScimRoutes.patch('/scim/v2/Groups/:id', async (req, res) => {
+  const resource = await scim.patchScimGroup(req.scimOrganization, req.params.id, req.body);
+  scimJson(res, 200, resource);
+});
+
+publicScimRoutes.delete('/scim/v2/Groups/:id', async (req, res) => {
+  await scim.deleteScimGroup(req.scimOrganization, req.params.id);
   res.status(204).end();
 });
 

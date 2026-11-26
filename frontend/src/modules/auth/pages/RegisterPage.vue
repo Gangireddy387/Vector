@@ -70,7 +70,7 @@ async function submit() {
       step === 1
         ? fromGuest
           ? 'You joined a meeting as a guest. Create a free workspace for your own team next.'
-          : 'Free includes the workday loop. Automation and AI unlock on Pro.'
+          : 'Free includes the workday loop, templates, recurring tasks and reports. Automation and AI unlock on Pro.'
         : 'Your team’s space with its own address. Invite people after.'
     "
   />

@@ -9,8 +9,8 @@ import { featureLabel, PLAN_FEATURES, type PlanFeatureKey } from '@/lib/plan-fea
 import RequestUpgradeButton from '@/modules/admin/components/RequestUpgradeButton.vue'
 import { useAuthStore } from '@/modules/auth/auth.store'
 
-/** Pro upgrades people feel after the Free workday loop — listed so the gate explains value, not a dead end. */
-const PRO_COLLAB: PlanFeatureKey[] = ['aiAssistant', 'automations', 'recurringTasks', 'templates', 'reports', 'customSounds']
+/** Pro upgrades people feel after Free project basics — listed so the gate explains value, not a dead end. */
+const PRO_COLLAB: PlanFeatureKey[] = ['aiAssistant', 'automations', 'roadmap', 'goals', 'wiki', 'customSounds']
 
 const route = useRoute()
 const router = useRouter()

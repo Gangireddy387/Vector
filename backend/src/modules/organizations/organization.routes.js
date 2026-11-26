@@ -20,8 +20,13 @@ import { exportAuditLogCsv, exportAuditLogJsonl, listAuditLog } from '../workspa
 import { backupUpload } from './workspace-backup-import.service.js';
 
 const lookupLimiter = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false });
-/** Full org backups are heavy — a few downloads / restores per hour is enough for offboarding. */
-const backupLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: true, legacyHeaders: false });
+/** Full org backups are heavy — keep offboarding abuse low; tests need more headroom. */
+const backupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: process.env.NODE_ENV === 'test' ? 1000 : 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /** Public: signup checks an address while typing; /:slug links show which organization you are signing in to. */
 export const publicOrganizationRoutes = Router();

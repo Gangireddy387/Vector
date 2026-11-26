@@ -1,5 +1,9 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import multer from 'multer';
 import {
+  Attachment,
   AutomationRule,
   Comment,
   Department,
@@ -21,7 +25,10 @@ import {
   WorkLog,
 } from '../../database/models.js';
 import { writeTransaction } from '../../database/connection.js';
+import { config } from '../../config/index.js';
 import { ApiError } from '../../shared/errors/api-error.js';
+import { toStorageKey } from '../attachments/attachment.storage.js';
+import { writeThumbnail } from '../attachments/attachment.thumbs.js';
 import { ISSUE_PRIORITIES, ISSUE_TYPES } from '../issues/issue.model.js';
 import { ISSUE_LINK_TYPES } from '../issues/issue-relations.model.js';
 import { entitlementsFor, usageFor } from '../plans/plan.service.js';
@@ -30,10 +37,12 @@ import { SPRINT_STATES } from '../sprints/sprint.model.js';
 import { STATUS_CATEGORIES } from '../statuses/status.model.js';
 import { USER_SUMMARY_ATTRIBUTES } from '../users/user.model.js';
 import { RECURRING_FREQUENCIES } from '../recurring-tasks/recurring-task.model.js';
+import { BACKUP_VERSION } from './workspace-backup.service.js';
 
-export const BACKUP_IMPORT_MAX_BYTES = 25 * 1024 * 1024;
+/** Allow larger JSON when attachment bytes are embedded (base64). */
+export const BACKUP_IMPORT_MAX_BYTES = 100 * 1024 * 1024;
 const FORMAT = 'vector-org-backup';
-const VERSION = 1;
+const SUPPORTED_VERSIONS = new Set([1, 2]);
 
 export const backupUpload = multer({
   storage: multer.memoryStorage(),
@@ -60,11 +69,44 @@ export function parseOrganizationBackup(bufferOrText) {
   if (!payload || payload.format !== FORMAT) {
     throw ApiError.badRequest('Not a Vector organization backup (expected format vector-org-backup)');
   }
-  if (payload.version !== VERSION) {
-    throw ApiError.badRequest(`Unsupported backup version ${payload.version}; this server imports version ${VERSION}`);
+  if (!SUPPORTED_VERSIONS.has(payload.version)) {
+    throw ApiError.badRequest(
+      `Unsupported backup version ${payload.version}; this server imports versions ${[...SUPPORTED_VERSIONS].join(' and ')} (current export is ${BACKUP_VERSION})`,
+    );
   }
   if (!Array.isArray(payload.projects)) throw ApiError.badRequest('Backup is missing projects');
   return payload;
+}
+
+function attachmentHasBinary(file) {
+  return Boolean(file?.contentBase64 && String(file.contentBase64).length > 0);
+}
+
+/** Writes an embedded backup file into UPLOAD_DIR and returns storage keys. */
+async function materializeAttachmentFile(file) {
+  const buffer = Buffer.from(String(file.contentBase64), 'base64');
+  if (!buffer.length) throw new Error('empty attachment payload');
+  const folder = path.join(config.uploads.dir, new Date().toISOString().slice(0, 7));
+  await fs.mkdir(folder, { recursive: true });
+  const ext = path.extname(String(file.fileName || '')).toLowerCase() || '';
+  const absolute = path.join(folder, `${crypto.randomUUID()}${ext}`);
+  await fs.writeFile(absolute, buffer);
+  const storageKey = toStorageKey(absolute);
+  let thumbStorageKey = null;
+  if (file.thumbContentBase64) {
+    try {
+      const thumbFolder = path.join(folder, 'thumbs');
+      await fs.mkdir(thumbFolder, { recursive: true });
+      const thumbAbsolute = path.join(thumbFolder, `${path.basename(absolute, ext)}.webp`);
+      await fs.writeFile(thumbAbsolute, Buffer.from(String(file.thumbContentBase64), 'base64'));
+      thumbStorageKey = toStorageKey(thumbAbsolute);
+    } catch {
+      thumbStorageKey = await writeThumbnail(storageKey, file.mimeType || 'application/octet-stream');
+    }
+  } else {
+    thumbStorageKey = await writeThumbnail(storageKey, file.mimeType || 'application/octet-stream');
+  }
+  return { storageKey, thumbStorageKey, size: buffer.length };
 }
 
 function remapDeep(value, idMap) {
@@ -154,6 +196,7 @@ export function countBackupStats(backup) {
   let issues = 0;
   let comments = 0;
   let attachments = 0;
+  let attachmentsEmbedded = 0;
   let automations = 0;
   let recurringTasks = 0;
   for (const project of backup.projects ?? []) {
@@ -161,7 +204,10 @@ export function countBackupStats(backup) {
     issues += projectIssues.length;
     for (const issue of projectIssues) {
       comments += (issue.comments ?? []).length;
-      attachments += (issue.attachments ?? []).length;
+      for (const file of issue.attachments ?? []) {
+        attachments += 1;
+        if (attachmentHasBinary(file)) attachmentsEmbedded += 1;
+      }
     }
     automations += (project.automationRules ?? []).length;
     recurringTasks += (project.recurringTasks ?? []).length;
@@ -171,6 +217,8 @@ export function countBackupStats(backup) {
     issues,
     comments,
     attachments,
+    attachmentsEmbedded,
+    attachmentsSkipped: Math.max(0, attachments - attachmentsEmbedded),
     automations,
     recurringTasks,
     departments: (backup.departments ?? []).length,
@@ -256,8 +304,13 @@ export async function previewOrganizationBackup(organization, buffer) {
   const remappedKeys = await estimateRemappedKeys(organization.id, backup);
   const { planName, usage } = await assertImportFitsPlan(organization, stats.projects);
 
-  if (stats.attachments > 0) {
-    warnings.push(`${stats.attachments} attachment metadata row(s) will be skipped — binaries are not in the JSON.`);
+  if (stats.attachmentsEmbedded > 0) {
+    warnings.push(`${stats.attachmentsEmbedded} attachment file(s) will be restored from embedded data.`);
+  }
+  if (stats.attachmentsSkipped > 0) {
+    warnings.push(
+      `${stats.attachmentsSkipped} attachment(s) have metadata only (v1 backup, missing file, or over size budget) and will be skipped.`,
+    );
   }
   if (unknownEmails.size) {
     warnings.push(
@@ -280,11 +333,12 @@ export async function previewOrganizationBackup(organization, buffer) {
       slug: backup.organization?.slug ?? null,
       name: backup.organization?.name ?? null,
       exportedAt: backup.exportedAt ?? backup.createdAt ?? null,
+      version: backup.version ?? null,
     },
     stats,
     remappedKeys,
     skipped: {
-      attachments: stats.attachments,
+      attachments: stats.attachmentsSkipped,
       unknownEmails: [...unknownEmails].slice(0, 50),
       billing: true,
       users: true,
@@ -299,12 +353,14 @@ export async function previewOrganizationBackup(organization, buffer) {
 
 /**
  * Merge-import a Vector org backup into the current organization.
- * Creates new projects (new IDs/keys); matches people by email; skips attachment binaries and billing fields.
+ * Creates new projects (new IDs/keys); matches people by email; restores embedded attachment binaries.
+ * Never copies Stripe billing or creates login accounts.
  */
 export async function importOrganizationBackup(organization, actor, buffer) {
   const backup = parseOrganizationBackup(buffer);
   const warnings = [];
   let attachmentsSkipped = 0;
+  let attachmentsRestored = 0;
   let departmentsCreated = 0;
   let teamsCreated = 0;
   let projectsCreated = 0;
@@ -583,7 +639,31 @@ export async function importOrganizationBackup(organization, actor, buffer) {
           );
         }
 
-        attachmentsSkipped += (issue.attachments ?? []).length;
+        for (const file of issue.attachments ?? []) {
+          if (!attachmentHasBinary(file)) {
+            attachmentsSkipped += 1;
+            continue;
+          }
+          try {
+            const written = await materializeAttachmentFile(file);
+            await Attachment.create(
+              {
+                issueId: created.id,
+                uploaderId: mapUser({ id: file.uploaderId }, userIdMap, emailToUserId) || actor.id,
+                fileName: String(file.fileName || 'file').slice(0, 255),
+                mimeType: String(file.mimeType || 'application/octet-stream').slice(0, 120),
+                size: written.size,
+                storageKey: written.storageKey,
+                thumbStorageKey: written.thumbStorageKey,
+              },
+              { transaction },
+            );
+            attachmentsRestored += 1;
+          } catch (error) {
+            attachmentsSkipped += 1;
+            warnings.push(`Could not restore attachment “${file.fileName || 'file'}”: ${error.message || 'write failed'}`);
+          }
+        }
       }
 
       await project.update({ issueCounter: maxNumber }, { transaction });
@@ -680,6 +760,7 @@ export async function importOrganizationBackup(organization, actor, buffer) {
     issuesCreated,
     departmentsCreated,
     teamsCreated,
+    attachmentsRestored,
     remappedKeys,
     skipped: {
       attachments: attachmentsSkipped,

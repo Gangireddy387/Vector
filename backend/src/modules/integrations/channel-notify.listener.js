@@ -16,19 +16,32 @@ async function onIssueCreated({ issue, actorId, context }) {
 }
 
 async function onIssueUpdated({ issue, changes, actorId }) {
-  if (!changes?.assigneeId?.to || !issue) return;
+  if (!issue) return;
   const name = await formatActorName(actorId);
-  await notifyChannelsForProject(issue.projectId, 'assigned', {
-    title: `${name} assigned ${issue.key}`,
-    body: issue.title,
-    link: issueLink(issue),
-  });
+
+  if (changes?.assigneeId?.to) {
+    await notifyChannelsForProject(issue.projectId, 'assigned', {
+      title: `${name} assigned ${issue.key}`,
+      body: issue.title,
+      link: issueLink(issue),
+    });
+  }
+
+  if (changes?.statusId) {
+    const statusName = issue.status?.name || 'a new status';
+    const doneNote = issue.status?.category === 'done' ? ' (Done)' : '';
+    await notifyChannelsForProject(issue.projectId, 'status_changed', {
+      title: `${name} moved ${issue.key} → ${statusName}${doneNote}`,
+      body: issue.title,
+      link: issueLink(issue),
+    });
+  }
 }
 
 async function onCommentCreated({ issue, comment, mentionedUserIds = [], actorId, context }) {
   if (!issue || !comment?.body) return;
-  // GitHub-synced comments already live on the task — don't echo them to Slack/Teams.
-  if (context?.source === 'github') return;
+  // VCS-synced comments already live on the task — don't echo them to Slack/Teams.
+  if (context?.source === 'github' || context?.source === 'gitlab') return;
   const name = await formatActorName(actorId);
   const preview = String(comment.body)
     .replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1')
@@ -62,10 +75,21 @@ async function onSprintStarted({ sprint, actorId }) {
   });
 }
 
+async function onSprintCompleted({ sprint, actorId }) {
+  if (!sprint?.projectId) return;
+  const name = await formatActorName(actorId);
+  await notifyChannelsForProject(sprint.projectId, 'sprint_completed', {
+    title: `${name} completed ${sprint.name}`,
+    body: sprint.goal ?? null,
+    link: `/projects/${sprint.projectId}/backlog`,
+  });
+}
+
 export function registerChannelNotifyListeners() {
   eventBus.subscribe(DomainEvents.ISSUE_CREATED, onIssueCreated);
   eventBus.subscribe(DomainEvents.ISSUE_UPDATED, onIssueUpdated);
   eventBus.subscribe(DomainEvents.COMMENT_CREATED, onCommentCreated);
   eventBus.subscribe(DomainEvents.ISSUE_DUE_SOON, onIssueDueSoon);
   eventBus.subscribe(DomainEvents.SPRINT_STARTED, onSprintStarted);
+  eventBus.subscribe(DomainEvents.SPRINT_COMPLETED, onSprintCompleted);
 }

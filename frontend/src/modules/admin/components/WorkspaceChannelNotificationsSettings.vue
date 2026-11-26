@@ -16,7 +16,9 @@ const EVENT_OPTIONS = [
   { key: 'assigned' as const, label: 'Issue assigned', hint: 'When someone is assigned a task' },
   { key: 'commented' as const, label: 'Comments', hint: 'New comments on tasks (includes mentions)' },
   { key: 'due_soon' as const, label: 'Due soon / overdue', hint: 'Reminder when a task is due' },
+  { key: 'status_changed' as const, label: 'Status changed', hint: 'When a task moves between columns (including Done)' },
   { key: 'sprint_started' as const, label: 'Sprint started', hint: 'When a sprint begins' },
+  { key: 'sprint_completed' as const, label: 'Sprint completed', hint: 'When a sprint is completed' },
 ]
 
 const available = computed(() => Boolean(workspace.settings.channelNotifications?.available))
@@ -27,7 +29,9 @@ const current = computed<OrganizationChannelNotifications>(() => ({
     assigned: workspace.settings.channelNotifications?.events?.assigned !== false,
     commented: workspace.settings.channelNotifications?.events?.commented !== false,
     due_soon: workspace.settings.channelNotifications?.events?.due_soon !== false,
+    status_changed: workspace.settings.channelNotifications?.events?.status_changed !== false,
     sprint_started: workspace.settings.channelNotifications?.events?.sprint_started !== false,
+    sprint_completed: workspace.settings.channelNotifications?.events?.sprint_completed !== false,
   },
   slackConfigured: Boolean(workspace.settings.channelNotifications?.slackConfigured),
   teamsConfigured: Boolean(workspace.settings.channelNotifications?.teamsConfigured),

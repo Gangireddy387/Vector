@@ -2,13 +2,22 @@ import { ApiError } from '../../shared/errors/api-error.js';
 import { assertSafeWebhookUrl } from '../automations/automation.engine.js';
 import { entitlementsFor } from '../plans/plan.service.js';
 
-export const CHANNEL_EVENTS = ['assigned', 'commented', 'due_soon', 'sprint_started'];
+export const CHANNEL_EVENTS = [
+  'assigned',
+  'commented',
+  'due_soon',
+  'status_changed',
+  'sprint_started',
+  'sprint_completed',
+];
 
 const DEFAULT_EVENTS = Object.freeze({
   assigned: true,
   commented: true,
   due_soon: true,
+  status_changed: true,
   sprint_started: true,
+  sprint_completed: true,
 });
 
 const SLACK_HOST = /(^|\.)hooks\.slack\.com$/i;

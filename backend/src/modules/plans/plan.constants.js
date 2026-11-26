@@ -25,7 +25,7 @@ export const PLAN_FEATURES = [
   /** Slack Incoming Webhooks + Teams Incoming Webhooks for work events. */
   { key: 'channelNotifications', label: 'Slack & Teams notifications' },
   /** Paste GitHub / GitLab issue and PR URLs on Vector tasks. */
-  { key: 'vcsLinks', label: 'GitHub & GitLab links' }, // inbound GitHub webhook sync included
+  { key: 'vcsLinks', label: 'GitHub & GitLab links' }, // inbound GitHub + GitLab webhook sync included
   /** Signed HTTPS webhooks for issue, comment and sprint events. */
   { key: 'webhooks', label: 'Outbound webhooks' },
   /** Guest links so people outside the organization can view a board or issue (read-only). */
@@ -55,12 +55,24 @@ export const ALL_FEATURES = features(...FEATURE_KEYS);
 export const DEFAULT_PLANS = [
   {
     name: 'Free',
-    description: 'Run the full workday loop: board, standup, chat, messages and meetings.',
+    description: 'Workday loop plus project basics: templates, recurring tasks and reports.',
     priceLabel: 'Free',
-    maxMembers: 5,
-    maxProjects: 2,
-    // Workday loop is free so teams feel Vector before Pro (automation, AI, reports, email volume).
-    features: features('attachments', 'timeTracking', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar'),
+    maxMembers: 10,
+    maxProjects: 5,
+    // Free covers the workday loop, enough PM to run a real project, and invite emails; Pro sells automation, AI and volume email.
+    features: features(
+      'attachments',
+      'timeTracking',
+      'chat',
+      'directMessages',
+      'teamChat',
+      'meetings',
+      'calendar',
+      'templates',
+      'recurringTasks',
+      'reports',
+      'emailInvitations',
+    ),
     isDefault: true,
     position: 0,
   },

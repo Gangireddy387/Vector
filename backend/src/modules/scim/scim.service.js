@@ -1,21 +1,27 @@
 import crypto from 'node:crypto';
 import { Op } from 'sequelize';
 import { config } from '../../config/index.js';
-import { Organization, OrganizationMember, Project, ScimToken, User } from '../../database/models.js';
+import { Department, Organization, OrganizationMember, Project, ScimToken, Team, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { revokeRealtimeAccess } from '../../shared/realtime/socket.js';
+import { createTeam, deleteTeam, updateTeam } from '../departments/department.service.js';
 import { assertWithinLimit, entitlementsFor, withPlan } from '../plans/plan.service.js';
 import { pickAvatarColor } from '../users/user.service.js';
 import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
 import {
   activeFromScim,
+  applyScimGroupPatch,
   applyScimPatch,
   emailFromScim,
   nameFromScim,
+  parseDisplayNameFilter,
   parseUserNameFilter,
+  toScimGroup,
   toScimList,
   toScimUser,
 } from './scim.mapper.js';
+
+const SCIM_DEPARTMENT_NAME = 'SCIM';
 
 const PREFIX = 'vscim_';
 const hashToken = (raw) => crypto.createHash('sha256').update(raw).digest('hex');
@@ -273,4 +279,136 @@ export async function deleteScimUser(organization, userId) {
   const loaded = await loadMemberUser(organization.id, userId);
   if (!loaded) throw ApiError.notFound('User not found');
   await setMembershipActive(organization.id, loaded.user, loaded.membership, false);
+}
+
+// --- Groups (Vector teams) -------------------------------------------------------
+
+function groupLocation(teamId) {
+  return `${scimBaseUrl()}/Groups/${teamId}`;
+}
+
+async function ensureScimDepartment(organizationId) {
+  const existing = await Department.findOne({ where: { organizationId, name: SCIM_DEPARTMENT_NAME } });
+  if (existing) return existing;
+  return Department.create({
+    organizationId,
+    name: SCIM_DEPARTMENT_NAME,
+    description: 'Teams provisioned via SCIM Groups',
+  });
+}
+
+async function loadTeamMembers(teamId) {
+  const team = await Team.findByPk(teamId, {
+    include: [{ model: User, as: 'members', attributes: ['id', 'name', 'email'], through: { attributes: [] } }],
+  });
+  return (team?.members ?? []).map((user) => ({
+    userId: user.id,
+    id: user.id,
+    name: user.name,
+    email: user.email,
+  }));
+}
+
+async function loadTeam(organizationId, teamId) {
+  return Team.findOne({ where: { id: teamId, organizationId } });
+}
+
+async function assertOrgMembers(organizationId, userIds) {
+  if (!userIds.length) return;
+  const count = await OrganizationMember.count({
+    where: { organizationId, userId: userIds, status: { [Op.in]: ['active', 'invited'] } },
+  });
+  if (count !== userIds.length) {
+    throw ApiError.badRequest('Group members must already be users in this organization');
+  }
+}
+
+function memberIdsFromScim(members) {
+  return [...new Set((Array.isArray(members) ? members : []).map((member) => member?.value || member).filter(Boolean))];
+}
+
+export async function listScimGroups(organization, { filter, startIndex = 1, count = 100 } = {}) {
+  const start = Math.max(1, Number(startIndex) || 1);
+  const limit = Math.min(Math.max(Number(count) || 100, 1), 200);
+  const parsed = parseDisplayNameFilter(filter);
+  if (filter && parsed === undefined) {
+    throw ApiError.badRequest('Only filter=displayName eq "name" is supported');
+  }
+
+  const where = { organizationId: organization.id };
+  if (parsed) where.name = parsed;
+
+  const { rows, count: total } = await Team.findAndCountAll({
+    where,
+    order: [['name', 'ASC']],
+    offset: start - 1,
+    limit,
+  });
+
+  const resources = [];
+  for (const team of rows) {
+    const members = await loadTeamMembers(team.id);
+    resources.push(toScimGroup(team, members, { location: groupLocation(team.id) }));
+  }
+  return toScimList(resources, { totalResults: total, startIndex: start, itemsPerPage: resources.length });
+}
+
+export async function getScimGroup(organization, teamId) {
+  const team = await loadTeam(organization.id, teamId);
+  if (!team) throw ApiError.notFound('Group not found');
+  const members = await loadTeamMembers(team.id);
+  return toScimGroup(team, members, { location: groupLocation(team.id) });
+}
+
+export async function createScimGroup(organization, body) {
+  const displayName = String(body?.displayName || '').trim().slice(0, 80);
+  if (displayName.length < 1) throw ApiError.badRequest('displayName is required');
+  const memberIds = memberIdsFromScim(body?.members);
+  await assertOrgMembers(organization.id, memberIds);
+  const department = await ensureScimDepartment(organization.id);
+  const teamId = await createTeam(organization.id, department.id, {
+    name: displayName,
+    description: 'Provisioned via SCIM',
+    memberIds,
+  });
+  const team = await loadTeam(organization.id, teamId);
+  const members = await loadTeamMembers(teamId);
+  return { status: 201, resource: toScimGroup(team, members, { location: groupLocation(teamId) }) };
+}
+
+async function applyGroupUpdate(organization, team, draft) {
+  const displayName = String(draft.displayName || team.name).trim().slice(0, 80);
+  if (!displayName) throw ApiError.badRequest('displayName is required');
+  const memberIds = memberIdsFromScim(draft.members);
+  await assertOrgMembers(organization.id, memberIds);
+  await updateTeam(organization.id, team.id, {
+    name: displayName,
+    memberIds,
+  });
+  const refreshed = await loadTeam(organization.id, team.id);
+  const members = await loadTeamMembers(team.id);
+  return toScimGroup(refreshed, members, { location: groupLocation(team.id) });
+}
+
+export async function replaceScimGroup(organization, teamId, body) {
+  const team = await loadTeam(organization.id, teamId);
+  if (!team) throw ApiError.notFound('Group not found');
+  return applyGroupUpdate(organization, team, {
+    displayName: body?.displayName ?? team.name,
+    members: body?.members ?? [],
+  });
+}
+
+export async function patchScimGroup(organization, teamId, body) {
+  const team = await loadTeam(organization.id, teamId);
+  if (!team) throw ApiError.notFound('Group not found');
+  const current = toScimGroup(team, await loadTeamMembers(team.id));
+  const draft = applyScimGroupPatch(current, body);
+  return applyGroupUpdate(organization, team, draft);
+}
+
+export async function deleteScimGroup(organization, teamId) {
+  const team = await loadTeam(organization.id, teamId);
+  if (!team) throw ApiError.notFound('Group not found');
+  await deleteTeam(organization.id, teamId);
 }

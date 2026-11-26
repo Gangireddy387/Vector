@@ -58,6 +58,11 @@ Organization.init(
      */
     githubWebhook: { type: DataTypes.JSON, allowNull: true },
     /**
+     * GitLab inbound webhook sync (plan feature `vcsLinks`):
+     * `{ enabled, mergeClosesIssue?, secretEncrypted, secretPrefix, lastDeliveryAt?, lastEvent?, lastError? }`
+     */
+    gitlabWebhook: { type: DataTypes.JSON, allowNull: true },
+    /**
      * Data retention (days; `0` = keep forever):
      * `{ auditLogDays, activityDays, notificationDays, transcriptDays, recordingDays }`
      */

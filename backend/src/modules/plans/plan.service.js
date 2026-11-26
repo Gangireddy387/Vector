@@ -103,6 +103,14 @@ const CHAT_FEATURE_KEYS = ['directMessages', 'teamChat', 'meetings'];
 /** Free workday loop — must stay in sync with DEFAULT_PLANS Free features. */
 const FREE_LOOP_FEATURES = ['chat', 'directMessages', 'teamChat', 'meetings', 'calendar'];
 
+/** Free project basics (PM trial) + invite emails — must stay in sync with DEFAULT_PLANS Free features. */
+const FREE_PM_FEATURES = ['templates', 'recurringTasks', 'reports', 'emailInvitations'];
+const FREE_DEFAULT_MAX_MEMBERS = 10;
+const FREE_DEFAULT_MAX_PROJECTS = 5;
+/** Previous Free caps; only bump when the plan still has these so super-admin edits are left alone. */
+const FREE_LEGACY_MAX_MEMBERS = 5;
+const FREE_LEGACY_MAX_PROJECTS = 2;
+
 /**
  * Plans saved before newer switches existed: they keep sending emails, get direct and team chat and meetings when
  * they already include project chat, custom sounds when they include calls or chat, and calendar when they already
@@ -142,6 +150,38 @@ async function unlockFreeWorkdayLoop() {
 }
 
 /**
+ * Free plans that still lack templates / recurring / reports / invitation emails get them, and legacy 5/2 caps
+ * move to 10/5. Keeps existing DBs aligned with DEFAULT_PLANS Free without granting Pro automation/AI/planning stack.
+ */
+async function unlockFreeProjectBasics() {
+  const free =
+    (await Plan.findOne({ where: { name: 'Free' } })) ?? (await Plan.findOne({ where: { isDefault: true } }));
+  if (!free) return;
+  // Prefer the named Free plan; only fall back to the default when Free was renamed away.
+  if (free.name !== 'Free' && (free.maxMembers === null || free.maxProjects === null)) return;
+  const features = normalizeFeatures(free.features);
+  const additions = Object.fromEntries(FREE_PM_FEATURES.filter((key) => !features[key]).map((key) => [key, true]));
+  const bumpMembers = free.maxMembers === FREE_LEGACY_MAX_MEMBERS;
+  const bumpProjects = free.maxProjects === FREE_LEGACY_MAX_PROJECTS;
+  if (!Object.keys(additions).length && !bumpMembers && !bumpProjects) return;
+  const updates = {
+    features: { ...features, ...additions },
+    description:
+      free.description?.includes('templates') || free.description?.includes('project basics')
+        ? free.description
+        : 'Workday loop plus project basics: templates, recurring tasks and reports.',
+  };
+  if (bumpMembers) updates.maxMembers = FREE_DEFAULT_MAX_MEMBERS;
+  if (bumpProjects) updates.maxProjects = FREE_DEFAULT_MAX_PROJECTS;
+  await free.update(updates);
+  console.info(
+    `[plans] ${free.name} plan now includes project basics (${FREE_PM_FEATURES.join(', ')}${
+      bumpMembers || bumpProjects ? `; limits → ${FREE_DEFAULT_MAX_MEMBERS} people / ${FREE_DEFAULT_MAX_PROJECTS} projects` : ''
+    })`,
+  );
+}
+
+/**
  * Creates the starter plans on first start. Organizations that already exist move to the plan with the most
  * access, so nobody loses a feature they were using.
  */
@@ -165,9 +205,13 @@ async function unlockEnterpriseScim() {
   console.info('[plans] Enterprise plan now includes SCIM');
 }
 
-/** Pro / Enterprise plans that already include templates get custom fields when the switch is introduced. */
+/**
+ * Pro / Enterprise plans that already include templates get custom fields when the switch is introduced.
+ * Skip Free/default — Free may include templates without custom fields.
+ */
 async function unlockCustomFields() {
   for (const plan of await Plan.findAll()) {
+    if (plan.name === 'Free') continue;
     const features = normalizeFeatures(plan.features);
     if (features.customFields || !features.templates) continue;
     await plan.update({ features: { ...features, customFields: true } });
@@ -178,6 +222,7 @@ async function unlockCustomFields() {
 /** Plans that already include custom fields also get custom roles when the switch is introduced. */
 async function unlockCustomRoles() {
   for (const plan of await Plan.findAll()) {
+    if (plan.name === 'Free') continue;
     const features = normalizeFeatures(plan.features);
     if (features.customRoles || !features.customFields) continue;
     await plan.update({ features: { ...features, customRoles: true } });
@@ -185,9 +230,13 @@ async function unlockCustomRoles() {
   }
 }
 
-/** Plans that already include reports also get the roadmap timeline when the switch is introduced. */
+/**
+ * Plans that already include reports also get the roadmap timeline when the switch is introduced.
+ * Skip Free — Free may include reports for PM trial without the Pro planning stack.
+ */
 async function unlockRoadmap() {
   for (const plan of await Plan.findAll()) {
+    if (plan.name === 'Free') continue;
     const features = normalizeFeatures(plan.features);
     if (features.roadmap || !features.reports) continue;
     await plan.update({ features: { ...features, roadmap: true } });
@@ -265,11 +314,14 @@ async function unlockReleases() {
   }
 }
 
-/** Pro-tier plans (reports or automations) also get guest board/issue share links. */
+/**
+ * Pro-tier plans (automations) also get guest board/issue share links.
+ * Reports alone is not enough — Free includes reports without public share.
+ */
 async function unlockPublicShare() {
   for (const plan of await Plan.findAll()) {
     const features = normalizeFeatures(plan.features);
-    if (features.publicShare || !(features.reports || features.automations)) continue;
+    if (features.publicShare || !features.automations) continue;
     await plan.update({ features: { ...features, publicShare: true } });
     console.info(`[plans] ${plan.name} plan now includes public share links`);
   }
@@ -289,6 +341,7 @@ export async function ensureDefaultPlans() {
   if (await Plan.count()) {
     await backfillEmailFeatures();
     await unlockFreeWorkdayLoop();
+    await unlockFreeProjectBasics();
     await unlockEnterpriseSso();
     await unlockEnterpriseScim();
     await unlockCustomFields();

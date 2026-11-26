@@ -90,11 +90,11 @@ const focusRequest = computed<UpgradeTarget | null>(() => {
 })
 
 const planName = computed(() => overview.value?.entitlements.planName ?? 'Full access')
-/** Still on a thin plan: missing Pro automation/AI/reports (workday loop is already on Free). */
+/** Still on a thin plan: missing Pro automation/AI (Free already has reports + project basics). */
 const isFreeLike = computed(() => {
   const features = overview.value?.entitlements.features
   if (!features) return false
-  return !features.automations || !features.aiAssistant || !features.reports
+  return !features.automations || !features.aiAssistant
 })
 const isEnterprise = computed(() => String(planName.value).toLowerCase() === 'enterprise')
 const isProLike = computed(() => {
@@ -175,13 +175,13 @@ const seatNearHint = computed(() =>
           :class="focusRequest === 'pro' && 'ring-2 ring-primary/30'"
         >
           <div class="min-w-0 flex-1">
-            <p class="text-sm font-medium">{{ pending?.target === 'pro' ? 'Pro request pending' : 'Want automation, AI and reports?' }}</p>
+            <p class="text-sm font-medium">{{ pending?.target === 'pro' ? 'Pro request pending' : 'Want automation and AI?' }}</p>
             <p class="mt-0.5 text-xs text-muted-foreground">
               <template v-if="pending?.target === 'pro'">
                 Sent {{ pending.requestedByName ? `by ${pending.requestedByName}` : '' }} — the portal admin will change your plan.
               </template>
               <template v-else>
-                Free already covers the workday loop. Pro is billed per seat and adds automation, AI, templates, recurring tasks and reports.
+                Free already covers the workday loop, templates, recurring tasks and reports. Pro adds automation, AI, roadmap, goals and wiki.
               </template>
             </p>
           </div>
