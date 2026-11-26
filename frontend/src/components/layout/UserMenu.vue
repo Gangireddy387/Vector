@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Crown, Download, Keyboard, LogOut, Monitor, Moon, Settings, Sun, SunDim } from 'lucide-vue-next'
+import { BookOpen, Crown, Download, Keyboard, LogOut, Monitor, Moon, Settings, Sun, SunDim } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import {
@@ -84,6 +84,7 @@ async function choose(value: ChosenPresence) {
       <DropdownMenuSeparator />
       <DropdownMenuItem @select="router.push({ name: 'settings' })"><Settings /> Account settings</DropdownMenuItem>
       <DropdownMenuItem v-if="auth.isSuperAdmin" @select="router.push({ name: 'super-admin' })"><Crown /> Super admin</DropdownMenuItem>
+      <DropdownMenuItem @select="router.push({ name: 'help' })"><BookOpen /> Help & user guide</DropdownMenuItem>
       <DropdownMenuItem @select="$emit('showShortcuts')"><Keyboard /> Keyboard shortcuts</DropdownMenuItem>
       <DropdownMenuItem v-if="canInstall" @select="install"><Download /> Install app</DropdownMenuItem>
       <DropdownMenuSeparator />

@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PageFrame from '@/components/common/PageFrame.vue'
+import PageGuideButton from '@/modules/help/components/PageGuideButton.vue'
 import { DateField } from '@/components/forms'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -102,6 +103,7 @@ function statusClass(status: VersionStatus) {
         </p>
       </div>
       <div class="flex shrink-0 items-center gap-1.5">
+        <PageGuideButton topic-id="releases" icon-only />
         <Button variant="outline" size="sm" :loading="loading" @click="load"><RefreshCw /></Button>
         <Button v-if="canEdit" size="sm" @click="creating = true"><Plus /> New version</Button>
       </div>
@@ -148,7 +150,10 @@ function statusClass(status: VersionStatus) {
       description="Create a version, tag issues with fix versions, then generate release notes."
       class="min-h-0 flex-1"
     >
-      <Button v-if="canEdit" @click="creating = true"><Plus /> New version</Button>
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <PageGuideButton topic-id="releases" label="How to use Releases" />
+        <Button v-if="canEdit" @click="creating = true"><Plus /> New version</Button>
+      </div>
     </EmptyState>
 
     <div v-else class="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain">

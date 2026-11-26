@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onClickOutside, watchDebounced } from '@vueuse/core'
-import { BarChart3, BookOpen, CalendarDays, ClipboardList, FolderKanban, Gem, Hash, House, Inbox, LayoutGrid, ListTodo, Loader2, MessageCircle, Moon, Plus, Search, Settings, Sparkles, Sun, Target, User as UserIcon, Video, X } from 'lucide-vue-next'
+import { BarChart3, BookOpen, CalendarDays, ClipboardList, CircleHelp, FolderKanban, Gem, Hash, House, Inbox, LayoutGrid, ListTodo, Loader2, MessageCircle, Moon, Plus, Search, Settings, Sparkles, Sun, Target, User as UserIcon, Video, X } from 'lucide-vue-next'
 import { type Component, computed, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import IssueTypeIcon from '@/components/common/IssueTypeIcon.vue'
@@ -55,6 +55,13 @@ const go = (to: Parameters<typeof router.push>[0]) => () => {
 
 const actions = computed<SearchItem[]>(() => [
   { id: 'create', group: 'Actions', label: 'Create task', hint: 'C', icon: Plus, run: () => { close(); ui.openCreateIssue() } },
+  {
+    id: 'help',
+    group: 'Actions',
+    label: 'Help & user guide',
+    icon: CircleHelp,
+    run: go({ name: 'help' }),
+  },
   ...(auth.hasFeature('aiAssistant')
     ? [{ id: 'briefing', group: 'Actions', label: 'Open daily briefing', icon: Sparkles, run: go({ name: 'home', hash: '#daily-briefing' }) }]
     : []),

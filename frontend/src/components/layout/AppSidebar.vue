@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core'
-import { BarChart3, BookOpen, CalendarDays, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardList, House, Inbox, LayoutGrid, ListTodo, MessageCircle, Network, Plus, Target, UserPlus, UsersRound, Video } from 'lucide-vue-next'
+import { BarChart3, BookOpen, CalendarDays, ChevronRight, ChevronsLeft, ChevronsRight, CircleHelp, ClipboardList, House, Inbox, LayoutGrid, ListTodo, MessageCircle, Network, Plus, Target, UserPlus, UsersRound, Video } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@/components/ui/button'
@@ -44,7 +44,12 @@ watch(isTablet, (tablet) => {
 /** Which sections are folded away, remembered per device. */
 const folded = useStorage<Record<string, boolean>>('vector.sidebar.folded', {})
 const toggle = (section: string) => (folded.value = { ...folded.value, [section]: !folded.value[section] })
-const isCreateProjectOpen = ref(false)
+const isCreateProjectOpen = computed({
+  get: () => ui.isCreateProjectOpen,
+  set: (value: boolean) => {
+    ui.isCreateProjectOpen = value
+  },
+})
 
 const activeProjectId = computed(() => (typeof route.params.projectId === 'string' ? route.params.projectId : null))
 
@@ -327,6 +332,7 @@ const openCreateIssue = () => ui.openCreateIssue({ projectId: activeProjectId.va
           <span class="text-brand">Vector</span>
         </span>
       </div>
+      <SidebarLink :to="{ name: 'help' }" label="Help & guide" :icon="CircleHelp" :collapsed="isCollapsed" />
       <!-- Growing the team is one click away for admins -->
       <Tooltip v-if="auth.hasPermission('workspace.people')" :disabled="!isCollapsed">
         <TooltipTrigger as-child>

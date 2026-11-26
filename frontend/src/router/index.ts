@@ -29,6 +29,7 @@ import { searchRoutes } from '@/modules/search/search.routes'
 import { settingsRoutes } from '@/modules/settings/settings.routes'
 import { superAdminRoutes } from '@/modules/super-admin/super-admin.routes'
 import { supportCallRoutes } from '@/modules/support/support.routes'
+import { helpRoutes } from '@/modules/help/help.routes'
 import type { PlanFeatureKey } from '@/lib/plan-features'
 import { organizationsApi } from '@/modules/auth/auth.api'
 import { useAuthStore } from '@/modules/auth/auth.store'
@@ -137,6 +138,7 @@ const routes: RouteRecordRaw[] = [
       ...notificationRoutes,
       ...searchRoutes,
       ...settingsRoutes,
+      ...helpRoutes,
       ...adminRoutes,
       ...departmentRoutes,
       ...goalRoutes,

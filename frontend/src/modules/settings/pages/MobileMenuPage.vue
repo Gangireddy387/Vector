@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, BookOpen, Building2, CalendarDays, Check, ChevronRight, ClipboardList, Crown, Download, FolderKanban, Gem, LayoutGrid, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck, Target, Video } from 'lucide-vue-next'
+import { BarChart3, BookOpen, Building2, CalendarDays, Check, ChevronRight, CircleHelp, ClipboardList, Crown, Download, FolderKanban, Gem, LayoutGrid, ListTodo, LogOut, Plus, Search, Settings, ShieldCheck, Target, Video } from 'lucide-vue-next'
 import { computed } from 'vue'
 import PageFrame from '@/components/common/PageFrame.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
@@ -40,6 +40,7 @@ const LINKS = computed(() => [
   teaser('portfolio', auth.hasFeature('portfolio'), 'portfolio', 'Portfolio', LayoutGrid),
   teaser('wiki', auth.hasFeature('wiki'), 'wiki', 'Wiki', BookOpen),
   { to: { name: 'search' }, label: 'Search', icon: Search },
+  { to: { name: 'help' }, label: 'Help & user guide', icon: CircleHelp },
   { to: { name: 'settings' }, label: 'Settings', icon: Settings },
   { to: { name: 'org-plan' }, label: 'Plan', icon: Gem },
   { to: { name: 'departments' }, label: 'Departments', icon: Building2 },
