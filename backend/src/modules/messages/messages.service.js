@@ -127,7 +127,26 @@ async function directConversations(viewer) {
   const conversations = await Conversation.findAll({
     where: { id: memberships.map((row) => row.conversationId), organizationId: viewer.organization.id, kind: 'direct' },
   });
-  return conversations.map((conversation) => ({ conversation }));
+  if (!conversations.length) return [];
+
+  // Drop DMs whose other person left or was deactivated — People no longer lists them, but ConversationMember rows remain.
+  const conversationIds = conversations.map((conversation) => conversation.id);
+  const peers = await ConversationMember.findAll({
+    where: { conversationId: conversationIds, userId: { [Op.ne]: viewer.id } },
+    attributes: ['conversationId', 'userId'],
+    raw: true,
+  });
+  const peerIds = [...new Set(peers.map((peer) => peer.userId))];
+  const activePeers = peerIds.length
+    ? await OrganizationMember.findAll({
+        where: { organizationId: viewer.organization.id, userId: peerIds, status: 'active' },
+        attributes: ['userId'],
+        raw: true,
+      })
+    : [];
+  const activePeerIds = new Set(activePeers.map((row) => row.userId));
+  const keep = new Set(peers.filter((peer) => activePeerIds.has(peer.userId)).map((peer) => peer.conversationId));
+  return conversations.filter((conversation) => keep.has(conversation.id)).map((conversation) => ({ conversation }));
 }
 
 /** List entry: title, the other person (direct chats), last message and how many messages are unread. */
