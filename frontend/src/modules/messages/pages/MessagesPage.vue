@@ -222,9 +222,17 @@ watch(() => [selected.value?.id, selected.value?.memberCount], loadPeople, { imm
 
 const meetPreset = computed<MeetingPreset | null>(() => {
   const conversation = selected.value
-  if (!conversation || conversation.kind === 'direct') return null
+  if (!conversation) return null
+  // 1:1 DMs — call the other person (same pattern as member profile / people list).
+  if (conversation.kind === 'direct') {
+    return conversation.person
+      ? { title: `Call with ${conversation.person.name}`, people: [conversation.person] }
+      : null
+  }
   if (conversation.kind === 'department') {
-    return conversation.department ? { title: conversation.title, people: conversationPeople.value, context: { type: 'department', id: conversation.department.id } } : null
+    return conversation.department
+      ? { title: conversation.title, people: conversationPeople.value, context: { type: 'department', id: conversation.department.id } }
+      : null
   }
   if (!conversation.team) return null
   const title = conversation.kind === 'team' ? conversation.team.name : `${conversation.team.name} · ${conversation.title}`
@@ -667,7 +675,8 @@ async function leaveChannel(conversation: ConversationSummary) {
             </Button>
           </template>
 
-          <MeetButton v-if="meetPreset && conversationPeople.length" :key="selected.id" :preset="meetPreset" :compact="true" />
+          <div class="ml-auto flex shrink-0 items-center gap-1.5">
+          <MeetButton v-if="meetPreset?.people.length" :key="selected.id" :preset="meetPreset" :compact="true" />
           <Button v-if="selected.kind === 'channel' && isWide" variant="ghost" size="icon-sm" class="shrink-0" title="People in this channel" aria-label="People in this channel" @click="membersOpen = true">
             <UsersRound />
           </Button>
@@ -709,6 +718,7 @@ async function leaveChannel(conversation: ConversationSummary) {
               </template>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </Toolbar>
         <Transition name="fade-soft" mode="out-in">
           <ConversationThread v-if="selected.kind === 'direct'" ref="thread" :key="`dm-${selected.id}`" :conversation="selected" class="min-h-0 flex-1" />
