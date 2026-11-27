@@ -21,6 +21,7 @@ import { marketingRoutes } from '@/modules/marketing/marketing.routes'
 import { meetingGuestRoutes, meetingRoutes } from '@/modules/meetings/meetings.routes'
 import { publicShareRoutes } from '@/modules/shares/shares.routes'
 import { publicIntakeRoutes } from '@/modules/intake/intake.routes'
+import { embedRoutes } from '@/modules/embed/embed.routes'
 import { messageRoutes } from '@/modules/messages/messages.routes'
 import { notificationRoutes } from '@/modules/notifications/notifications.routes'
 import { projectRoutes, projectSettingsRoutes } from '@/modules/projects/projects.routes'
@@ -161,6 +162,7 @@ const routes: RouteRecordRaw[] = [
   ...meetingGuestRoutes,
   ...publicShareRoutes,
   ...publicIntakeRoutes,
+  ...embedRoutes,
   ...superAdminRoutes,
   ...supportCallRoutes,
   legacyOrganizationLinkRoute,

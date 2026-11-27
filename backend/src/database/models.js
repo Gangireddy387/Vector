@@ -7,6 +7,7 @@ import { User } from '../modules/users/user.model.js';
 import { ApiToken } from '../modules/auth/api-token.model.js';
 import { ScimToken } from '../modules/scim/scim-token.model.js';
 import { WebhookEndpoint } from '../modules/webhooks/webhook.model.js';
+import { EmbedApp } from '../modules/embed/embed-app.model.js';
 import { Project } from '../modules/projects/project.model.js';
 import { ProjectMember } from '../modules/projects/project-member.model.js';
 import { Status } from '../modules/statuses/status.model.js';
@@ -392,6 +393,10 @@ Organization.hasMany(WebhookEndpoint, { as: 'webhookEndpoints', foreignKey: 'org
 WebhookEndpoint.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
 WebhookEndpoint.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
 
+Organization.hasMany(EmbedApp, { as: 'embedApps', foreignKey: 'organizationId', ...cascade });
+EmbedApp.belongsTo(Organization, { as: 'organization', foreignKey: 'organizationId' });
+EmbedApp.belongsTo(User, { as: 'createdBy', foreignKey: 'createdById', onDelete: 'SET NULL' });
+
 // Portal-wide configuration
 WorkspaceSetting.belongsTo(User, { as: 'updatedBy', foreignKey: 'updatedById', onDelete: 'SET NULL' });
 
@@ -406,6 +411,7 @@ export {
   ApiToken,
   ScimToken,
   WebhookEndpoint,
+  EmbedApp,
   Project,
   ProjectMember,
   Status,

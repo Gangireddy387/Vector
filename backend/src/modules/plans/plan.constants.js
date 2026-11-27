@@ -28,6 +28,8 @@ export const PLAN_FEATURES = [
   { key: 'vcsLinks', label: 'GitHub & GitLab links' }, // inbound GitHub + GitLab webhook sync included
   /** Signed HTTPS webhooks for issue, comment and sprint events. */
   { key: 'webhooks', label: 'Outbound webhooks' },
+  /** Two-key embed: partners open the full workspace inside their own product. */
+  { key: 'embedWorkspace', label: 'Workspace embed' },
   /** Guest links so people outside the organization can view a board or issue (read-only). */
   { key: 'publicShare', label: 'Public share links' },
   /** Public request forms that create tasks without requiring a Vector account. */
@@ -82,7 +84,7 @@ export const DEFAULT_PLANS = [
     priceLabel: '₹999 / month',
     maxMembers: 25,
     maxProjects: 20,
-    features: features('aiAssistant', 'automations', 'recurringTasks', 'templates', 'customFields', 'customRoles', 'reports', 'roadmap', 'goals', 'portfolio', 'releases', 'wiki', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar', 'attachments', 'timeTracking', 'customSounds', 'channelNotifications', 'vcsLinks', 'webhooks', 'publicShare', 'intakeForms', ...EMAIL_FEATURE_KEYS),
+    features: features('aiAssistant', 'automations', 'recurringTasks', 'templates', 'customFields', 'customRoles', 'reports', 'roadmap', 'goals', 'portfolio', 'releases', 'wiki', 'chat', 'directMessages', 'teamChat', 'meetings', 'calendar', 'attachments', 'timeTracking', 'customSounds', 'channelNotifications', 'vcsLinks', 'webhooks', 'embedWorkspace', 'publicShare', 'intakeForms', ...EMAIL_FEATURE_KEYS),
     isDefault: false,
     position: 1,
   },

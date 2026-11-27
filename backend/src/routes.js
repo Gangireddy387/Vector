@@ -10,6 +10,7 @@ import { publicScimRoutes, scimAdminRoutes } from './modules/scim/scim.routes.js
 import { githubAdminRoutes } from './modules/integrations/github/github.routes.js';
 import { gitlabAdminRoutes } from './modules/integrations/gitlab/gitlab.routes.js';
 import { webhookAdminRoutes } from './modules/webhooks/webhook.routes.js';
+import { embedAdminRoutes, publicEmbedRoutes } from './modules/embed/embed.routes.js';
 import automationRoutes from './modules/automations/automation.routes.js';
 import calendarRoutes from './modules/calendar/calendar.routes.js';
 import chatRoutes from './modules/chat/chat.routes.js';
@@ -87,6 +88,7 @@ export function createApiRouter() {
   router.use(publicCalendarSyncRoutes);
   router.use(livekitWebhookRoutes);
   router.use(publicScimRoutes);
+  router.use(publicEmbedRoutes);
 
   router.use(authenticate);
   router.use(avatarRoutes);
@@ -98,6 +100,7 @@ export function createApiRouter() {
   router.use(organizationAdminRoutes);
   router.use(scimAdminRoutes);
   router.use(webhookAdminRoutes);
+  router.use(embedAdminRoutes);
   router.use(githubAdminRoutes);
   router.use(gitlabAdminRoutes);
   router.use(superAdminRoutes);

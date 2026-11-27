@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, GitBranch, KeyRound, Plug, Shield, Webhook } from 'lucide-vue-next'
+import { AppWindow, ArrowLeft, GitBranch, KeyRound, Plug, Shield, Webhook } from 'lucide-vue-next'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Button } from '@/components/ui/button'
@@ -13,10 +13,11 @@ import WorkspaceGitlabSettings from './WorkspaceGitlabSettings.vue'
 import WorkspaceScimSettings from './WorkspaceScimSettings.vue'
 import WorkspaceSsoSettings from './WorkspaceSsoSettings.vue'
 import WorkspaceWebhooksSettings from './WorkspaceWebhooksSettings.vue'
+import WorkspaceEmbedSettings from './WorkspaceEmbedSettings.vue'
 
-type SetupKey = 'slack' | 'webhooks' | 'scim' | 'sso' | 'vcs'
+type SetupKey = 'slack' | 'webhooks' | 'embed' | 'scim' | 'sso' | 'vcs'
 
-const SETUP_KEYS = new Set<SetupKey>(['slack', 'webhooks', 'scim', 'sso', 'vcs'])
+const SETUP_KEYS = new Set<SetupKey>(['slack', 'webhooks', 'embed', 'scim', 'sso', 'vcs'])
 
 const auth = useAuthStore()
 const workspace = useWorkspaceStore()
@@ -24,6 +25,7 @@ const route = useRoute()
 const router = useRouter()
 
 const webhookCount = ref(0)
+const embedCount = ref(0)
 const scimTokenCount = ref(0)
 const githubEnabled = ref(false)
 const gitlabEnabled = ref(false)
@@ -54,6 +56,15 @@ const catalog = computed(() => {
       icon: Plug,
       available: auth.hasFeature('webhooks'),
       configured: webhookCount.value > 0,
+      cta: 'Configure',
+    },
+    {
+      key: 'embed' as const,
+      title: 'Workspace embed',
+      description: 'Two keys so partners open the full Vector workspace inside their own product.',
+      icon: AppWindow,
+      available: auth.hasFeature('embedWorkspace'),
+      configured: embedCount.value > 0,
       cta: 'Configure',
     },
     {
@@ -114,6 +125,15 @@ async function loadStatus() {
       )
     } else {
       webhookCount.value = 0
+    }
+    if (auth.hasFeature('embedWorkspace')) {
+      jobs.push(
+        workspaceApi.embedApps().then((data) => {
+          embedCount.value = data.apps.length
+        }),
+      )
+    } else {
+      embedCount.value = 0
     }
     if (auth.hasFeature('scim')) {
       jobs.push(
@@ -176,6 +196,7 @@ function backToHub() {
 
       <WorkspaceChannelNotificationsSettings v-if="setup === 'slack'" />
       <WorkspaceWebhooksSettings v-else-if="setup === 'webhooks'" />
+      <WorkspaceEmbedSettings v-else-if="setup === 'embed'" />
       <WorkspaceScimSettings v-else-if="setup === 'scim'" />
       <WorkspaceSsoSettings v-else-if="setup === 'sso'" />
       <div v-else-if="setup === 'vcs'" class="space-y-4">

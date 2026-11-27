@@ -30,6 +30,17 @@ export interface WebhookEndpointRow {
   updatedAt: string
 }
 
+export interface EmbedAppRow {
+  id: string
+  name: string
+  publishableKey: string
+  secretPrefix: string
+  enabled: boolean
+  lastUsedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface GithubIntegrationSettings {
   available: boolean
   enabled: boolean
@@ -231,6 +242,14 @@ export const workspaceApi = {
   deleteWebhook: (endpointId: string) => http.delete(`/workspace/webhooks/${endpointId}`),
   testWebhook: (endpointId: string) =>
     http.post<WebhookEndpointRow & { ok: boolean; status: number }>(`/workspace/webhooks/${endpointId}/test`).then((r) => r.data),
+  embedApps: () => http.get<{ apps: EmbedAppRow[] }>('/workspace/embed/apps').then((r) => r.data),
+  createEmbedApp: (payload: { name: string }) =>
+    http.post<EmbedAppRow & { secretKey: string }>('/workspace/embed/apps', payload).then((r) => r.data),
+  rotateEmbedSecret: (appId: string) =>
+    http.post<EmbedAppRow & { secretKey: string }>(`/workspace/embed/apps/${appId}/rotate-secret`).then((r) => r.data),
+  updateEmbedApp: (appId: string, payload: { enabled: boolean }) =>
+    http.patch<EmbedAppRow>(`/workspace/embed/apps/${appId}`, payload).then((r) => r.data),
+  deleteEmbedApp: (appId: string) => http.delete(`/workspace/embed/apps/${appId}`),
   githubIntegration: () => http.get<GithubIntegrationSettings>('/workspace/integrations/github').then((r) => r.data),
   updateGithubIntegration: (payload: { enabled?: boolean; mergeClosesIssue?: boolean }) =>
     http.put<GithubIntegrationSettings>('/workspace/integrations/github', payload).then((r) => r.data),

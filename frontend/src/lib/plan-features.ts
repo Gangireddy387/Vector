@@ -29,6 +29,7 @@ import {
   GitBranch,
   Share2,
   ClipboardPenLine,
+  AppWindow,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
 
@@ -57,6 +58,7 @@ export type PlanFeatureKey =
   | 'channelNotifications'
   | 'vcsLinks'
   | 'webhooks'
+  | 'embedWorkspace'
   | 'publicShare'
   | 'intakeForms'
   | 'sso'
@@ -187,6 +189,13 @@ export const PLAN_FEATURES: PlanFeature[] = [
     label: 'Outbound webhooks',
     description: 'Send signed HTTPS POSTs to your systems when issues, comments or sprints change',
     icon: Webhook,
+    group: 'app',
+  },
+  {
+    key: 'embedWorkspace',
+    label: 'Workspace embed',
+    description: 'Two keys so partners open the full Vector workspace inside their own product',
+    icon: AppWindow,
     group: 'app',
   },
   {

@@ -2,15 +2,18 @@ import { fileURLToPath, URL } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import vue from '@vitejs/plugin-vue'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
-
-const API_TARGET = process.env.VITE_API_PROXY ?? 'http://localhost:4000'
 
 // The dev server uses https: browsers only allow camera and microphone on https (or localhost), so other computers on
 // the network need it to take part in calls. The certificate is self-signed; each browser asks once to trust it.
 // `npm run dev:http` serves plain http instead.
-export default defineConfig(({ command, mode }) => ({
+export default defineConfig(({ command, mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  const apiTarget = env.VITE_API_PROXY || process.env.VITE_API_PROXY || 'http://localhost:4000'
+  const devPort = Number(env.VITE_DEV_PORT || process.env.VITE_DEV_PORT) || 5173
+
+  return {
   plugins: [
     ...(command === 'serve' && mode !== 'http' ? [basicSsl()] : []),
     vue(),
@@ -87,10 +90,13 @@ export default defineConfig(({ command, mode }) => ({
   },
   server: {
     host: true,
-    port: 5173,
+    // Set VITE_DEV_PORT in frontend/.env (must match CLIENT_URL in backend/.env).
+    port: devPort,
+    strictPort: true,
     proxy: {
-      '/api': API_TARGET,
-      '/socket.io': { target: API_TARGET, ws: true },
+      '/api': apiTarget,
+      '/socket.io': { target: apiTarget, ws: true },
     },
   },
-}))
+}
+})

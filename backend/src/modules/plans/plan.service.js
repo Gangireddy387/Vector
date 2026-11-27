@@ -294,6 +294,16 @@ async function unlockWebhooks() {
   }
 }
 
+/** Plans that already include webhooks (or automations) also get workspace embed. */
+async function unlockEmbedWorkspace() {
+  for (const plan of await Plan.findAll()) {
+    const features = normalizeFeatures(plan.features);
+    if (features.embedWorkspace || !(features.webhooks || features.automations)) continue;
+    await plan.update({ features: { ...features, embedWorkspace: true } });
+    console.info(`[plans] ${plan.name} plan now includes workspace embed`);
+  }
+}
+
 /** Plans that already include goals also get the shared wiki. */
 async function unlockWiki() {
   for (const plan of await Plan.findAll()) {
@@ -352,6 +362,7 @@ export async function ensureDefaultPlans() {
     await unlockChannelNotifications();
     await unlockVcsLinks();
     await unlockWebhooks();
+    await unlockEmbedWorkspace();
     await unlockWiki();
     await unlockReleases();
     await unlockPublicShare();
