@@ -18,7 +18,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Design tokens (shadcn-vue naming), light and dark mode.
+ * Design tokens — shadcn-vue names plus Material-style semantic aliases.
  *
  * Near-neutral greys with a faint tint of the organization's theme colour,
  * crisp 1px borders and one accent colour, in the spirit of Linear and
@@ -27,8 +27,15 @@
  *   sidebar     the app's outer canvas (navigation sits directly on it)
  *   background  the raised content panel next to the sidebar
  *   muted       sunken areas inside a surface (board columns, table headers, chips)
- *   card        surfaces inside the panel (cards, inputs)
+ *   card        surfaces inside the panel (cards, inputs) — also `surface`
  *   popover     floating surfaces (menus, dropdowns, dialogs)
+ *
+ * Material-style names (use either naming in CSS / Tailwind):
+ *   primary / on-primary, secondary / on-secondary,
+ *   background / on-background, surface / on-surface,
+ *   surface-variant / on-surface-variant, outline / outline-variant,
+ *   error / on-error, success / on-success, warning / on-warning, info / on-info,
+ *   inverse-surface / on-inverse-surface
  * ------------------------------------------------------------------------- */
 :root {
   /*
@@ -73,13 +80,34 @@
   --destructive: oklch(0.58 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
   --success: oklch(0.58 0.17 152);
+  --success-foreground: oklch(0.99 0 0);
   --warning: oklch(0.74 0.17 70);
+  --warning-foreground: oklch(0.28 0.06 55);
   --info: oklch(0.58 0.18 250);
+  --info-foreground: oklch(0.99 0 0);
 
   --sidebar-foreground: var(--foreground);
   --sidebar-accent: oklch(0.93 calc(var(--tint-c) * 1.9) var(--tint-h));
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: var(--border);
+
+  /* Material-style semantic aliases (resolve through the tokens above). */
+  --on-primary: var(--primary-foreground);
+  --on-secondary: var(--secondary-foreground);
+  --on-background: var(--foreground);
+  --surface: var(--card);
+  --on-surface: var(--card-foreground);
+  --surface-variant: var(--muted);
+  --on-surface-variant: var(--muted-foreground);
+  --outline: var(--border);
+  --outline-variant: var(--input);
+  --error: var(--destructive);
+  --on-error: var(--destructive-foreground);
+  --on-success: var(--success-foreground);
+  --on-warning: var(--warning-foreground);
+  --on-info: var(--info-foreground);
+  --inverse-surface: oklch(0.22 calc(var(--tint-c) * 1.6) var(--tint-h));
+  --on-inverse-surface: oklch(0.96 calc(var(--tint-c) * 0.5) var(--tint-h));
 
   /* Veil behind dialogs and side sheets: a light frost in light mode, never black. */
   --scrim: color-mix(in oklch, var(--sidebar) 52%, transparent);
@@ -129,8 +157,13 @@
   --input: oklch(0.315 calc(var(--tint-c) * 1.7) var(--tint-h));
   --destructive: oklch(0.68 0.19 22);
   --success: oklch(0.72 0.17 152);
+  --success-foreground: oklch(0.18 0.04 152);
   --warning: oklch(0.82 0.15 80);
+  --warning-foreground: oklch(0.24 0.05 70);
   --info: oklch(0.7 0.14 250);
+  --info-foreground: oklch(0.18 0.04 250);
+  --inverse-surface: oklch(0.92 calc(var(--tint-c) * 0.8) var(--tint-h));
+  --on-inverse-surface: oklch(0.22 calc(var(--tint-c) * 1.5) var(--tint-h));
   --sidebar-accent: oklch(0.225 calc(var(--tint-c) * 1.9) var(--tint-h));
   --scrim: oklch(0 0 0 / 0.55);
   --app-backdrop:
@@ -161,6 +194,8 @@
   --border: oklch(0.375 0.03 252);
   --input: oklch(0.415 0.03 252);
   --sidebar-accent: oklch(0.31 0.036 252);
+  --inverse-surface: oklch(0.9 0.015 250);
+  --on-inverse-surface: oklch(0.24 0.025 252);
   --scrim: oklch(0.16 0.025 252 / 0.5);
 }
 
@@ -185,8 +220,11 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -198,6 +236,24 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-scrim: var(--scrim);
+
+  /* Material-style aliases → Tailwind: bg-surface, text-on-surface, border-outline, … */
+  --color-on-primary: var(--on-primary);
+  --color-on-secondary: var(--on-secondary);
+  --color-on-background: var(--on-background);
+  --color-surface: var(--surface);
+  --color-on-surface: var(--on-surface);
+  --color-surface-variant: var(--surface-variant);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-error: var(--error);
+  --color-on-error: var(--on-error);
+  --color-on-success: var(--on-success);
+  --color-on-warning: var(--on-warning);
+  --color-on-info: var(--on-info);
+  --color-inverse-surface: var(--inverse-surface);
+  --color-on-inverse-surface: var(--on-inverse-surface);
 
   --radius-xs: 4px;
   --radius-sm: 6px;

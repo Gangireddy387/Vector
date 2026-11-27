@@ -1,7 +1,18 @@
-import { OrganizationMember, OrganizationRole } from '../../database/models.js';
+import { OrganizationMember, OrganizationRole, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { entitlementsFor } from '../plans/plan.service.js';
 import { ALL_ORG_PERMISSIONS, ORG_PERMISSION_KEYS } from './organization-role.constants.js';
+
+/** Human-readable list for delete/block messages: "Sony", "Sony and Alex", "Sony, Alex and 2 others". */
+function formatAssigneeNames(names) {
+  if (!names.length) return '';
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  if (names.length <= 4) return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  const shown = names.slice(0, 3);
+  const rest = names.length - shown.length;
+  return `${shown.join(', ')} and ${rest} other${rest === 1 ? '' : 's'}`;
+}
 
 export const listOrganizationRoles = (organizationId) =>
   OrganizationRole.findAll({ where: { organizationId }, order: [['position', 'ASC'], ['name', 'ASC']] });
@@ -85,9 +96,21 @@ export async function updateOrganizationRole(organizationId, roleId, changes) {
 
 export async function deleteOrganizationRole(organizationId, roleId) {
   const role = await findRole(organizationId, roleId);
-  const assigned = await OrganizationMember.count({ where: { organizationId, customRoleId: role.id } });
-  if (assigned) {
-    throw ApiError.badRequest(`This role is assigned to ${assigned} ${assigned === 1 ? 'person' : 'people'}. Reassign them first.`);
+  const assignees = await OrganizationMember.findAll({
+    where: { organizationId, customRoleId: role.id },
+    include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }],
+    order: [[{ model: User, as: 'user' }, 'name', 'ASC']],
+  });
+  if (assignees.length) {
+    const names = assignees.map((row) => row.user?.name || row.user?.email || 'Someone').filter(Boolean);
+    const who = formatAssigneeNames(names);
+    const count = assignees.length;
+    throw ApiError.badRequest(
+      count === 1
+        ? `“${role.name}” is in use by ${who}. Open People, give them a different role (or “No custom role”), then try deleting again.`
+        : `“${role.name}” is in use by ${count} people (${who}). Open People, give each of them a different role (or “No custom role”), then try deleting again.`,
+      names.map((name) => ({ path: 'assignees', message: name })),
+    );
   }
   await role.destroy();
 }

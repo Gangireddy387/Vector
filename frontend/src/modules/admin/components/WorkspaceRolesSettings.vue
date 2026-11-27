@@ -80,11 +80,40 @@ async function toggleRolePermission(role: OrganizationRole, key: OrgPermission, 
   }
 }
 
+function formatAssigneeNames(names: string[]) {
+  if (!names.length) return ''
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  if (names.length <= 4) return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+  const shown = names.slice(0, 3)
+  return `${shown.join(', ')} and ${names.length - shown.length} others`
+}
+
 async function remove(role: OrganizationRole) {
+  try {
+    const members = await workspaceApi.members()
+    const assignees = members.filter((member) => member.customRoleId === role.id)
+    if (assignees.length) {
+      const who = formatAssigneeNames(assignees.map((member) => member.name))
+      await confirm({
+        title: `“${role.name}” is in use`,
+        description:
+          assignees.length === 1
+            ? `${who} currently has this role. Open People, pick a different role for them (or “No custom role”), then you can delete “${role.name}”.`
+            : `${who} currently have this role (${assignees.length} people). Open People, give each of them a different role (or “No custom role”), then you can delete “${role.name}”.`,
+        confirmLabel: 'Got it',
+        cancelLabel: 'Close',
+      })
+      return
+    }
+  } catch {
+    // Fall through to delete — the API returns the same detail if anyone is still assigned.
+  }
+
   if (
     !(await confirm({
       title: `Delete role “${role.name}”?`,
-      description: 'People using this role must be reassigned first.',
+      description: 'This role is not assigned to anyone. You can delete it safely.',
       confirmLabel: 'Delete',
       destructive: true,
     }))

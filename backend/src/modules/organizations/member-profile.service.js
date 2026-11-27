@@ -1,5 +1,5 @@
 import { Op } from 'sequelize';
-import { Activity, Comment, Department, Issue, OrganizationMember, Project, ProjectMember, Team, TeamMember, User, WorkLog } from '../../database/models.js';
+import { Activity, Comment, Department, Issue, OrganizationMember, OrganizationRole, Project, ProjectMember, Team, TeamMember, User, WorkLog } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { localDateTime } from '../../shared/utils/timezone.js';
 
@@ -14,10 +14,17 @@ const projectReference = { model: Project, as: 'project', attributes: ['id', 'na
 export async function getMemberProfile(organizationId, userId) {
   const membership = await OrganizationMember.findOne({
     where: { organizationId, userId },
-    include: [{ model: User, as: 'user', attributes: PROFILE_FIELDS }],
+    include: [
+      { model: User, as: 'user', attributes: PROFILE_FIELDS },
+      { model: OrganizationRole, as: 'customRole', attributes: ['id', 'name', 'key'] },
+    ],
   });
   if (!membership?.user) throw ApiError.notFound('This person is not in the organization');
   const user = membership.user.toJSON();
+  const customRole =
+    membership.role === 'member' && membership.customRole
+      ? { id: membership.customRole.id, name: membership.customRole.name, key: membership.customRole.key }
+      : null;
 
   const organizationProjectIds = (await Project.findAll({ where: { organizationId }, attributes: ['id'], raw: true })).map((project) => project.id);
   const inOrganization = { projectId: organizationProjectIds };
@@ -63,7 +70,15 @@ export async function getMemberProfile(organizationId, userId) {
   };
 
   return {
-    person: { ...user, skills: user.skills ?? [], workspaceRole: membership.role, membershipStatus: membership.status, joinedAt: membership.createdAt },
+    person: {
+      ...user,
+      skills: user.skills ?? [],
+      workspaceRole: membership.role,
+      membershipStatus: membership.status,
+      customRoleId: membership.role === 'admin' ? null : membership.customRoleId ?? null,
+      customRole,
+      joinedAt: membership.createdAt,
+    },
     structure: {
       headOf: headOf.map((department) => ({ id: department.id, name: department.name })),
       teams: teams.map((team) => ({ id: team.id, name: team.name, isLead: team.leadId === userId, department: team.department ? { id: team.department.id, name: team.department.name } : null })),

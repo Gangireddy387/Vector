@@ -88,6 +88,8 @@ export interface MemberProfile {
     status: 'active' | 'invited' | 'disabled'
     membershipStatus: 'active' | 'disabled'
     workspaceRole: WorkspaceRole
+    customRoleId?: string | null
+    customRole?: Pick<OrganizationRole, 'id' | 'name' | 'key'> | null
     timezone: string
     about: string | null
     location: string | null

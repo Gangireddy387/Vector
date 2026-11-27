@@ -43,7 +43,7 @@ import { useAuthStore } from '@/modules/auth/auth.store'
 import { describeActivity } from '@/modules/issues/activity-format'
 import MeetButton from '@/modules/meetings/components/MeetButton.vue'
 import { useDirectMessage } from '@/modules/messages/useDirectMessage'
-import type { WorkspaceRole } from '@/types/models'
+import type { OrganizationRole, WorkspaceRole } from '@/types/models'
 import { type MemberProfile, workspaceApi } from '../admin.api'
 import { profileCoverStyle } from '../profile-cover'
 
@@ -56,10 +56,17 @@ const { canMessage, messagePerson, openingId } = useDirectMessage()
 
 const profile = ref<MemberProfile | null>(null)
 const notFound = ref(false)
+const customRoles = ref<OrganizationRole[]>([])
+const canUseCustomRoles = computed(() => auth.hasFeature('customRoles'))
 
 async function load() {
   try {
-    profile.value = await workspaceApi.memberProfile(props.userId)
+    const [next, roles] = await Promise.all([
+      workspaceApi.memberProfile(props.userId),
+      canUseCustomRoles.value ? workspaceApi.roles().catch(() => [] as OrganizationRole[]) : Promise.resolve([] as OrganizationRole[]),
+    ])
+    profile.value = next
+    customRoles.value = roles
   } catch (error) {
     notFound.value = true
     toast.error(getErrorMessage(error))
@@ -115,6 +122,14 @@ const ROLE_OPTIONS: SelectFieldOption[] = [
   { value: 'admin', label: 'Admin', description: 'Organization settings and people' },
   { value: 'member', label: 'Member', description: 'Works in the projects they join' },
 ]
+const customRoleOptions = computed<SelectFieldOption[]>(() => [
+  { value: '', label: 'No custom role', description: 'Standard member' },
+  ...customRoles.value.map((role) => ({
+    value: role.id,
+    label: role.name,
+    description: role.description || role.permissions.join(', '),
+  })),
+])
 const PROJECT_ROLE = { admin: 'Project admin', member: 'Member', viewer: 'Viewer' } as const
 
 async function run(task: () => Promise<unknown>, message: string) {
@@ -127,7 +142,28 @@ async function run(task: () => Promise<unknown>, message: string) {
   }
 }
 const changeRole = (role: WorkspaceRole) =>
-  person.value && run(() => workspaceApi.updateMember(person.value!.id, { workspaceRole: role }), `${person.value.name} is now ${role === 'admin' ? 'an admin' : 'a member'}`)
+  person.value &&
+  run(
+    () =>
+      workspaceApi.updateMember(person.value!.id, {
+        workspaceRole: role,
+        customRoleId: role === 'admin' ? null : person.value!.customRoleId ?? null,
+      }),
+    `${person.value.name} is now ${role === 'admin' ? 'an admin' : 'a member'}`,
+  )
+
+const changeCustomRole = (customRoleId: string) =>
+  person.value &&
+  run(
+    () =>
+      workspaceApi.updateMember(person.value!.id, {
+        workspaceRole: 'member',
+        customRoleId: customRoleId || null,
+      }),
+    customRoleId
+      ? `${person.value.name} assigned “${customRoles.value.find((role) => role.id === customRoleId)?.name ?? 'custom role'}”`
+      : `${person.value.name} is a standard member`,
+  )
 
 async function toggleStatus() {
   const target = person.value
@@ -206,6 +242,17 @@ async function copyEmail() {
                   :aria-label="`Organization role of ${person.name}`"
                   @update:model-value="(value) => value && value !== person!.workspaceRole && changeRole(value as WorkspaceRole)"
                 />
+                <SelectField
+                  v-if="canUseCustomRoles && person.workspaceRole === 'member' && customRoles.length"
+                  :model-value="person.customRoleId ?? ''"
+                  :options="customRoleOptions"
+                  size="sm"
+                  class="w-44"
+                  content-class="w-80"
+                  align="end"
+                  :aria-label="`Custom role of ${person.name}`"
+                  @update:model-value="(value) => value !== (person!.customRoleId ?? '') && changeCustomRole(String(value ?? ''))"
+                />
                 <Button
                   v-if="status !== 'invited'"
                   variant="ghost"
@@ -224,7 +271,14 @@ async function copyEmail() {
               <h1 class="text-2xl font-bold tracking-tight">{{ person.name }}</h1>
               <Badge v-if="isSelf" variant="soft">You</Badge>
               <Badge :variant="person.workspaceRole === 'admin' ? 'default' : 'secondary'">
-                <Crown v-if="person.workspaceRole === 'admin'" /> {{ person.workspaceRole === 'admin' ? 'Admin' : 'Member' }}
+                <Crown v-if="person.workspaceRole === 'admin'" />
+                {{
+                  person.workspaceRole === 'admin'
+                    ? 'Admin'
+                    : person.customRole?.name
+                      ? person.customRole.name
+                      : 'Member'
+                }}
               </Badge>
               <Badge :variant="STATUS[status].variant">{{ STATUS[status].label }}</Badge>
             </div>
