@@ -41,6 +41,12 @@ export interface EmbedAppRow {
   updatedAt: string
 }
 
+export interface EmbedSettings {
+  sessionExpiresIn: string
+  sessionExpiresInLabel: string
+  sessionOptions: Array<{ value: string; label: string }>
+}
+
 export interface GithubIntegrationSettings {
   available: boolean
   enabled: boolean
@@ -242,7 +248,12 @@ export const workspaceApi = {
   deleteWebhook: (endpointId: string) => http.delete(`/workspace/webhooks/${endpointId}`),
   testWebhook: (endpointId: string) =>
     http.post<WebhookEndpointRow & { ok: boolean; status: number }>(`/workspace/webhooks/${endpointId}/test`).then((r) => r.data),
-  embedApps: () => http.get<{ apps: EmbedAppRow[] }>('/workspace/embed/apps').then((r) => r.data),
+  embedApps: () =>
+    http
+      .get<{ apps: EmbedAppRow[]; settings: EmbedSettings }>('/workspace/embed/apps')
+      .then((r) => r.data),
+  updateEmbedSettings: (payload: { sessionExpiresIn: string }) =>
+    http.patch<EmbedSettings>('/workspace/embed/settings', payload).then((r) => r.data),
   createEmbedApp: (payload: { name: string }) =>
     http.post<EmbedAppRow & { secretKey: string }>('/workspace/embed/apps', payload).then((r) => r.data),
   rotateEmbedSecret: (appId: string) =>

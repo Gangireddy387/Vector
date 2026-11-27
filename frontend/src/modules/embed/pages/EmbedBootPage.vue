@@ -11,8 +11,20 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const error = ref<string | null>(null)
+const ended = ref(false)
 
 onMounted(async () => {
+  if (route.query.ended === '1') {
+    ended.value = true
+    try {
+      sessionStorage.removeItem(EMBED_FLAG)
+      sessionStorage.removeItem('vector.embed.pk')
+    } catch {
+      /* ignore */
+    }
+    return
+  }
+
   const token = typeof route.query.token === 'string' ? route.query.token : ''
   const next = typeof route.query.next === 'string' && route.query.next.startsWith('/') ? route.query.next : '/'
   if (!token) {
@@ -35,7 +47,13 @@ onMounted(async () => {
 
 <template>
   <div class="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background px-6 text-center">
-    <template v-if="error">
+    <template v-if="ended">
+      <p class="text-base font-semibold text-foreground">Connection ended</p>
+      <p class="max-w-md text-sm text-muted-foreground">
+        Access was turned off in Vector. Ask the organization admin to turn it on, then connect again from your app.
+      </p>
+    </template>
+    <template v-else-if="error">
       <p class="text-base font-semibold text-foreground">Could not open Vector</p>
       <p class="max-w-md text-sm text-muted-foreground">{{ error }}</p>
     </template>

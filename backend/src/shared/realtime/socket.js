@@ -3,6 +3,7 @@ import { Server } from 'socket.io';
 import { config } from '../../config/index.js';
 import { User } from '../../database/models.js';
 import { isAccessToken, isRevoked, TOKEN_TYPES, verifyAccessToken } from '../../modules/auth/token.js';
+import { embedSessionInvalidReason } from '../../modules/embed/embed-session.js';
 import { isUuid } from '../utils/ids.js';
 import { relayConfigured } from '../../modules/meetings/ice-servers.js';
 import { registerMeetingCollab } from '../../modules/meetings/meeting.collab.js';
@@ -83,7 +84,9 @@ export function initRealtime(httpServer, redis = null) {
       if (!isAccessToken(payload)) throw new Error('wrong token type');
       const user = await User.findByPk(payload.sub, { attributes: ['id', 'status', 'tokenVersion'] });
       if (!user || user.status !== 'active' || isRevoked(payload, user)) throw new Error('inactive');
+      if (await embedSessionInvalidReason(payload)) throw new Error('embed_disabled');
       socket.data.userId = user.id;
+      socket.data.embedAppId = payload.eid || null;
       next();
     })().catch(() => next(new Error('unauthorized')));
   });
@@ -101,6 +104,7 @@ export function initRealtime(httpServer, redis = null) {
 
     const { userId } = socket.data;
     socket.join(`user:${userId}`);
+    if (socket.data.embedAppId) socket.join(`embed:app:${socket.data.embedAppId}`);
     connections.set(userId, (connections.get(userId) ?? 0) + 1);
     registerPresence(io, socket);
     registerConversationTyping(io, socket);
@@ -143,6 +147,17 @@ export function revokeRealtimeAccess(userId, { organizationId = null, projectIds
 /** Closes every open connection of an account that no longer exists (on any server). */
 export function disconnectUser(userId) {
   io?.in(`user:${userId}`).disconnectSockets(true);
+}
+
+/**
+ * Ends partner embed sessions for one app right away: tell clients, then drop their sockets.
+ * Used when Access is turned Off, the secret is rotated, or the app is removed.
+ */
+export function revokeEmbedAppSessions(embedAppId, reason = 'disabled') {
+  if (!io || !embedAppId) return;
+  const room = `embed:app:${embedAppId}`;
+  io.to(room).emit('embed:revoked', { reason });
+  io.in(room).disconnectSockets(true);
 }
 
 /** Every project event says which project it is about, so a page showing one project ignores the others. */

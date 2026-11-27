@@ -11,8 +11,9 @@ import {
   useTokenKey,
 } from '@/lib/http'
 import type { PlanFeatureKey } from '@/lib/plan-features'
+import { http } from '@/lib/http'
 import { clearPwaApiCaches } from '@/lib/pwa-caches'
-import { connectRealtime, disconnectRealtime } from '@/lib/realtime'
+import { connectRealtime, disconnectRealtime, getSocket, onSocketChange } from '@/lib/realtime'
 import type { OrgPermission, OrganizationSummary, User, WorkspaceSettings } from '@/types/models'
 import {
   authApi,
@@ -95,7 +96,79 @@ export const useAuthStore = defineStore('auth', () => {
     }
   })
 
+  const EMBED_FLAG = 'vector.embed'
+  let embedWatchTimer: ReturnType<typeof setInterval> | null = null
+  let stopEmbedSocketWatch: (() => void) | null = null
+
+  function clearEmbedFlags() {
+    try {
+      sessionStorage.removeItem(EMBED_FLAG)
+      sessionStorage.removeItem('vector.embed.pk')
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function stopEmbedSessionWatch() {
+    if (embedWatchTimer) {
+      clearInterval(embedWatchTimer)
+      embedWatchTimer = null
+    }
+    stopEmbedSocketWatch?.()
+    stopEmbedSocketWatch = null
+    getSocket()?.off('embed:revoked')
+  }
+
+  function endEmbedSession() {
+    if (typeof sessionStorage === 'undefined' || sessionStorage.getItem(EMBED_FLAG) !== '1') return
+    stopEmbedSessionWatch()
+    clearEmbedFlags()
+    void logout('/embed?ended=1')
+  }
+
+  /**
+   * Partner iframes: listen for embed:revoked (instant) and poll access by publishable key (backup).
+   * Polling works even for older sessions that predate JWT embed claims.
+   */
+  function startEmbedSessionWatch() {
+    stopEmbedSessionWatch()
+    if (typeof sessionStorage === 'undefined' || sessionStorage.getItem(EMBED_FLAG) !== '1') return
+
+    const onRevoked = () => endEmbedSession()
+    stopEmbedSocketWatch = onSocketChange((socket) => {
+      socket?.off('embed:revoked', onRevoked)
+      socket?.on('embed:revoked', onRevoked)
+    })
+
+    const checkAccess = async () => {
+      if (!token.value) return
+      const pk = sessionStorage.getItem('vector.embed.pk')
+      if (pk) {
+        try {
+          const { data } = await http.get<{ enabled: boolean }>(`/embed/apps/${encodeURIComponent(pk)}/access`)
+          if (data?.enabled === false) {
+            endEmbedSession()
+            return
+          }
+        } catch {
+          /* network blip — keep watching */
+        }
+      }
+      try {
+        await authApi.me()
+      } catch (error) {
+        if (isAuthError(error)) endEmbedSession()
+      }
+    }
+
+    void checkAccess()
+    embedWatchTimer = setInterval(() => {
+      void checkAccess()
+    }, 2_000)
+  }
+
   function clearSession() {
+    stopEmbedSessionWatch()
     token.value = null
     user.value = null
     organization.value = null
@@ -113,6 +186,11 @@ export const useAuthStore = defineStore('auth', () => {
     const target = redirect ?? (isSuperAdminTab() ? '/super-admin' : undefined)
     clearSession()
     await clearPwaApiCaches()
+    // Embed end screen is a real path (not a login redirect).
+    if (target?.startsWith('/embed')) {
+      window.location.replace(target)
+      return
+    }
     const query = target && target !== '/' ? `?redirect=${encodeURIComponent(target)}` : ''
     window.location.replace(`/login${query}`)
   }
@@ -143,6 +221,7 @@ export const useAuthStore = defineStore('auth', () => {
       }
       applyState(state)
       connectRealtime()
+      startEmbedSessionWatch()
     } catch {
       clearSession()
     }
@@ -164,6 +243,7 @@ export const useAuthStore = defineStore('auth', () => {
       useTokenKey(SUPER_ADMIN_TOKEN_KEY)
     }
     connectRealtime()
+    startEmbedSessionWatch()
   }
 
   /** Returns an MFA challenge when two-factor is on; otherwise applies the session. */

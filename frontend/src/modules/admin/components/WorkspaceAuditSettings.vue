@@ -49,6 +49,7 @@ const ACTION_LABELS: Record<string, string> = {
   'embed.disabled': 'Disabled workspace embed app',
   'embed.deleted': 'Deleted workspace embed app',
   'embed.connect': 'Connected partner app (admin)',
+  'embed.settings_updated': 'Changed embed session length',
   'embed.session': 'Opened workspace via embed',
   'scim.token_created': 'Created a SCIM token',
   'scim.token_revoked': 'Revoked a SCIM token',

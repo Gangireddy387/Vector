@@ -1,6 +1,7 @@
 import { ApiError } from '../errors/api-error.js';
 import { resolveApiToken } from '../../modules/auth/api-token.service.js';
 import { isAccessToken, isRevoked, verifyAccessToken } from '../../modules/auth/token.js';
+import { embedSessionInvalidReason } from '../../modules/embed/embed-session.js';
 import { User } from '../../database/models.js';
 import { resolveOrganization } from '../../modules/organizations/organization-access.js';
 import { resolveMembershipPermissions } from '../../modules/organizations/organization-role.service.js';
@@ -31,7 +32,10 @@ export async function authenticate(req, _res, next) {
     user = await User.findByPk(payload.sub);
     if (!user || user.status !== 'active') throw ApiError.unauthorized();
     if (isRevoked(payload, user)) throw ApiError.unauthorized('Your password was changed. Please sign in again.');
+    const embedReason = await embedSessionInvalidReason(payload);
+    if (embedReason) throw ApiError.unauthorized(embedReason);
     req.authVia = 'session';
+    req.embedAppId = payload.eid || null;
   }
 
   // "Last seen" follows real use, not just sign-in; at most one write a minute per person.

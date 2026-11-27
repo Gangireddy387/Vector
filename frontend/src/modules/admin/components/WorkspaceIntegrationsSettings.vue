@@ -26,6 +26,7 @@ const router = useRouter()
 
 const webhookCount = ref(0)
 const embedCount = ref(0)
+const embedConnected = ref(false)
 const scimTokenCount = ref(0)
 const githubEnabled = ref(false)
 const gitlabEnabled = ref(false)
@@ -65,6 +66,7 @@ const catalog = computed(() => {
       icon: AppWindow,
       available: auth.hasFeature('embedWorkspace'),
       configured: embedCount.value > 0,
+      connected: embedConnected.value,
       cta: 'Configure',
     },
     {
@@ -101,6 +103,8 @@ const activeMeta = computed(() => catalog.value.find((item) => item.key === setu
 
 function statusLabel(item: (typeof catalog.value)[number]) {
   if (!item.available) return 'Not on plan'
+  if (item.key === 'embed' && 'connected' in item && item.connected) return 'Connected'
+  if (item.key === 'embed' && item.configured) return 'Keys ready'
   if (item.configured) return 'Configured'
   if (item.key === 'vcs') return 'Links available'
   return 'Available'
@@ -108,6 +112,8 @@ function statusLabel(item: (typeof catalog.value)[number]) {
 
 function statusClass(item: (typeof catalog.value)[number]) {
   if (!item.available) return 'text-muted-foreground'
+  if (item.key === 'embed' && 'connected' in item && item.connected) return 'text-emerald-600 dark:text-emerald-400'
+  if (item.key === 'embed' && item.configured) return 'text-amber-700 dark:text-amber-400'
   if (item.configured) return 'text-emerald-600 dark:text-emerald-400'
   if (item.key === 'vcs') return 'text-emerald-600 dark:text-emerald-400'
   return 'text-amber-700 dark:text-amber-400'
@@ -130,10 +136,12 @@ async function loadStatus() {
       jobs.push(
         workspaceApi.embedApps().then((data) => {
           embedCount.value = data.apps.length
+          embedConnected.value = data.apps.some((app) => Boolean(app.lastUsedAt) && app.enabled)
         }),
       )
     } else {
       embedCount.value = 0
+      embedConnected.value = false
     }
     if (auth.hasFeature('scim')) {
       jobs.push(

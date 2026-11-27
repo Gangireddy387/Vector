@@ -4,7 +4,7 @@ import { validate } from '../../shared/middleware/validate.js';
 import { requireOrgPermission } from '../../shared/middleware/authenticate.js';
 import { requireFeature } from '../plans/plan.service.js';
 import * as embed from './embed.service.js';
-import { createEmbedAppSchema, embedConnectSchema } from './embed.validation.js';
+import { createEmbedAppSchema, embedConnectSchema, embedSettingsSchema } from './embed.validation.js';
 
 const manage = requireOrgPermission('workspace.manage');
 const feature = requireFeature('embedWorkspace');
@@ -13,8 +13,18 @@ const feature = requireFeature('embedWorkspace');
 export const embedAdminRoutes = Router();
 
 embedAdminRoutes.get('/workspace/embed/apps', manage, feature, async (req, res) => {
-  res.json(await embed.listEmbedApps(req.organization.id));
+  res.json(await embed.listEmbedApps(req.organization));
 });
+
+embedAdminRoutes.patch(
+  '/workspace/embed/settings',
+  manage,
+  feature,
+  validate({ body: embedSettingsSchema }),
+  async (req, res) => {
+    res.json(await embed.updateEmbedSettings(req.organization, req.user, req.body));
+  },
+);
 
 embedAdminRoutes.post(
   '/workspace/embed/apps',
@@ -65,6 +75,14 @@ embedAdminRoutes.delete(
  * - GET /embed/apps/:publishableKey — public metadata for the JS loader
  */
 export const publicEmbedRoutes = Router();
+
+publicEmbedRoutes.get(
+  '/embed/apps/:publishableKey/access',
+  validate({ params: z.object({ publishableKey: z.string().min(10).max(64) }) }),
+  async (req, res) => {
+    res.json(await embed.publicEmbedAccess(req.params.publishableKey));
+  },
+);
 
 publicEmbedRoutes.get(
   '/embed/apps/:publishableKey',

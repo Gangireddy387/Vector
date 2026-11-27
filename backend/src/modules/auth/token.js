@@ -21,8 +21,24 @@ export const TOKEN_TYPES = Object.freeze({
   shareAccess: 'share_access',
 });
 
-export const signAccessToken = (user) =>
-  jwt.sign({ sub: user.id, email: user.email, typ: TOKEN_TYPES.access, ver: user.tokenVersion ?? 0 }, config.jwt.secret, { expiresIn: config.jwt.expiresIn });
+/**
+ * `expiresIn` overrides the default session length (e.g. embed connect uses the org admin’s choice).
+ * Embed sessions also pass `embedAppId` + `embedSessionVersion` so turning the partner app Off can revoke them.
+ */
+export const signAccessToken = (user, { expiresIn, embedAppId, embedSessionVersion } = {}) =>
+  jwt.sign(
+    {
+      sub: user.id,
+      email: user.email,
+      typ: TOKEN_TYPES.access,
+      ver: user.tokenVersion ?? 0,
+      ...(embedAppId
+        ? { eid: embedAppId, ever: embedSessionVersion ?? 0 }
+        : {}),
+    },
+    config.jwt.secret,
+    { expiresIn: expiresIn || config.jwt.expiresIn },
+  );
 
 /** After password check when MFA is on — only accepted by `POST /auth/login/mfa`. */
 /** `method` remembers how sign-in started (password / google / microsoft / oidc) for audit after MFA. */

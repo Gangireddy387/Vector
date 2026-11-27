@@ -79,6 +79,11 @@ Organization.init(
      * `{ instructions: string }` — house style / product facts injected into writing assist, chat, wiki AI.
      */
     aiGrounding: { type: DataTypes.JSON, allowNull: true },
+    /**
+     * How long a partner embed connect session stays signed in (`1h` | `12h` | `1d` | `7d` | `30d`).
+     * Null uses the server default (JWT_EXPIRES_IN, usually 7d).
+     */
+    embedSessionExpiresIn: { type: DataTypes.STRING(10), allowNull: true },
     /** Stripe customer / subscription ids when the organization pays for Pro via Checkout. */
     stripeCustomerId: { type: DataTypes.STRING(80), allowNull: true },
     stripeSubscriptionId: { type: DataTypes.STRING(80), allowNull: true },

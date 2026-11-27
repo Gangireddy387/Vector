@@ -102,6 +102,8 @@ const ADDED_COLUMNS = [
   { table: 'organizations', column: 'invite_policy', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'organizations', column: 'capacity', definition: { type: DataTypes.JSON, allowNull: true } },
   { table: 'organizations', column: 'ai_grounding', definition: { type: DataTypes.JSON, allowNull: true } },
+  { table: 'organizations', column: 'embed_session_expires_in', definition: { type: DataTypes.STRING(10), allowNull: true } },
+  { table: 'embed_apps', column: 'session_version', definition: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 } },
   { table: 'comments', column: 'parent_id', definition: { type: DataTypes.UUID, allowNull: true } },
   { table: 'comments', column: 'guest_author_name', definition: { type: DataTypes.STRING(80), allowNull: true } },
   { table: 'share_links', column: 'password_hash', definition: { type: DataTypes.STRING, allowNull: true } },

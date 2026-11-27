@@ -18,6 +18,11 @@ EmbedApp.init(
     secretPrefix: { type: DataTypes.STRING(20), allowNull: false },
     secretHash: { type: DataTypes.STRING(64), allowNull: false },
     enabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    /**
+     * Raised when keys are turned off or the secret is rotated so already-issued embed JWTs stop working.
+     * Same idea as users.token_version for password changes.
+     */
+    sessionVersion: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     lastUsedAt: { type: DataTypes.DATE, allowNull: true },
     createdById: { type: DataTypes.UUID, allowNull: true },
   },

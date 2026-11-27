@@ -3,15 +3,58 @@ import bcrypt from 'bcryptjs';
 import { EmbedApp, Organization, OrganizationMember, User } from '../../database/models.js';
 import { ApiError } from '../../shared/errors/api-error.js';
 import { appUrl } from '../../shared/services/email-templates.js';
+import { config } from '../../config/index.js';
 import { signAccessToken } from '../auth/token.js';
 import { entitlementsFor, withPlan } from '../plans/plan.service.js';
 import { logWorkspaceAction } from '../workspace/workspace-audit.service.js';
+import { revokeEmbedAppSessions } from '../../shared/realtime/socket.js';
 
 const PK_PREFIX = 'pk_live_';
 const SK_PREFIX = 'sk_live_';
 const MAX_APPS = 5;
+const SESSION_PRESETS = ['1h', '12h', '1d', '7d', '30d'];
+const DEFAULT_SESSION = '7d';
 /** Timing pad when the account is missing or has no password (same idea as login). */
 const DUMMY_HASH = bcrypt.hashSync('vector-embed-timing', 10);
+
+function isValidSessionExpiresIn(value) {
+  const match = /^(\d+)([mhd])$/.exec(String(value || ''));
+  if (!match) return false;
+  const amount = Number(match[1]);
+  const unit = match[2];
+  if (!Number.isFinite(amount) || amount < 1) return false;
+  if (unit === 'm') return amount >= 15 && amount <= 24 * 60;
+  if (unit === 'h') return amount >= 1 && amount <= 24 * 30;
+  return amount >= 1 && amount <= 90;
+}
+
+const resolveSessionExpiresIn = (organization) => {
+  const value = organization?.embedSessionExpiresIn;
+  if (isValidSessionExpiresIn(value)) return value;
+  const fallback = String(config.jwt.expiresIn || DEFAULT_SESSION);
+  return isValidSessionExpiresIn(fallback) ? fallback : DEFAULT_SESSION;
+};
+
+const sessionLabel = (value) => {
+  const presets = { '1h': '1 hour', '12h': '12 hours', '1d': '1 day', '7d': '7 days', '30d': '30 days' };
+  if (presets[value]) return presets[value];
+  const match = /^(\d+)([mhd])$/.exec(String(value || ''));
+  if (!match) return String(value || DEFAULT_SESSION);
+  const amount = Number(match[1]);
+  const unit = match[2];
+  const names = { m: ['minute', 'minutes'], h: ['hour', 'hours'], d: ['day', 'days'] };
+  const [one, many] = names[unit];
+  return `${amount} ${amount === 1 ? one : many}`;
+};
+
+const settingsPayload = (sessionExpiresIn) => ({
+  sessionExpiresIn,
+  sessionExpiresInLabel: sessionLabel(sessionExpiresIn),
+  sessionOptions: [
+    ...SESSION_PRESETS.map((value) => ({ value, label: sessionLabel(value) })),
+    { value: 'custom', label: 'Custom…' },
+  ],
+});
 
 const hashSecret = (raw) => crypto.createHash('sha256').update(raw).digest('hex');
 
@@ -38,9 +81,35 @@ function assertEmbedFeature(organization) {
   }
 }
 
-export async function listEmbedApps(organizationId) {
-  const rows = await EmbedApp.findAll({ where: { organizationId }, order: [['createdAt', 'DESC']] });
-  return { apps: rows.map(toPublic) };
+export async function listEmbedApps(organization) {
+  assertEmbedFeature(organization);
+  const rows = await EmbedApp.findAll({ where: { organizationId: organization.id }, order: [['createdAt', 'DESC']] });
+  const sessionExpiresIn = resolveSessionExpiresIn(organization);
+  return {
+    apps: rows.map(toPublic),
+    settings: settingsPayload(sessionExpiresIn),
+  };
+}
+
+/** Org admin chooses how long a partner connect session stays signed in (preset or custom). */
+export async function updateEmbedSettings(organization, actor, { sessionExpiresIn }) {
+  assertEmbedFeature(organization);
+  const next = String(sessionExpiresIn || '').trim();
+  if (!isValidSessionExpiresIn(next)) {
+    throw ApiError.badRequest('Pick a valid session length (15 minutes to 90 days)', [
+      { path: 'sessionExpiresIn', message: 'Use a value like 45m, 6h, or 14d' },
+    ]);
+  }
+  await organization.update({ embedSessionExpiresIn: next });
+  await logWorkspaceAction({
+    organizationId: organization.id,
+    actorId: actor.id,
+    action: 'embed.settings_updated',
+    targetType: 'organization',
+    targetId: organization.id,
+    meta: { sessionExpiresIn: next },
+  });
+  return settingsPayload(next);
 }
 
 /** Creates embed credentials; `secretKey` is returned once and never stored in plaintext. */
@@ -76,7 +145,13 @@ export async function rotateEmbedSecret(organization, actor, appId) {
   const row = await EmbedApp.findOne({ where: { id: appId, organizationId: organization.id } });
   if (!row) throw ApiError.notFound('Embed app not found');
   const keys = newKeyPair();
-  await row.update({ secretPrefix: keys.secretPrefix, secretHash: keys.secretHash });
+  // New secret + bump session version so any open partner workspace from the old secret is signed out.
+  await row.update({
+    secretPrefix: keys.secretPrefix,
+    secretHash: keys.secretHash,
+    sessionVersion: (row.sessionVersion ?? 0) + 1,
+  });
+  revokeEmbedAppSessions(row.id, 'secret_rotated');
   await logWorkspaceAction({
     organizationId: organization.id,
     actorId: actor.id,
@@ -92,11 +167,16 @@ export async function setEmbedAppEnabled(organization, actor, appId, enabled) {
   assertEmbedFeature(organization);
   const row = await EmbedApp.findOne({ where: { id: appId, organizationId: organization.id } });
   if (!row) throw ApiError.notFound('Embed app not found');
-  await row.update({ enabled: Boolean(enabled) });
+  const nextEnabled = Boolean(enabled);
+  const patch = { enabled: nextEnabled };
+  // Turning Off raises sessionVersion so JWTs already issued for this partner stop working immediately.
+  if (!nextEnabled) patch.sessionVersion = (row.sessionVersion ?? 0) + 1;
+  await row.update(patch);
+  if (!nextEnabled) revokeEmbedAppSessions(row.id, 'disabled');
   await logWorkspaceAction({
     organizationId: organization.id,
     actorId: actor.id,
-    action: enabled ? 'embed.enabled' : 'embed.disabled',
+    action: nextEnabled ? 'embed.enabled' : 'embed.disabled',
     targetType: 'embed_app',
     targetId: row.id,
     meta: { name: row.name },
@@ -108,14 +188,16 @@ export async function deleteEmbedApp(organization, actor, appId) {
   assertEmbedFeature(organization);
   const row = await EmbedApp.findOne({ where: { id: appId, organizationId: organization.id } });
   if (!row) throw ApiError.notFound('Embed app not found');
+  const name = row.name;
   await row.destroy();
+  revokeEmbedAppSessions(appId, 'deleted');
   await logWorkspaceAction({
     organizationId: organization.id,
     actorId: actor.id,
     action: 'embed.deleted',
     targetType: 'embed_app',
     targetId: appId,
-    meta: { name: row.name },
+    meta: { name },
   });
   return { deleted: true };
 }
@@ -136,8 +218,8 @@ async function resolveEmbedApp({ publishableKey, secretKey }) {
 }
 
 /**
- * Partner connect: publishable key + secret key + organization admin email/password.
- * Opens Vector as that admin. They invite and set up the team inside Vector afterward.
+ * Partner connect: publishable key + secret key + Vector member email/password.
+ * Opens Vector as that person (any active org member). Partner apps decide who may call this.
  */
 export async function connectEmbed({ email, password, publishableKey, secretKey, path = null }) {
   const app = await resolveEmbedApp({ publishableKey, secretKey });
@@ -155,12 +237,9 @@ export async function connectEmbed({ email, password, publishableKey, secretKey,
   if (!membership) {
     throw ApiError.forbidden('This person is not in the organization for these embed keys');
   }
-  if (membership.role !== 'admin') {
-    throw ApiError.forbidden('Only an organization admin can connect a partner app. Ask an admin, or use an admin account.');
-  }
   if (user.mfaEnabled) {
     throw ApiError.badRequest(
-      'This admin has two-factor authentication on. Turn off 2FA temporarily to connect, or connect from Vector while signed in and share keys with your partner securely.',
+      'This account has two-factor authentication on. Turn off 2FA temporarily to connect from a partner app, or open Vector while signed in.',
     );
   }
 
@@ -177,7 +256,12 @@ export async function connectEmbed({ email, password, publishableKey, secretKey,
     meta: { email: normalizedEmail, publishableKey: app.publishableKey },
   });
 
-  const token = signAccessToken(user);
+  const expiresIn = resolveSessionExpiresIn(organization);
+  const token = signAccessToken(user, {
+    expiresIn,
+    embedAppId: app.id,
+    embedSessionVersion: app.sessionVersion ?? 0,
+  });
   const safePath = sanitizeEmbedPath(path);
   const embedUrl = appUrl(
     `/embed?token=${encodeURIComponent(token)}&pk=${encodeURIComponent(app.publishableKey)}${safePath ? `&next=${encodeURIComponent(safePath)}` : ''}`,
@@ -186,9 +270,12 @@ export async function connectEmbed({ email, password, publishableKey, secretKey,
   return {
     token,
     embedUrl,
+    /** How long the opened workspace session stays valid (set by the org admin). */
+    expiresIn,
+    expiresInLabel: sessionLabel(expiresIn),
     publishableKey: app.publishableKey,
     organization: { id: organization.id, name: organization.name, slug: organization.slug },
-    user: { id: user.id, name: user.name, email: user.email, role: 'admin' },
+    user: { id: user.id, name: user.name, email: user.email, role: membership.role },
   };
 }
 
@@ -198,6 +285,25 @@ function sanitizeEmbedPath(path) {
   const value = String(path).trim();
   if (!value.startsWith('/') || value.startsWith('//') || value.includes('://')) return null;
   return value.slice(0, 500);
+}
+
+/**
+ * Lightweight access probe for partner iframes (pk only).
+ * Returns even when Access is Off so the embed client can sign out immediately.
+ */
+export async function publicEmbedAccess(publishableKey) {
+  const key = String(publishableKey ?? '').trim();
+  if (!key.startsWith(PK_PREFIX)) throw ApiError.notFound('Embed app not found');
+  const row = await EmbedApp.findOne({
+    where: { publishableKey: key },
+    attributes: ['publishableKey', 'name', 'enabled'],
+  });
+  if (!row) throw ApiError.notFound('Embed app not found');
+  return {
+    publishableKey: row.publishableKey,
+    name: row.name,
+    enabled: Boolean(row.enabled),
+  };
 }
 
 /** Public metadata for the JS loader (pk only — never secrets). */
