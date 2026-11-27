@@ -3,9 +3,18 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import {
   currentTokenKey,
+  EMBED_FLAG_KEY,
+  EMBED_ORG_KEY,
+  EMBED_PK_KEY,
+  EMBED_TOKEN_KEY,
   getStoredToken,
+  isEmbedSession,
+  isInIframe,
   isSuperAdminTab,
+  markEmbedSession,
   ORGANIZATION_STORAGE_KEY,
+  setStoredOrganizationId,
+  setStoredToken,
   SUPER_ADMIN_TOKEN_KEY,
   TOKEN_STORAGE_KEY,
   useTokenKey,
@@ -70,16 +79,15 @@ export const useAuthStore = defineStore('auth', () => {
     organization.value = state.organization
     organizations.value = state.organizations
     // The super admin works outside organizations; leave the normal account's current organization alone.
-    if (isSuperAdminTab()) return
-    if (state.organization) localStorage.setItem(ORGANIZATION_STORAGE_KEY, state.organization.id)
-    else localStorage.removeItem(ORGANIZATION_STORAGE_KEY)
+    if (isSuperAdminTab() && !isEmbedSession()) return
+    setStoredOrganizationId(state.organization?.id ?? null)
   }
 
   /** The super admin's sign-in is stored apart from normal accounts, so both can stay open in different tabs. */
   function applySession(session: Session) {
     useTokenKey(session.user.isSuperAdmin ? SUPER_ADMIN_TOKEN_KEY : TOKEN_STORAGE_KEY)
     token.value = session.token
-    localStorage.setItem(currentTokenKey(), session.token)
+    setStoredToken(session.token)
     applyState(session)
     connectRealtime()
   }
@@ -87,8 +95,10 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Tabs using the same sign-in share it (and the normal account's current organization). When another tab signs in
    * as someone else, signs out or switches organization, this tab reloads so it never shows one account while acting as another.
+   * Partner embeds use sessionStorage and ignore these events so a normal login never swaps the iframe user (and vice versa).
    */
   window.addEventListener('storage', (event) => {
+    if (isEmbedSession()) return
     if (event.key === currentTokenKey() && event.newValue !== token.value) {
       window.location.replace(event.newValue ? (isSuperAdminTab() ? '/super-admin' : '/') : isSuperAdminTab() ? '/login?redirect=/super-admin' : '/login')
     } else if (event.key === ORGANIZATION_STORAGE_KEY && !isSuperAdminTab() && token.value && event.newValue !== organization.value?.id) {
@@ -96,14 +106,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
   })
 
-  const EMBED_FLAG = 'vector.embed'
   let embedWatchTimer: ReturnType<typeof setInterval> | null = null
   let stopEmbedSocketWatch: (() => void) | null = null
 
-  function clearEmbedFlags() {
+  /** Clears embed tokens. Keeps the embed flag while still inside an iframe so we never fall back to localStorage. */
+  function clearEmbedTokens() {
     try {
-      sessionStorage.removeItem(EMBED_FLAG)
-      sessionStorage.removeItem('vector.embed.pk')
+      sessionStorage.removeItem(EMBED_PK_KEY)
+      sessionStorage.removeItem(EMBED_TOKEN_KEY)
+      sessionStorage.removeItem(EMBED_ORG_KEY)
+      if (!isInIframe()) sessionStorage.removeItem(EMBED_FLAG_KEY)
     } catch {
       /* ignore */
     }
@@ -120,9 +132,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function endEmbedSession() {
-    if (typeof sessionStorage === 'undefined' || sessionStorage.getItem(EMBED_FLAG) !== '1') return
+    if (!isEmbedSession()) return
     stopEmbedSessionWatch()
-    clearEmbedFlags()
     void logout('/embed?ended=1')
   }
 
@@ -132,7 +143,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   function startEmbedSessionWatch() {
     stopEmbedSessionWatch()
-    if (typeof sessionStorage === 'undefined' || sessionStorage.getItem(EMBED_FLAG) !== '1') return
+    if (!isEmbedSession()) return
 
     const onRevoked = () => endEmbedSession()
     stopEmbedSocketWatch = onSocketChange((socket) => {
@@ -142,7 +153,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     const checkAccess = async () => {
       if (!token.value) return
-      const pk = sessionStorage.getItem('vector.embed.pk')
+      const pk = sessionStorage.getItem(EMBED_PK_KEY)
       if (pk) {
         try {
           const { data } = await http.get<{ enabled: boolean }>(`/embed/apps/${encodeURIComponent(pk)}/access`)
@@ -169,11 +180,16 @@ export const useAuthStore = defineStore('auth', () => {
 
   function clearSession() {
     stopEmbedSessionWatch()
+    const embed = isEmbedSession()
     token.value = null
     user.value = null
     organization.value = null
     organizations.value = []
-    localStorage.removeItem(currentTokenKey())
+    // Embed clears sessionStorage only — never wipe the normal tab’s localStorage login.
+    setStoredToken(null)
+    setStoredOrganizationId(null)
+    if (embed) clearEmbedTokens()
+    else if (currentTokenKey() !== TOKEN_STORAGE_KEY) localStorage.removeItem(TOKEN_STORAGE_KEY)
     disconnectRealtime()
     void clearPwaApiCaches()
   }
@@ -181,14 +197,17 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * Signs out and reloads the app on the sign-in page. The reload matters: every store (projects, inbox, structure…)
    * starts empty, so the next person to sign in never sees the previous account's data.
+   * Inside a partner iframe we never send people to the normal /login page (that would mix sessions).
    */
   async function logout(redirect?: string) {
-    const target = redirect ?? (isSuperAdminTab() ? '/super-admin' : undefined)
+    const wasEmbed = isEmbedSession()
+    const target =
+      redirect ??
+      (wasEmbed ? '/embed?ended=1' : isSuperAdminTab() ? '/super-admin' : undefined)
     clearSession()
     await clearPwaApiCaches()
-    // Embed end screen is a real path (not a login redirect).
-    if (target?.startsWith('/embed')) {
-      window.location.replace(target)
+    if (wasEmbed || target?.startsWith('/embed')) {
+      window.location.replace(target?.startsWith('/embed') ? target : '/embed?ended=1')
       return
     }
     const query = target && target !== '/' ? `?redirect=${encodeURIComponent(target)}` : ''
@@ -231,19 +250,25 @@ export const useAuthStore = defineStore('auth', () => {
 
   const refreshSession = async () => applyState(await authApi.me())
 
-  /** Completes Google/Microsoft sign-in when the OAuth callback returned a session JWT. */
+  /**
+   * Completes Google/Microsoft sign-in, or partner embed connect.
+   * Embed writes only to sessionStorage so the normal Vector tab keeps its own user.
+   */
   async function acceptOAuthToken(rawToken: string) {
-    useTokenKey(TOKEN_STORAGE_KEY)
+    const embed = isEmbedSession()
+    if (embed) markEmbedSession()
+    else useTokenKey(TOKEN_STORAGE_KEY)
     token.value = rawToken
-    localStorage.setItem(TOKEN_STORAGE_KEY, rawToken)
+    setStoredToken(rawToken)
     applyState(await authApi.me())
-    if (user.value?.isSuperAdmin) {
+    if (!embed && user.value?.isSuperAdmin) {
       localStorage.setItem(SUPER_ADMIN_TOKEN_KEY, rawToken)
       localStorage.removeItem(TOKEN_STORAGE_KEY)
       useTokenKey(SUPER_ADMIN_TOKEN_KEY)
+      setStoredToken(rawToken)
     }
     connectRealtime()
-    startEmbedSessionWatch()
+    if (embed) startEmbedSessionWatch()
   }
 
   /** Returns an MFA challenge when two-factor is on; otherwise applies the session. */

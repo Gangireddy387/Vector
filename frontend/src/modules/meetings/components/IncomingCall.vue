@@ -26,6 +26,8 @@ const router = useRouter()
 const call = useMeetingCall()
 const push = usePushNotifications()
 const ringing = ref<Ring | null>(null)
+/** Partner iframe embeds cannot use browser push; audio also needs a click inside Vector once. */
+const embedded = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('vector.embed') === '1' // EMBED_FLAG_KEY
 let timeout: ReturnType<typeof setTimeout> | null = null
 let stopRingtone: (() => void) | null = null
 
@@ -114,6 +116,9 @@ onBeforeUnmount(() => {
 
         <p class="relative mt-6 truncate text-xl font-semibold">{{ ringing.caller.name }}</p>
         <p class="relative mt-1 truncate text-sm text-white/60">is calling you to “{{ ringing.meeting.title }}”</p>
+        <p v-if="embedded" class="relative mt-2 text-[11px] leading-snug text-white/50">
+          Inside another app: tap Join (or anywhere here) if you do not hear the ring.
+        </p>
 
         <div class="relative mt-8 flex items-start justify-center gap-14">
           <button type="button" class="group flex flex-col items-center gap-2 text-xs font-medium text-white/75" @click="dismiss">

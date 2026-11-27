@@ -3,7 +3,7 @@ import { createApp } from 'vue'
 import { registerSW } from 'virtual:pwa-register'
 import { toast } from 'vue-sonner'
 import App from './App.vue'
-import { setUnauthorizedHandler } from './lib/http'
+import { isEmbedSession, isInIframe, markEmbedSession, setUnauthorizedHandler } from './lib/http'
 import { useAuthStore } from './modules/auth/auth.store'
 import { router } from './router'
 import { useWorkspaceStore } from './stores/workspace.store'
@@ -31,10 +31,19 @@ async function bootstrap() {
     })
   }
 
+  // Partner iframe: lock this context to sessionStorage before any restore/login runs.
+  if (isInIframe() || isEmbedSession()) markEmbedSession()
+
   const auth = useAuthStore(pinia)
-  setUnauthorizedHandler(() => void auth.logout(router.currentRoute.value.fullPath))
+  setUnauthorizedHandler(() => {
+    // Partner iframe: never bounce to the normal login page (that would also confuse session isolation).
+    if (isEmbedSession()) void auth.logout('/embed?ended=1')
+    else void auth.logout(router.currentRoute.value.fullPath)
+  })
   const workspace = useWorkspaceStore(pinia)
-  await Promise.all([auth.restoreSession(), workspace.load()])
+  // Embed iframe / /embed boot must not restore the normal localStorage user.
+  const skipRestore = isEmbedSession() && !auth.token
+  await Promise.all([skipRestore ? Promise.resolve() : auth.restoreSession(), workspace.load()])
 
   app.use(router)
   await router.isReady()

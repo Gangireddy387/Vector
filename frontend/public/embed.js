@@ -30,8 +30,12 @@
     const frame = document.createElement('iframe')
     frame.src = url
     frame.title = opts.title || 'Vector workspace'
-    frame.allow = opts.allow || 'clipboard-read; clipboard-write; microphone; camera; display-capture'
+    // autoplay is required for call ringtones / remote audio in a cross-origin partner iframe.
+    frame.allow =
+      opts.allow ||
+      'clipboard-read; clipboard-write; microphone; camera; display-capture; autoplay; speaker-selection'
     frame.setAttribute('allowfullscreen', 'true')
+    frame.setAttribute('allow', frame.allow)
     frame.style.cssText =
       'border:0;width:100%;height:' +
       (opts.height || '100%') +

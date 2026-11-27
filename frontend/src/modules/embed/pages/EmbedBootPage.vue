@@ -2,10 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
-import { getErrorMessage } from '@/lib/http'
+import { EMBED_ORG_KEY, EMBED_PK_KEY, EMBED_TOKEN_KEY, getErrorMessage, markEmbedSession } from '@/lib/http'
 import { useAuthStore } from '@/modules/auth/auth.store'
-
-const EMBED_FLAG = 'vector.embed'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,9 +14,12 @@ const ended = ref(false)
 onMounted(async () => {
   if (route.query.ended === '1') {
     ended.value = true
+    markEmbedSession()
     try {
-      sessionStorage.removeItem(EMBED_FLAG)
-      sessionStorage.removeItem('vector.embed.pk')
+      // Keep embed flag so a later login in this iframe still uses sessionStorage, not the normal tab’s localStorage.
+      sessionStorage.removeItem(EMBED_PK_KEY)
+      sessionStorage.removeItem(EMBED_TOKEN_KEY)
+      sessionStorage.removeItem(EMBED_ORG_KEY)
     } catch {
       /* ignore */
     }
@@ -32,9 +33,10 @@ onMounted(async () => {
     return
   }
   try {
-    sessionStorage.setItem(EMBED_FLAG, '1')
+    // Mark embed BEFORE accepting the token so storage writes go to sessionStorage only.
+    markEmbedSession()
     if (typeof route.query.pk === 'string' && route.query.pk) {
-      sessionStorage.setItem('vector.embed.pk', route.query.pk)
+      sessionStorage.setItem(EMBED_PK_KEY, route.query.pk)
     }
     await auth.acceptOAuthToken(token)
     await router.replace(next)
@@ -50,7 +52,8 @@ onMounted(async () => {
     <template v-if="ended">
       <p class="text-base font-semibold text-foreground">Connection ended</p>
       <p class="max-w-md text-sm text-muted-foreground">
-        Access was turned off in Vector. Ask the organization admin to turn it on, then connect again from your app.
+        This embed session is closed. Sign in again from HRMS with Vector email and password — your normal Vector tab
+        login is unchanged.
       </p>
     </template>
     <template v-else-if="error">

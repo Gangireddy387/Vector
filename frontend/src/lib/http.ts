@@ -6,6 +6,12 @@ export const SUPER_ADMIN_TOKEN_KEY = 'vector.superAdminToken'
 /** The organization this browser is working in; sent with every request so data stays inside it. */
 export const ORGANIZATION_STORAGE_KEY = 'vector.organization'
 
+/** Partner embed sessions live in sessionStorage so they never overwrite the normal tab’s localStorage login. */
+export const EMBED_FLAG_KEY = 'vector.embed'
+export const EMBED_TOKEN_KEY = 'vector.embed.token'
+export const EMBED_ORG_KEY = 'vector.embed.organization'
+export const EMBED_PK_KEY = 'vector.embed.pk'
+
 export const isSuperAdminPath = (path: string) => /^\/super-?admin(\/|$|\?)/.test(path)
 
 /**
@@ -22,7 +28,96 @@ let tokenKey = initialTokenKey()
 export const currentTokenKey = () => tokenKey
 export const isSuperAdminTab = () => tokenKey === SUPER_ADMIN_TOKEN_KEY
 export const useTokenKey = (key: typeof TOKEN_STORAGE_KEY | typeof SUPER_ADMIN_TOKEN_KEY) => (tokenKey = key)
-export const getStoredToken = () => localStorage.getItem(tokenKey)
+
+/** True when Vector is running inside another app’s iframe (HRMS, etc.). */
+export function isInIframe() {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.self !== window.top
+  } catch {
+    // Cross-origin parent blocks access to window.top — that still means we are framed.
+    return true
+  }
+}
+
+/**
+ * True for partner-embed sessions: iframe, /embed boot, or the embed flag.
+ * Those sessions MUST use sessionStorage only so they never share / overwrite the normal tab login in localStorage.
+ */
+export function isEmbedSession() {
+  if (isInIframe()) return true
+  try {
+    if (sessionStorage.getItem(EMBED_FLAG_KEY) === '1') return true
+  } catch {
+    /* private mode */
+  }
+  // Before EmbedBootPage sets the flag, /embed must not pull the normal localStorage user.
+  return typeof window !== 'undefined' && window.location.pathname === '/embed'
+}
+
+/** Marks this browsing context as an embed session (safe to call repeatedly). */
+export function markEmbedSession() {
+  try {
+    sessionStorage.setItem(EMBED_FLAG_KEY, '1')
+  } catch {
+    /* ignore */
+  }
+}
+
+export function getStoredToken() {
+  if (isEmbedSession()) {
+    try {
+      return sessionStorage.getItem(EMBED_TOKEN_KEY)
+    } catch {
+      return null
+    }
+  }
+  return localStorage.getItem(tokenKey)
+}
+
+/** Writes the active session token to the right store (sessionStorage for embed, localStorage otherwise). */
+export function setStoredToken(value: string | null) {
+  if (isEmbedSession()) {
+    markEmbedSession()
+    try {
+      if (value) sessionStorage.setItem(EMBED_TOKEN_KEY, value)
+      else sessionStorage.removeItem(EMBED_TOKEN_KEY)
+    } catch {
+      /* ignore */
+    }
+    return
+  }
+  if (value) localStorage.setItem(tokenKey, value)
+  else localStorage.removeItem(tokenKey)
+}
+
+export function getStoredOrganizationId() {
+  if (isEmbedSession()) {
+    try {
+      return sessionStorage.getItem(EMBED_ORG_KEY)
+    } catch {
+      return null
+    }
+  }
+  if (isSuperAdminTab()) return null
+  return localStorage.getItem(ORGANIZATION_STORAGE_KEY)
+}
+
+export function setStoredOrganizationId(value: string | null) {
+  if (isEmbedSession()) {
+    markEmbedSession()
+    try {
+      if (value) sessionStorage.setItem(EMBED_ORG_KEY, value)
+      else sessionStorage.removeItem(EMBED_ORG_KEY)
+    } catch {
+      /* ignore */
+    }
+    return
+  }
+  if (isSuperAdminTab()) return
+  if (value) localStorage.setItem(ORGANIZATION_STORAGE_KEY, value)
+  else localStorage.removeItem(ORGANIZATION_STORAGE_KEY)
+}
 
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api',
@@ -40,7 +135,7 @@ http.interceptors.request.use((request) => {
   const token = getStoredToken()
   // Callers may set Authorization explicitly (e.g. passworded public share access).
   if (token && !request.headers.Authorization) request.headers.Authorization = `Bearer ${token}`
-  const organizationId = isSuperAdminTab() ? null : localStorage.getItem(ORGANIZATION_STORAGE_KEY)
+  const organizationId = getStoredOrganizationId()
   if (organizationId) request.headers['X-Organization-Id'] = organizationId
   return request
 })

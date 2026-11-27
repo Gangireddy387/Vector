@@ -357,9 +357,11 @@ export function startRingtone({ id, url, volume, once = false }: { id?: string; 
   const tone = find(RINGTONES, toneId)
   let ctx: AudioContext | null = null
   let timer: ReturnType<typeof setInterval> | null = null
+  let unlockRetry: (() => void) | null = null
+  const nodes: AudioNode[] = []
   try {
-    ctx = new AudioContext()
-    // The compressor keeps overlapping notes loud but free of clipping; a short feedback delay adds a little room.
+    // Shared context so the first click inside Vector (including partner iframes) unlocks the ringtone too.
+    ctx = audio()
     const compressor = ctx.createDynamicsCompressor()
     const output = ctx.createGain()
     output.gain.value = tone.gain * loudness(volume)
@@ -372,20 +374,64 @@ export function startRingtone({ id, url, volume, once = false }: { id?: string; 
     wet.gain.value = 0.28
     output.connect(delay).connect(feedback).connect(delay)
     delay.connect(wet).connect(ctx.destination)
+    nodes.push(compressor, output, delay, feedback, wet)
     const ring = () => {
       if (!ctx) return
       if (!once) navigator.vibrate?.([300, 150, 300])
       render(ctx, compressor, tone, ctx.currentTime + 0.05)
     }
-    void ctx.resume().then(ring)
-    if (!once) timer = setInterval(ring, tone.every)
+    const clearUnlock = () => {
+      if (!unlockRetry) return
+      window.removeEventListener('pointerdown', unlockRetry, true)
+      unlockRetry = null
+    }
+    const begin = () => {
+      if (!ctx) return
+      if (ctx.state === 'running') {
+        ring()
+        return
+      }
+      void ctx.resume().then(() => {
+        if (!ctx) return
+        if (ctx.state === 'running') {
+          ring()
+          return
+        }
+        // Partner iframes without allow="autoplay" stay muted until a click inside the Vector frame.
+        explainBlocked()
+        if (unlockRetry || once) return
+        unlockRetry = () => {
+          void ctx?.resume().then(() => {
+            if (ctx?.state === 'running') {
+              ring()
+              clearUnlock()
+            }
+          })
+        }
+        window.addEventListener('pointerdown', unlockRetry, true)
+      })
+    }
+    begin()
+    if (!once) timer = setInterval(begin, tone.every)
   } catch {
     ctx = null
   }
   return () => {
     if (!once) navigator.vibrate?.(0)
     if (timer) clearInterval(timer)
-    void ctx?.close().catch(() => undefined)
+    if (unlockRetry) {
+      window.removeEventListener('pointerdown', unlockRetry, true)
+      unlockRetry = null
+    }
+    for (const node of nodes) {
+      try {
+        node.disconnect()
+      } catch {
+        /* ignore */
+      }
+    }
+    nodes.length = 0
+    // Keep the shared AudioContext open for other alerts.
     ctx = null
   }
 }
